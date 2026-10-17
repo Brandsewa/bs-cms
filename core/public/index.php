@@ -47,8 +47,21 @@ $uriPath = $request->getUri()->getPath();
 
 // If not installed, route to InstallerController (except /health when testing before install if needed, or route everything before install to installer)
 if (!$isInstalled) {
-    // If /health is pinged before install, allow basic liveness check or route to installer
-    if ($request->getUri()->getPath() === '/health' && $request->getMethod() === 'GET') {
+    // If /health is pinged before install, handle liveness and reject non-GET with 405
+    if ($request->getUri()->getPath() === '/health') {
+        if ($request->getMethod() !== 'GET') {
+            http_response_code(405);
+            header('Content-Type: application/problem+json; charset=utf-8');
+            header('Cache-Control: no-store');
+            header('Allow: GET');
+            echo json_encode([
+                'type' => 'https://errors.bscms.org/method-not-allowed',
+                'title' => 'Method Not Allowed',
+                'status' => 405,
+                'detail' => "Method '" . $request->getMethod() . "' is not allowed for '/health'.",
+            ]);
+            exit;
+        }
         http_response_code(200);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
