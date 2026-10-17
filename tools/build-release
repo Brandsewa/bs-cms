@@ -34,6 +34,7 @@ echo "Copying core application files..."
 cp -r "${REPO_ROOT}/core/src" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/config" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/migrations" "${BUILD_DIR}/core/"
+cp -r "${REPO_ROOT}/core/resources" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/bin" "${BUILD_DIR}/core/"
 cp "${REPO_ROOT}/core/composer.json" "${BUILD_DIR}/core/"
 
