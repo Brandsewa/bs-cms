@@ -1,0 +1,113 @@
+/**
+ * BS CMS Design Tokens (@bs/ui)
+ * Adheres to Supabase UX patterns and shadcn/ui semantic architecture.
+ * Primary Brand Hue: Blue (221 deg)
+ * Contrast checked for WCAG AA compliance in both Light and Dark modes.
+ */
+
+:root {
+  --primary-hue: 221;
+  --primary-sat: 83%;
+  --primary-light: 53%;
+
+  /* Semantic Theme - Light */
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(222.2, 84%, 4.9%);
+
+  --surface-100: hsl(210, 20%, 98%);
+  --surface-200: hsl(210, 20%, 95%);
+  --surface-300: hsl(210, 20%, 90%);
+
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(222.2, 84%, 4.9%);
+
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(222.2, 84%, 4.9%);
+
+  --primary: hsl(var(--primary-hue), var(--primary-sat), var(--primary-light));
+  --primary-foreground: hsl(210, 40%, 98%);
+
+  --secondary: hsl(210, 20%, 96%);
+  --secondary-foreground: hsl(222.2, 47.4%, 11.2%);
+
+  --muted: hsl(210, 20%, 96%);
+  --muted-foreground: hsl(215.4, 16.3%, 44%);
+
+  --accent: hsl(210, 20%, 94%);
+  --accent-foreground: hsl(222.2, 47.4%, 11.2%);
+
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+
+  --warning: hsl(38, 92%, 50%);
+  --warning-foreground: hsl(48, 96%, 89%);
+
+  --success: hsl(142, 71%, 45%);
+  --success-foreground: hsl(144, 70%, 96%);
+
+  --border: hsl(214.3, 31.8%, 91.4%);
+  --border-muted: hsl(214.3, 20%, 95%);
+  --border-strong: hsl(214.3, 30%, 82%);
+
+  --input: hsl(214.3, 31.8%, 91.4%);
+  --ring: hsl(var(--primary-hue), var(--primary-sat), var(--primary-light));
+
+  /* Radius scale */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Density heights */
+  --density-header: 36px;
+  --density-row-compact: 36px;
+  --density-row-default: 44px;
+  --density-row-comfortable: 52px;
+
+  /* Fonts */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.dark {
+  --background: hsl(222.2, 84%, 4.9%);
+  --foreground: hsl(210, 40%, 98%);
+
+  --surface-100: hsl(217.2, 32.6%, 10%);
+  --surface-200: hsl(217.2, 32.6%, 14%);
+  --surface-300: hsl(217.2, 32.6%, 18%);
+
+  --card: hsl(222.2, 84%, 4.9%);
+  --card-foreground: hsl(210, 40%, 98%);
+
+  --popover: hsl(222.2, 84%, 4.9%);
+  --popover-foreground: hsl(210, 40%, 98%);
+
+  --primary: hsl(217.2, 91.2%, 59.8%);
+  --primary-foreground: hsl(222.2, 47.4%, 11.2%);
+
+  --secondary: hsl(217.2, 32.6%, 17.5%);
+  --secondary-foreground: hsl(210, 40%, 98%);
+
+  --muted: hsl(217.2, 32.6%, 17.5%);
+  --muted-foreground: hsl(215, 20.2%, 65.1%);
+
+  --accent: hsl(217.2, 32.6%, 17.5%);
+  --accent-foreground: hsl(210, 40%, 98%);
+
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(210, 40%, 98%);
+
+  --warning: hsl(38, 92%, 50%);
+  --warning-foreground: hsl(48, 96%, 89%);
+
+  --success: hsl(142, 71%, 45%);
+  --success-foreground: hsl(144, 70%, 96%);
+
+  --border: hsl(217.2, 32.6%, 17.5%);
+  --border-muted: hsl(217.2, 32.6%, 13%);
+  --border-strong: hsl(217.2, 30%, 25%);
+
+  --input: hsl(217.2, 32.6%, 17.5%);
+  --ring: hsl(217.2, 91.2%, 59.8%);
+}

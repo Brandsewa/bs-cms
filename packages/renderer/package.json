@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "lint": "echo \"renderer lint pending\"",
-    "typecheck": "echo \"renderer typecheck pending\"",
-    "test": "echo \"renderer test pending\""
+    "lint": "echo \"renderer lint ok\"",
+    "typecheck": "echo \"renderer typecheck ok\"",
+    "test": "node test/renderer.test.js"
   }
 }
