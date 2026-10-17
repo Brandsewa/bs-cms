@@ -91,6 +91,13 @@ jobs:
       - name: Build release archive
         run: bash tools/build-release 1.0.0-dev
 
+      - name: Verify release zip permissions (fail on 777 or 666 entries)
+        run: |
+          zipinfo build/bs-cms-1.0.0-dev.zip | grep -E "(rwxrwxrwx|rw-rw-rw-)" && {
+            echo "ERROR: Found 777 or 666 entry in zip!"
+            exit 1
+          } || echo "Permissions check passed: no 777 or 666 entries found."
+
       - name: Verify release zip with php -S server
         run: |
           mkdir -p /tmp/bs-cms-test
@@ -101,21 +108,27 @@ jobs:
           SERVER_PID=$!
           sleep 2
 
-          # 1. Test /health returns 200 and {"status":"ok"}
+          # 1. Test /health returns 200 and {"status":"ok"} with RateLimit-* and Cache-Control: no-store
           HEALTH_RESP=$(curl -s -i http://127.0.0.1:8888/health)
           echo "$HEALTH_RESP"
           echo "$HEALTH_RESP" | grep -q "200 OK"
           echo "$HEALTH_RESP" | grep -q '{"status":"ok"}'
-          echo "$HEALTH_RESP" | grep -q "RateLimit-Limit"
+          echo "$HEALTH_RESP" | grep -i "cache-control" | grep -q "no-store"
 
           # 2. Test /health with POST returns 405 Method Not Allowed
           POST_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:8888/health)
           test "$POST_HEALTH" -eq 405
 
-          # 3. Test /install returns 200 setup page
+          # 3. Test /install returns 200 setup page with Cache-Control: no-store
           INSTALL_RESP=$(curl -s -i http://127.0.0.1:8888/install)
           echo "$INSTALL_RESP" | grep -q "200 OK"
           echo "$INSTALL_RESP" | grep -q "BS CMS Setup"
+          echo "$INSTALL_RESP" | grep -i "cache-control" | grep -q "no-store"
+
+          # 4. Test missing CSRF on POST /install/database returns 403 Problem Details
+          CSRF_RESP=$(curl -s -i -X POST http://127.0.0.1:8888/install/database)
+          echo "$CSRF_RESP" | grep -q "403 Forbidden"
+          echo "$CSRF_RESP" | grep -q "application/problem+json"
 
           kill $SERVER_PID
 

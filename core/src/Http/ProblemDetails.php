@@ -177,6 +177,8 @@ final class ProblemDetails
 
         $response = new Response($this->status, [], $stream);
 
-        return $response->withHeader('Content-Type', 'application/problem+json; charset=utf-8');
+        return $response
+            ->withHeader('Content-Type', 'application/problem+json; charset=utf-8')
+            ->withHeader('Cache-Control', 'no-store');
     }
 }

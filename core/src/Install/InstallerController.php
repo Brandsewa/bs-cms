@@ -6,6 +6,7 @@ namespace BsCms\Install;
 
 use BsCms\Database\Connection;
 use BsCms\Database\Migrator;
+use BsCms\Http\ProblemDetails;
 use BsCms\Security\Crypto;
 use BsCms\Security\HttpClient;
 use BsCms\Security\Random;
@@ -74,6 +75,14 @@ final class InstallerController
         $checks = Requirements::check($this->storageDir, $isHttps);
         $cliPhp = Requirements::detectCliPhpBinary();
         $csrfToken = $this->getOrCreateCsrfToken();
+        $uri = $request->getUri();
+        $scheme = $uri->getScheme() !== '' ? $uri->getScheme() : 'http';
+        $host = $uri->getHost() !== '' ? $uri->getHost() : 'localhost';
+        $port = $uri->getPort();
+        $defaultUrl = $scheme . '://' . $host;
+        if ($port !== null && !(($scheme === 'http' && $port === 80) || ($scheme === 'https' && $port === 443))) {
+            $defaultUrl .= ':' . $port;
+        }
 
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>BS CMS Web Installer</title>';
         $html .= '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.5;}';
@@ -109,10 +118,11 @@ final class InstallerController
             return $this->htmlResponse(200, $html);
         }
 
-        // Database form with CSRF
-        $html .= '<div class="card"><h2>2. Database Configuration</h2>';
+        // Database and Site form with CSRF
+        $html .= '<div class="card"><h2>2. Site & Database Configuration</h2>';
         $html .= '<form method="POST" action="/install/database">';
         $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
+        $html .= '<label>Site URL (Admin & API Base): <input name="site_url" value="' . htmlspecialchars($defaultUrl) . '" required></label>';
         $html .= '<label>DB Host: <input name="db_host" value="127.0.0.1" required></label>';
         $html .= '<label>DB Port: <input name="db_port" value="3306" required></label>';
         $html .= '<label>DB Name: <input name="db_name" required></label>';
@@ -134,7 +144,10 @@ final class InstallerController
         $body = (array) $request->getParsedBody();
 
         // 1. Verify CSRF
-        $this->verifyCsrf($body['_csrf'] ?? null);
+        $csrfError = $this->verifyCsrf($body['_csrf'] ?? null);
+        if ($csrfError !== null) {
+            return $csrfError;
+        }
 
         // 2. Perform automated private-path probe
         $probeResult = $this->probePrivatePaths($request);
@@ -158,6 +171,7 @@ final class InstallerController
         $pass = $body['db_password'] ?? '';
         $prefix = $body['db_prefix'] ?? 'bs_';
         $cliPhp = $body['cli_php'] ?? 'php';
+        $siteUrl = $body['site_url'] ?? 'http://localhost';
 
         try {
             $conn = new Connection([
@@ -178,22 +192,36 @@ final class InstallerController
             return $this->htmlResponse(400, "<h1>Database Connection Failed</h1><p>{$msg}</p><p><a href=\"/install\">Back</a></p>");
         }
 
+        // Store credentials server-side in a short-lived temp file (never echo password back to HTML)
+        $tmpDir = $this->storageDir . '/tmp';
+        if (!is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0700, true);
+        }
+        $stageData = [
+            'db_host' => $host,
+            'db_port' => $port,
+            'db_name' => $dbname,
+            'db_user' => $user,
+            'db_password' => $pass,
+            'db_prefix' => $prefix,
+            'cli_php' => $cliPhp,
+            'site_url' => $siteUrl,
+            'created_at' => time(),
+        ];
+        file_put_contents($tmpDir . '/install_stage.tmp', Json::encode($stageData), LOCK_EX);
+        @chmod($tmpDir . '/install_stage.tmp', 0600);
+
         $csrfToken = $this->getOrCreateCsrfToken();
 
-        // Step 3: Confirmation form
+        // Step 3: Confirmation form without echoing DB password
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Install BS CMS</title></head><body>';
         $html .= '<h1>Database Connected & Verified</h1>';
         $html .= '<p>Server: ' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</p>';
+        $html .= '<p>Database: <code>' . htmlspecialchars($dbname) . '</code> (Host: <code>' . htmlspecialchars($host) . '</code>, User: <code>' . htmlspecialchars($user) . '</code>)</p>';
+        $html .= '<p>Site URL: <code>' . htmlspecialchars($siteUrl) . '</code></p>';
         $html .= '<p>Private Path Security Probe: <span style="color:#15803d;font-weight:bold;">PASSED</span></p>';
         $html .= '<form method="POST" action="/install/execute">';
         $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
-        $html .= '<input type="hidden" name="db_host" value="' . htmlspecialchars($host) . '">';
-        $html .= '<input type="hidden" name="db_port" value="' . htmlspecialchars((string) $port) . '">';
-        $html .= '<input type="hidden" name="db_name" value="' . htmlspecialchars($dbname) . '">';
-        $html .= '<input type="hidden" name="db_user" value="' . htmlspecialchars($user) . '">';
-        $html .= '<input type="hidden" name="db_password" value="' . htmlspecialchars($pass) . '">';
-        $html .= '<input type="hidden" name="db_prefix" value="' . htmlspecialchars($prefix) . '">';
-        $html .= '<input type="hidden" name="cli_php" value="' . htmlspecialchars($cliPhp) . '">';
         $html .= '<button type="submit" style="background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;">Run Migrations & Finish Installation</button>';
         $html .= '</form></body></html>';
 
@@ -206,7 +234,10 @@ final class InstallerController
         $body = (array) $request->getParsedBody();
 
         // 1. Verify CSRF
-        $this->verifyCsrf($body['_csrf'] ?? null);
+        $csrfError = $this->verifyCsrf($body['_csrf'] ?? null);
+        if ($csrfError !== null) {
+            return $csrfError;
+        }
 
         // 2. Perform automated private-path probe again to guarantee safety
         $probeResult = $this->probePrivatePaths($request);
@@ -214,10 +245,24 @@ final class InstallerController
             return $this->htmlResponse(403, '<h1>Security Probe Failed</h1><p>Private paths are exposed via HTTP. Installation aborted.</p>');
         }
 
+        // Read staging data from short-lived server-side file
+        $stageFile = $this->storageDir . '/tmp/install_stage.tmp';
+        if (!is_file($stageFile)) {
+            return ProblemDetails::create(
+                400,
+                'Bad Request',
+                'Installation session expired. Please return to /install and configure the database again.'
+            )->toResponse();
+        }
+
+        /** @var array{db_host: string, db_port: int, db_name: string, db_user: string, db_password: string, db_prefix: string, cli_php: string, site_url: string} $stageData */
+        $stageData = Json::decode((string) file_get_contents($stageFile));
+        @unlink($stageFile);
+
         // 3. Generate app key and write to storage/keys/app.key
         $keysDir = $this->storageDir . '/keys';
         if (!is_dir($keysDir)) {
-            @mkdir($keysDir, 0750, true);
+            @mkdir($keysDir, 0700, true);
         }
         $appKey = Crypto::generateKey();
         file_put_contents($keysDir . '/app.key', $appKey);
@@ -226,19 +271,21 @@ final class InstallerController
         // 4. Write storage/config.php
         $config = [
             'database' => [
-                'host' => $body['db_host'] ?? '127.0.0.1',
-                'port' => (int) ($body['db_port'] ?? 3306),
-                'database' => $body['db_name'] ?? '',
-                'username' => $body['db_user'] ?? '',
-                'password' => $body['db_password'] ?? '',
-                'prefix' => $body['db_prefix'] ?? 'bs_',
+                'host' => $stageData['db_host'],
+                'port' => (int) $stageData['db_port'],
+                'database' => $stageData['db_name'],
+                'username' => $stageData['db_user'],
+                'password' => $stageData['db_password'],
+                'prefix' => $stageData['db_prefix'],
             ],
             'app' => [
                 'key_file' => 'keys/app.key',
                 'key' => $appKey,
+                'url' => $stageData['site_url'],
+                'public_url' => $stageData['site_url'],
                 'environment' => 'production',
                 'debug' => false,
-                'cli_php' => $body['cli_php'] ?? 'php',
+                'cli_php' => $stageData['cli_php'],
             ],
         ];
 
@@ -331,18 +378,25 @@ final class InstallerController
         return $token;
     }
 
-    private function verifyCsrf(?string $submittedToken): void
+    private function verifyCsrf(?string $submittedToken): ?ResponseInterface
     {
         $expected = $this->getOrCreateCsrfToken();
         if ($submittedToken === null || !hash_equals($expected, $submittedToken)) {
-            throw new \RuntimeException('Invalid CSRF token. Please refresh the setup page and try again.');
+            return \BsCms\Http\ProblemDetails::create(
+                403,
+                'Forbidden',
+                'Invalid or missing CSRF token. Please refresh the setup page and try again.',
+                'https://errors.bscms.org/forbidden'
+            )->toResponse();
         }
+        return null;
     }
 
     private function htmlResponse(int $status, string $html): ResponseInterface
     {
         $resp = new Response($status, [
             'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-store',
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'DENY',
             'Referrer-Policy' => 'strict-origin-when-cross-origin',

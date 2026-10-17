@@ -64,18 +64,25 @@ final class RequirementsAndInstallerTest extends TestCase
         $this->assertStringContainsString('System Requirements', $body);
     }
 
-    public function testInstallerRejectsDatabaseWithoutCsrf(): void
+    public function testInstallerRejectsDatabaseWithoutCsrfWith403ProblemDetails(): void
     {
         $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
         $request = (new ServerRequest('POST', '/install/database'))
             ->withParsedBody(['db_host' => '127.0.0.1']);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Invalid CSRF token');
-        $installer->handle($request);
+        $response = $installer->handle($request);
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame('application/problem+json; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('no-store', $response->getHeaderLine('Cache-Control'));
+
+        $body = json_decode((string) $response->getBody(), true);
+        $this->assertIsArray($body);
+        $this->assertSame(403, $body['status']);
+        $this->assertSame('Forbidden', $body['title']);
+        $this->assertStringContainsString('Invalid or missing CSRF token', $body['detail']);
     }
 
-    public function testInstallerSendsSecurityHeaders(): void
+    public function testInstallerSendsSecurityHeadersAndNoStore(): void
     {
         $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
         $request = new ServerRequest('GET', '/install/requirements');
@@ -83,6 +90,19 @@ final class RequirementsAndInstallerTest extends TestCase
         $response = $installer->handle($request);
         $this->assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         $this->assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+        $this->assertSame('no-store', $response->getHeaderLine('Cache-Control'));
         $this->assertSame('strict-origin-when-cross-origin', $response->getHeaderLine('Referrer-Policy'));
+    }
+
+    public function testInstallerRendersSiteUrlField(): void
+    {
+        $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
+        $request = new ServerRequest('GET', '/install/requirements');
+
+        $response = $installer->handle($request);
+        $body = (string) $response->getBody();
+
+        $this->assertStringContainsString('Site URL (Admin & API Base)', $body);
+        $this->assertStringContainsString('name="site_url"', $body);
     }
 }

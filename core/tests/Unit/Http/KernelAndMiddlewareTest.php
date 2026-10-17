@@ -49,6 +49,8 @@ final class KernelAndMiddlewareTest extends TestCase
         $this->assertNotEmpty($response->getHeaderLine('X-Request-ID'));
         $this->assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         $this->assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+        $this->assertSame('no-store', $response->getHeaderLine('Cache-Control'));
+        $this->assertNotEmpty($response->getHeaderLine('Content-Security-Policy'));
         $this->assertSame('60', $response->getHeaderLine('RateLimit-Limit'));
         $this->assertSame('59', $response->getHeaderLine('RateLimit-Remaining'));
         $this->assertNotEmpty($response->getHeaderLine('RateLimit-Reset'));
@@ -96,6 +98,7 @@ final class KernelAndMiddlewareTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('text/html; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('no-store', $response->getHeaderLine('Cache-Control'));
         $this->assertStringContainsString('BS CMS Admin', (string) $response->getBody());
     }
 
@@ -111,5 +114,39 @@ final class KernelAndMiddlewareTest extends TestCase
 
         $response = $kernel->handle($request);
         $this->assertSame(413, $response->getStatusCode());
+    }
+
+    public function testBodyLimitRejects3MbJsonPayloadWith413ProblemDetails(): void
+    {
+        $routes = new RouteCollection();
+        $routes->post('/api/v1/posts', function () {
+            return \BsCms\Http\JsonResponse::create(['created' => true]);
+        });
+
+        $router = new Router($routes);
+        $kernel = new Kernel($router);
+        $kernel->addMiddleware(new RequestIdMiddleware());
+        $kernel->addMiddleware(new SecurityHeadersMiddleware());
+        $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024)); // 2 MB limit
+        $kernel->addMiddleware(new JsonBodyMiddleware());
+
+        // Create 3 MB JSON payload
+        $threeMb = 3 * 1024 * 1024;
+        $request = (new ServerRequest('POST', '/api/v1/posts'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Content-Length', (string) $threeMb);
+        $request->getBody()->write(str_repeat('X', $threeMb));
+
+        $response = $kernel->handle($request);
+
+        $this->assertSame(413, $response->getStatusCode());
+        $this->assertSame('application/problem+json; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('no-store', $response->getHeaderLine('Cache-Control'));
+
+        $body = json_decode((string) $response->getBody(), true);
+        $this->assertIsArray($body);
+        $this->assertSame(413, $body['status']);
+        $this->assertSame('Content Too Large', $body['title']);
+        $this->assertStringContainsString('exceeds maximum allowed size of 2097152 bytes', $body['detail']);
     }
 }

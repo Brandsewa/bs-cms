@@ -1,26 +1,30 @@
 # BS CMS Hardened Mode B Root .htaccess
-# Used when the shared host document root cannot be pointed to public/
-# and must reside at public_html/. Denies every path except public/, index.php, admin/, and media/.
+# Used when the document root contains core/ (e.g. host root public_html/ contains core/):
+# Denies access to private directories in core/ (storage, config, src, vendor, etc.)
+# and routes front requests to core/public/index.php.
 
 Options -Indexes
 Options -MultiViews
-DirectoryIndex index.php
+DirectoryIndex core/public/index.php index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Deny dotfiles (.env, .git, etc.) except for /.well-known/
-    RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
+    # 1. Allow ACME / OAuth / MCP discovery (.well-known)
+    RewriteCond %{REQUEST_URI} ^/\.well-known/ [NC]
+    RewriteRule ^ core/public/index.php [L,QSA]
+
+    # 2. Deny all other dotfiles (.env, .git, etc.)
     RewriteRule (^\.|/\.) - [F,L]
 
-    # Explicitly deny access to private application directories
-    RewriteRule ^(storage|config|src|bin|migrations|resources|vendor|tests|tools)(\/|$) - [F,L]
+    # 3. Explicitly deny direct access to private directories inside core/
+    RewriteRule ^core/(storage|config|src|bin|migrations|vendor)(\/|$) - [F,L]
+    RewriteRule ^(storage|config|src|bin|migrations|vendor)(\/|$) - [F,L]
 
-    # Allow direct access to physical public static assets in admin/ and media/
-    RewriteCond %{REQUEST_URI} ^/(admin|media)/ [NC]
-    RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ^ - [L]
+    # 4. Route direct static assets in /admin and /media to core/public/
+    RewriteCond %{DOCUMENT_ROOT}/core/public%{REQUEST_URI} -f
+    RewriteRule ^(admin|media)/(.*)$ core/public/$1/$2 [L]
 
-    # Route all other requests through front controller
-    RewriteRule ^ index.php [L,QSA]
+    # 5. Route all other requests to front controller inside core/public/
+    RewriteRule ^ core/public/index.php [L,QSA]
 </IfModule>

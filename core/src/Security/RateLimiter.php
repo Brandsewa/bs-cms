@@ -25,16 +25,18 @@ final class RateLimiter
     private array $trustedProxies;
     private int $maxAttempts;
     private int $windowSeconds;
-    private ?Connection $connection;
+    /** @var Connection|(\Closure(): ?Connection)|null */
+    private Connection|\Closure|null $connection;
 
     /**
      * @param list<string> $trustedProxies
+     * @param Connection|(\Closure(): ?Connection)|null $connection
      */
     public function __construct(
         int $maxAttempts = 60,
         int $windowSeconds = 60,
         array $trustedProxies = [],
-        ?Connection $connection = null
+        Connection|\Closure|null $connection = null
     ) {
         $this->maxAttempts = max(1, $maxAttempts);
         $this->windowSeconds = max(1, $windowSeconds);
@@ -145,6 +147,14 @@ final class RateLimiter
      */
     private function hitDatabase(string $key): array
     {
+        if ($this->connection instanceof \Closure) {
+            try {
+                $this->connection = ($this->connection)();
+            } catch (Throwable $e) {
+                $this->connection = null;
+            }
+        }
+
         $now = Clock::timestamp();
         $table = $this->connection?->prefixTable('rate_limits') ?? 'bs_rate_limits';
         $pdo = $this->connection?->getPdo();

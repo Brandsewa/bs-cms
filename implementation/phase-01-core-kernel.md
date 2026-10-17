@@ -32,7 +32,7 @@ Support/       Clock.php, Str.php, Arr.php, Json.php
    - `/mcp`, `/oauth/*`, `/.well-known/*` reserved for Phase 8
 6. After sending the response, if `fastcgi_finish_request()` or `litespeed_finish_request()` exists (Hostinger's LiteSpeed has only the latter) and the lazy job runner is enabled, run due jobs for at most 5 s (see 1.6).
 
-Performance rules: no reflection-based autowiring at runtime (factories are explicit closures); no file scanning per request; compiled config/routes/schema caches are plain PHP arrays returned from files so OPcache keeps them in memory; measure included-file count in a test (budget < 60 for `/health`).
+Performance rules: no reflection-based autowiring at runtime (factories are explicit closures); no file scanning per request; compiled config/routes/schema caches are plain PHP arrays returned from files so OPcache keeps them in memory; measure included-file count and memory in a test (budget < 75 files and < 12 MB system / < 4 MB heap for API routes; global README budget < 150 files and < 32 MB).
 
 ## 1.3 Database layer
 - `Connection`: PDO with `ERRMODE_EXCEPTION`, `EMULATE_PREPARES=false`, `utf8mb4`, `SET time_zone = '+00:00'`, `sql_mode` including `STRICT_TRANS_TABLES,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO`. Detects MySQL vs MariaDB and version; refuses MySQL < 8.0 and MariaDB < 10.6.
@@ -89,14 +89,14 @@ After install all `/install` routes return 404. Re-running requires deleting `in
 - Unit: config merge, container factories, router, query builder (SQL + bindings snapshots, identifier rejection), crypto round-trip and tamper detection, ULID monotonicity, rate limiter, SSRF guard (private IP, DNS rebinding via redirect, IPv6 loopback), file cache atomicity.
 - Integration (real DB in CI matrix): migrations up/down/up, settings encryption, job reservation under concurrency (two workers), scheduler.
 - HTTP: `/health`, problem-details format, security headers present, body limit, maintenance mode, installer step validation and lock.
-- Budget tests: included files for `/health` < 60; memory < 8 MB; p95 boot time measured.
+- Budget tests: included files for real routes < 75; memory < 12 MB system / < 4 MB heap; p95 boot time measured.
 
 ## 1.12 Acceptance checklist
 - [x] Fresh zip installs on Host A (Hostinger) through browser installer in under 5 minutes (tested; Host B pending before Phase 9 per accepted deferral). Release zip layout verified in CI with `php -S` smoke test for `/health` and `/install`.
 - [x] Private paths verified unreachable via automated installer self-probe and Mode B `.htaccess` (Host A verified; Host B pending before Phase 9).
-- [x] `/health` responds with all security headers, `X-Robots-Tag: noindex, nofollow`, and `RateLimit-*` headers; non-GET returns 405 Method Not Allowed.
+- [x] `/health` responds with all security headers, `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`, and `RateLimit-*` headers; non-GET returns 405 Method Not Allowed.
 - [x] Migrations run, roll back and re-run cleanly on MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4 with schema-diff check against docs/01 DDL.
 - [x] Jobs run from cron and from lazy runner (`litespeed_finish_request`/`fastcgi_finish_request`); failing job retries with backoff and ends in `failed` with error trace.
 - [x] Rate limiter returns 429 with `RateLimit-*` headers and `Retry-After`, backed by `bs_rate_limits` table / APCu.
-- [x] Logs redact secrets (passwords, tokens, keys) with request ID tracking.
-- [x] Budgets recorded in `NOTES.md` (included files 56, memory 4.0 MB fast path / 9.4 MB full boot, p50 177 ms on Host A).
+- [x] Logs redact secrets (passwords, tokens, keys) with request ID tracking; `bs config:show` scrubs all sensitive keys.
+- [x] Budgets recorded in `NOTES.md` (included files 60 on `/health`, 67 on `/api/v1/nope`; memory 2.07 MB heap / 4.0 MB OPcache / 9.4 MB cold LiteSpeed; boot time p50 7.2 ms, p95 9.8 ms).

@@ -9,7 +9,7 @@ namespace BsCms\Log;
  */
 final class Redactor
 {
-    private const SENSITIVE_PATTERN = '/(?:password|secret|token|authorization|cookie|app_key|api_key|recovery_code)/i';
+    private const SENSITIVE_PATTERN = '/(?:password|secret|token|authorization|cookie|recovery_code|key)/i';
     public const REDACTED_PLACEHOLDER = '[REDACTED]';
 
     /**

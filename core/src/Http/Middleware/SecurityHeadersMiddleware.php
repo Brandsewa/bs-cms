@@ -22,6 +22,7 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
         'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
         'X-Robots-Tag' => 'noindex, nofollow',
         'Content-Security-Policy' => "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+        'Cache-Control' => 'no-store',
     ];
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
