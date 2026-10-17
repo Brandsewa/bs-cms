@@ -115,8 +115,39 @@ final class Console
      */
     private function migrateRollback(array $args): int
     {
-        // Simple 1-step rollback placeholder
-        echo "Rollback completed (step: 1).\n";
+        $steps = 1;
+        $dryRun = false;
+        foreach ($args as $arg) {
+            if (str_starts_with($arg, '--step=')) {
+                $value = substr($arg, 7);
+                if (!ctype_digit($value) || (int) $value < 1) {
+                    fwrite(STDERR, "Error: --step must be a positive integer.\n");
+                    return 1;
+                }
+                $steps = (int) $value;
+            } elseif ($arg === '--dry-run') {
+                $dryRun = true;
+            } else {
+                fwrite(STDERR, "Error: unknown option '{$arg}'. Usage: migrate:rollback [--step=N] [--dry-run]\n");
+                return 1;
+            }
+        }
+
+        $conn = $this->getConnection();
+        $migrator = new Migrator($conn);
+        $migrator->registerNamespace('core', $this->app->basePath('migrations'));
+
+        $rolledBack = $migrator->rollback($steps, $dryRun);
+
+        if ($rolledBack === []) {
+            echo "Nothing to roll back.\n";
+            return 0;
+        }
+
+        foreach ($rolledBack as $m) {
+            echo ($dryRun ? '' : 'Rolled back: ') . "{$m}\n";
+        }
+
         return 0;
     }
 

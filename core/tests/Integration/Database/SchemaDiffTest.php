@@ -17,6 +17,8 @@ final class SchemaDiffTest extends TestCase
 {
     private ?Connection $connection = null;
     private bool $skipMysql = false;
+    private string $dbName = '';
+    private ?PDO $adminPdo = null;
 
     protected function setUp(): void
     {
@@ -26,13 +28,16 @@ final class SchemaDiffTest extends TestCase
         $port = (int) (getenv('DB_PORT') ?: 3306);
         $user = getenv('DB_USER') ?: 'root';
         $pass = getenv('DB_PASS') !== false ? (string) getenv('DB_PASS') : '';
-        $dbname = getenv('DB_NAME') ?: 'bs_cms_test';
+        // Unique database per test run so the test is repeatable against a persistent server.
+        $this->dbName = 'bs_schema_' . bin2hex(random_bytes(4));
+        $dbname = $this->dbName;
 
         try {
             $pdo = new PDO("mysql:host={$host};port={$port};charset=utf8mb4", $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             ]);
-            $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbname}`;");
+            $this->adminPdo = $pdo;
+            $pdo->exec("CREATE DATABASE `{$dbname}`;");
             $pdo->exec("USE `{$dbname}`;");
 
             $this->connection = new Connection([
@@ -42,6 +47,14 @@ final class SchemaDiffTest extends TestCase
         } catch (\Throwable $e) {
             $this->skipMysql = true;
         }
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->adminPdo !== null && $this->dbName !== '') {
+            $this->adminPdo->exec("DROP DATABASE IF EXISTS `{$this->dbName}`");
+        }
+        parent::tearDown();
     }
 
     public function testMigrationsMatchSpecSchema(): void

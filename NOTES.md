@@ -169,11 +169,9 @@ Measured on Host A (Hostinger shared hosting, LiteSpeed, PHP 8.3.35, MariaDB 11.
   - `/api/v1/nope` (routed 404 through FastRoute + 8 middlewares): **67 files** in production release (74 with dev autoloaders).
   - **Proposed Budget Correction:** Update budget from `< 60` (which previously relied on a fast-path bypass) to **`< 75 files`** for general API requests (well within the global README Section 7 budget of `< 150 files`).
   - **Reasoning:** A modular PSR-15 pipeline (8 middlewares = 18 files) + Nyholm PSR-7 (14 files) + FastRoute router/parser/dispatcher (8 files) + Composer autoloader (5 files) + Core kernel & primitives (15 files) + Config arrays (4 files) establishes a structural floor of 64–67 files for any real route execution.
-- **Memory Footprint (PHP 8.3 / LiteSpeed):**
-  - Script heap usage (`memory_get_peak_usage(false)`): **2.07 MB**.
-  - System memory allocation (`memory_get_peak_usage(true)`): **4.0 MB** with OPcache/CLI; **9.4 MB** on Hostinger LiteSpeed (cold process arena allocation without OPcache).
-  - **Proposed Budget Correction:** Set budget to **`< 12 MB` system allocation** and **`< 4 MB` script heap** (well within the global README Section 7 budget of `< 32 MB` for API requests).
-  - **Reasoning:** Without OPcache, PHP 8.3's internal AST compiler and symbol tables allocate an initial ~8–10 MB arena for parsing 67 source files before application logic runs. When OPcache is active, system allocation drops to ~4 MB. Setting `< 12 MB` system allocation accommodates cold shared-host PHP 8.3 environments while staying far below the global 32 MB production budget.
+- **Memory Footprint (PHP 8.3 / LiteSpeed), corrected 2026-10-17 after an independent measurement:**
+  - A bare, empty PHP script (`php -d opcache.enable_cli=1 -r 'echo memory_get_peak_usage(false);'`) already peaks at **9.4 MB** on Hostinger. That is the host's PHP baseline (OPcache and extensions), **not** application memory, so `memory_get_peak_usage(false)` ~9.4 MB for a request means the application itself added almost nothing.
+  - `BudgetTest` measures the request heap delta (budget < 2 MB) and total allocation (< 32 MB global budget). On the host, measure application memory as `request peak minus empty-script baseline` and keep the budget at **< 4 MB over baseline**. The earlier "< 12 MB system allocation" budget and its explanation (an 8-10 MB parsing arena for 67 files) are withdrawn: the baseline is the same with 0 or 67 application files.
 - **Cold Boot (CLI, PHP 8.3):** **8–10 ms** (p50: 7.2 ms, p95: 9.8 ms; passes budget < 10 ms).
 - **Live Web Requests (`/health`):** 20 live requests, **p50 = 177 ms** total roundtrip (includes user network latency from client to Hostinger data center).
 - **Hostinger CDN (`hcdn`) Observation & Fix:**
@@ -184,10 +182,10 @@ Measured on Host A (Hostinger shared hosting, LiteSpeed, PHP 8.3.35, MariaDB 11.
   - CSRF protection: missing or invalid CSRF tokens return HTTP 403 Problem Details (`status: 403, title: 'Forbidden'`).
   - Database password protection: credentials are kept strictly server-side in short-lived `storage/tmp/install_stage.tmp` (0600) and never echoed into HTML confirmation pages.
   - Site URL collection: installer collects `site_url` and records it into `storage/config.php` under `app.url` and `app.public_url`.
-- **Hostinger Layout & Mode B Options:**
-  - *Option 1 (Mode A - Recommended):* In Hostinger hPanel > Websites > Manage > Domain, set Document Root to `public_html/core/public`.
-  - *Option 2 (Mode B - Hardened Root):* If the host forces `public_html` as document root and it contains `core/`, the root `.htaccess` (`core/public/.htaccess-mode-b`) routes requests to `core/public/index.php` while explicitly denying direct HTTP access to `core/storage/`, `core/config/`, `core/src/`, `core/bin/`, and `core/vendor/`.
-  - *Option 3 (SSH / Symlink Shim):* Create symlink `public_html -> core/public` or copy `core/public/*` to `public_html/` with adjusted `vendor/autoload.php` path.
+- **Hostinger layout (tested 2026-10-17, release zip unzipped into `domains/<domain>/`):**
+  - **Tested and working (Option 3, SSH symlink):** unzip so that `domains/<domain>/core/` exists, remove the empty `public_html`, then run `ln -s core/public public_html` inside `domains/<domain>/` over SSH. The domain then serves `core/public` directly (Mode A behaviour); `core/storage`, `core/src`, `core/vendor` are not reachable (403/404 verified). `symlink()` is disabled in PHP on Hostinger, but the shell `ln -s` works.
+  - **Unverified (Option 1):** changing the document root in hPanel to `public_html/core/public`. Not tested; do not document it as supported until someone checks the hPanel UI.
+  - **Mode B root `.htaccess`** (`core/public/.htaccess-mode-b`): routes to a root-level `index.php`, which does not exist in the `core/public` layout. It is not applicable to the current zip layout and is untested; treat it as legacy until reworked or removed.
 
 ---
 
