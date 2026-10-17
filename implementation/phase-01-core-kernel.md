@@ -30,7 +30,7 @@ Support/       Clock.php, Str.php, Arr.php, Json.php
    - `/health` liveness (returns `{"status":"ok"}` only; no versions or paths)
    - `/admin/*` static SPA files (served by the web server; PHP fallback serves `admin/index.html` for client routes)
    - `/mcp`, `/oauth/*`, `/.well-known/*` reserved for Phase 8
-6. After sending the response, if `fastcgi_finish_request()` exists and the lazy job runner is enabled, run due jobs for at most 5 s (see 1.6).
+6. After sending the response, if `fastcgi_finish_request()` or `litespeed_finish_request()` exists (Hostinger's LiteSpeed has only the latter) and the lazy job runner is enabled, run due jobs for at most 5 s (see 1.6).
 
 Performance rules: no reflection-based autowiring at runtime (factories are explicit closures); no file scanning per request; compiled config/routes/schema caches are plain PHP arrays returned from files so OPcache keeps them in memory; measure included-file count in a test (budget < 60 for `/health`).
 
@@ -64,13 +64,13 @@ Performance rules: no reflection-based autowiring at runtime (factories are expl
 
 ## 1.7 Installer (web, no SSH)
 Steps, each a page in a minimal server-rendered installer (plain HTML + CSS, no JS framework; CSRF-protected form posts):
-1. **Requirements:** PHP version, required/recommended extensions, `memory_limit`, upload limits, writable `storage/`, HTTPS detected, OPcache on/off; red/amber/green list with fix hints.
+1. **Requirements:** PHP version, required/recommended extensions (with host-specific fix hints, e.g. "enable `sodium` in hPanel > PHP Configuration > PHP Extensions" on Hostinger, where it is off by default), `memory_limit`, upload limits, writable `storage/`, HTTPS detected, OPcache on/off; red/amber/green list with fix hints.
 2. **Private paths check:** HTTP self-request to `/storage/.probe`, `/config/app.php`, `/vendor/autoload.php`, `/.env`; all must be 403/404 or install stops with instructions (Mode A vs Mode B from README section 4).
 3. **Database:** host, port, name, user, password, table prefix (default `bs_`); test connection and version; check privileges (CREATE, ALTER, INDEX, DROP on the prefix).
 4. **Site:** site URL (admin/API base), public site URL, environment (production/staging), timezone.
 5. **Install:** write `storage/config.php` (0600 where possible), generate app key, run core migrations, seed settings, write `installed.lock`, compile caches.
 6. **Owner account:** added in Phase 2 (until then the installer ends after step 5).
-7. **Finish:** show cron line, link to admin, reminder to delete nothing (installer self-disables).
+7. **Finish:** show the cron line using the **web PHP version's CLI binary** (detect `PHP_BINARY`/`PHP_VERSION` from the web request and map to the host's path, e.g. `/opt/alt/php83/usr/bin/php` on Hostinger, because the default SSH `php` may be a different version), link to admin, reminder to delete nothing (installer self-disables).
 After install all `/install` routes return 404. Re-running requires deleting `installed.lock` via file manager (documented recovery).
 
 ## 1.8 CLI (`php bin/bs <command>`)

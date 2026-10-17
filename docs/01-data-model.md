@@ -420,7 +420,7 @@ CREATE TABLE terms (
   name VARCHAR(190) NOT NULL,
   slug VARCHAR(190) NOT NULL,
   description TEXT NULL,
-  path VARCHAR(512) NOT NULL,             -- materialized path of ids: '/01A.../01B.../' for subtree queries
+  path VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, -- materialized path of ids: '/01A.../01B.../' for subtree queries (ascii keeps the index small)
   slug_path VARCHAR(1024) NOT NULL,       -- 'news/community/events' for URLs
   depth TINYINT NOT NULL DEFAULT 0,
   position INT NOT NULL DEFAULT 0,        -- manual order among siblings
@@ -446,8 +446,11 @@ CREATE TABLE term_relationships (
   term_id CHAR(26) NOT NULL,
   is_primary TINYINT(1) NOT NULL DEFAULT 0, -- primary category used for canonical URL and breadcrumbs
   position INT NOT NULL DEFAULT 0,
+  is_published TINYINT(1) NOT NULL DEFAULT 0, -- denormalised from the entry (benchmark: makes term lists index-ordered)
+  sort_at DATETIME(3) NULL,                -- denormalised entry published_at; maintained on publish/unpublish/date change/delete
   PRIMARY KEY (collection_id, entry_id, term_id),
   KEY ix_termrel_term (term_id, collection_id),
+  KEY ix_termrel_sorted (term_id, collection_id, is_published, sort_at, entry_id),
   FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE
 );
 ```

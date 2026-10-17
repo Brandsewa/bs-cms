@@ -2,17 +2,21 @@
   "name": "bs-cms-monorepo",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "workspaces": [
-    "admin",
-    "packages/*",
-    "starter"
+    "packages/renderer"
   ],
   "scripts": {
-    "lint": "npm run --workspaces --if-present lint",
-    "typecheck": "npm run --workspaces --if-present typecheck",
-    "test": "npm run --workspaces --if-present test"
+    "lint": "eslint packages/renderer/src packages/renderer/test",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run --workspace=@bs/renderer test"
   },
   "devDependencies": {
-    "prettier": "^3.5.0"
+    "@types/node": "^22.13.4",
+    "eslint": "^9.20.1",
+    "prettier": "^3.5.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.71.2"
   }
 }

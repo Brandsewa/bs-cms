@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.js",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
-    "lint": "echo \"renderer lint ok\"",
-    "typecheck": "echo \"renderer typecheck ok\"",
-    "test": "node test/renderer.test.js"
+    "test": "tsx test/renderer.test.ts"
   }
 }

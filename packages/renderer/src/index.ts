@@ -3,21 +3,39 @@
  * Shared between Admin preview and Astro static rendering.
  */
 
-export function renderToHtml(doc) {
+export interface TiptapMark {
+  type: string;
+  attrs?: Record<string, any>;
+}
+
+export interface TiptapNode {
+  type: string;
+  attrs?: Record<string, any>;
+  content?: TiptapNode[];
+  text?: string;
+  marks?: TiptapMark[];
+}
+
+export interface TiptapDoc {
+  type: string;
+  content?: TiptapNode[];
+}
+
+export function renderToHtml(doc: TiptapDoc | null | undefined): string {
   if (!doc || !doc.content || !Array.isArray(doc.content)) {
     return '';
   }
   return doc.content.map(renderNodeToHtml).join('\n');
 }
 
-export function renderToMarkdown(doc) {
+export function renderToMarkdown(doc: TiptapDoc | null | undefined): string {
   if (!doc || !doc.content || !Array.isArray(doc.content)) {
     return '';
   }
   return doc.content.map(renderNodeToMarkdown).join('\n\n');
 }
 
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   if (typeof text !== 'string') return '';
   return text
     .replace(/&/g, '&amp;')
@@ -27,7 +45,7 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-function renderMarksToHtml(text, marks) {
+function renderMarksToHtml(text: string, marks?: TiptapMark[]): string {
   if (!marks || marks.length === 0) return escapeHtml(text);
   let result = escapeHtml(text);
   for (const mark of marks) {
@@ -53,7 +71,7 @@ function renderMarksToHtml(text, marks) {
   return result;
 }
 
-function renderMarksToMarkdown(text, marks) {
+function renderMarksToMarkdown(text: string, marks?: TiptapMark[]): string {
   if (!marks || marks.length === 0) return text;
   let result = text;
   for (const mark of marks) {
@@ -79,7 +97,7 @@ function renderMarksToMarkdown(text, marks) {
   return result;
 }
 
-function renderInlineToHtml(content) {
+function renderInlineToHtml(content?: TiptapNode[]): string {
   if (!content || !Array.isArray(content)) return '';
   return content.map(node => {
     if (node.type === 'text') {
@@ -89,7 +107,7 @@ function renderInlineToHtml(content) {
   }).join('');
 }
 
-function renderInlineToMarkdown(content) {
+function renderInlineToMarkdown(content?: TiptapNode[]): string {
   if (!content || !Array.isArray(content)) return '';
   return content.map(node => {
     if (node.type === 'text') {
@@ -99,19 +117,21 @@ function renderInlineToMarkdown(content) {
   }).join('');
 }
 
-function renderNodeToHtml(node) {
+function renderNodeToHtml(node: TiptapNode): string {
   switch (node.type) {
     case 'paragraph':
       return `<p>${renderInlineToHtml(node.content)}</p>`;
-    case 'heading':
+    case 'heading': {
       const level = Math.min(6, Math.max(1, node.attrs?.level || 2));
       return `<h${level}>${renderInlineToHtml(node.content)}</h${level}>`;
+    }
     case 'blockquote':
       return `<blockquote>${(node.content || []).map(renderNodeToHtml).join('\n')}</blockquote>`;
-    case 'codeBlock':
+    case 'codeBlock': {
       const lang = escapeHtml(node.attrs?.language || '');
-      const code = escapeHtml((node.content || []).map(n => n.text).join(''));
+      const code = escapeHtml((node.content || []).map(n => n.text || '').join(''));
       return `<pre><code class="language-${lang}">${code}</code></pre>`;
+    }
     case 'bulletList':
       return `<ul>\n${(node.content || []).map(renderNodeToHtml).join('\n')}\n</ul>`;
     case 'orderedList':
@@ -120,48 +140,55 @@ function renderNodeToHtml(node) {
       return `<li>${(node.content || []).map(n => n.type === 'paragraph' ? renderInlineToHtml(n.content) : renderNodeToHtml(n)).join('')}</li>`;
     case 'horizontalRule':
       return '<hr />';
-    case 'image':
+    case 'image': {
       const src = escapeHtml(node.attrs?.src || '');
       const alt = escapeHtml(node.attrs?.alt || '');
       const title = node.attrs?.title ? ` title="${escapeHtml(node.attrs.title)}"` : '';
       return `<img src="${src}" alt="${alt}"${title} loading="lazy" />`;
-    case 'callout':
-      const calloutType = escapeHtml(node.attrs?.type || 'note');
-      return `<div class="callout callout-${calloutType}">\n${(node.content || []).map(renderNodeToHtml).join('\n')}\n</div>`;
+    }
+    case 'callout': {
+      const variant = escapeHtml(node.attrs?.variant || node.attrs?.type || 'info');
+      return `<div class="callout callout-${variant}">\n${(node.content || []).map(renderNodeToHtml).join('\n')}\n</div>`;
+    }
     default:
       return '';
   }
 }
 
-function renderNodeToMarkdown(node) {
+function renderNodeToMarkdown(node: TiptapNode): string {
   switch (node.type) {
     case 'paragraph':
       return renderInlineToMarkdown(node.content);
-    case 'heading':
+    case 'heading': {
       const level = Math.min(6, Math.max(1, node.attrs?.level || 2));
       const hashes = '#'.repeat(level);
       return `${hashes} ${renderInlineToMarkdown(node.content)}`;
-    case 'blockquote':
+    }
+    case 'blockquote': {
       const quoteBody = (node.content || []).map(renderNodeToMarkdown).join('\n\n');
       return quoteBody.split('\n').map(line => `> ${line}`).join('\n');
-    case 'codeBlock':
+    }
+    case 'codeBlock': {
       const lang = node.attrs?.language || '';
-      const code = (node.content || []).map(n => n.text).join('');
+      const code = (node.content || []).map(n => n.text || '').join('');
       return `\`\`\`${lang}\n${code}\n\`\`\``;
+    }
     case 'bulletList':
       return (node.content || []).map(item => `- ${renderInlineToMarkdown(item.content?.[0]?.content || [])}`).join('\n');
     case 'orderedList':
       return (node.content || []).map((item, idx) => `${idx + 1}. ${renderInlineToMarkdown(item.content?.[0]?.content || [])}`).join('\n');
     case 'horizontalRule':
       return '---';
-    case 'image':
+    case 'image': {
       const src = node.attrs?.src || '';
       const alt = node.attrs?.alt || '';
       return `![${alt}](${src})`;
-    case 'callout':
-      const calloutType = node.attrs?.type || 'note';
+    }
+    case 'callout': {
+      const variant = node.attrs?.variant || node.attrs?.type || 'info';
       const body = (node.content || []).map(renderNodeToMarkdown).join('\n\n');
-      return `:::${calloutType}\n${body}\n:::`;
+      return `:::callout{variant=${variant}}\n${body}\n:::`;
+    }
     default:
       return '';
   }

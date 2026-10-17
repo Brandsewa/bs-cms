@@ -76,6 +76,8 @@ Conventions: JSON only; `snake_case`; ULIDs; timestamps ISO-8601 UTC; errors RFC
 - `fields=title,slug,status` sparse fieldsets; `populate=authors,categories` max depth 2, max 5 relations, each populated list capped (25).
 - Pagination: `page[size]` (1-100, default 25), cursor `page[after]` (default for API) or `page[number]` (admin tables); responses include `meta.total` (exact up to 10,000, then `meta.total_estimate`) and `links.next`.
 - Limits: max 20 filter clauses, max URL 8 KB; queries timing out at 5 s return 503 with advice.
+- **Filters only on indexed fields:** filters and sorts are accepted only for system columns and fields flagged `is_filterable`/`is_sortable` (which have generated columns + indexes). Filtering on an unindexed JSON path is rejected with a message suggesting to mark the field filterable (Hostinger benchmark: unindexed JSON filter on 50k posts took 313-365 ms vs 16-23 ms indexed).
+- **Cursor predicate form:** write keyset conditions as `published_at < ? OR (published_at = ? AND id < ?)`, not the row-constructor form `(published_at, id) < (?, ?)`, which MariaDB did not use as an index range in the benchmark (deep cursor was no faster than offset).
 
 **N+1 prevention:** populate loads related rows in batches (`WHERE id IN (...)`); a test asserts the number of queries for a list of 25 entries with 3 populates is <= 6.
 

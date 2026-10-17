@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
-import { renderToHtml, renderToMarkdown } from '../src/index.js';
+import { renderToHtml, renderToMarkdown, type TiptapDoc } from '../src/index.js';
 
-const sampleDoc = {
+const sampleDoc: TiptapDoc = {
   type: 'doc',
   content: [
     {
@@ -41,7 +41,7 @@ const sampleDoc = {
     },
     {
       type: 'callout',
-      attrs: { type: 'tip' },
+      attrs: { variant: 'tip' },
       content: [
         {
           type: 'paragraph',
@@ -74,7 +74,7 @@ assert(md.includes('*MySQL/MariaDB*'));
 assert(md.includes('[documentation](https://example.com/docs)'));
 assert(md.includes('```php\n<?php\ndeclare(strict_types=1);\n```'));
 assert(md.includes('- Zero Node daemons on server'));
-assert(md.includes(':::tip'));
+assert(md.includes(':::callout{variant=tip}'));
 console.log('Markdown Rendering Passed!\n');
 console.log(md);
 

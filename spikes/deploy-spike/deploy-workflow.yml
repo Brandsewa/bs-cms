@@ -1,0 +1,56 @@
+name: Deploy Public Site
+
+on:
+  repository_dispatch:
+    types: [cms-publish]
+  workflow_dispatch:
+    inputs:
+      callback_url:
+        description: 'CMS Callback URL'
+        required: false
+      callback_token:
+        description: 'CMS Callback Token'
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Astro site
+        run: npm run build
+        working-directory: starter
+        env:
+          CMS_API_URL: ${{ secrets.CMS_API_URL }}
+          CMS_BUILD_TOKEN: ${{ secrets.CMS_BUILD_TOKEN }}
+
+      - name: Deploy to Shared Hosting via SFTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.SFTP_HOST }}
+          username: ${{ secrets.SFTP_USER }}
+          password: ${{ secrets.SFTP_PASS }}
+          port: ${{ secrets.SFTP_PORT || 22 }}
+          protocol: sftp
+          local-dir: ./starter/dist/
+          server-dir: ${{ secrets.SFTP_TARGET_DIR || '/public_html/' }}
+          dangerous-clean-slate: false
+
+      - name: Report Build Success to CMS
+        if: success() && (github.event.client_payload.callback_url || github.event.inputs.callback_url)
+        run: |
+          curl -X POST "${{ github.event.client_payload.callback_url || github.event.inputs.callback_url }}" \
+            -H "Content-Type: application/json" \
+            -H "X-Callback-Token: ${{ github.event.client_payload.callback_token || github.event.inputs.callback_token }}" \
+            -d '{"status":"succeeded"}'
