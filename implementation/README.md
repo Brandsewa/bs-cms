@@ -111,8 +111,8 @@ Starter site: `astro`, `pagefind`, `@bs/renderer`, `@bs/client`; nothing else by
 | Budget | Target |
 |---|---|
 | PHP API request, typical shared host, warm OPcache | p95 < 150 ms for list/get; < 300 ms for writes |
-| PHP memory per request | < 32 MB (API), < 96 MB (image processing job) |
-| PHP files loaded per API request | < 150 (measure with `get_included_files()` in a test) |
+| PHP memory per request | < 32 MB (API), < 96 MB (image processing job). **Measure as the increase over an empty PHP script on the same host** (an empty script already peaks at about 9.4 MB on Hostinger's PHP 8.3), with the application's own increase under 4 MB for a normal API request |
+| PHP files loaded per request (`get_included_files()`, production release, Hostinger PHP 8.3) | `/health` < 60 (58 measured); any normal API route < 75 (67 measured); hard ceiling 150 |
 | Cold boot of the front controller (no DB) | < 10 ms on a dev machine |
 | Release zip (without starter) | < 10 MB |
 | Admin initial JS (app shell, gzipped) | < 200 KB; editor and schema builder lazy chunks measured separately |

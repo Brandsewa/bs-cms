@@ -136,6 +136,86 @@ final class Migrator
     }
 
     /**
+     * Roll back the last N migration batches, newest migration first.
+     *
+     * @param int $steps Number of batches to roll back (default 1)
+     * @return list<string> "namespace:name" of rolled back migrations ("[DRY-RUN] ..." prefix when $dryRun)
+     */
+    public function rollback(int $steps = 1, bool $dryRun = false): array
+    {
+        if ($steps < 1) {
+            throw new RuntimeException('Rollback step count must be at least 1.');
+        }
+
+        $this->ensureMigrationTable();
+
+        if (!$dryRun && !$this->acquireLock()) {
+            throw new RuntimeException('Could not acquire bs_migrate lock: another migration is running.');
+        }
+
+        try {
+            $table = $this->connection->prefixTable('migrations');
+            $pdo = $this->connection->getPdo();
+
+            $batchStmt = $pdo->prepare("SELECT DISTINCT `batch` FROM `{$table}` ORDER BY `batch` DESC LIMIT " . (int) $steps);
+            $batchStmt->execute();
+            /** @var list<int|string> $batches */
+            $batches = $batchStmt->fetchAll(PDO::FETCH_COLUMN);
+            if ($batches === []) {
+                return [];
+            }
+
+            $placeholders = implode(',', array_fill(0, count($batches), '?'));
+            $rowStmt = $pdo->prepare("SELECT `id`, `namespace`, `name` FROM `{$table}` WHERE `batch` IN ({$placeholders}) ORDER BY `id` DESC");
+            $rowStmt->execute(array_map('intval', $batches));
+            /** @var list<array{id: int|string, namespace: string, name: string}> $rows */
+            $rows = $rowStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Resolve every migration file first so a missing file aborts before anything is reverted.
+            $plan = [];
+            foreach ($rows as $row) {
+                $dir = $this->paths[$row['namespace']] ?? null;
+                $file = $dir !== null ? "{$dir}/{$row['name']}.php" : null;
+                if ($file === null || !is_file($file)) {
+                    throw new RuntimeException(
+                        "Cannot roll back '{$row['namespace']}:{$row['name']}': migration file or namespace is not registered."
+                    );
+                }
+                $plan[] = ['id' => (int) $row['id'], 'key' => "{$row['namespace']}:{$row['name']}", 'name' => $row['name'], 'file' => $file];
+            }
+
+            $executed = [];
+            foreach ($plan as $item) {
+                if ($dryRun) {
+                    $executed[] = "[DRY-RUN] rollback {$item['key']}";
+                    continue;
+                }
+
+                require_once $item['file'];
+                $className = $this->resolveClassName($item['name']);
+                if (!class_exists($className)) {
+                    throw new RuntimeException("Migration class '{$className}' not found in '{$item['file']}'.");
+                }
+
+                /** @var Migration $migration */
+                $migration = new $className($this->connection);
+                $migration->down();
+
+                $deleteStmt = $pdo->prepare("DELETE FROM `{$table}` WHERE `id` = ?");
+                $deleteStmt->execute([$item['id']]);
+
+                $executed[] = $item['key'];
+            }
+
+            return $executed;
+        } finally {
+            if (!$dryRun) {
+                $this->releaseLock();
+            }
+        }
+    }
+
+    /**
      * @return list<string> List of "namespace:name"
      */
     public function getAppliedMigrations(): array

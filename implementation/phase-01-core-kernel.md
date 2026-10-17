@@ -95,7 +95,7 @@ After install all `/install` routes return 404. Re-running requires deleting `in
 - [x] Fresh zip installs on Host A (Hostinger) through browser installer in under 5 minutes (tested; Host B pending before Phase 9 per accepted deferral). Release zip layout verified in CI with `php -S` smoke test for `/health` and `/install`.
 - [x] Private paths verified unreachable via automated installer self-probe and Mode B `.htaccess` (Host A verified; Host B pending before Phase 9).
 - [x] `/health` responds with all security headers, `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`, and `RateLimit-*` headers; non-GET returns 405 Method Not Allowed.
-- [x] Migrations run, roll back and re-run cleanly on MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4 with schema-diff check against docs/01 DDL.
+- [x] Migrations run, roll back and re-run cleanly on MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4 with schema-diff check against docs/01 DDL. (`bs migrate:rollback [--step=N] [--dry-run]` was a stub until 2026-10-17; now implemented in `Migrator::rollback()` and covered by `MigratorRollbackTest`: migrate -> rollback -> tables dropped -> migrate again, batch/step semantics, dry run, missing-file abort, and the CLI command. Verified live on Hostinger.)
 - [x] Jobs run from cron and from lazy runner (`litespeed_finish_request`/`fastcgi_finish_request`); failing job retries with backoff and ends in `failed` with error trace.
 - [x] Rate limiter returns 429 with `RateLimit-*` headers and `Retry-After`, backed by `bs_rate_limits` table / APCu.
 - [x] Logs redact secrets (passwords, tokens, keys) with request ID tracking; `bs config:show` scrubs all sensitive keys.
