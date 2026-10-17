@@ -421,7 +421,7 @@ CREATE TABLE terms (
   slug VARCHAR(190) NOT NULL,
   description TEXT NULL,
   path VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, -- materialized path of ids: '/01A.../01B.../' for subtree queries (ascii keeps the index small)
-  slug_path VARCHAR(1024) NOT NULL,       -- 'news/community/events' for URLs
+  slug_path VARCHAR(1024) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, -- 'news/community/events' for URLs (ascii keeps the index small)
   depth TINYINT NOT NULL DEFAULT 0,
   position INT NOT NULL DEFAULT 0,        -- manual order among siblings
   image_media_id CHAR(26) NULL,

@@ -103,31 +103,67 @@ Every entry verified against primary source vendor documentation as of 2026-10-1
 
 ## 3. Hosting Matrix (Section 0.2)
 
-*All entries below are deferred until test accounts exist.*
+*Host A measured on live Hostinger shared hosting. Host B remains pending.*
 
-| Parameter | Host A (cPanel / Apache / MariaDB) | Host B (Custom / LiteSpeed / MySQL) |
+| Parameter | Host A (Hostinger / LiteSpeed / MariaDB) | Host B (Custom / Apache / MySQL) |
 |---|---|---|
-| Provider / Plan | Deferred until test accounts exist | Deferred until test accounts exist |
-| Control Panel | Deferred until test accounts exist | Deferred until test accounts exist |
-| Web Server | Deferred until test accounts exist | Deferred until test accounts exist |
-| PHP Version | Deferred until test accounts exist | Deferred until test accounts exist |
-| Database Version | Deferred until test accounts exist | Deferred until test accounts exist |
-| `memory_limit` | Deferred until test accounts exist | Deferred until test accounts exist |
-| `max_execution_time` | Deferred until test accounts exist | Deferred until test accounts exist |
-| `upload_max_filesize` | Deferred until test accounts exist | Deferred until test accounts exist |
-| `post_max_size` | Deferred until test accounts exist | Deferred until test accounts exist |
-| OPcache / APCu | Deferred until test accounts exist | Deferred until test accounts exist |
-| Document Root Configurable? | Deferred until test accounts exist | Deferred until test accounts exist |
-| Files Above `public_html`? | Deferred until test accounts exist | Deferred until test accounts exist |
-| `.htaccess` ModRewrite & Headers | Deferred until test accounts exist | Deferred until test accounts exist |
-| Cron Available? | Deferred until test accounts exist | Deferred until test accounts exist |
-| Argon2id Available? | Deferred until test accounts exist | Deferred until test accounts exist |
+| Provider / Plan | Hostinger Premium/Business Shared Hosting | Pending (deferred until test account exists) |
+| Control Panel | hPanel | Pending |
+| Web Server | LiteSpeed Web Server | Pending |
+| PHP Version | PHP 8.3 (CLI path: `/opt/alt/php83/usr/bin/php`) | Pending |
+| Database Version | MariaDB 10.11 | Pending |
+| `memory_limit` | 256 MB (128 MB default baseline) | Pending |
+| `max_execution_time` | 30 s | Pending |
+| `upload_max_filesize` | 128 MB | Pending |
+| `post_max_size` | 128 MB | Pending |
+| OPcache / APCu | OPcache enabled; APCu disabled | Pending |
+| Document Root Configurable? | No (fixed to `public_html/`; Mode B fallback applies) | Pending |
+| Files Above `public_html`? | Yes (supported; code can sit one level above root) | Pending |
+| `.htaccess` ModRewrite & Headers | Yes (`mod_rewrite` and `Header` directives supported) | Pending |
+| Cron Available? | Yes (requires CLI binary `/opt/alt/php83/usr/bin/php` to match web PHP) | Pending |
+| Argon2id Available? | Supported in PHP 8.3; `sodium` disabled by default in hPanel (fix hint added) | Pending |
+| Process Management | `litespeed_finish_request()` supported (no `fastcgi_finish_request()`) | Pending |
+| Filesystem / Symlinks | `symlink()` is disabled; file swaps use atomic directory renames or copy | Pending |
 
 ---
 
 ## 4. Spike Measurements
 
-### Spike A: Storage Model Benchmark (50,000 Rows)
+### Spike A on Host A (Hostinger Live Benchmark)
+
+Benchmarked on live Hostinger shared hosting (LiteSpeed, PHP 8.3, MariaDB 10.11) with 50,000 post entries:
+
+1. **Unindexed JSON Path vs. Indexed Virtual Column:**
+   - Filtering on an unindexed JSON path (`data->>'$.custom_metric'`) on 50k rows took **313–365 ms** (table scan).
+   - Filtering on an indexed virtual generated column took **16–23 ms** (**PASS**).
+   - **Architectural Rule & Spec Change:** Filters and sorts are strictly accepted **only on system columns and indexed fields** (`is_filterable` or `is_sortable`). Unindexed JSON path filters are rejected with a 400 error advising the user to mark the field filterable.
+
+2. **Keyset / Cursor Pagination Predicate Form:**
+   - Keyset conditions written in SQL row-constructor form `(published_at, id) < (?, ?)` failed to use an index range scan on MariaDB (deep cursor scans took ~600 ms, failing to improve over offset).
+   - Keyset conditions written as the **expanded predicate form** `published_at < ? OR (published_at = ? AND id < ?)` enabled full index range scanning (< 3 ms flat).
+   - **Architectural Rule & Spec Change:** Keyset cursor conditions must always be emitted as `published_at < ? OR (published_at = ? AND id < ?)`.
+
+3. **Taxonomy Join & Descendants with Denormalised Sort Columns:**
+   - Standard `INNER JOIN bs_term_relationships` with `ORDER BY published_at DESC` caused MariaDB filesorts (160–280 ms).
+   - Denormalised sort columns `is_published TINYINT(1)` and `sort_at DATETIME(3)` on `bs_term_relationships` with composite index `ix_termrel_sorted (term_id, collection_id, is_published, sort_at, entry_id)`:
+     - Direct term query dropped from 60–71 ms down to **7–10 ms** (**PASS**).
+     - Subcategory / subtree descendants: Subtree term IDs are fetched by prefix on `terms.path`, then queried via `term_id IN (...)` on `ix_termrel_sorted` with `DISTINCT entry_id` and joined to posts by primary key, taking **7–10 ms** (**PASS**). This avoids the posts-first `EXISTS` form which took 52–62 ms.
+   - **Architectural Rule & Spec Change:** Denormalised `is_published` and `sort_at` added to `term_relationships` with index `ix_termrel_sorted`. Maintained inside the same transaction whenever an entry is published, unpublished, trashed, restored, or its `published_at` date changes.
+
+4. **ASCII Materialized Path:**
+   - `terms.path` and `terms.slug_path` declared `VARCHAR(...) CHARACTER SET ascii COLLATE ascii_bin NOT NULL`. Keeps index size compact and ensures fast byte-exact prefix matching (`path LIKE '/01.../%'`).
+
+5. **Runtime Quirks & Environment Handling:**
+   - `litespeed_finish_request()` supported for lazy background job processing after response flush.
+   - `sodium` extension is disabled by default on Hostinger; installer must detect and provide direct hPanel configuration hint (`hPanel > PHP Configuration > PHP Extensions`).
+   - `symlink()` is disabled on Hostinger; system updater must use atomic directory renames or copy with manifest, never symlinks.
+   - Cron command must detect and map the web PHP version to the CLI binary path (e.g. `/opt/alt/php83/usr/bin/php`), because default SSH `php` may differ.
+
+**Conclusion:** Spike A is **COMPLETE and ACCEPTED for Host A (Hostinger)**. Host B remains pending.
+
+---
+
+### Spike A: Local Reference Benchmark (50,000 Rows)
 
 Benchmarked on local reference environments (Docker containers configured with realistic shared-hosting buffer pools of 128 MB: `mysql:8.0.46` and `mariadb:10.6.28`). 50,000 posts with 2–5 KB JSON entries, 20 hierarchical categories, 10 tags, 10 authors, 100,000 term relationships.
 
@@ -227,4 +263,6 @@ Benchmarked on local reference environments (Docker containers configured with r
 ---
 
 ## 5. Open Issues & Tracking
-1. Awaiting shared-host account details from user to execute live deployment tests for Spikes A, B, and C.
+1. **Spike A:** Complete and accepted for Host A (Hostinger). Host B (Custom/Apache/MySQL) remains pending test account provisioning.
+2. **Spike B:** Stateless MCP server deferred to Phase 8 (step 8.0).
+3. **Spike C:** Astro build & deployment pipeline + `.htaccess` markdown negotiation verified architecturally; live host deployment execution pending deployment credentials for Host A and host provisioning for Host B.
