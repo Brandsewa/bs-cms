@@ -1,0 +1,71 @@
+# BS CMS Nginx Server Configuration Example
+# Place inside your nginx server block or include in conf.d/
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name cms.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name cms.example.com;
+
+    # SSL certificates
+    ssl_certificate /etc/letsencrypt/live/cms.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/cms.example.com/privkey.pem;
+
+    # Document root MUST point to core/public (Mode A)
+    root /var/www/bs-cms/core/public;
+    index index.php;
+
+    client_max_body_size 32M;
+
+    # Global security headers
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
+    # Deny dotfiles (.git, .env, etc.)
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Public media directory: strictly disable script execution
+    location /media/ {
+        location ~ \.(php|phtml|phar|sh|pl|py|cgi)$ {
+            deny all;
+        }
+        try_files $uri =404;
+    }
+
+    # Static admin SPA assets
+    location /admin/ {
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    # Front controller routing
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP-FPM FastCGI processing
+    location ~ \.php$ {
+        # Only allow index.php execution
+        if ($request_uri !~ "^/index\.php") {
+            return 404;
+        }
+
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param HTTP_PROXY "";
+        fastcgi_read_timeout 60s;
+    }
+}

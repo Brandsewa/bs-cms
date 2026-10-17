@@ -1,0 +1,33 @@
+# BS CMS Apache / LiteSpeed Front-Controller Configuration
+# Enforces clean routing, security headers, dotfile blocking, and PHP execution restriction.
+
+Options -Indexes
+Options -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Deny dotfiles (.git, .env, .htaccess, etc.)
+    RewriteRule (^\.|/\.) - [F,L]
+
+    # Block direct access to any PHP files except index.php
+    RewriteCond %{THE_REQUEST} \.php[/\s?] [NC]
+    RewriteCond %{REQUEST_URI} !^/index\.php$
+    RewriteRule .* - [F,L]
+
+    # If the requested file or directory physically exists in public/, serve it directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Route all other requests to front controller
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>

@@ -1,0 +1,25 @@
+# BS CMS Hardened Mode B Root .htaccess
+# Used when the shared host document root cannot be pointed to public/
+# and must reside at public_html/. Denies every path except public/, index.php, admin/, and media/.
+
+Options -Indexes
+Options -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Deny dotfiles (.env, .git, etc.)
+    RewriteRule (^\.|/\.) - [F,L]
+
+    # Explicitly deny access to private application directories
+    RewriteRule ^(storage|config|src|bin|migrations|resources|vendor|tests|tools)(\/|$) - [F,L]
+
+    # Allow direct access to physical public static assets in admin/ and media/
+    RewriteCond %{REQUEST_URI} ^/(admin|media)/ [NC]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Route all other requests through front controller
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
