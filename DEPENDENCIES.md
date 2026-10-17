@@ -15,6 +15,8 @@ This document tracks all third-party dependencies used in BS CMS. Any addition b
 | `phpmailer/phpmailer` | `^6.12.0` | LGPL-2.1-only | ~280 KB | Robust SMTP email delivery with TLS, header-injection protection. Unmodified dependency. |
 | `league/oauth2-server` | `^9.4.1` | MIT | ~180 KB | RFC-compliant OAuth 2.1 authorization server (PKCE, refresh rotation) for AI clients. Loaded only on `/oauth/*` and `/mcp`. |
 | `spomky-labs/otphp` | `^11.5.0` | MIT | ~25 KB | RFC 6238 TOTP two-factor authentication for user security. |
+| `psr/http-server-middleware` | `^1.0.2` | MIT | ~2 KB | Standard PSR-15 Middleware interface for HTTP request pipeline. |
+| `psr/log` | `^3.0.0` | MIT | ~3 KB | Standard PSR-3 Logger interface for FileLogger. |
 
 ---
 
