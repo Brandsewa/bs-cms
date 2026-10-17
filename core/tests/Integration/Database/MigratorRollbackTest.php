@@ -127,6 +127,7 @@ final class MigratorRollbackTest extends TestCase
 
         $rolledBack = $migrator->rollback();
         $this->assertSame([
+            'core:202610170003_seed_system_roles',
             'core:202610170002_create_auth_and_user_tables',
             'core:202610170001_create_core_tables',
         ], $rolledBack);
@@ -137,6 +138,7 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'core:202610170001_create_core_tables',
             'core:202610170002_create_auth_and_user_tables',
+            'core:202610170003_seed_system_roles',
         ], $again);
         $this->assertSame($expected, $this->tables());
     }
@@ -148,11 +150,12 @@ final class MigratorRollbackTest extends TestCase
 
         $preview = $migrator->rollback(1, true);
         $this->assertSame([
+            '[DRY-RUN] rollback core:202610170003_seed_system_roles',
             '[DRY-RUN] rollback core:202610170002_create_auth_and_user_tables',
             '[DRY-RUN] rollback core:202610170001_create_core_tables',
         ], $preview);
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(2, $migrator->getAppliedMigrations());
+        $this->assertCount(3, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackWithNothingAppliedReturnsEmptyList(): void
@@ -188,6 +191,7 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
+            'core:202610170003_seed_system_roles',
             'core:202610170002_create_auth_and_user_tables',
             'core:202610170001_create_core_tables',
         ], $second);
@@ -210,7 +214,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(2, $migrator->getAppliedMigrations());
+        $this->assertCount(3, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackRejectsInvalidStepCount(): void
