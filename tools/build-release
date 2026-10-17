@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# tools/build-release: Produces production-ready release zip: bs-cms-<version>.zip
+# Layout:
+# - core/ (src, config, migrations, resources, bin, composer.json)
+# - vendor/ installed with --no-dev --classmap-authoritative
+# - public/ (index.php, .htaccess, .htaccess-mode-b, media/.htaccess, admin/)
+# - empty storage/ directories (cache, logs, keys, tmp) with .gitkeep
+# Excludes: tests, node_modules, .git, dev configurations, docs.
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION="${1:-1.0.0}"
+BUILD_DIR="${REPO_ROOT}/build/release-staging"
+ZIP_NAME="bs-cms-${VERSION}.zip"
+RELEASE_ZIP="${REPO_ROOT}/build/${ZIP_NAME}"
+
+echo "Building BS CMS release ${VERSION}..."
+
+rm -rf "${REPO_ROOT}/build"
+mkdir -p "${BUILD_DIR}/core"
+mkdir -p "${BUILD_DIR}/public"
+mkdir -p "${BUILD_DIR}/storage/cache"
+mkdir -p "${BUILD_DIR}/storage/logs"
+mkdir -p "${BUILD_DIR}/storage/keys"
+mkdir -p "${BUILD_DIR}/storage/tmp"
+mkdir -p "${BUILD_DIR}/storage/uploads"
+
+# 1. Copy core application files
+echo "Copying core application files..."
+cp -r "${REPO_ROOT}/core/src" "${BUILD_DIR}/core/"
+cp -r "${REPO_ROOT}/core/config" "${BUILD_DIR}/core/"
+cp -r "${REPO_ROOT}/core/migrations" "${BUILD_DIR}/core/"
+cp -r "${REPO_ROOT}/core/bin" "${BUILD_DIR}/core/"
+cp "${REPO_ROOT}/core/composer.json" "${BUILD_DIR}/core/"
+
+# 2. Copy public directory files
+echo "Copying public assets..."
+cp -r "${REPO_ROOT}/core/public/"* "${BUILD_DIR}/public/"
+cp -r "${REPO_ROOT}/core/public/."* "${BUILD_DIR}/public/" 2>/dev/null || true
+
+# 3. Create .gitkeep in storage directories
+touch "${BUILD_DIR}/storage/cache/.gitkeep"
+touch "${BUILD_DIR}/storage/logs/.gitkeep"
+touch "${BUILD_DIR}/storage/keys/.gitkeep"
+touch "${BUILD_DIR}/storage/tmp/.gitkeep"
+touch "${BUILD_DIR}/storage/uploads/.gitkeep"
+
+# 4. Install production-only composer dependencies in staging
+echo "Installing production dependencies (--no-dev --classmap-authoritative)..."
+(
+    cd "${BUILD_DIR}/core"
+    composer install --no-dev --prefer-dist --no-progress --classmap-authoritative --optimize-autoloader
+)
+
+# 5. Create zip archive
+echo "Packaging ${RELEASE_ZIP}..."
+(
+    cd "${BUILD_DIR}"
+    zip -q -r "${RELEASE_ZIP}" .
+)
+
+# 6. Verify zip size and contents
+SIZE_BYTES=$(wc -c < "${RELEASE_ZIP}" | tr -d ' ')
+SIZE_MB=$(echo "scale=2; ${SIZE_BYTES} / 1048576" | bc -l 2>/dev/null || awk "BEGIN {printf \"%.2f\", ${SIZE_BYTES}/1048576}")
+echo "Release archive created: ${RELEASE_ZIP} (${SIZE_MB} MB)"
+
+# Check budget < 10 MB
+MAX_BYTES=$((10 * 1024 * 1024))
+if [ "${SIZE_BYTES}" -ge "${MAX_BYTES}" ]; then
+    echo "ERROR: Release zip size (${SIZE_MB} MB) exceeds 10 MB budget!"
+    exit 1
+fi
+
+# Check for banned dev artifacts
+echo "Checking for dev files inside release zip..."
+BANNED_FOUND=0
+unzip -l "${RELEASE_ZIP}" | grep -E "(phpunit|tests/|\.env|node_modules|phpstan|\.php-cs-fixer)" && BANNED_FOUND=1 || true
+
+if [ "${BANNED_FOUND}" -eq 1 ]; then
+    echo "ERROR: Development or test files detected in release package!"
+    exit 1
+fi
+
+echo "SUCCESS: BS CMS release ${VERSION} built and verified clean (${SIZE_MB} MB < 10 MB)."

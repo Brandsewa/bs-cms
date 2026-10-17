@@ -73,6 +73,24 @@ jobs:
         run: composer audit
         working-directory: core
 
+  release-build:
+    name: Build & Verify Release Zip
+    runs-on: ubuntu-latest
+    needs: [php-quality]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql, sodium, curl, fileinfo, zip
+          coverage: none
+
+      - name: Build release archive
+        run: bash tools/build-release 1.0.0-dev
+
   php-test-matrix:
     name: PHP ${{ matrix.php }} on ${{ matrix.db.name }} ${{ matrix.db.version }}
     runs-on: ubuntu-latest
