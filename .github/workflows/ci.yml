@@ -92,12 +92,12 @@ jobs:
         image: ${{ matrix.db.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bscms_test
           MARIADB_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bscms_test
           MARIADB_DATABASE: bscms_test
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=root" --health-interval=10s --health-timeout=5s --health-retries=5
+        options: --health-cmd="mariadb-admin ping -u root --password=root || mysqladmin ping -u root --password=root" --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
