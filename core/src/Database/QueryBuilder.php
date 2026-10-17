@@ -16,7 +16,7 @@ use InvalidArgumentException;
  * - Expanded keyset pagination predicate: `(published_at < ? OR (published_at = ? AND id < ?))`.
  * - Selective joins, limit, offset, and `forUpdate()`.
  */
-final class QueryBuilder
+class QueryBuilder
 {
     private Connection $connection;
     private string $table = '';
