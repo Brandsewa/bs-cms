@@ -1,0 +1,11 @@
+{
+  "name": "@bs/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo \"renderer lint pending\"",
+    "typecheck": "echo \"renderer typecheck pending\"",
+    "test": "echo \"renderer test pending\""
+  }
+}

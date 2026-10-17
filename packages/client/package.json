@@ -1,0 +1,11 @@
+{
+  "name": "@bs/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo \"client lint pending\"",
+    "typecheck": "echo \"client typecheck pending\"",
+    "test": "echo \"client test pending\""
+  }
+}

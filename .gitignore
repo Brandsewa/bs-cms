@@ -1,0 +1,41 @@
+# Dependencies
+/node_modules/
+/core/vendor/
+/.pnpm-store/
+
+# Storage and logs
+/core/storage/cache/*
+!/core/storage/cache/.gitkeep
+/core/storage/logs/*
+!/core/storage/logs/.gitkeep
+/core/storage/keys/*
+!/core/storage/keys/.gitkeep
+/core/storage/private/*
+!/core/storage/private/.gitkeep
+/core/storage/tmp/*
+!/core/storage/tmp/.gitkeep
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build outputs
+/dist/
+/admin/dist/
+/starter/dist/
+/.astro/
+/coverage/
+/tools/dist/
+
+# OS and Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.suo
+*.user

@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node Linters & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Node Lint
+        run: npm run lint
+
+      - name: Node Typecheck
+        run: npm run typecheck
+
+      - name: Node Tests
+        run: npm run test
+
+      - name: NPM Security Audit
+        run: npm audit --omit=dev
+
+  php-quality:
+    name: PHP Quality (CS, Stan, Audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql, sodium, curl, fileinfo, zip
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --strict
+        working-directory: core
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
+        working-directory: core
+
+      - name: PHP Coding Standards Check
+        run: composer cs
+        working-directory: core
+
+      - name: PHPStan Analysis
+        run: composer stan
+        working-directory: core
+
+      - name: Composer Security Audit
+        run: composer audit
+        working-directory: core
+
+  php-test-matrix:
+    name: PHP ${{ matrix.php }} on ${{ matrix.db.name }} ${{ matrix.db.version }}
+    runs-on: ubuntu-latest
+    needs: [php-quality]
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        db:
+          - { name: 'MySQL', image: 'mysql:8.0', version: '8.0' }
+          - { name: 'MySQL', image: 'mysql:8.4', version: '8.4' }
+          - { name: 'MariaDB', image: 'mariadb:10.6', version: '10.6' }
+          - { name: 'MariaDB', image: 'mariadb:10.11', version: '10.11' }
+          - { name: 'MariaDB', image: 'mariadb:11.4', version: '11.4' }
+    services:
+      database:
+        image: ${{ matrix.db.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bscms_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: bscms_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=root" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo_mysql, sodium, curl, fileinfo, zip, json, ctype, filter
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress
+        working-directory: core
+
+      - name: Run PHPUnit
+        run: composer test
+        working-directory: core
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: bscms_test
+          DB_USER: root
+          DB_PASS: root
