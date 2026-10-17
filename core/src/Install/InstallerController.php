@@ -213,17 +213,50 @@ final class InstallerController
 
         $csrfToken = $this->getOrCreateCsrfToken();
 
-        // Step 3: Confirmation form without echoing DB password
-        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Install BS CMS</title></head><body>';
-        $html .= '<h1>Database Connected & Verified</h1>';
+        // Step 3: Owner Account creation form without echoing DB password
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Create Owner Account - BS CMS</title>';
+        $html .= '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.5;}';
+        $html .= '.card{border:1px solid #e5e7eb;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;}';
+        $html .= 'input{width:100%;padding:0.5rem;margin:0.25rem 0 1rem;box-sizing:border-box;}';
+        $html .= 'button{background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;}';
+        $html .= '.pass{color:#15803d;font-weight:bold;}';
+        $html .= '</style></head><body>';
+        $html .= '<h1>Database Connected &amp; Verified</h1>';
         $html .= '<p>Server: ' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</p>';
         $html .= '<p>Database: <code>' . htmlspecialchars($dbname) . '</code> (Host: <code>' . htmlspecialchars($host) . '</code>, User: <code>' . htmlspecialchars($user) . '</code>)</p>';
         $html .= '<p>Site URL: <code>' . htmlspecialchars($siteUrl) . '</code></p>';
-        $html .= '<p>Private Path Security Probe: <span style="color:#15803d;font-weight:bold;">PASSED</span></p>';
+        $html .= '<p>Private Path Security Probe: <span class="pass">PASSED</span></p>';
+
+        $html .= '<div class="card"><h2>3. Create Owner Account</h2>';
+        $html .= '<p>The owner account holds irrevocable system administrator permissions.</p>';
         $html .= '<form method="POST" action="/install/execute">';
         $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
-        $html .= '<button type="submit" style="background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;">Run Migrations & Finish Installation</button>';
-        $html .= '</form></body></html>';
+        $html .= '<label>Owner Name: <input name="owner_name" value="Administrator" required></label>';
+        $html .= '<label>Owner Email: <input type="email" name="owner_email" placeholder="owner@example.com" required></label>';
+        $html .= '<label>Owner Password: <input type="password" name="owner_password" id="owner_password" required minlength="12" maxlength="256"></label>';
+        $html .= '<div id="strength-meter" style="margin-top:-0.5rem;margin-bottom:1rem;font-size:0.875rem;color:#4b5563;">Password policy: At least 12 characters. Common passwords are blocked.</div>';
+        $html .= '<button type="submit">Run Migrations &amp; Finish Installation</button>';
+        $html .= '</form>';
+        $html .= '<script>';
+        $html .= 'const pwd = document.getElementById("owner_password");';
+        $html .= 'const meter = document.getElementById("strength-meter");';
+        $html .= 'if (pwd && meter) {';
+        $html .= '  pwd.addEventListener("input", () => {';
+        $html .= '    const val = pwd.value;';
+        $html .= '    if (val.length === 0) {';
+        $html .= '      meter.textContent = "Password policy: At least 12 characters. Common passwords are blocked.";';
+        $html .= '      meter.style.color = "#4b5563";';
+        $html .= '    } else if (val.length < 12) {';
+        $html .= '      meter.textContent = "Too short (" + val.length + "/12 characters)";';
+        $html .= '      meter.style.color = "#b91c1c";';
+        $html .= '    } else {';
+        $html .= '      meter.textContent = "Length acceptable (" + val.length + " chars). Unique passphrase recommended.";';
+        $html .= '      meter.style.color = "#15803d";';
+        $html .= '    }';
+        $html .= '  });';
+        $html .= '}';
+        $html .= '</script>';
+        $html .= '</div></body></html>';
 
         return $this->htmlResponse(200, $html);
     }
@@ -243,6 +276,24 @@ final class InstallerController
         $probeResult = $this->probePrivatePaths($request);
         if (!$probeResult['passed']) {
             return $this->htmlResponse(403, '<h1>Security Probe Failed</h1><p>Private paths are exposed via HTTP. Installation aborted.</p>');
+        }
+
+        // Validate owner inputs
+        $ownerName = trim($body['owner_name'] ?? '');
+        $ownerEmail = trim($body['owner_email'] ?? '');
+        $ownerPassword = (string) ($body['owner_password'] ?? '');
+
+        if ($ownerName === '') {
+            return ProblemDetails::create(400, 'Bad Request', 'Owner name cannot be empty.')->toResponse();
+        }
+        if (!filter_var($ownerEmail, FILTER_VALIDATE_EMAIL)) {
+            return ProblemDetails::create(400, 'Bad Request', 'A valid owner email address is required.')->toResponse();
+        }
+
+        $hasher = new \BsCms\Auth\PasswordHasher();
+        $policyViolation = $hasher->validatePolicy($ownerPassword);
+        if ($policyViolation !== null) {
+            return ProblemDetails::create(400, 'Bad Request', $policyViolation)->toResponse();
         }
 
         // Read staging data from short-lived server-side file
@@ -299,19 +350,53 @@ final class InstallerController
         $migrator->registerNamespace('core', $this->rootDir . '/migrations');
         $migrator->migrate();
 
-        // 6. Write installed.lock
+        // 6. Create Owner User & Assign Owner Role
+        $userRepo = new \BsCms\Users\UserRepository($conn);
+        $roleRepo = new \BsCms\Users\RoleRepository($conn);
+
+        $ownerRole = $roleRepo->findByHandle('owner');
+        if ($ownerRole === null) {
+            throw new \RuntimeException("Seeded 'owner' role not found after migrations.");
+        }
+
+        $ownerId = $userRepo->create([
+            'email' => $ownerEmail,
+            'password_hash' => $hasher->hash($ownerPassword),
+            'name' => $ownerName,
+            'status' => 'active',
+            'email_verified_at' => null, // Email verification skipped until SMTP configured; banner shown
+        ], [$ownerRole['id']]);
+
+        // Record audit entry for installation
+        $auditLogger = new \BsCms\Audit\AuditLogger($conn);
+        $auditLogger->record(
+            \BsCms\Auth\Actor::system(),
+            'user.created',
+            'user',
+            "Initial owner account created during installation: {$ownerEmail}",
+            null,
+            'success',
+            null,
+            null,
+            null,
+            $ownerId
+        );
+
+        // 7. Write installed.lock
         file_put_contents($this->storageDir . '/installed.lock', Clock::sql(Clock::now()));
 
         // Clean up install CSRF token
         @unlink($this->storageDir . '/install_csrf.tmp');
 
-        // 7. Show completion screen with cron command
+        // 8. Show completion screen with cron command and owner confirmation
         $cliPhp = htmlspecialchars($config['app']['cli_php']);
         $cronLine = "* * * * * {$cliPhp} {$this->rootDir}/bin/bs jobs:run >> /dev/null 2>&1";
 
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Installation Complete</title></head><body>';
         $html .= '<h1>BS CMS Installed Successfully!</h1>';
-        $html .= '<p>Setup is complete. Add the following line to your host cron schedule:</p>';
+        $html .= '<p>Owner account <strong>' . htmlspecialchars($ownerEmail) . '</strong> created with role <strong>Owner</strong>.</p>';
+        $html .= '<p><em>Note: Email verification is deferred until SMTP is configured in Settings.</em></p>';
+        $html .= '<p>Add the following line to your host cron schedule:</p>';
         $html .= '<pre style="background:#f3f4f6;padding:1rem;border-radius:4px;">' . htmlspecialchars($cronLine) . '</pre>';
         $html .= '<p><a href="/admin">Go to Admin Dashboard</a></p>';
         $html .= '</body></html>';

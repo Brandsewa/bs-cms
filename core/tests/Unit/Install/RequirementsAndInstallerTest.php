@@ -105,4 +105,79 @@ final class RequirementsAndInstallerTest extends TestCase
         $this->assertStringContainsString('Site URL (Admin & API Base)', $body);
         $this->assertStringContainsString('name="site_url"', $body);
     }
+
+    public function testExecuteRejectsEmptyOwnerNameWith400(): void
+    {
+        $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
+        $csrfToken = 'test_csrf_token_123';
+        file_put_contents($this->tempStorageDir . '/install_csrf.tmp', $csrfToken);
+
+        $request = (new ServerRequest('POST', '/install/execute'))
+            ->withParsedBody([
+                '_csrf' => $csrfToken,
+                'owner_name' => '',
+                'owner_email' => 'admin@example.com',
+                'owner_password' => 'CorrectHorseBatteryStaple2026!',
+            ]);
+
+        $response = $installer->handle($request);
+        $this->assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        $this->assertSame('Owner name cannot be empty.', $body['detail']);
+    }
+
+    public function testExecuteRejectsInvalidOwnerEmailWith400(): void
+    {
+        $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
+        $csrfToken = 'test_csrf_token_123';
+        file_put_contents($this->tempStorageDir . '/install_csrf.tmp', $csrfToken);
+
+        $request = (new ServerRequest('POST', '/install/execute'))
+            ->withParsedBody([
+                '_csrf' => $csrfToken,
+                'owner_name' => 'Owner',
+                'owner_email' => 'not-an-email',
+                'owner_password' => 'CorrectHorseBatteryStaple2026!',
+            ]);
+
+        $response = $installer->handle($request);
+        $this->assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        $this->assertSame('A valid owner email address is required.', $body['detail']);
+    }
+
+    public function testExecuteRejectsWeakOrCommonPasswordWith400(): void
+    {
+        $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
+        $csrfToken = 'test_csrf_token_123';
+        file_put_contents($this->tempStorageDir . '/install_csrf.tmp', $csrfToken);
+
+        // Less than 12 characters
+        $request = (new ServerRequest('POST', '/install/execute'))
+            ->withParsedBody([
+                '_csrf' => $csrfToken,
+                'owner_name' => 'Owner',
+                'owner_email' => 'admin@example.com',
+                'owner_password' => 'short123',
+            ]);
+
+        $response = $installer->handle($request);
+        $this->assertSame(400, $response->getStatusCode());
+        $body = json_decode((string) $response->getBody(), true);
+        $this->assertStringContainsString('at least 12 characters', $body['detail']);
+
+        // Common password
+        $request2 = (new ServerRequest('POST', '/install/execute'))
+            ->withParsedBody([
+                '_csrf' => $csrfToken,
+                'owner_name' => 'Owner',
+                'owner_email' => 'admin@example.com',
+                'owner_password' => 'unbelievable',
+            ]);
+
+        $response2 = $installer->handle($request2);
+        $this->assertSame(400, $response2->getStatusCode());
+        $body2 = json_decode((string) $response2->getBody(), true);
+        $this->assertStringContainsString('too common', $body2['detail']);
+    }
 }
