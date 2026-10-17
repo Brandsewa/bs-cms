@@ -16,7 +16,7 @@ use RuntimeException;
  * Encrypts `is_secret` values with Crypto (libsodium secretbox),
  * caches non-secret settings per request and in CacheInterface.
  */
-final class SettingsRepository
+class SettingsRepository
 {
     private Connection $connection;
     private ?Crypto $crypto;
