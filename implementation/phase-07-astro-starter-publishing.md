@@ -3,6 +3,9 @@
 **Goal:** a fast static starter site built from CMS content, a reliable publish-to-live pipeline that works with shared hosting, draft preview, and every discoverability output (SEO, GEO/AEO, agentic indexing, crawler policy) on by default and safe for production.
 **Depends on:** Phase 4 (API data) and Phase 6 for admin screens of this phase. **Specs:** `docs/04-crawlers-and-discoverability.md` (all), `docs/05-editor.md` section 4, Phase 0 Spike C decision.
 
+## 7.0 Gate: finish Spike C first (deferred from Phase 0)
+Before other Phase 7 work, run Spike C from `phase-00-foundations.md` section 0.5 on the Hostinger test site: a minimal Astro build deployed by GitHub Actions over SFTP (`lftp mirror -R` or rsync over SSH, not `FTP-Deploy-Action`, which has no SFTP support), the CMS status callback, measured publish-to-live time for a 200-page site, and the `.htaccess` `Accept: text/markdown` negotiation on LiteSpeed. Record results in `NOTES.md`; if LiteSpeed does not honour the rewrite, choose and document an alternative before building 7.3.
+
 ## 7.1 Migrations
 `deployments`, `preview_tokens`, `build_tokens`, `crawler_policy_versions`, `index_notifications`, `bot_log` (DDL in `docs/01-data-model.md` sections 6 and "Publishing pipeline tables").
 
