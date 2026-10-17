@@ -95,4 +95,22 @@ final class BudgetTest extends TestCase
         $this->assertLessThan(10.0, $p50, "p50 boot time ({$p50} ms) exceeds 10 ms budget");
         $this->assertLessThan(20.0, $p95, "p95 boot time ({$p95} ms) exceeds 20 ms budget");
     }
+
+    public function testArgon2idPasswordHashAndVerifyLatencyBudget(): void
+    {
+        $hasher = new \BsCms\Auth\PasswordHasher();
+        $times = [];
+        for ($i = 0; $i < 5; $i++) {
+            $start = microtime(true);
+            $hash = $hasher->hash('PassphraseBudgetTest2026!');
+            $hasher->verify('PassphraseBudgetTest2026!', $hash);
+            $times[] = (microtime(true) - $start) * 1000;
+        }
+
+        sort($times);
+        $p95 = $times[4];
+
+        // Login budget per spec 2.10: login request < 300 ms p95 including Argon2id
+        $this->assertLessThan(300.0, $p95, "Argon2id hash+verify p95 ({$p95} ms) exceeds 300 ms budget");
+    }
 }

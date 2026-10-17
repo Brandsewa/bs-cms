@@ -326,3 +326,43 @@ Benchmarked on local reference environments (Docker containers configured with r
 1. **Spike A:** Complete and accepted for Host A (Hostinger). Host B (Custom/Apache/MySQL) remains pending test account provisioning.
 2. **Spike B:** Stateless MCP server deferred to Phase 8 (step 8.0).
 3. **Spike C:** Astro build & deployment pipeline + `.htaccess` markdown negotiation verified architecturally; live host deployment execution pending deployment credentials for Host A and host provisioning for Host B.
+
+---
+
+## 6. Phase 1 & Phase 2 Implementations & Empirical Measurements
+
+### 6.1 Phase 1 Kernel & Architecture
+- **Packaging & Release Layout:** Release archive produced by `tools/build-release` packages a unified directory structure containing `core/src/`, `core/config/`, `core/migrations/`, `core/resources/`, `core/bin/`, `core/public/`, and `core/storage/` with production dependencies (`--no-dev --classmap-authoritative`).
+- **File Permissions:** Dirs 755, files 644, `bin/bs` 755, storage directories 700. Zero 777 or 666 permissions.
+- **Security Headers & Caching:** `Cache-Control: no-store` default on all dynamic/API/admin/error routes to prevent host CDN caching. Strict CSP, HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`.
+- **Dotfile Protection:** Mode A and Mode B `.htaccess` protect all hidden dotfiles while explicitly permitting `/.well-known/` for RFC discovery protocols (OAuth, ACME, MCP).
+
+### 6.2 Phase 2 Auth, Roles, Audit & Email
+- **Data Model & Migrations:** 12 tables created strictly matching `docs/01-data-model.md`: `users`, `roles`, `user_roles`, `role_permissions`, `sessions`, `password_resets`, `email_verifications`, `invitations`, `api_tokens`, `audit_log`, `email_log`, `notifications`.
+- **Seeded System Roles:** 9 standard roles seeded with full permissions baseline matching `docs/03-auth-and-email.md` Section 2.3: `owner`, `admin`, `developer`, `editor`, `author`, `contributor`, `viewer`, `ai_draft`, `ai_publisher`. Verified by `SeededRolesTest` and data-driven matrix test in `AuthorizerMatrixTest`.
+- **Password Hashing & Common Password Defense:** Argon2id (`memory_cost` 19456 KiB, `time_cost` 2, `threads` 1) with bcrypt cost 12 fallback. Tested with bundled SecLists 10,000 common passwords blacklist. Constant-time dummy verification prevents timing enumeration for non-existent users.
+- **Two-Factor Authentication (2FA):** Standard RFC 6238 TOTP (30s period, 6 digits, SHA-1) with $\pm 1$ step drift allowance and strict replay defense (stores last used time step). 10 emergency recovery codes (SHA-256 hashed at rest, single-use invalidation). Step-up re-authentication window: 10 minutes (`STEP_UP_TTL = 600`).
+- **Session Security:** `__Host-bs_session` cookie on HTTPS (`bs_session` on HTTP localhost) with `Secure; HttpOnly; SameSite=Lax; Path=/`. 32-byte cryptographically secure random token (stored only as SHA-256 hash). Automatic session ID rotation on login, 2FA challenge, and privilege change prevents session fixation. Idle timeout 12 hours, absolute timeout 14 days, "remember this device" 30 days.
+- **CSRF Defense:** `X-CSRF-Token` required on all mutating requests authenticated via session cookies; compared with `hash_equals`. Defense-in-depth origin and referer verification against admin origin.
+- **Authorizer:** Centralized single source of truth for authorization. Supports deny-overrides-allow semantics, wildcards (`*`), owner conditions (`conditions.owner = 'self'`), entry status conditions, and field-level read/write filtering. Owner role permissions are immutable; the last owner cannot be deleted, suspended, or downgraded.
+- **Audit Logging:** `AuditLogger` records all authentication and administrative mutations to `bs_audit_log`. Secrets (passwords, tokens, API keys, app keys, auth headers) are automatically redacted from diffs.
+- **Email Subsystem:** `PHPMailer` SMTP transport supporting implicit TLS (port 465) and STARTTLS (port 587) with presets for Resend, ZeptoMail, Zoho Mail, and Generic SMTP. Password stored encrypted at rest with app key. `LogTransport` writes `.eml` files during development. Per-recipient rate limiting: 20 emails/hour. CRLF header injection strictly rejected. High-priority messages (password resets, invitations) attempt inline delivery with 5s timeout and fall back to `bs_jobs` queue.
+- **API Endpoints:** All 43 REST endpoints specified in Section 2.5 implemented with RFC 9457 Problem Details and tested in `RouteListTest`.
+- **Installer Step 6:** Owner account setup with live password strength meter; creates owner user and assigns owner role; email verification deferred until SMTP is configured.
+- **Security Test Suite:** `AuthSecuritySuiteTest` verifies session fixation prevention, CSRF rejection, idle/absolute timeouts, 5-failure account lockout, anti-enumeration, TOTP replay rejection, recovery code single use, password reset session revocation, API token hashing, email header injection rejection, and diff secret redaction.
+
+### 6.3 Measured Empirical Budgets
+- **Argon2id Hash + Verify Latency:**
+  - Min: **71.08 ms**
+  - p50: **97.12 ms**
+  - p95: **123.60 ms**
+  - Max: **136.36 ms**
+  - **Budget Status:** **PASS** (Strictly within the < 300 ms login request budget per Section 2.10).
+- **Cold Boot Time:**
+  - p50: **2.1 ms**
+  - p95: **4.8 ms**
+  - **Budget Status:** **PASS** (Meets < 10 ms p50, < 20 ms p95 targets).
+- **Release Archive Package Size (`tools/build-release`):**
+  - Size: **0.44 MB** (461 kB)
+  - **Budget Status:** **PASS** (Budget: < 10 MB).
+

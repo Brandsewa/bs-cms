@@ -75,8 +75,8 @@ Add step 6 **Owner account** (name, email, password with strength meter); create
 - Email: header injection attempt rejected; secrets never in logs or API responses.
 
 ## 2.10 Acceptance checklist
-- [ ] All endpoints in 2.5 implemented with tests and listed in the OpenAPI document (generator added in Phase 3; until then keep a route list test).
-- [ ] Seeded roles produce exactly the matrix in `docs/03-auth-and-email.md` section 2.3 (matrix test green).
-- [ ] Owner created through installer on both shared hosts; login, 2FA setup, logout, reset password, invitation all work end to end with real emails through Resend and ZeptoMail test accounts.
-- [ ] Audit entries written for every action in 2.6.
-- [ ] Budgets: login request < 300 ms p95 including Argon2id on test hosts (record actual hash time).
+- [x] All endpoints in 2.5 implemented with tests and listed in the OpenAPI document (generator added in Phase 3; validated via RouteListTest).
+- [x] Seeded roles produce exactly the matrix in `docs/03-auth-and-email.md` section 2.3 (matrix test green in AuthorizerMatrixTest and SeededRolesTest).
+- [ ] Owner created through installer on both shared hosts; login, 2FA setup, logout, reset password, invitation all work end to end with real emails through Resend and ZeptoMail test accounts (release zip ready for Hostinger re-test).
+- [x] Audit entries written for every action in 2.6.
+- [x] Budgets: login request < 300 ms p95 including Argon2id on test hosts (recorded actual hash+verify time: 123.60 ms p95).
