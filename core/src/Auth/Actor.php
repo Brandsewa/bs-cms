@@ -15,6 +15,7 @@ final class Actor
     public const TYPE_API_TOKEN = 'api_token';
     public const TYPE_SYSTEM = 'system';
     public const TYPE_PLUGIN = 'plugin';
+    public const TYPE_ANONYMOUS = 'anonymous';
 
     public const AI_MODE_DRAFT_ONLY = 'draft_only';
     public const AI_MODE_APPROVAL_REQUIRED = 'approval_required';
@@ -39,6 +40,18 @@ final class Actor
             type: self::TYPE_SYSTEM,
             id: 'system',
             label: 'System Kernel',
+            onBehalfOf: null,
+            roleIds: [],
+            aiMode: null
+        );
+    }
+
+    public static function anonymous(): self
+    {
+        return new self(
+            type: self::TYPE_ANONYMOUS,
+            id: 'anonymous',
+            label: 'Anonymous Visitor',
             onBehalfOf: null,
             roleIds: [],
             aiMode: null

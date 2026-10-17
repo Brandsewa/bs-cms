@@ -177,6 +177,47 @@ final class AuditLogger
     }
 
     /**
+     * Find an audit entry by its primary key ID.
+     */
+    public function findById(int $id): ?AuditEntry
+    {
+        $table = $this->connection->prefixTable('audit_log');
+        $stmt = $this->connection->getPdo()->prepare("SELECT * FROM `{$table}` WHERE `id` = :id");
+        $stmt->execute(['id' => $id]);
+        /** @var array<string, mixed>|false $r */
+        $r = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($r === false) {
+            return null;
+        }
+
+        $diff = null;
+        if (!empty($r['diff'])) {
+            /** @var array<string, mixed>|null $diff */
+            $diff = is_string($r['diff']) ? json_decode($r['diff'], true) : (array) $r['diff'];
+        }
+
+        return new AuditEntry(
+            id: (int) $r['id'],
+            requestId: (string) $r['request_id'],
+            actorType: (string) $r['actor_type'],
+            actorId: $r['actor_id'] !== null ? (string) $r['actor_id'] : null,
+            actorLabel: $r['actor_label'] !== null ? (string) $r['actor_label'] : null,
+            onBehalfOf: $r['on_behalf_of'] !== null ? (string) $r['on_behalf_of'] : null,
+            action: (string) $r['action'],
+            subjectType: (string) $r['subject_type'],
+            subjectId: $r['subject_id'] !== null ? (string) $r['subject_id'] : null,
+            collectionKey: $r['collection_key'] !== null ? (string) $r['collection_key'] : null,
+            summary: $r['summary'] !== null ? (string) $r['summary'] : null,
+            diff: $diff,
+            ip: $r['ip'] !== null ? (string) $r['ip'] : null,
+            userAgent: $r['user_agent'] !== null ? (string) $r['user_agent'] : null,
+            result: (string) $r['result'],
+            createdAt: new \DateTimeImmutable((string) $r['created_at'])
+        );
+    }
+
+    /**
      * Prune audit log entries older than specified retention period (default 180 days).
      */
     public function prune(int $retentionDays = 180): int

@@ -24,4 +24,21 @@ final class Permission
         public readonly ?array $conditions = null
     ) {
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'role_id' => $this->roleId,
+            'subject_type' => $this->subjectType,
+            'subject_key' => $this->subjectKey,
+            'action' => $this->action,
+            'effect' => $this->effect,
+            'fields' => $this->fields,
+            'conditions' => $this->conditions,
+        ];
+    }
 }
