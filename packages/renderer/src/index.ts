@@ -5,11 +5,13 @@
 
 export interface TiptapMark {
   type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tiptap mark attributes schema is dynamic JSON values
   attrs?: Record<string, any>;
 }
 
 export interface TiptapNode {
   type: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tiptap node attributes schema is dynamic JSON values
   attrs?: Record<string, any>;
   content?: TiptapNode[];
   text?: string;

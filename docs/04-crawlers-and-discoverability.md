@@ -55,7 +55,9 @@ Purposes: `search_engine`, `ai_search`, `user_agent` (user-triggered), `training
 | Google-Extended | Google | training (control token) | **Disallow** | n/a (token only) | secondary |
 | Applebot-Extended | Apple | training (control token) | Disallow | n/a | unverified |
 | CCBot | Common Crawl | training | Disallow | vendor docs | unverified |
-| Meta-ExternalAgent, Bytespider, cohere-ai | various | training | Disallow | vendor docs | unverified |
+| Meta-ExternalAgent | Meta | training | Disallow | `developers.facebook.com/docs/sharing/webmasters/web-crawlers/` | **unverified** (documented under Web Crawlers, no standalone policy) |
+| Bytespider | ByteDance | training | Disallow | No official vendor crawler docs on bytedance.com | **unverified** |
+| cohere-ai | Cohere | training | Disallow | No official vendor crawler docs on cohere.com | **unverified** |
 
 Rules:
 - A row marked "Allow, locked" cannot be changed except via the Private preset with a type-to-confirm dialog.

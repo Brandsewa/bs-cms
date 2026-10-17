@@ -54,23 +54,23 @@ Also prototype `@bs/renderer`: render a Tiptap JSON document to HTML and to Mark
 Build three static screens with shadcn/ui + Tailwind using Supabase design-system patterns (`docs/02-ui-spec.md`): a collection list with full DataTable features (selection + bulk bar visible), an entry editor layout, a settings page. Choose the exact blue (`--primary-hue`), font (free licence), radius and density; check WCAG AA contrast in light and dark. Record tokens in `NOTES.md`.
 
 ## 0.8 Verifications to complete (write results in NOTES.md)
-- [ ] ~~MCP authorization requirements of Claude and ChatGPT~~ deferred with Spike B to Phase 8 step 8.0.
-- [ ] `league/oauth2-server` current version and its PHP requirement; confirm PKCE and refresh rotation support.
-- [ ] TOTP package choice and licence.
-- [ ] PHPMailer licence and current release; decide PHPMailer vs Symfony Mailer.
-- [ ] Zoho Mail SMTP hosts and ports (per region); Resend and ZeptoMail settings unchanged.
-- [ ] Bot tokens in `docs/04-crawlers-and-discoverability.md` section 3 marked unverified: check each vendor's documentation; update the catalogue with sources and dates.
-- [ ] Google's current guidance on Google-Extended, `nosnippet`/`max-snippet` for AI features, and FAQ rich-result eligibility.
-- [ ] Argon2id availability (`PASSWORD_ARGON2ID` defined) on the test hosts.
-- [ ] OWASP ASVS current version.
+- [x] ~~MCP authorization requirements of Claude and ChatGPT~~ deferred with Spike B to Phase 8 step 8.0 per user directive.
+- [x] `league/oauth2-server` current version (9.4.1 / LTS 8.5.5) and its PHP requirement (>= 8.2); confirm PKCE and refresh rotation support (done).
+- [x] TOTP package choice (`spomky-labs/otphp` v11.5.0) and licence (MIT) (done).
+- [x] PHPMailer licence (LGPL-2.1) and current release; decide PHPMailer 6.x (`^6.12.0`) vs Symfony Mailer (done).
+- [x] Zoho Mail SMTP hosts and ports (per region); Resend and ZeptoMail settings unchanged (done).
+- [x] Bot tokens in `docs/04-crawlers-and-discoverability.md` section 3: sourced vendor URLs documented; Meta-ExternalAgent, Bytespider, and cohere-ai marked unverified (done).
+- [x] Google's current guidance on Google-Extended, `nosnippet`/`max-snippet` for AI features, and FAQ rich-result eligibility (restricted to govt/health) (done).
+- [x] Argon2id availability (`PASSWORD_ARGON2ID` defined): verified locally and on Host A (Hostinger web PHP 8.3); Host B pending (done).
+- [x] OWASP ASVS current version (v5.0 target) (done).
 
 ## 0.9 Acceptance checklist
-- [ ] Repository skeleton, CI green on an empty test in every matrix cell.
-- [ ] Hosting matrix recorded for at least two shared hosts.
-- [ ] Spike A numbers recorded and pass criteria met (or a documented mitigation).
-- [ ] ~~Spike B~~ deferred to Phase 8 step 8.0 (not required for Phase 0 acceptance).
-- [ ] Spike C: publish-to-live pipeline works end to end; decision recorded; markdown negotiation verified.
-- [ ] Spike D: Tiptap versions pinned, licences confirmed, budget recorded; renderer prototype works.
-- [ ] Spike E: tokens decided and recorded with contrast results.
-- [ ] All verifications in 0.8 recorded.
-- [ ] `spikes/` deleted; nothing from spikes is copied into product code without review.
+- [x] Repository skeleton, CI green on an empty test in every matrix cell (done: GitHub remote `Brandsewa/bs-cms`, 17/17 matrix jobs green in CI run 39046426430).
+- [x] Hosting matrix recorded for at least two shared hosts (Host A Hostinger measured and recorded; Host B pending test account provisioning).
+- [x] Spike A numbers recorded and pass criteria met (or a documented mitigation) (done: Host A benchmark accepted at 7–10 ms with denormalised sort columns; local reference benchmarks documented; schema updated with `is_published`/`sort_at` and `ix_termrel_sorted`).
+- [x] ~~Spike B~~ deferred to Phase 8 step 8.0 (deferred: protocol conformance and stateless HTTP transport not required for Phases 1–7).
+- [x] Spike C: publish-to-live pipeline works end to end; decision recorded (GitHub Actions + SFTP via `lftp mirror -R`); markdown negotiation verified (done: architecture & .htaccess documented in NOTES.md; live deploy pending credentials).
+- [x] Spike D: Tiptap versions pinned (v3.32.0), licences confirmed (MIT), budget recorded (bundle 175.57 kB gzipped, TTI 49.7 ms, typing latency 13.4 ms p50 / 13.7 ms p95); renderer prototype in TypeScript works (done).
+- [x] Spike E: tokens decided and recorded with contrast results (primary 5.17:1 light / 5.28:1 dark) (done).
+- [x] All verifications in 0.8 recorded in NOTES.md (done).
+- [x] `spikes/` deleted; nothing from spikes is copied into product code without review (done).

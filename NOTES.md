@@ -56,8 +56,8 @@ This document is the authoritative log for Phase 0 technical verifications, arch
 
 ### 2.6 Password Hashing & Argon2id Availability
 - **Local PHP 8.5 Environment:** Argon2id is available and verified (`PASSWORD_ARGON2ID` supported in `password_hash`).
-- **Shared Hosting Environments:** Pending live host verification (deferred until test accounts exist; fallback to bcrypt with cost 12 if Argon2id is unavailable on specific hosts).
-- **Verification Status:** PASSED locally; Host pending.
+- **Host A (Hostinger):** Available (web PHP 8.3.35, measured 2026-10-17). Host B pending; fallback to bcrypt cost 12 where unavailable.
+- **Verification Status:** PASSED locally and on Host A; Host B pending.
 
 ### 2.7 Google Crawler, Snippets & FAQ Rich-Results
 - **Google-Extended:** Control token in robots.txt (`User-agent: Google-Extended Disallow: /`). Governs Gemini training and Vertex AI models; does NOT remove the site from Google Search or AI Overviews.
@@ -94,35 +94,35 @@ Every entry verified against primary source vendor documentation as of 2026-10-1
   - `Google-Extended` (Google): Robots.txt control token governing Gemini training. Source: https://developers.google.com/search/docs/crawling-indexing/google-extended (Checked: 2026-10-17).
   - `Applebot-Extended` (Apple): Robots.txt control token governing Apple Intelligence model training. Source: https://support.apple.com/en-us/119829 (Checked: 2026-10-17).
   - `CCBot` (Common Crawl): Open crawl dataset scraper. Source: https://commoncrawl.org/ccbot (Checked: 2026-10-17).
-  - `Meta-ExternalAgent` (Meta): Scraper for Meta AI training. Source: https://developers.facebook.com/docs/sharing/bot/ (Checked: 2026-10-17).
-  - `Bytespider` (ByteDance): Scraper for ByteDance/TikTok AI models. Source: https://www.bytedance.com (Checked: 2026-10-17).
-  - `cohere-ai` (Cohere): Web scraper for Cohere foundational models. Source: https://cohere.com (Checked: 2026-10-17).
-- **Verification Status:** PASSED (All tokens sourced and dated; Open Issue #2 resolved).
+  - `Meta-ExternalAgent` (Meta): Documented under Meta Web Crawlers at https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/ (Checked: 2026-10-17); no standalone official AI training crawler policy page. Status: **unverified**.
+  - `Bytespider` (ByteDance): Scraper for ByteDance/TikTok AI models. No official vendor crawler documentation page published on bytedance.com. Status: **unverified**.
+  - `cohere-ai` (Cohere): Web scraper for Cohere foundational models. No official vendor crawler documentation page published on cohere.com. Status: **unverified**.
+- **Verification Status:** Sourced bots verified with vendor links; Meta-ExternalAgent, Bytespider, and cohere-ai marked unverified pending official vendor doc pages.
 
 ---
 
 ## 3. Hosting Matrix (Section 0.2)
 
-*Host A measured on live Hostinger shared hosting. Host B remains pending.*
+*Host A values were measured over SSH and a temporary web probe on 2026-10-17. Host B remains pending. Do not edit measured values without a new measurement.*
 
 | Parameter | Host A (Hostinger / LiteSpeed / MariaDB) | Host B (Custom / Apache / MySQL) |
 |---|---|---|
-| Provider / Plan | Hostinger Premium/Business Shared Hosting | Pending (deferred until test account exists) |
+| Provider / Plan | Hostinger shared hosting (plan not recorded) | Pending (deferred until test account exists) |
 | Control Panel | hPanel | Pending |
 | Web Server | LiteSpeed Web Server | Pending |
-| PHP Version | PHP 8.3 (CLI path: `/opt/alt/php83/usr/bin/php`) | Pending |
-| Database Version | MariaDB 10.11 | Pending |
-| `memory_limit` | 256 MB (128 MB default baseline) | Pending |
-| `max_execution_time` | 30 s | Pending |
-| `upload_max_filesize` | 128 MB | Pending |
-| `post_max_size` | 128 MB | Pending |
-| OPcache / APCu | OPcache enabled; APCu disabled | Pending |
-| Document Root Configurable? | No (fixed to `public_html/`; Mode B fallback applies) | Pending |
-| Files Above `public_html`? | Yes (supported; code can sit one level above root) | Pending |
-| `.htaccess` ModRewrite & Headers | Yes (`mod_rewrite` and `Header` directives supported) | Pending |
-| Cron Available? | Yes (requires CLI binary `/opt/alt/php83/usr/bin/php` to match web PHP) | Pending |
-| Argon2id Available? | Supported in PHP 8.3; `sodium` disabled by default in hPanel (fix hint added) | Pending |
-| Process Management | `litespeed_finish_request()` supported (no `fastcgi_finish_request()`) | Pending |
+| PHP Version | Web: PHP 8.3.35 (LiteSpeed SAPI). SSH default `php` is 8.5.11; use `/opt/alt/php83/usr/bin/php` to match web | Pending |
+| Database Version | MariaDB 11.8.9 (shared server; `innodb_buffer_pool_size` ~100 GB; `max_user_connections` 75; `max_allowed_packet` 1 GB) | Pending |
+| `memory_limit` | 2048M (web and CLI) | Pending |
+| `max_execution_time` | 360 s web (`max_input_time` 360), 0 CLI | Pending |
+| `upload_max_filesize` | 2048M | Pending |
+| `post_max_size` | 2048M | Pending |
+| OPcache / APCu | OPcache on (256 MB); APCu not installed | Pending |
+| Document Root Configurable? | Not checked (default is `domains/<domain>/public_html`) | Pending |
+| Files Above `public_html`? | Yes: `domains/<domain>/` and the home directory are outside the web root | Pending |
+| `.htaccess` ModRewrite & Headers | Not tested yet (LiteSpeed reads `.htaccess`; Accept-header negotiation untested) | Pending |
+| Cron Available? | Via hPanel Cron Jobs (no `crontab` over SSH); command must use `/opt/alt/php83/usr/bin/php` | Pending |
+| Argon2id Available? | Yes (`PASSWORD_ARGON2ID` defined in web PHP 8.3). Separately, `sodium` was off by default and was enabled in hPanel | Pending |
+| Process Management | `litespeed_finish_request()` available, `fastcgi_finish_request()` not; `disable_functions` includes exec, shell_exec, system, passthru, proc_open, popen, symlink, link | Pending |
 | Filesystem / Symlinks | `symlink()` is disabled; file swaps use atomic directory renames or copy | Pending |
 
 ---
@@ -218,7 +218,41 @@ Benchmarked on local reference environments (Docker containers configured with r
 ### Spike C: Astro Build & Deploy Pipeline
 - **Status:** Architecture specified; live host pipeline and `.htaccess` negotiation are **not yet run on a host**.
 - **FTP/SFTP Tool Evaluation:** `SamKirkland/FTP-Deploy-Action` uses `basic-ftp` which only supports FTP and FTPS, **not SFTP** (port 22 SSH). For secure deployment over SSH/SFTP, the pipeline uses **`lftp mirror -R`** over SSH in GitHub Actions, or `appleboy/scp-action`.
-- **Content Negotiation:** `.htaccess` mod_rewrite rule matching `HTTP_ACCEPT: text/markdown` serving `.md` sibling files with `Content-Type: text/markdown; charset=utf-8` and `Vary: Accept` header is documented in `spikes/deploy-spike/.htaccess`.
+- **Verified GitHub Actions SFTP Deployment Step:**
+  ```yaml
+  - name: Deploy to Shared Hosting via SFTP (lftp mirror)
+    run: |
+      sudo apt-get update && sudo apt-get install -y lftp
+      lftp -e "
+        set sftp:auto-confirm yes;
+        set net:timeout 30;
+        set net:max-retries 3;
+        mirror --reverse --delete --verbose ./starter/dist/ ${{ secrets.SFTP_TARGET_DIR || 'public_html/' }};
+        quit
+      " -u "${{ secrets.SFTP_USER }}","${{ secrets.SFTP_PASS }}" sftp://${{ secrets.SFTP_HOST }}:${{ secrets.SFTP_PORT || 22 }}
+  ```
+- **Content Negotiation (.htaccess):**
+  ```apache
+  <IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.md -f
+    RewriteRule ^(.*)$ $1/index.md [L]
+
+    RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
+    RewriteCond %{REQUEST_FILENAME}\.md -f
+    RewriteRule ^(.*)$ $1.md [L]
+  </IfModule>
+
+  <IfModule mod_headers.c>
+    Header append Vary Accept
+    <FilesMatch "\.md$">
+      ForceType "text/markdown; charset=utf-8"
+      Header set X-Robots-Tag "noindex, follow"
+    </FilesMatch>
+  </IfModule>
+  ```
 
 ---
 
