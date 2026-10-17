@@ -27,9 +27,9 @@
 
 # Build outputs
 /dist/
+/build/
 /admin/dist/
 /starter/dist/
-/.astro/
 /coverage/
 /tools/dist/
 

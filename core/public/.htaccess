@@ -8,7 +8,8 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Deny dotfiles (.git, .env, .htaccess, etc.)
+    # Deny dotfiles (.git, .env, .htaccess, etc.) except for /.well-known/ (required for ACME and discovery)
+    RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
     RewriteRule (^\.|/\.) - [F,L]
 
     # Block direct access to any PHP files except index.php

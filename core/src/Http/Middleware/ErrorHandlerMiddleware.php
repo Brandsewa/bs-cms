@@ -42,7 +42,7 @@ final class ErrorHandlerMiddleware implements MiddlewareInterface
             ]);
 
             $debug = $this->env->isDebug();
-            return ProblemDetails::fromException($e, (string) $request->getUri()->getPath(), $debug)->toResponse();
+            return ProblemDetails::fromException($e, $requestId, $debug)->toResponse();
         }
     }
 }

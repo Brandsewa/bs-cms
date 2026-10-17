@@ -2,11 +2,15 @@
 set -euo pipefail
 
 # tools/build-release: Produces production-ready release zip: bs-cms-<version>.zip
-# Layout:
-# - core/ (src, config, migrations, resources, bin, composer.json)
-# - vendor/ installed with --no-dev --classmap-authoritative
-# - public/ (index.php, .htaccess, .htaccess-mode-b, media/.htaccess, admin/)
-# - empty storage/ directories (cache, logs, keys, tmp) with .gitkeep
+# Layout matching repository core/ directory:
+# - core/src/
+# - core/config/
+# - core/migrations/
+# - core/bin/
+# - core/public/ (index.php, .htaccess, .htaccess-mode-b, media/.htaccess, admin/)
+# - core/storage/ (cache/, logs/, keys/, tmp/, uploads/ with .gitkeep)
+# - core/vendor/ (installed with --no-dev --classmap-authoritative)
+# - core/composer.json
 # Excludes: tests, node_modules, .git, dev configurations, docs.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,13 +22,12 @@ RELEASE_ZIP="${REPO_ROOT}/build/${ZIP_NAME}"
 echo "Building BS CMS release ${VERSION}..."
 
 rm -rf "${REPO_ROOT}/build"
-mkdir -p "${BUILD_DIR}/core"
-mkdir -p "${BUILD_DIR}/public"
-mkdir -p "${BUILD_DIR}/storage/cache"
-mkdir -p "${BUILD_DIR}/storage/logs"
-mkdir -p "${BUILD_DIR}/storage/keys"
-mkdir -p "${BUILD_DIR}/storage/tmp"
-mkdir -p "${BUILD_DIR}/storage/uploads"
+mkdir -p "${BUILD_DIR}/core/public"
+mkdir -p "${BUILD_DIR}/core/storage/cache"
+mkdir -p "${BUILD_DIR}/core/storage/logs"
+mkdir -p "${BUILD_DIR}/core/storage/keys"
+mkdir -p "${BUILD_DIR}/core/storage/tmp"
+mkdir -p "${BUILD_DIR}/core/storage/uploads"
 
 # 1. Copy core application files
 echo "Copying core application files..."
@@ -34,17 +37,17 @@ cp -r "${REPO_ROOT}/core/migrations" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/bin" "${BUILD_DIR}/core/"
 cp "${REPO_ROOT}/core/composer.json" "${BUILD_DIR}/core/"
 
-# 2. Copy public directory files
+# 2. Copy public directory files into core/public/
 echo "Copying public assets..."
-cp -r "${REPO_ROOT}/core/public/"* "${BUILD_DIR}/public/"
-cp -r "${REPO_ROOT}/core/public/."* "${BUILD_DIR}/public/" 2>/dev/null || true
+cp -r "${REPO_ROOT}/core/public/"* "${BUILD_DIR}/core/public/"
+cp -r "${REPO_ROOT}/core/public/."* "${BUILD_DIR}/core/public/" 2>/dev/null || true
 
 # 3. Create .gitkeep in storage directories
-touch "${BUILD_DIR}/storage/cache/.gitkeep"
-touch "${BUILD_DIR}/storage/logs/.gitkeep"
-touch "${BUILD_DIR}/storage/keys/.gitkeep"
-touch "${BUILD_DIR}/storage/tmp/.gitkeep"
-touch "${BUILD_DIR}/storage/uploads/.gitkeep"
+touch "${BUILD_DIR}/core/storage/cache/.gitkeep"
+touch "${BUILD_DIR}/core/storage/logs/.gitkeep"
+touch "${BUILD_DIR}/core/storage/keys/.gitkeep"
+touch "${BUILD_DIR}/core/storage/tmp/.gitkeep"
+touch "${BUILD_DIR}/core/storage/uploads/.gitkeep"
 
 # 4. Install production-only composer dependencies in staging
 echo "Installing production dependencies (--no-dev --classmap-authoritative)..."
@@ -55,10 +58,37 @@ echo "Installing production dependencies (--no-dev --classmap-authoritative)..."
 
 # 5. Create zip archive
 echo "Packaging ${RELEASE_ZIP}..."
-(
-    cd "${BUILD_DIR}"
-    zip -q -r "${RELEASE_ZIP}" .
-)
+if command -v zip >/dev/null 2>&1; then
+    (
+        cd "${BUILD_DIR}"
+        zip -q -r "${RELEASE_ZIP}" .
+    )
+else
+    php -r '
+        $dir = $argv[1];
+        $zipFile = $argv[2];
+        $zip = new ZipArchive();
+        if ($zip->open($zipFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            fwrite(STDERR, "Cannot create zip: $zipFile\n");
+            exit(1);
+        }
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($files as $file) {
+            $filePath = $file->getRealPath();
+            $relativePath = substr($filePath, strlen(realpath($dir)) + 1);
+            $relativePath = str_replace("\\", "/", $relativePath);
+            if ($file->isDir()) {
+                $zip->addEmptyDir($relativePath);
+            } else {
+                $zip->addFile($filePath, $relativePath);
+            }
+        }
+        $zip->close();
+    ' "${BUILD_DIR}" "${RELEASE_ZIP}"
+fi
 
 # 6. Verify zip size and contents
 SIZE_BYTES=$(wc -c < "${RELEASE_ZIP}" | tr -d ' ')
@@ -75,7 +105,24 @@ fi
 # Check for banned dev artifacts
 echo "Checking for dev files inside release zip..."
 BANNED_FOUND=0
-unzip -l "${RELEASE_ZIP}" | grep -E "(phpunit|tests/|\.env|node_modules|phpstan|\.php-cs-fixer)" && BANNED_FOUND=1 || true
+if command -v unzip >/dev/null 2>&1; then
+    unzip -l "${RELEASE_ZIP}" | grep -E "(phpunit|tests/|\.env|node_modules|phpstan|\.php-cs-fixer)" && BANNED_FOUND=1 || true
+else
+    php -r '
+        $zip = new ZipArchive();
+        if ($zip->open($argv[1]) !== true) { exit(1); }
+        $banned = false;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (preg_match("/(phpunit|tests\/|\.env|node_modules|phpstan|\.php-cs-fixer)/", $name)) {
+                echo "Banned entry found: $name\n";
+                $banned = true;
+            }
+        }
+        $zip->close();
+        exit($banned ? 1 : 0);
+    ' "${RELEASE_ZIP}" || BANNED_FOUND=1
+fi
 
 if [ "${BANNED_FOUND}" -eq 1 ]; then
     echo "ERROR: Development or test files detected in release package!"

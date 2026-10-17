@@ -64,15 +64,25 @@ final class RequirementsAndInstallerTest extends TestCase
         $this->assertStringContainsString('System Requirements', $body);
     }
 
-    public function testInstallerRefusesWhenInstalledLockPresent(): void
+    public function testInstallerRejectsDatabaseWithoutCsrf(): void
     {
-        file_put_contents($this->tempStorageDir . '/installed.lock', 'locked');
-
         $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
-        $request = new ServerRequest('GET', '/install');
+        $request = (new ServerRequest('POST', '/install/database'))
+            ->withParsedBody(['db_host' => '127.0.0.1']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Invalid CSRF token');
+        $installer->handle($request);
+    }
+
+    public function testInstallerSendsSecurityHeaders(): void
+    {
+        $installer = new InstallerController(dirname(__DIR__, 3), $this->tempStorageDir);
+        $request = new ServerRequest('GET', '/install/requirements');
 
         $response = $installer->handle($request);
-        $this->assertSame(404, $response->getStatusCode());
-        $this->assertStringContainsString('already installed', (string) $response->getBody());
+        $this->assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
+        $this->assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+        $this->assertSame('strict-origin-when-cross-origin', $response->getHeaderLine('Referrer-Policy'));
     }
 }

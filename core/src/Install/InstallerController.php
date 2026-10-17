@@ -8,6 +8,7 @@ use BsCms\Database\Connection;
 use BsCms\Database\Migrator;
 use BsCms\Security\Crypto;
 use BsCms\Security\HttpClient;
+use BsCms\Security\Random;
 use BsCms\Support\Clock;
 use BsCms\Support\Json;
 use Nyholm\Psr7\Response;
@@ -16,7 +17,13 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
 /**
- * Minimal server-rendered HTML installer controller (no JS framework).
+ * Minimal server-rendered HTML installer controller.
+ * Enforces:
+ * - CSRF token generation and validation on every form.
+ * - Standard security headers sent on all responses.
+ * - HTML-escaping of all values, errors, and exceptions.
+ * - Automatic HTTP private-path self-probe before installation (Mode A / Mode B validation).
+ * - Writing app key to storage/keys/app.key (referenced by config.php).
  */
 final class InstallerController
 {
@@ -40,9 +47,7 @@ final class InstallerController
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         if ($this->isInstalled()) {
-            $resp = new Response(404, ['Content-Type' => 'text/html; charset=utf-8']);
-            $resp->getBody()->write('<h1>404 Not Found</h1><p>BS CMS is already installed.</p>');
-            return $resp;
+            return $this->htmlResponse(404, '<h1>404 Not Found</h1><p>BS CMS is already installed.</p>');
         }
 
         $path = $request->getUri()->getPath();
@@ -50,10 +55,6 @@ final class InstallerController
 
         if ($path === '/install' || $path === '/install/' || $path === '/install/requirements') {
             return $this->showRequirements($request);
-        }
-
-        if ($path === '/install/probe' && $method === 'POST') {
-            return $this->runPathProbe($request);
         }
 
         if ($path === '/install/database' && $method === 'POST') {
@@ -64,9 +65,7 @@ final class InstallerController
             return $this->executeInstallation($request);
         }
 
-        $resp = new Response(404, ['Content-Type' => 'text/html; charset=utf-8']);
-        $resp->getBody()->write('<h1>404 Not Found</h1>');
-        return $resp;
+        return $this->htmlResponse(404, '<h1>404 Not Found</h1>');
     }
 
     public function showRequirements(ServerRequestInterface $request): ResponseInterface
@@ -74,6 +73,7 @@ final class InstallerController
         $isHttps = $request->getUri()->getScheme() === 'https';
         $checks = Requirements::check($this->storageDir, $isHttps);
         $cliPhp = Requirements::detectCliPhpBinary();
+        $csrfToken = $this->getOrCreateCsrfToken();
 
         $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>BS CMS Web Installer</title>';
         $html .= '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.5;}';
@@ -85,35 +85,34 @@ final class InstallerController
         $html .= '<h1>BS CMS Setup</h1>';
 
         $html .= '<div class="card"><h2>1. System Requirements</h2><ul>';
-        $html .= "<li>PHP Version: <span class=\"{$checks['php_version']['status']}\">{$checks['php_version']['current']}</span></li>";
-        $html .= "<li>Storage Writable: <span class=\"{$checks['storage_writable']['status']}\">" . ($checks['storage_writable']['writable'] ? 'Yes' : 'No') . '</span></li>';
+        $html .= '<li>PHP Version: <span class="' . htmlspecialchars($checks['php_version']['status']) . '">' . htmlspecialchars($checks['php_version']['current']) . '</span></li>';
+        $html .= '<li>Storage Writable: <span class="' . htmlspecialchars($checks['storage_writable']['status']) . '">' . ($checks['storage_writable']['writable'] ? 'Yes' : 'No') . '</span></li>';
 
         foreach ($checks['extensions'] as $ext => $res) {
             $statusText = $res['loaded'] ? 'Loaded' : ($res['required'] ? 'Missing (Required)' : 'Missing (Optional)');
-            $html .= "<li>Extension {$ext}: <span class=\"{$res['status']}\">{$statusText}</span>";
+            $html .= '<li>Extension ' . htmlspecialchars($ext) . ': <span class="' . htmlspecialchars($res['status']) . '">' . htmlspecialchars($statusText) . '</span>';
             if ($res['hint'] !== null) {
-                $html .= "<br><small style=\"color:#6b7280;\">{$res['hint']}</small>";
+                $html .= '<br><small style="color:#6b7280;">' . htmlspecialchars($res['hint']) . '</small>';
             }
             $html .= '</li>';
         }
         $html .= '</ul>';
 
-        $html .= "<h3>CLI PHP Detection</h3><p>Detected PHP binary: <code>{$cliPhp['path']}</code> ({$cliPhp['type']})</p>";
+        $html .= '<h3>CLI PHP Detection</h3><p>Detected PHP binary: <code>' . htmlspecialchars($cliPhp['path']) . '</code> (' . htmlspecialchars($cliPhp['type']) . ')</p>';
         if ($cliPhp['warning'] !== null) {
-            $html .= "<p class=\"warn\"><small>{$cliPhp['warning']}</small></p>";
+            $html .= '<p class="warn"><small>' . htmlspecialchars($cliPhp['warning']) . '</small></p>';
         }
         $html .= '</div>';
 
         if (!$checks['can_install']) {
             $html .= '<p class="fail">Please resolve the requirements above to continue installation.</p></body></html>';
-            $resp = new Response(200, ['Content-Type' => 'text/html; charset=utf-8']);
-            $resp->getBody()->write($html);
-            return $resp;
+            return $this->htmlResponse(200, $html);
         }
 
-        // Database form
+        // Database form with CSRF
         $html .= '<div class="card"><h2>2. Database Configuration</h2>';
         $html .= '<form method="POST" action="/install/database">';
+        $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
         $html .= '<label>DB Host: <input name="db_host" value="127.0.0.1" required></label>';
         $html .= '<label>DB Port: <input name="db_port" value="3306" required></label>';
         $html .= '<label>DB Name: <input name="db_name" required></label>';
@@ -126,49 +125,31 @@ final class InstallerController
 
         $html .= '</body></html>';
 
-        $resp = new Response(200, ['Content-Type' => 'text/html; charset=utf-8']);
-        $resp->getBody()->write($html);
-        return $resp;
-    }
-
-    public function runPathProbe(ServerRequestInterface $request): ResponseInterface
-    {
-        $baseUri = (string) $request->getUri()->withPath('');
-        $privatePaths = ['/storage/.probe', '/config/app.php', '/vendor/autoload.php', '/.env'];
-        $vulnerable = [];
-
-        // Check if private files can be retrieved via HTTP
-        $httpClient = new HttpClient(2, 4096, 0);
-
-        foreach ($privatePaths as $path) {
-            try {
-                $targetUrl = rtrim($baseUri, '/') . $path;
-                // Probe only if host is resolvable public or local
-                $res = $httpClient->get($targetUrl);
-                if ($res['status'] === 200) {
-                    $vulnerable[] = $path;
-                }
-            } catch (Throwable $e) {
-                // Connection or SSRF rejection confirms file is not publicly served
-            }
-        }
-
-        if (!empty($vulnerable)) {
-            $msg = 'Private paths are accessible via HTTP: ' . implode(', ', $vulnerable) . '. Please ensure document root is set to public/ (Mode A) or apply Mode B .htaccess.';
-            $resp = new Response(400, ['Content-Type' => 'application/json']);
-            $resp->getBody()->write(Json::encode(['status' => 'fail', 'message' => $msg]));
-            return $resp;
-        }
-
-        $resp = new Response(200, ['Content-Type' => 'application/json']);
-        $resp->getBody()->write(Json::encode(['status' => 'pass']));
-        return $resp;
+        return $this->htmlResponse(200, $html);
     }
 
     public function processDatabase(ServerRequestInterface $request): ResponseInterface
     {
         /** @var array<string, string> $body */
         $body = (array) $request->getParsedBody();
+
+        // 1. Verify CSRF
+        $this->verifyCsrf($body['_csrf'] ?? null);
+
+        // 2. Perform automated private-path probe
+        $probeResult = $this->probePrivatePaths($request);
+        if (!$probeResult['passed']) {
+            $errorHtml = '<h1>Security Violation: Private Files Exposed</h1>';
+            $errorHtml .= '<p>The automated private-path probe discovered that private files are accessible via HTTP:</p>';
+            $errorHtml .= '<ul>';
+            foreach ($probeResult['exposed'] as $exposedPath) {
+                $errorHtml .= '<li><code>' . htmlspecialchars($exposedPath) . '</code></li>';
+            }
+            $errorHtml .= '</ul>';
+            $errorHtml .= '<p>Installation cannot proceed until private directories are protected. Please point your document root to <code>public/</code> (Mode A) or apply Mode B hardened <code>.htaccess</code>.</p>';
+            $errorHtml .= '<p><a href="/install">Back to Setup</a></p>';
+            return $this->htmlResponse(403, $errorHtml);
+        }
 
         $host = $body['db_host'] ?? '127.0.0.1';
         $port = (int) ($body['db_port'] ?? 3306);
@@ -188,21 +169,24 @@ final class InstallerController
                 'prefix' => $prefix,
             ]);
 
-            // Test privileges
+            // Test privileges: CREATE and DROP table
             $testTable = $conn->prefixTable('install_test');
             $conn->getPdo()->exec("CREATE TABLE IF NOT EXISTS `{$testTable}` (`id` INT) ENGINE=InnoDB;");
             $conn->getPdo()->exec("DROP TABLE IF EXISTS `{$testTable}`;");
         } catch (Throwable $e) {
-            $resp = new Response(400, ['Content-Type' => 'text/html; charset=utf-8']);
-            $resp->getBody()->write("<h1>Database Test Failed</h1><p>{$e->getMessage()}</p><p><a href=\"/install\">Back</a></p>");
-            return $resp;
+            $msg = htmlspecialchars($e->getMessage());
+            return $this->htmlResponse(400, "<h1>Database Connection Failed</h1><p>{$msg}</p><p><a href=\"/install\">Back</a></p>");
         }
 
-        // Render step 3: Execution trigger
-        $html = '<!DOCTYPE html><html><head><title>Install BS CMS</title></head><body>';
-        $html .= '<h1>Database Connected Successfully</h1>';
+        $csrfToken = $this->getOrCreateCsrfToken();
+
+        // Step 3: Confirmation form
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Install BS CMS</title></head><body>';
+        $html .= '<h1>Database Connected & Verified</h1>';
         $html .= '<p>Server: ' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</p>';
+        $html .= '<p>Private Path Security Probe: <span style="color:#15803d;font-weight:bold;">PASSED</span></p>';
         $html .= '<form method="POST" action="/install/execute">';
+        $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
         $html .= '<input type="hidden" name="db_host" value="' . htmlspecialchars($host) . '">';
         $html .= '<input type="hidden" name="db_port" value="' . htmlspecialchars((string) $port) . '">';
         $html .= '<input type="hidden" name="db_name" value="' . htmlspecialchars($dbname) . '">';
@@ -210,12 +194,10 @@ final class InstallerController
         $html .= '<input type="hidden" name="db_password" value="' . htmlspecialchars($pass) . '">';
         $html .= '<input type="hidden" name="db_prefix" value="' . htmlspecialchars($prefix) . '">';
         $html .= '<input type="hidden" name="cli_php" value="' . htmlspecialchars($cliPhp) . '">';
-        $html .= '<button type="submit">Run Migrations & Finish Installation</button>';
+        $html .= '<button type="submit" style="background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;">Run Migrations & Finish Installation</button>';
         $html .= '</form></body></html>';
 
-        $resp = new Response(200, ['Content-Type' => 'text/html; charset=utf-8']);
-        $resp->getBody()->write($html);
-        return $resp;
+        return $this->htmlResponse(200, $html);
     }
 
     public function executeInstallation(ServerRequestInterface $request): ResponseInterface
@@ -223,6 +205,25 @@ final class InstallerController
         /** @var array<string, string> $body */
         $body = (array) $request->getParsedBody();
 
+        // 1. Verify CSRF
+        $this->verifyCsrf($body['_csrf'] ?? null);
+
+        // 2. Perform automated private-path probe again to guarantee safety
+        $probeResult = $this->probePrivatePaths($request);
+        if (!$probeResult['passed']) {
+            return $this->htmlResponse(403, '<h1>Security Probe Failed</h1><p>Private paths are exposed via HTTP. Installation aborted.</p>');
+        }
+
+        // 3. Generate app key and write to storage/keys/app.key
+        $keysDir = $this->storageDir . '/keys';
+        if (!is_dir($keysDir)) {
+            @mkdir($keysDir, 0750, true);
+        }
+        $appKey = Crypto::generateKey();
+        file_put_contents($keysDir . '/app.key', $appKey);
+        @chmod($keysDir . '/app.key', 0600);
+
+        // 4. Write storage/config.php
         $config = [
             'database' => [
                 'host' => $body['db_host'] ?? '127.0.0.1',
@@ -233,39 +234,121 @@ final class InstallerController
                 'prefix' => $body['db_prefix'] ?? 'bs_',
             ],
             'app' => [
-                'key' => Crypto::generateKey(),
+                'key_file' => 'keys/app.key',
+                'key' => $appKey,
                 'environment' => 'production',
                 'debug' => false,
                 'cli_php' => $body['cli_php'] ?? 'php',
             ],
         ];
 
-        // 1. Write storage/config.php
         $configContent = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
         file_put_contents($this->storageDir . '/config.php', $configContent);
         @chmod($this->storageDir . '/config.php', 0600);
 
-        // 2. Connect and run migrations
+        // 5. Connect and run migrations
         $conn = new Connection($config['database']);
         $migrator = new Migrator($conn);
         $migrator->registerNamespace('core', $this->rootDir . '/migrations');
         $migrator->migrate();
 
-        // 3. Write installed.lock
+        // 6. Write installed.lock
         file_put_contents($this->storageDir . '/installed.lock', Clock::sql(Clock::now()));
 
-        // Cron instruction
-        $cliPhp = $config['app']['cli_php'];
+        // Clean up install CSRF token
+        @unlink($this->storageDir . '/install_csrf.tmp');
+
+        // 7. Show completion screen with cron command
+        $cliPhp = htmlspecialchars($config['app']['cli_php']);
         $cronLine = "* * * * * {$cliPhp} {$this->rootDir}/bin/bs jobs:run >> /dev/null 2>&1";
 
-        $html = '<!DOCTYPE html><html><head><title>Installation Complete</title></head><body>';
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Installation Complete</title></head><body>';
         $html .= '<h1>BS CMS Installed Successfully!</h1>';
         $html .= '<p>Setup is complete. Add the following line to your host cron schedule:</p>';
         $html .= '<pre style="background:#f3f4f6;padding:1rem;border-radius:4px;">' . htmlspecialchars($cronLine) . '</pre>';
         $html .= '<p><a href="/admin">Go to Admin Dashboard</a></p>';
         $html .= '</body></html>';
 
-        $resp = new Response(200, ['Content-Type' => 'text/html; charset=utf-8']);
+        return $this->htmlResponse(200, $html);
+    }
+
+    /**
+     * Run HTTP probe checking private paths.
+     *
+     * @return array{passed: bool, exposed: list<string>}
+     */
+    public function probePrivatePaths(ServerRequestInterface $request): array
+    {
+        $uri = $request->getUri();
+        $scheme = $uri->getScheme() !== '' ? $uri->getScheme() : 'http';
+        $host = $uri->getHost() !== '' ? $uri->getHost() : '127.0.0.1';
+        $port = $uri->getPort();
+        $base = $scheme . '://' . $host . ($port !== null ? ':' . $port : '');
+
+        $paths = ['/storage/.probe', '/config/app.php', '/vendor/autoload.php', '/.env'];
+        $exposed = [];
+
+        // Write temporary probe file into storage
+        $probeFile = $this->storageDir . '/.probe';
+        file_put_contents($probeFile, 'bs_cms_probe_test');
+
+        try {
+            // Check each path
+            $client = new HttpClient(2, 4096, 0);
+            foreach ($paths as $path) {
+                try {
+                    $url = $base . $path;
+                    $resp = $client->get($url);
+                    if ($resp['status'] === 200) {
+                        $exposed[] = $path;
+                    }
+                } catch (Throwable $e) {
+                    // Refused or blocked confirms path is not reachable
+                }
+            }
+        } finally {
+            @unlink($probeFile);
+        }
+
+        return [
+            'passed' => empty($exposed),
+            'exposed' => $exposed,
+        ];
+    }
+
+    private function getOrCreateCsrfToken(): string
+    {
+        $tokenFile = $this->storageDir . '/install_csrf.tmp';
+        if (is_file($tokenFile)) {
+            $token = trim((string) file_get_contents($tokenFile));
+            if ($token !== '') {
+                return $token;
+            }
+        }
+
+        $token = Random::hex(32);
+        file_put_contents($tokenFile, $token);
+        return $token;
+    }
+
+    private function verifyCsrf(?string $submittedToken): void
+    {
+        $expected = $this->getOrCreateCsrfToken();
+        if ($submittedToken === null || !hash_equals($expected, $submittedToken)) {
+            throw new \RuntimeException('Invalid CSRF token. Please refresh the setup page and try again.');
+        }
+    }
+
+    private function htmlResponse(int $status, string $html): ResponseInterface
+    {
+        $resp = new Response($status, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
+            'X-Robots-Tag' => 'noindex, nofollow',
+        ]);
         $resp->getBody()->write($html);
         return $resp;
     }

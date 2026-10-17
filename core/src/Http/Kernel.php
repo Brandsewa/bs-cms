@@ -75,6 +75,16 @@ final class Kernel implements RequestHandlerInterface
 
         // Health check endpoint
         if ($path === '/health') {
+            if ($method !== 'GET') {
+                $requestId = (string) $request->getAttribute('request_id', 'unknown');
+                return ProblemDetails::create(
+                    405,
+                    'Method Not Allowed',
+                    "Method '{$method}' is not allowed for '/health'.",
+                    'https://errors.bscms.org/method-not-allowed',
+                    $requestId
+                )->toResponse()->withHeader('Allow', 'GET');
+            }
             return JsonResponse::create(['status' => 'ok']);
         }
 

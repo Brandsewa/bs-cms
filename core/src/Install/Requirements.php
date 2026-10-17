@@ -87,7 +87,9 @@ final class Requirements
         }
 
         foreach (self::RECOMMENDED_EXTENSIONS as $ext) {
-            $loaded = extension_loaded($ext);
+            $loaded = $ext === 'opcache'
+                ? (extension_loaded('Zend OPcache') || extension_loaded('opcache'))
+                : extension_loaded($ext);
             $extResults[$ext] = [
                 'status' => $loaded ? 'pass' : 'warn',
                 'loaded' => $loaded,

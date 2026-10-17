@@ -70,6 +70,15 @@ final class Config
             $items = Arr::mergeRecursive($items, $envOverrides);
         }
 
+        // 5. If key_file is specified, load key from storage/keys/app.key
+        if ($storageConfig !== null && !empty($items['app']['key_file']) && empty($items['app']['key'])) {
+            $storageDir = dirname($storageConfig);
+            $keyPath = $storageDir . '/' . ltrim((string) $items['app']['key_file'], '/');
+            if (is_file($keyPath)) {
+                $items['app']['key'] = trim((string) file_get_contents($keyPath));
+            }
+        }
+
         return new self($items);
     }
 

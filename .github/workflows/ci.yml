@@ -91,6 +91,34 @@ jobs:
       - name: Build release archive
         run: bash tools/build-release 1.0.0-dev
 
+      - name: Verify release zip with php -S server
+        run: |
+          mkdir -p /tmp/bs-cms-test
+          unzip -q build/bs-cms-1.0.0-dev.zip -d /tmp/bs-cms-test
+          cd /tmp/bs-cms-test/core
+          # Start background built-in PHP web server serving from core/public
+          php -S 127.0.0.1:8888 -t public > /tmp/php-server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+
+          # 1. Test /health returns 200 and {"status":"ok"}
+          HEALTH_RESP=$(curl -s -i http://127.0.0.1:8888/health)
+          echo "$HEALTH_RESP"
+          echo "$HEALTH_RESP" | grep -q "200 OK"
+          echo "$HEALTH_RESP" | grep -q '{"status":"ok"}'
+          echo "$HEALTH_RESP" | grep -q "RateLimit-Limit"
+
+          # 2. Test /health with POST returns 405 Method Not Allowed
+          POST_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:8888/health)
+          test "$POST_HEALTH" -eq 405
+
+          # 3. Test /install returns 200 setup page
+          INSTALL_RESP=$(curl -s -i http://127.0.0.1:8888/install)
+          echo "$INSTALL_RESP" | grep -q "200 OK"
+          echo "$INSTALL_RESP" | grep -q "BS CMS Setup"
+
+          kill $SERVER_PID
+
   php-test-matrix:
     name: PHP ${{ matrix.php }} on ${{ matrix.db.name }} ${{ matrix.db.version }}
     runs-on: ubuntu-latest

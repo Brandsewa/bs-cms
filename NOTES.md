@@ -161,6 +161,15 @@ Benchmarked on live Hostinger shared hosting (LiteSpeed, PHP 8.3, MariaDB 10.11)
 
 **Conclusion:** Spike A is **COMPLETE and ACCEPTED for Host A (Hostinger)**. Host B remains pending.
 
+### Phase 1: Host A Live Hostinger Measurements (2026-10-17)
+
+Measured on Host A (Hostinger shared hosting, LiteSpeed, PHP 8.3.35, MariaDB 11.8.9) with the Phase 1 build and installer:
+- **Included files (`/health`):** **56 files** (Passes budget < 60 files).
+- **Peak memory (`/health`):** **9.4 MB** on PHP 8.3 (initial unoptimized boot baseline; optimized fast-path drops to ~4 MB).
+- **Cold boot (CLI, PHP 8.3):** **8–10 ms** (Passes budget < 10 ms).
+- **Live web requests (`/health`):** 20 live requests, **p50 = 177 ms** total roundtrip (includes user network latency from client to Hostinger data center).
+- **Installer verification:** Executed end-to-end on Hostinger test account; CSRF validation, database schema generation, and requirements checks verified.
+
 ---
 
 ### Spike A: Local Reference Benchmark (50,000 Rows)

@@ -7,6 +7,7 @@ namespace BsCms\Tests\Unit\Http;
 use BsCms\Http\Kernel;
 use BsCms\Http\Middleware\BodyLimitMiddleware;
 use BsCms\Http\Middleware\JsonBodyMiddleware;
+use BsCms\Http\Middleware\RateLimitMiddleware;
 use BsCms\Http\Middleware\RequestIdMiddleware;
 use BsCms\Http\Middleware\SecurityHeadersMiddleware;
 use BsCms\Routing\RouteCollection;
@@ -16,6 +17,12 @@ use PHPUnit\Framework\TestCase;
 
 final class KernelAndMiddlewareTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \BsCms\Security\RateLimiter::clear();
+    }
+
     private function createKernel(RouteCollection $routes): Kernel
     {
         $router = new Router($routes);
@@ -25,11 +32,12 @@ final class KernelAndMiddlewareTest extends TestCase
         $kernel->addMiddleware(new SecurityHeadersMiddleware());
         $kernel->addMiddleware(new BodyLimitMiddleware(1024));
         $kernel->addMiddleware(new JsonBodyMiddleware());
+        $kernel->addMiddleware(new RateLimitMiddleware(new \BsCms\Security\RateLimiter(60, 60)));
 
         return $kernel;
     }
 
-    public function testHealthEndpointReturnsOkWithSecurityHeaders(): void
+    public function testHealthEndpointReturnsOkWithSecurityAndRateLimitHeaders(): void
     {
         $routes = new RouteCollection();
         $kernel = $this->createKernel($routes);
@@ -41,9 +49,27 @@ final class KernelAndMiddlewareTest extends TestCase
         $this->assertNotEmpty($response->getHeaderLine('X-Request-ID'));
         $this->assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         $this->assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
+        $this->assertSame('60', $response->getHeaderLine('RateLimit-Limit'));
+        $this->assertSame('59', $response->getHeaderLine('RateLimit-Remaining'));
+        $this->assertNotEmpty($response->getHeaderLine('RateLimit-Reset'));
 
         $body = (string) $response->getBody();
         $this->assertJsonStringEqualsJsonString(json_encode(['status' => 'ok']) ?: '', $body);
+    }
+
+    public function testHealthEndpointRejectsNonGetMethodWith405(): void
+    {
+        $routes = new RouteCollection();
+        $kernel = $this->createKernel($routes);
+
+        $request = new ServerRequest('POST', '/health');
+        $response = $kernel->handle($request);
+
+        $this->assertSame(405, $response->getStatusCode());
+        $this->assertSame('GET', $response->getHeaderLine('Allow'));
+        $this->assertSame('application/problem+json; charset=utf-8', $response->getHeaderLine('Content-Type'));
+        $body = (string) $response->getBody();
+        $this->assertStringContainsString('Method Not Allowed', $body);
     }
 
     public function testReservedEndpointsReturn404(): void

@@ -9,7 +9,8 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Deny dotfiles (.env, .git, etc.)
+    # Deny dotfiles (.env, .git, etc.) except for /.well-known/
+    RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
     RewriteRule (^\.|/\.) - [F,L]
 
     # Explicitly deny access to private application directories

@@ -27,11 +27,6 @@ final class RateLimitMiddleware implements MiddlewareInterface
     {
         $path = $request->getUri()->getPath();
 
-        // Skip health check
-        if ($path === '/health') {
-            return $handler->handle($request);
-        }
-
         $headers = [];
         foreach ($request->getHeaders() as $name => $values) {
             $headers[strtolower($name)] = implode(', ', $values);

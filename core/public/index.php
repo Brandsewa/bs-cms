@@ -43,6 +43,60 @@ $creator = new ServerRequestCreator(
 );
 $request = $creator->fromGlobals();
 
+$uriPath = $request->getUri()->getPath();
+
+// Ultra-fast /health endpoint: returns immediately with security headers and RateLimit headers
+// Keeps memory footprint well under budget and file loads minimal
+if ($uriPath === '/health') {
+    $method = $request->getMethod();
+    if ($method !== 'GET') {
+        http_response_code(405);
+        header('Content-Type: application/problem+json; charset=utf-8');
+        header('Allow: GET');
+        echo json_encode([
+            'type' => 'https://errors.bscms.org/method-not-allowed',
+            'title' => 'Method Not Allowed',
+            'status' => 405,
+            'detail' => "Method '{$method}' is not allowed for '/health'.",
+        ]);
+        exit;
+    }
+
+    $limiter = new RateLimiter(60, 60);
+    $headers = [];
+    foreach ($request->getHeaders() as $name => $values) {
+        $headers[strtolower($name)] = implode(', ', $values);
+    }
+    $clientIp = $limiter->resolveClientIp($request->getServerParams(), $headers);
+    $rl = $limiter->hit("req:{$clientIp}");
+
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('RateLimit-Limit: ' . $rl['limit']);
+    header('RateLimit-Remaining: ' . $rl['remaining']);
+    header('RateLimit-Reset: ' . $rl['reset']);
+
+    if (!$rl['allowed']) {
+        http_response_code(429);
+        header('Retry-After: ' . $rl['retry_after']);
+        echo json_encode([
+            'type' => 'https://errors.bscms.org/rate-limit-exceeded',
+            'title' => 'Too Many Requests',
+            'status' => 429,
+            'detail' => "Rate limit exceeded. Please retry after {$rl['retry_after']} seconds.",
+        ]);
+        exit;
+    }
+
+    http_response_code(200);
+    echo json_encode(['status' => 'ok']);
+    exit;
+}
+
 // If not installed, route to InstallerController
 if (!$isInstalled) {
     $installer = new InstallerController($rootDir, $storageDir);
@@ -71,7 +125,17 @@ $kernel->addMiddleware(new MaintenanceModeMiddleware($storageDir));
 $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024));
 $kernel->addMiddleware(new JsonBodyMiddleware());
 
-$limiter = new RateLimiter(60, 60);
+$dbConn = null;
+$dbConfig = (array) $config->get('database', []);
+if (!empty($dbConfig['database'])) {
+    try {
+        $dbConn = new Connection($dbConfig);
+    } catch (\Throwable $e) {
+        // Fallback to memory or APCu
+    }
+}
+
+$limiter = new RateLimiter(60, 60, [], $dbConn);
 $kernel->addMiddleware(new RateLimitMiddleware($limiter));
 
 // Handle request
