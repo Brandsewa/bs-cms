@@ -1,0 +1,265 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BsCms\Authz;
+
+use BsCms\Auth\Actor;
+use BsCms\Database\Connection;
+use BsCms\Migrations\SeedSystemRoles;
+use PDO;
+
+/**
+ * Single source of truth for authorization across API, Admin, and MCP.
+ * Implements deny-overrides-allow, default deny, conditions, AI safety mode,
+ * owner protection, and field filtering.
+ */
+final class Authorizer
+{
+    private FieldFilter $fieldFilter;
+
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly PermissionCompiler $compiler,
+        ?FieldFilter $fieldFilter = null
+    ) {
+        $this->fieldFilter = $fieldFilter ?? new FieldFilter();
+    }
+
+    /**
+     * Evaluate whether the given Actor is permitted to perform the specified Action on the Subject.
+     *
+     * @param array<string, mixed>|null $entity Optional target entity for condition checks (e.g. owner=self, status=draft)
+     */
+    public function can(Actor $actor, string $action, Subject $subject, ?array $entity = null): Decision
+    {
+        // 1. System actor always has full unrestricted access
+        if ($actor->isSystem()) {
+            return Decision::allow('System actor has unrestricted access.');
+        }
+
+        // 2. AI Mode restrictions
+        if ($actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
+            $destructiveActions = ['publish', 'unpublish', 'delete', 'export', 'manage'];
+            $sensitiveSubjects = ['users', 'roles', 'settings', 'schema', 'system'];
+
+            if (in_array($action, $destructiveActions, true)) {
+                return Decision::deny("Action '{$action}' is forbidden in AI draft_only mode.");
+            }
+
+            if (in_array($subject->type, $sensitiveSubjects, true) && $action !== 'read') {
+                return Decision::deny("Modifying '{$subject->type}' is forbidden in AI draft_only mode.");
+            }
+        } elseif ($actor->aiMode === Actor::AI_MODE_APPROVAL_REQUIRED) {
+            $approvalActions = ['publish', 'unpublish', 'delete'];
+            $approvalSubjects = ['schema', 'settings'];
+
+            if (in_array($action, $approvalActions, true) || (in_array($subject->type, $approvalSubjects, true) && $action !== 'read')) {
+                return Decision::deny("Action '{$action}' on '{$subject->type}' requires human approval in approval_required mode.");
+            }
+        }
+
+        // 3. Compile permissions for actor's roles
+        if ($actor->roleIds === []) {
+            return Decision::deny('Actor has no assigned roles (default deny).');
+        }
+
+        $permissions = $this->compiler->compile($actor->roleIds);
+        if ($permissions === []) {
+            return Decision::deny('No permissions assigned to actor roles (default deny).');
+        }
+
+        $hasExplicitAllow = false;
+        $allowReason = 'Allowed by role policy.';
+
+        foreach ($permissions as $rule) {
+            if (!$this->matchesSubject($rule, $subject)) {
+                continue;
+            }
+
+            if (!$this->matchesAction($rule, $action)) {
+                continue;
+            }
+
+            if (!$this->matchesConditions($rule, $actor, $entity)) {
+                continue;
+            }
+
+            // Deny beats allow: explicit deny immediately terminates evaluation
+            if ($rule->effect === 'deny') {
+                return Decision::deny("Explicitly denied on {$rule->subjectType}:{$rule->subjectKey} for action '{$action}'.");
+            }
+
+            if ($rule->effect === 'allow') {
+                $hasExplicitAllow = true;
+                $allowReason = "Allowed by rule on {$rule->subjectType}:{$rule->subjectKey} for action '{$action}'.";
+            }
+        }
+
+        if ($hasExplicitAllow) {
+            return Decision::allow($allowReason);
+        }
+
+        return Decision::deny("No matching permission rule allows action '{$action}' on {$subject->type}:{$subject->key} (default deny).");
+    }
+
+    /**
+     * Protect the system from deleting, suspending, or downgrading the last active owner.
+     */
+    public function canModifyOwner(string $targetUserId, string $operation): Decision
+    {
+        $disallowedOperations = ['delete', 'suspend', 'downgrade'];
+        if (!in_array($operation, $disallowedOperations, true)) {
+            return Decision::allow();
+        }
+
+        // Check if target user has the owner role
+        $userRoles = $this->connection->prefixTable('user_roles');
+        $rolesTable = $this->connection->prefixTable('roles');
+        $usersTable = $this->connection->prefixTable('users');
+        $pdo = $this->connection->getPdo();
+
+        $stmt = $pdo->prepare("SELECT 1 FROM `{$userRoles}` ur
+            JOIN `{$rolesTable}` r ON r.`id` = ur.`role_id`
+            WHERE ur.`user_id` = :uid AND (r.`id` = :owner_id OR r.`handle` = 'owner')
+            LIMIT 1");
+        $stmt->execute(['uid' => $targetUserId, 'owner_id' => SeedSystemRoles::ROLE_OWNER]);
+
+        if ($stmt->fetchColumn() === false) {
+            // Target is not an owner
+            return Decision::allow();
+        }
+
+        // Target IS an owner. Count total active owners in system
+        $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT u.`id`) FROM `{$usersTable}` u
+            JOIN `{$userRoles}` ur ON ur.`user_id` = u.`id`
+            JOIN `{$rolesTable}` r ON r.`id` = ur.`role_id`
+            WHERE u.`status` = 'active' AND (r.`id` = :owner_id OR r.`handle` = 'owner')");
+        $countStmt->execute(['owner_id' => SeedSystemRoles::ROLE_OWNER]);
+        $ownerCount = (int) $countStmt->fetchColumn();
+
+        if ($ownerCount <= 1) {
+            return Decision::deny("Cannot {$operation} the last active owner of the system.");
+        }
+
+        return Decision::allow();
+    }
+
+    /**
+     * Filter data array fields according to field permissions for the given operation.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    public function filterFields(Actor $actor, Subject $subject, array $data, string $operation = 'read'): array
+    {
+        if ($actor->isSystem()) {
+            return $data;
+        }
+
+        $permissions = $this->compiler->compile($actor->roleIds);
+        $filtered = $data;
+
+        foreach ($permissions as $rule) {
+            if (!$this->matchesSubject($rule, $subject)) {
+                continue;
+            }
+
+            if ($rule->fields !== null) {
+                $filtered = $this->fieldFilter->filter($filtered, $rule->fields, $operation);
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Returns a summary map of compiled permissions for the frontend UI.
+     *
+     * @return list<array{subject_type: string, subject_key: string, action: string, effect: string, conditions: array<string, mixed>|null}>
+     */
+    public function getEffectivePermissions(Actor $actor): array
+    {
+        if ($actor->isSystem()) {
+            return [
+                ['subject_type' => '*', 'subject_key' => '*', 'action' => '*', 'effect' => 'allow', 'conditions' => null]
+            ];
+        }
+
+        $permissions = $this->compiler->compile($actor->roleIds);
+        $summary = [];
+
+        foreach ($permissions as $p) {
+            $summary[] = [
+                'subject_type' => $p->subjectType,
+                'subject_key' => $p->subjectKey,
+                'action' => $p->action,
+                'effect' => $p->effect,
+                'conditions' => $p->conditions,
+            ];
+        }
+
+        return $summary;
+    }
+
+    private function matchesSubject(Permission $rule, Subject $subject): bool
+    {
+        if ($rule->subjectType !== '*' && $rule->subjectType !== $subject->type) {
+            return false;
+        }
+
+        if ($rule->subjectKey !== '*' && $rule->subjectKey !== $subject->key) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function matchesAction(Permission $rule, string $action): bool
+    {
+        if ($rule->action === '*' || $rule->action === $action) {
+            return true;
+        }
+
+        // 'manage' implies all operations on that subject
+        if ($rule->action === 'manage') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed>|null $entity
+     */
+    private function matchesConditions(Permission $rule, Actor $actor, ?array $entity): bool
+    {
+        if ($rule->conditions === null || empty($rule->conditions)) {
+            return true;
+        }
+
+        // If conditions are present but no entity was supplied, condition cannot be satisfied
+        if ($entity === null) {
+            return false;
+        }
+
+        // 1. owner=self check
+        if (isset($rule->conditions['owner']) && $rule->conditions['owner'] === 'self') {
+            $createdBy = $entity['created_by'] ?? null;
+            if ($createdBy === null || $actor->onBehalfOf === null || $createdBy !== $actor->onBehalfOf) {
+                return false;
+            }
+        }
+
+        // 2. status check
+        if (isset($rule->conditions['status'])) {
+            $allowedStatuses = (array) $rule->conditions['status'];
+            $entityStatus = $entity['status'] ?? null;
+            if ($entityStatus === null || !in_array($entityStatus, $allowedStatuses, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
