@@ -64,4 +64,12 @@ final class Clock
     {
         return self::from($dt)->format('Y-m-d\TH:i:s.v\Z');
     }
+
+    /**
+     * Get the current Unix timestamp in seconds.
+     */
+    public static function timestamp(): int
+    {
+        return self::now()->getTimestamp();
+    }
 }
