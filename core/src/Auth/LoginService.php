@@ -1,0 +1,354 @@
+<?php
+
+declare(strict_types=1);
+
+namespace BsCms\Auth;
+
+use BsCms\Audit\AuditLogger;
+use BsCms\Authz\Subject;
+use BsCms\Database\Connection;
+use BsCms\Mail\Mailer;
+use BsCms\Mail\MailMessage;
+use BsCms\Mail\TemplateRenderer;
+use BsCms\Security\Ulid;
+use BsCms\Support\Clock;
+use BsCms\Support\Json;
+use BsCms\Users\UserRepository;
+use RuntimeException;
+
+/**
+ * LoginService: orchestrates credential verification, anti-enumeration timing equality,
+ * account lockout backoff, 2FA challenge resolution, session creation, and audit logging.
+ */
+final class LoginService
+{
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly UserRepository $users,
+        private readonly PasswordHasher $hasher,
+        private readonly SessionManager $sessions,
+        private readonly TwoFactorService $twoFactor,
+        private readonly AuditLogger $auditLogger,
+        private readonly ?Mailer $mailer = null,
+        private readonly ?TemplateRenderer $templates = null
+    ) {
+    }
+
+    /**
+     * Authenticate with email and password.
+     *
+     * @return array<string, mixed>
+     */
+    public function login(
+        string $email,
+        string $password,
+        ?string $ip = null,
+        ?string $userAgent = null,
+        bool $rememberMe = false
+    ): array {
+        $user = $this->users->findByEmail($email);
+
+        if ($user === null) {
+            // Anti-enumeration: execute dummy argon2id verification to equalize timing
+            $this->hasher->dummyVerify();
+
+            $this->auditLogger->record(
+                Actor::system(),
+                'auth.login_failed',
+                new Subject('auth', 'login'),
+                "Login attempt for non-existent email '{$email}'",
+                null,
+                'failure',
+                $ip,
+                $userAgent
+            );
+
+            return [
+                'status' => 'failed',
+                'message' => 'Email or password is incorrect.',
+            ];
+        }
+
+        // Check if account is suspended
+        if ($user['status'] === 'suspended') {
+            return [
+                'status' => 'suspended',
+                'message' => 'This account has been suspended. Please contact support.',
+            ];
+        }
+
+        // Check if account is locked
+        if ($user['locked_until'] !== null) {
+            $lockTime = strtotime((string) $user['locked_until']);
+            if ($lockTime > time()) {
+                return [
+                    'status' => 'locked',
+                    'message' => 'Account is temporarily locked due to too many failed attempts.',
+                    'locked_until' => $user['locked_until'],
+                ];
+            }
+        }
+
+        $passwordHash = (string) ($user['password_hash'] ?? '');
+        $valid = $this->hasher->verify($password, $passwordHash);
+
+        if (!$valid) {
+            $failedLogins = (int) $user['failed_logins'] + 1;
+            $lockedUntil = null;
+
+            if ($failedLogins >= 5) {
+                // Exponential lockout: 5 -> 60s, 6 -> 120s, 7 -> 300s, 8+ -> 900s (15 min)
+                $delaySeconds = match (true) {
+                    $failedLogins === 5 => 60,
+                    $failedLogins === 6 => 120,
+                    $failedLogins === 7 => 300,
+                    default => 900,
+                };
+                $lockedUntil = Clock::sql(Clock::now()->modify("+{$delaySeconds} seconds"));
+            }
+
+            $this->users->update((string) $user['id'], [
+                'failed_logins' => $failedLogins,
+                'locked_until' => $lockedUntil,
+            ]);
+
+            $this->auditLogger->record(
+                Actor::system(),
+                'auth.login_failed',
+                new Subject('user', (string) $user['id']),
+                "Failed password verification for user '{$user['email']}' (attempt {$failedLogins})",
+                null,
+                'failure',
+                $ip,
+                $userAgent
+            );
+
+            return [
+                'status' => 'failed',
+                'message' => 'Email or password is incorrect.',
+            ];
+        }
+
+        // Rehash password if algorithm settings upgraded
+        if ($this->hasher->needsRehash($passwordHash)) {
+            $this->users->update((string) $user['id'], [
+                'password_hash' => $this->hasher->hash($password),
+            ]);
+        }
+
+        // Check if 2FA is required
+        if (!empty($user['totp_enabled_at'])) {
+            $challengeToken = $this->create2faChallenge((string) $user['id']);
+            return [
+                'status' => 'requires_2fa',
+                'user_id' => (string) $user['id'],
+                'challenge_token' => $challengeToken,
+            ];
+        }
+
+        // Complete normal login
+        return $this->completeLogin($user, $ip, $userAgent, false, $rememberMe);
+    }
+
+    /**
+     * Complete login after successful 2FA code or recovery code.
+     *
+     * @return array<string, mixed>
+     */
+    public function verify2faChallenge(
+        string $challengeToken,
+        string $code,
+        ?string $ip = null,
+        ?string $userAgent = null,
+        bool $rememberMe = false
+    ): array {
+        $userId = $this->resolve2faChallenge($challengeToken);
+        if ($userId === null) {
+            return [
+                'status' => 'failed',
+                'message' => 'Invalid or expired two-factor challenge.',
+            ];
+        }
+
+        $user = $this->users->findById($userId);
+        if ($user === null || $user['status'] === 'suspended') {
+            return [
+                'status' => 'failed',
+                'message' => 'User not found or suspended.',
+            ];
+        }
+
+        // Attempt TOTP verification
+        $totpSecretEnc = $user['totp_secret_enc'] !== null ? (string) $user['totp_secret_enc'] : null;
+        $totpPassed = false;
+
+        if ($totpSecretEnc !== null && strlen(trim($code)) === 6 && ctype_digit(trim($code))) {
+            $totpPassed = $this->twoFactor->verifyCode($totpSecretEnc, trim($code)) !== null;
+        }
+
+        // If TOTP did not pass, attempt recovery code verification
+        $recoveryUsed = false;
+        if (!$totpPassed && !empty($user['recovery_codes_hash'])) {
+            /** @var array<int, string> $hashes */
+            $hashes = is_array($user['recovery_codes_hash'])
+                ? $user['recovery_codes_hash']
+                : (Json::decode((string) $user['recovery_codes_hash']) ?? []);
+
+            $rec = new RecoveryCodes();
+            /** @var list<string> $storedList */
+            $storedList = array_values($hashes);
+            $remaining = $rec->consume(trim($code), $storedList);
+
+            if ($remaining !== null) {
+                $recoveryUsed = true;
+                $this->users->update((string) $user['id'], [
+                    'recovery_codes_hash' => $remaining,
+                ]);
+            }
+        }
+
+        if (!$totpPassed && !$recoveryUsed) {
+            $this->auditLogger->record(
+                Actor::system(),
+                'auth.2fa_failed',
+                new Subject('user', (string) $user['id']),
+                "Failed 2FA code verification for user '{$user['email']}'",
+                null,
+                'failure',
+                $ip,
+                $userAgent
+            );
+
+            return [
+                'status' => 'failed',
+                'message' => 'Invalid two-factor code or recovery code.',
+            ];
+        }
+
+        return $this->completeLogin($user, $ip, $userAgent, true, $rememberMe);
+    }
+
+    /**
+     * Finish login process: reset failures, update login IP, send notice if new IP, create session.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    private function completeLogin(
+        array $user,
+        ?string $ip,
+        ?string $userAgent,
+        bool $mfaPassed,
+        bool $rememberMe
+    ): array {
+        $userId = (string) $user['id'];
+        $now = Clock::sql(Clock::now());
+        $lastIp = $user['last_login_ip'] !== null ? (string) $user['last_login_ip'] : null;
+
+        // Reset lockout and record login stats
+        $this->users->update($userId, [
+            'failed_logins' => 0,
+            'locked_until' => null,
+            'last_login_at' => $now,
+            'last_login_ip' => $ip,
+        ]);
+
+        // Create user session
+        $session = $this->sessions->create($userId, $ip, $userAgent, $rememberMe, $mfaPassed ? Clock::now() : null);
+
+        // Audit log
+        $this->auditLogger->record(
+            Actor::user($userId, (string) $user['email']),
+            'auth.login',
+            new Subject('user', $userId),
+            "User signed in" . ($mfaPassed ? ' with 2FA' : ''),
+            null,
+            'success',
+            $ip,
+            $userAgent
+        );
+
+        // If login is from a new IP and mailer is available, send new login notification
+        if ($this->mailer !== null && $this->templates !== null && $lastIp !== null && $ip !== null && $lastIp !== $ip) {
+            try {
+                $tpl = $this->templates->render('new_login_notice', [
+                    'name' => (string) ($user['name'] ?? 'there'),
+                    'ip' => $ip,
+                    'user_agent' => $userAgent ?? 'Unknown Browser',
+                    'site_name' => 'BS CMS',
+                ]);
+                $msg = new MailMessage(
+                    to: (string) $user['email'],
+                    subject: $tpl['subject'],
+                    htmlBody: $tpl['html'],
+                    textBody: $tpl['text'],
+                    template: 'new_login_notice',
+                    priority: MailMessage::PRIORITY_NORMAL,
+                    relatedUserId: $userId
+                );
+                $this->mailer->send($msg, false);
+            } catch (\Throwable) {
+                // Email delivery failure should never prevent successful login
+            }
+        }
+
+        return [
+            'status' => 'success',
+            'user' => $user,
+            'session' => $session,
+        ];
+    }
+
+    /**
+     * Create a 5-minute temporary challenge token for 2FA.
+     */
+    private function create2faChallenge(string $userId): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $token);
+        $expires = Clock::sql(Clock::now()->modify('+5 minutes'));
+        $now = Clock::sql(Clock::now());
+
+        $rateTable = $this->connection->prefixTable('rate_limits');
+        $stmt = $this->connection->getPdo()->prepare(
+            "INSERT INTO `{$rateTable}` (`rate_key`, `hits`, `window_start`, `expires_at`)
+             VALUES (?, 1, UNIX_TIMESTAMP(), ?)
+             ON DUPLICATE KEY UPDATE `rate_key` = VALUES(`rate_key`)"
+        );
+        $stmt->execute(["2fa:{$hash}:{$userId}", $expires]);
+
+        return $token . '.' . $userId;
+    }
+
+    /**
+     * Resolve and consume 2FA challenge token.
+     */
+    private function resolve2faChallenge(string $challengeToken): ?string
+    {
+        $parts = explode('.', $challengeToken, 2);
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        [$token, $userId] = $parts;
+        $hash = hash('sha256', $token);
+        $key = "2fa:{$hash}:{$userId}";
+
+        $rateTable = $this->connection->prefixTable('rate_limits');
+        $pdo = $this->connection->getPdo();
+
+        $stmt = $pdo->prepare("SELECT * FROM `{$rateTable}` WHERE `rate_key` = ? AND `expires_at` > ?");
+        $stmt->execute([$key, Clock::sql(Clock::now())]);
+        $row = $stmt->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        // Consume single-use challenge
+        $del = $pdo->prepare("DELETE FROM `{$rateTable}` WHERE `rate_key` = ?");
+        $del->execute([$key]);
+
+        return $userId;
+    }
+}

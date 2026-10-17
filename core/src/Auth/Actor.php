@@ -48,12 +48,12 @@ final class Actor
     /**
      * @param list<string> $roleIds
      */
-    public static function user(string $id, string $name, array $roleIds): self
+    public static function user(string $id, string $name = '', array $roleIds = []): self
     {
         return new self(
             type: self::TYPE_USER,
             id: $id,
-            label: $name,
+            label: $name !== '' ? $name : $id,
             onBehalfOf: $id,
             roleIds: $roleIds,
             aiMode: null

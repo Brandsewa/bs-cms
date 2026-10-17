@@ -230,6 +230,31 @@ final class SessionManager
     }
 
     /**
+     * List all currently active unrevoked sessions for a user.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listActiveForUser(string $userId): array
+    {
+        $conn = $this->getConnection();
+        $table = $conn->prefixTable('sessions');
+        $now = Clock::sql(Clock::now());
+
+        $stmt = $conn->getPdo()->prepare(
+            "SELECT `id`, `user_id`, `ip`, `user_agent`, `mfa_passed_at`, `created_at`, `last_seen_at`, `expires_at`
+             FROM `{$table}`
+             WHERE `user_id` = :user_id AND `revoked_at` IS NULL AND `expires_at` > :now
+             ORDER BY `last_seen_at` DESC"
+        );
+        $stmt->execute(['user_id' => $userId, 'now' => $now]);
+
+        /** @var array<int, array<string, mixed>> $rows */
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $rows;
+    }
+
+    /**
      * Format a Set-Cookie header string for the session cookie.
      */
     public function buildCookieHeader(string $token, int $maxAge, bool $isHttps): string
