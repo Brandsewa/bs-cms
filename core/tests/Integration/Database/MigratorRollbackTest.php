@@ -105,16 +105,39 @@ final class MigratorRollbackTest extends TestCase
         $migrator = $this->migrator($this->coreDir());
 
         $migrator->migrate();
-        $expected = ['rb_jobs', 'rb_migrations', 'rb_rate_limits', 'rb_settings'];
+        $expected = [
+            'rb_api_tokens',
+            'rb_audit_log',
+            'rb_email_log',
+            'rb_email_verifications',
+            'rb_invitations',
+            'rb_jobs',
+            'rb_migrations',
+            'rb_notifications',
+            'rb_password_resets',
+            'rb_rate_limits',
+            'rb_role_permissions',
+            'rb_roles',
+            'rb_sessions',
+            'rb_settings',
+            'rb_user_roles',
+            'rb_users',
+        ];
         $this->assertSame($expected, $this->tables());
 
         $rolledBack = $migrator->rollback();
-        $this->assertSame(['core:202610170001_create_core_tables'], $rolledBack);
+        $this->assertSame([
+            'core:202610170002_create_auth_and_user_tables',
+            'core:202610170001_create_core_tables',
+        ], $rolledBack);
         $this->assertSame(['rb_migrations'], $this->tables(), 'Core tables must be dropped, only the bookkeeping table remains');
         $this->assertSame([], $migrator->getAppliedMigrations());
 
         $again = $migrator->migrate();
-        $this->assertSame(['core:202610170001_create_core_tables'], $again);
+        $this->assertSame([
+            'core:202610170001_create_core_tables',
+            'core:202610170002_create_auth_and_user_tables',
+        ], $again);
         $this->assertSame($expected, $this->tables());
     }
 
@@ -124,9 +147,12 @@ final class MigratorRollbackTest extends TestCase
         $migrator->migrate();
 
         $preview = $migrator->rollback(1, true);
-        $this->assertSame(['[DRY-RUN] rollback core:202610170001_create_core_tables'], $preview);
+        $this->assertSame([
+            '[DRY-RUN] rollback core:202610170002_create_auth_and_user_tables',
+            '[DRY-RUN] rollback core:202610170001_create_core_tables',
+        ], $preview);
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(1, $migrator->getAppliedMigrations());
+        $this->assertCount(2, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackWithNothingAppliedReturnsEmptyList(): void
@@ -162,6 +188,7 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
+            'core:202610170002_create_auth_and_user_tables',
             'core:202610170001_create_core_tables',
         ], $second);
         $this->assertSame(['rb_migrations'], $this->tables());
@@ -183,7 +210,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(1, $migrator->getAppliedMigrations());
+        $this->assertCount(2, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackRejectsInvalidStepCount(): void
