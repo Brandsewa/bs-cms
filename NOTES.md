@@ -15,9 +15,12 @@ This document is the authoritative log for Phase 0 technical verifications, arch
 3. **Public Site Architecture:**
    - Static Astro build running strictly off-host (GitHub Actions + SFTP deploy).
    - `.htaccess` content negotiation handles `Accept: text/markdown` for AI agents.
-4. **AI Interface:**
-   - Stateless JSON-RPC over `POST /mcp` (Streamable HTTP). Zero idle server memory or daemon overhead.
-   - OAuth 2.1 via `league/oauth2-server` using PKCE and rotating refresh tokens.
+4. **AI Interface & Client Testing (Updated 2026-10-17):**
+   - **Spike B (MCP on Shared Hosting) DEFERRED:** Section 0.4 and its verification item are deferred to step 8.0 at the beginning of Phase 8. Nothing in Phases 1–7 depends on it.
+   - **AI Client Availability:** ChatGPT live connector testing is deferred until access exists; compatibility is built strictly to the MCP specification with OAuth 2.1 + PKCE.
+   - **Active Test Clients:** Claude.ai custom connectors, Claude Code, MCP Inspector (protocol conformance), and Antigravity MCP client.
+   - **Antigravity MCP Remote HTTP Support (Verified):** Antigravity connects to MCP servers via local and remote transport adapters. For remote HTTP endpoints, Antigravity uses an adapter proxy or stdio bridge to stream JSON-RPC calls over HTTP.
+
 
 ---
 
@@ -29,6 +32,10 @@ This document is the authoritative log for Phase 0 technical verifications, arch
 - **Licence:** MIT.
 - **PKCE & Refresh Rotation:** Full native support for RFC 7636 (PKCE) and rotating refresh tokens.
 - **Verification Status:** PASSED.
+
+### 2.2 MCP Authorization Requirements (Deferred)
+- Deferred with Spike B to Phase 8 step 8.0 (not required for Phase 0 acceptance).
+
 
 ### 2.2 TOTP Package Choice
 - **Candidate:** `spomky-labs/otphp`.

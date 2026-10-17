@@ -27,9 +27,12 @@ Build a throwaway PHP script that creates `bs_c_posts` per `docs/01-data-model.m
 Record numbers. **Pass:** list/filter queries < 50 ms DB time on the shared hosts. If `ALTER TABLE` on the host is slow or not permitted, record it: Phase 3 must then run schema changes as background jobs with progress and allow them only when the user confirms.
 Also verify on MariaDB: generated column syntax with `JSON_UNQUOTE(JSON_EXTRACT(...))`, index on virtual column, `JSON` type behaviour. Record in Verifications.
 
-## 0.4 Spike B: stateless MCP on shared hosting
+## 0.4 Spike B: stateless MCP on shared hosting (DEFERRED to Phase 8, step 8.0)
+
+> Deferred by decision on 2026-10-17 to avoid delaying Phase 0. Nothing in Phases 1-7 depends on it. It now runs as step 8.0 at the start of Phase 8 and must pass before any other Phase 8 work. The text below is kept as the spike definition.
+
 1. A single PHP file handling `POST /mcp` JSON-RPC: `initialize`, `tools/list`, `tools/call` with one tool `ping` and one `list_posts` (reading the spike table). No sessions, no SSE; respond with `application/json`.
-2. Put it behind HTTPS on a test host. Connect from Claude (custom connector) and ChatGPT (developer mode) with (a) no auth on a throwaway URL, then (b) a minimal OAuth flow, documenting exactly what each client requires: protected resource metadata, authorization server metadata, dynamic client registration vs client ID metadata documents, scopes, redirect URIs.
+2. Put it behind HTTPS on a test host. Connect from Claude (custom connector, and Claude Code) and, if supported, Google Antigravity's MCP client (ChatGPT not available; deferred) with (a) no auth on a throwaway URL, then (b) a minimal OAuth flow, documenting exactly what each client requires: protected resource metadata, authorization server metadata, dynamic client registration vs client ID metadata documents, scopes, redirect URIs.
 3. Read the current MCP specification (authorization and Streamable HTTP transport sections) and record the protocol version the CMS will target.
 4. Evaluate whether an existing PHP MCP SDK supports stateless Streamable HTTP; if not, the CMS uses its own small JSON-RPC handler (expected).
 **Pass:** both clients list tools and call one tool against the shared host. Record every requirement found in `NOTES.md` (it becomes the spec for Phase 8).
@@ -51,7 +54,7 @@ Also prototype `@bs/renderer`: render a Tiptap JSON document to HTML and to Mark
 Build three static screens with shadcn/ui + Tailwind using Supabase design-system patterns (`docs/02-ui-spec.md`): a collection list with full DataTable features (selection + bulk bar visible), an entry editor layout, a settings page. Choose the exact blue (`--primary-hue`), font (free licence), radius and density; check WCAG AA contrast in light and dark. Record tokens in `NOTES.md`.
 
 ## 0.8 Verifications to complete (write results in NOTES.md)
-- [ ] MCP authorization requirements of Claude and ChatGPT (from 0.4).
+- [ ] ~~MCP authorization requirements of Claude and ChatGPT~~ deferred with Spike B to Phase 8 step 8.0.
 - [ ] `league/oauth2-server` current version and its PHP requirement; confirm PKCE and refresh rotation support.
 - [ ] TOTP package choice and licence.
 - [ ] PHPMailer licence and current release; decide PHPMailer vs Symfony Mailer.
@@ -65,7 +68,7 @@ Build three static screens with shadcn/ui + Tailwind using Supabase design-syste
 - [ ] Repository skeleton, CI green on an empty test in every matrix cell.
 - [ ] Hosting matrix recorded for at least two shared hosts.
 - [ ] Spike A numbers recorded and pass criteria met (or a documented mitigation).
-- [ ] Spike B: Claude and ChatGPT both call a tool on the shared host; requirements recorded.
+- [ ] ~~Spike B~~ deferred to Phase 8 step 8.0 (not required for Phase 0 acceptance).
 - [ ] Spike C: publish-to-live pipeline works end to end; decision recorded; markdown negotiation verified.
 - [ ] Spike D: Tiptap versions pinned, licences confirmed, budget recorded; renderer prototype works.
 - [ ] Spike E: tokens decided and recorded with contrast results.

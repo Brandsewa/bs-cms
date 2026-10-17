@@ -44,6 +44,6 @@
 - [ ] Performance baseline meets every budget on both shared hosts.
 - [ ] Update from the last release candidate to v1.0 via the updater succeeds on both hosts; forced failure triggers rollback correctly.
 - [ ] Backup and restore tested end to end.
-- [ ] Fresh install, full content flow, AI flow (Claude + ChatGPT), publish pipeline, preview and crawler policy verified on both hosts by following only the user docs.
+- [ ] Fresh install, full content flow, AI flow (Claude.ai + Claude Code; ChatGPT only if access exists by then), publish pipeline, preview and crawler policy verified on both hosts by following only the user docs.
 - [ ] Signed artifacts published to the private distribution location; checksums verified.
 - [ ] `CHANGELOG.md`, `DEPENDENCIES.md` (with licences) and `NOTES.md` up to date.
