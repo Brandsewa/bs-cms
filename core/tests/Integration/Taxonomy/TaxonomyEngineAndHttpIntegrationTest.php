@@ -186,15 +186,15 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
             [$ownerId, SystemRoles::ROLE_OWNER]
         );
 
-        $tokenSecret = bin2hex(random_bytes(20));
-        $this->ownerToken = 'bst_' . $tokenSecret;
-        $tokenHash = hash('sha256', $this->ownerToken);
-        $this->connection->execute(
-            "INSERT INTO `{$this->connection->prefixTable('api_tokens')}`
-             (`id`, `user_id`, `name`, `token_hash`, `role_id`, `mode`, `created_at`, `updated_at`)
-             VALUES (?, ?, 'Test Token', ?, ?, 'full', NOW(), NOW())",
-            [Ulid::generate(), $ownerId, $tokenHash, SystemRoles::ROLE_OWNER]
+        $tokenService = new ApiTokenService($this->connection, $auditLogger);
+        $tokenData = $tokenService->create(
+            userId: $ownerId,
+            name: 'Test Token',
+            roleId: SystemRoles::ROLE_OWNER,
+            scopes: ['*'],
+            aiMode: 'full'
         );
+        $this->ownerToken = $tokenData['token'];
 
         // Build Router and Kernel
         $routes = new RouteCollection();
