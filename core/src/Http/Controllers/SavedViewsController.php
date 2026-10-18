@@ -135,7 +135,7 @@ class SavedViewsController extends BaseController
 
         $actor = $this->getActor($request);
         $userId = $actor->onBehalfOf ?? $actor->id;
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         $view = $this->fetchView($id, $userId);
         if ($view === null) {
@@ -157,7 +157,7 @@ class SavedViewsController extends BaseController
 
         $actor = $this->getActor($request);
         $userId = $actor->onBehalfOf ?? $actor->id;
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         $view = $this->fetchView($id, $userId);
         if ($view === null) {
@@ -218,7 +218,7 @@ class SavedViewsController extends BaseController
 
         $actor = $this->getActor($request);
         $userId = $actor->onBehalfOf ?? $actor->id;
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         $view = $this->fetchView($id, $userId);
         if ($view === null) {

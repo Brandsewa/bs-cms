@@ -30,7 +30,7 @@ class SingletonsController extends BaseController
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Singleton collection '{$handle}' not found.");
         }
@@ -80,7 +80,7 @@ class SingletonsController extends BaseController
      */
     public function update(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Singleton collection '{$handle}' not found.");
         }

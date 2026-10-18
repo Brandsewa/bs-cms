@@ -38,7 +38,7 @@ class EntriesController extends BaseController
      */
     public function list(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
         }
@@ -89,8 +89,8 @@ class EntriesController extends BaseController
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -117,7 +117,7 @@ class EntriesController extends BaseController
      */
     public function create(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
         }
@@ -186,8 +186,8 @@ class EntriesController extends BaseController
      */
     public function update(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -283,8 +283,8 @@ class EntriesController extends BaseController
      */
     public function delete(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -336,8 +336,8 @@ class EntriesController extends BaseController
      */
     public function restore(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -390,8 +390,8 @@ class EntriesController extends BaseController
      */
     public function purge(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -443,8 +443,8 @@ class EntriesController extends BaseController
      */
     public function duplicate(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -491,8 +491,8 @@ class EntriesController extends BaseController
      */
     public function listVersions(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -520,9 +520,9 @@ class EntriesController extends BaseController
      */
     public function getVersion(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
-        $versionNo = (int) ($args['version_id'] ?? 0);
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $versionNo = (int) ($args['version_id'] ?? $request->getAttribute('version_id', 0));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -562,9 +562,9 @@ class EntriesController extends BaseController
      */
     public function restoreVersion(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
-        $versionNo = (int) ($args['version_id'] ?? 0);
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $versionNo = (int) ($args['version_id'] ?? $request->getAttribute('version_id', 0));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
@@ -628,8 +628,8 @@ class EntriesController extends BaseController
      */
     public function publish(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'published']));
         return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
     }
@@ -639,8 +639,8 @@ class EntriesController extends BaseController
      */
     public function unpublish(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'draft']));
         return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
     }
@@ -650,8 +650,8 @@ class EntriesController extends BaseController
      */
     public function archive(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'archived']));
         return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
     }
@@ -661,8 +661,8 @@ class EntriesController extends BaseController
      */
     public function compare(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $id = (string) ($args['id'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $queryParams = $request->getQueryParams();
         $from = isset($queryParams['from']) ? (int) $queryParams['from'] : 0;
         $to = isset($queryParams['to']) ? (int) $queryParams['to'] : 0;

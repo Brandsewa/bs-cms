@@ -48,7 +48,7 @@ class CollectionsController extends BaseController
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'read', new Subject('schema', $handle));
         if ($permError !== null) {
             return $permError;
@@ -107,7 +107,7 @@ class CollectionsController extends BaseController
      */
     public function update(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('schema', $handle));
         if ($permError !== null) {
             return $permError;
@@ -176,7 +176,7 @@ class CollectionsController extends BaseController
      */
     public function delete(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'delete', new Subject('schema', $handle));
         if ($permError !== null) {
             return $permError;
@@ -310,7 +310,7 @@ class CollectionsController extends BaseController
      */
     public function applyChange(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $changeId = (string) ($args['change_id'] ?? '');
+        $changeId = (string) ($args['change_id'] ?? $request->getAttribute('change_id', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('schema', '*'));
         if ($permError !== null) {
             return $permError;

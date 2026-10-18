@@ -140,7 +140,7 @@ final class Kernel implements RequestHandlerInterface
         }
 
         /** @var ResponseInterface $response */
-        $response = $handler($request);
+        $response = $handler($request, $params);
         return $response;
     }
 

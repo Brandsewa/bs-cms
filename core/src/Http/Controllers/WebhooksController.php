@@ -150,7 +150,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to view webhooks.');
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $webhook = $this->fetchWebhook($id);
         if ($webhook === null) {
             return $this->problem(404, 'Not Found', "Webhook '{$id}' not found.");
@@ -174,7 +174,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to manage webhooks.');
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $existing = $this->fetchWebhook($id);
         if ($existing === null) {
             return $this->problem(404, 'Not Found', "Webhook '{$id}' not found.");
@@ -243,7 +243,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to delete webhooks.');
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $existing = $this->fetchWebhook($id);
         if ($existing === null) {
             return $this->problem(404, 'Not Found', "Webhook '{$id}' not found.");
@@ -282,7 +282,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to test webhooks.');
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $webhook = $this->fetchWebhook($id);
         if ($webhook === null) {
             return $this->problem(404, 'Not Found', "Webhook '{$id}' not found.");
@@ -321,7 +321,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to view webhook deliveries.');
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $webhook = $this->fetchWebhook($id);
         if ($webhook === null) {
             return $this->problem(404, 'Not Found', "Webhook '{$id}' not found.");
@@ -359,7 +359,7 @@ class WebhooksController extends BaseController
             return $this->problem(403, 'Forbidden', 'Insufficient permissions to retry deliveries.');
         }
 
-        $deliveryId = (int) ($args['id'] ?? 0);
+        $deliveryId = (int) ($args['id'] ?? $request->getAttribute('id', 0));
         $prefix = $this->connection->getPrefix();
         $stmt = $this->connection->execute(
             "SELECT * FROM `{$prefix}webhook_deliveries` WHERE `id` = ?",

@@ -29,7 +29,7 @@ class PublicEntriesController extends BaseController
      */
     public function list(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
         }
@@ -90,8 +90,8 @@ class PublicEntriesController extends BaseController
      */
     public function bySlug(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        $handle = (string) ($args['handle'] ?? '');
-        $slug = (string) ($args['slug'] ?? '');
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $slug = (string) ($args['slug'] ?? $request->getAttribute('slug', ''));
 
         if (!$this->registry->has($handle)) {
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");

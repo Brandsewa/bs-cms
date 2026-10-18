@@ -25,7 +25,7 @@ class JobsController extends BaseController
             return $authError;
         }
 
-        $id = (string) ($args['id'] ?? '');
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $prefix = $this->connection->getPrefix();
 
         $stmt = $this->connection->execute(
