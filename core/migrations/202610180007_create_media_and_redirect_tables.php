@@ -29,7 +29,7 @@ final class CreateMediaAndRedirectTables extends Migration
             `name` VARCHAR(190) NOT NULL,
             `path` VARCHAR(512) NOT NULL,
             `created_at` DATETIME(3) NOT NULL,
-            `parent_key` CHAR(26) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS (IFNULL(`parent_id`, '')) STORED,
+            `parent_key` CHAR(26) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS (IFNULL(`parent_id`, '')) VIRTUAL,
             UNIQUE KEY `uq_mediafolder` (`parent_key`, `name`),
             KEY `ix_mediafolder_parent` (`parent_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");

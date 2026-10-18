@@ -220,6 +220,8 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
+            'core:202610180007_create_media_and_redirect_tables',
+            'core:202610180006_create_taxonomy_tables',
             'core:202610180005_create_content_engine_tables',
             'core:202610180004_add_totp_last_step_to_users',
             'core:202610170003_seed_system_roles',
@@ -245,7 +247,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(5, $migrator->getAppliedMigrations());
+        $this->assertCount(7, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackRejectsInvalidStepCount(): void
