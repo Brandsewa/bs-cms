@@ -1112,15 +1112,14 @@ final class EntryRepository
                 $term = $tStmt->fetch();
                 if ($term) {
                     $tid = (string) $term['id'];
-                    $taxId = (string) $term['taxonomy_id'];
-                    $relId = Ulid::generate();
+                    $isPrimary = ($order === 0) ? 1 : 0;
 
                     $this->connection->execute(
                         "INSERT IGNORE INTO `{$termRelTable}` (
-                            `id`, `taxonomy_id`, `term_id`, `collection_id`, `entry_id`,
-                            `sort_order`, `is_published`, `published_at`, `created_at`
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [$relId, $taxId, $tid, $collectionId, $entryId, $order++, $isPublished, $pubAt, $now]
+                            `collection_id`, `entry_id`, `term_id`,
+                            `is_primary`, `position`, `is_published`, `sort_at`
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$collectionId, $entryId, $tid, $isPrimary, $order++, $isPublished, $pubAt]
                     );
 
                     $affectedTermIds[] = $tid;
@@ -1150,7 +1149,7 @@ final class EntryRepository
         }
 
         $this->connection->execute(
-            "UPDATE `{$termRelTable}` SET `is_published` = ?, `published_at` = ? WHERE `entry_id` = ?",
+            "UPDATE `{$termRelTable}` SET `is_published` = ?, `sort_at` = ? WHERE `entry_id` = ?",
             [$isPublished, $publishedAt, $entryId]
         );
 
