@@ -312,7 +312,7 @@ final class ContentRestApiIntegrationTest extends TestCase
             'confirm_token' => $delToken,
         ]);
         $del200 = $this->collectionsController->delete($delConfirmReq, ['handle' => 'categories']);
-        $this->assertSame(200, $del200->getStatusCode());
+        $this->assertSame(200, $del200->getStatusCode(), (string) $del200->getBody());
         $this->assertFalse($this->collectionRegistry->has('categories'));
     }
 

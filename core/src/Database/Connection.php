@@ -159,7 +159,9 @@ class Connection
                     if ($savepointName !== null) {
                         $this->pdo->exec("RELEASE SAVEPOINT {$savepointName}");
                     } else {
-                        $this->pdo->commit();
+                        if ($this->pdo->inTransaction()) {
+                            $this->pdo->commit();
+                        }
                     }
 
                     return $result;
@@ -167,7 +169,9 @@ class Connection
                     if ($savepointName !== null) {
                         $this->pdo->exec("ROLLBACK TO SAVEPOINT {$savepointName}");
                     } else {
-                        $this->pdo->rollBack();
+                        if ($this->pdo->inTransaction()) {
+                            $this->pdo->rollBack();
+                        }
                     }
                     throw $e;
                 }

@@ -214,10 +214,7 @@ class CollectionsController extends BaseController
             $prefix = $this->connection->getPrefix();
             $tableName = $prefix . 'c_' . $handle;
 
-            $this->connection->transaction(function (Connection $conn) use ($prefix, $tableName, $collectionId, $handle) {
-                // Drop collection table
-                $conn->execute("DROP TABLE IF EXISTS `{$tableName}`");
-
+            $this->connection->transaction(function (Connection $conn) use ($prefix, $collectionId, $handle) {
                 // Delete relations and versions
                 $conn->execute("DELETE FROM `{$prefix}entry_relations` WHERE `collection_id` = ?", [$collectionId]);
                 $conn->execute("DELETE FROM `{$prefix}entry_versions` WHERE `collection_id` = ?", [$collectionId]);
@@ -226,6 +223,9 @@ class CollectionsController extends BaseController
                 $conn->execute("DELETE FROM `{$prefix}schema_changes` WHERE `collection_id` = ?", [$collectionId]);
                 $conn->execute("DELETE FROM `{$prefix}collections` WHERE `id` = ?", [$collectionId]);
             });
+
+            // Drop collection table outside transaction (DDL causes implicit commit)
+            $this->connection->execute("DROP TABLE IF EXISTS `{$tableName}`");
 
             $this->registry->invalidate();
 
