@@ -149,6 +149,26 @@ export {
   SheetTrigger,
 } from './components/sheet';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs';
+
+// Date and time
+export {
+  Calendar,
+  DatePicker,
+  DateRangePicker,
+  DateTimePicker,
+  RelativeTime,
+  TimeInput,
+  timePattern,
+} from './date';
+export type {
+  CalendarProps,
+  DatePickerProps,
+  DateRangePickerProps,
+  DateRangeValue,
+  DateTimePickerProps,
+  RelativeTimeProps,
+  TimeInputProps,
+} from './date';
 export {
   Combobox,
   type ComboboxOption,
