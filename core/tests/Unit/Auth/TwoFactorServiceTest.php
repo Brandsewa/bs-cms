@@ -94,6 +94,27 @@ final class TwoFactorServiceTest extends TestCase
         $this->assertNull($replayAttempt, 'Replaying the same TOTP code within the window must be rejected');
     }
 
+    public function testPreviousStepAcceptedOnceOnly(): void
+    {
+        $secret = $this->twoFactor->generateSecret();
+        $now = 1700000000;
+        $prevCode = $this->twoFactor->getCode($secret, $now - 30);
+
+        // First verification of previous step succeeds
+        $verifiedStep = $this->twoFactor->verifyCode($secret, $prevCode, null, $now);
+        $this->assertNotNull($verifiedStep);
+
+        // Replay of previous step fails
+        $replayAttempt = $this->twoFactor->verifyCode($secret, $prevCode, $verifiedStep, $now);
+        $this->assertNull($replayAttempt, 'Replay of code from previous step must be rejected');
+
+        // Current step code still works
+        $currCode = $this->twoFactor->getCode($secret, $now);
+        $currStep = $this->twoFactor->verifyCode($secret, $currCode, $verifiedStep, $now);
+        $this->assertNotNull($currStep);
+        $this->assertGreaterThan($verifiedStep, $currStep);
+    }
+
     public function testStepUpReauthValidity(): void
     {
         $now = 1000;

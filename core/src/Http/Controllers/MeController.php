@@ -271,6 +271,7 @@ class MeController extends BaseController
         $this->users->update($actor->id, [
             'totp_secret_enc' => $rawSecret,
             'totp_enabled_at' => $now,
+            'totp_last_step' => $step,
             'recovery_codes_hash' => $recovery['hashes'],
         ]);
 

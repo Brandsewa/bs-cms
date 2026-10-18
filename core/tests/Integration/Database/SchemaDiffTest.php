@@ -96,7 +96,7 @@ final class SchemaDiffTest extends TestCase
         // 5. Verify users table columns
         $this->assertTableColumns($pdo, 'bs_users', [
             'id', 'email', 'email_verified_at', 'password_hash', 'name', 'avatar_media_id',
-            'status', 'locale', 'timezone', 'totp_secret_enc', 'totp_enabled_at',
+            'status', 'locale', 'timezone', 'totp_secret_enc', 'totp_enabled_at', 'totp_last_step',
             'recovery_codes_hash', 'failed_logins', 'locked_until', 'last_login_at',
             'last_login_ip', 'created_at', 'updated_at', 'deleted_at'
         ]);

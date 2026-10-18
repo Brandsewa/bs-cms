@@ -89,10 +89,10 @@ final class UserRepository
             "INSERT INTO `{$usersTable}` (
                 `id`, `email`, `email_verified_at`, `password_hash`, `name`,
                 `avatar_media_id`, `status`, `locale`, `timezone`,
-                `totp_secret_enc`, `totp_enabled_at`, `recovery_codes_hash`,
+                `totp_secret_enc`, `totp_enabled_at`, `totp_last_step`, `recovery_codes_hash`,
                 `failed_logins`, `locked_until`, `last_login_at`, `last_login_ip`,
                 `created_at`, `updated_at`, `deleted_at`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)"
         );
 
         $recoveryCodesJson = isset($data['recovery_codes_hash']) && is_array($data['recovery_codes_hash'])
@@ -111,6 +111,7 @@ final class UserRepository
             (string) ($data['timezone'] ?? 'UTC'),
             isset($data['totp_secret_enc']) ? (string) $data['totp_secret_enc'] : null,
             isset($data['totp_enabled_at']) ? (string) $data['totp_enabled_at'] : null,
+            isset($data['totp_last_step']) ? (int) $data['totp_last_step'] : null,
             $recoveryCodesJson,
             (int) ($data['failed_logins'] ?? 0),
             isset($data['locked_until']) ? (string) $data['locked_until'] : null,

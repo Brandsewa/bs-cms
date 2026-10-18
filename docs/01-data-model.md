@@ -36,6 +36,7 @@ CREATE TABLE users (
   timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
   totp_secret_enc VARBINARY(512) NULL,         -- encrypted with app key
   totp_enabled_at DATETIME(3) NULL,
+  totp_last_step BIGINT NULL,                  -- last accepted RFC 6238 time step for replay protection
   recovery_codes_hash JSON NULL,               -- array of hashed one-time codes
   failed_logins SMALLINT NOT NULL DEFAULT 0,
   locked_until DATETIME(3) NULL,

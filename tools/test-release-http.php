@@ -392,7 +392,78 @@ $resReplay = httpRequest('POST', "{$baseUrl}/api/v1/auth/2fa/challenge", [
 if ($resReplay['status'] !== 401) {
     failTest("Challenge token replay was not rejected with 401 (got {$resReplay['status']})");
 }
-passTest("7. Full 2FA lifecycle (code-only confirm, challenge, replay protection) verified");
+
+// Step 7h: TOTP code replay protection (same TOTP code on fresh challenge in same step must return 401)
+$resLoginAgain = httpRequest('POST', "{$baseUrl}/api/v1/auth/login", [
+    'Content-Type' => 'application/json',
+], [
+    'email' => $testEmail,
+    'password' => $testPass,
+]);
+if ($resLoginAgain['status'] !== 200 || ($resLoginAgain['json']['status'] ?? '') !== 'requires_2fa') {
+    failTest("Login for TOTP replay test failed");
+}
+$challengeToken2 = (string) ($resLoginAgain['json']['challenge_token'] ?? '');
+
+$resTotpReplay = httpRequest('POST', "{$baseUrl}/api/v1/auth/2fa/challenge", [
+    'Content-Type' => 'application/json',
+], [
+    'challenge_token' => $challengeToken2,
+    'code' => $totpCode, // Same code as previously accepted in this step!
+]);
+if ($resTotpReplay['status'] !== 401) {
+    failTest("Expected 401 on TOTP replay within same step, got {$resTotpReplay['status']}");
+}
+
+// Step 7i: 'recovery_code' parameter rejected with 422
+$resLoginFieldCheck = httpRequest('POST', "{$baseUrl}/api/v1/auth/login", [
+    'Content-Type' => 'application/json',
+], [
+    'email' => $testEmail,
+    'password' => $testPass,
+]);
+$challengeTokenField = (string) ($resLoginFieldCheck['json']['challenge_token'] ?? '');
+
+$resBadField = httpRequest('POST', "{$baseUrl}/api/v1/auth/2fa/challenge", [
+    'Content-Type' => 'application/json',
+], [
+    'challenge_token' => $challengeTokenField,
+    'recovery_code' => $recoveryCodes[0],
+]);
+if ($resBadField['status'] !== 422) {
+    failTest("Expected 422 when submitting recovery_code parameter, got {$resBadField['status']}");
+}
+
+// Step 7j: Recovery code in 'code' parameter succeeds and is single use
+$resRecovery = httpRequest('POST', "{$baseUrl}/api/v1/auth/2fa/challenge", [
+    'Content-Type' => 'application/json',
+], [
+    'challenge_token' => $challengeTokenField,
+    'code' => $recoveryCodes[0],
+]);
+if ($resRecovery['status'] !== 200) {
+    failTest("Expected 200 using recovery code in 'code' field, got {$resRecovery['status']}");
+}
+
+// Replaying used recovery code fails
+$resLoginRecoveryReplay = httpRequest('POST', "{$baseUrl}/api/v1/auth/login", [
+    'Content-Type' => 'application/json',
+], [
+    'email' => $testEmail,
+    'password' => $testPass,
+]);
+$challengeTokenRecoveryReplay = (string) ($resLoginRecoveryReplay['json']['challenge_token'] ?? '');
+$resRecoveryReplay = httpRequest('POST', "{$baseUrl}/api/v1/auth/2fa/challenge", [
+    'Content-Type' => 'application/json',
+], [
+    'challenge_token' => $challengeTokenRecoveryReplay,
+    'code' => $recoveryCodes[0],
+]);
+if ($resRecoveryReplay['status'] !== 401) {
+    failTest("Expected 401 when replaying used recovery code, got {$resRecoveryReplay['status']}");
+}
+
+passTest("7. Full 2FA lifecycle (code-only confirm, challenge, TOTP replay protection, 422 on recovery_code param, recovery code single-use) verified");
 
 // 8. API Tokens: Scope enforcement & AI Draft-Only mode
 echo "Testing 8: API Token permissions, role inheritance, and scopes...\n";

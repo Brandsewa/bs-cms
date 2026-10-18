@@ -196,10 +196,22 @@ final class LoginService
                 $plainSecret = $totpSecretEnc;
             }
 
+            $lastStep = !empty($user['totp_last_step']) ? (int) $user['totp_last_step'] : null;
+
             try {
-                $totpPassed = $this->twoFactor->verifyCode($plainSecret, trim($code)) !== null;
+                $verifiedStep = $this->twoFactor->verifyCode($plainSecret, trim($code), $lastStep);
             } catch (\Throwable) {
-                $totpPassed = false;
+                $verifiedStep = null;
+            }
+
+            if ($verifiedStep !== null) {
+                // Atomic conditional update: reject any code whose step is <= stored step
+                $usersTable = $this->connection->prefixTable('users');
+                $stmt = $this->connection->getPdo()->prepare(
+                    "UPDATE `{$usersTable}` SET `totp_last_step` = ? WHERE `id` = ? AND (`totp_last_step` IS NULL OR `totp_last_step` < ?)"
+                );
+                $stmt->execute([$verifiedStep, $user['id'], $verifiedStep]);
+                $totpPassed = $stmt->rowCount() > 0;
             }
         }
 

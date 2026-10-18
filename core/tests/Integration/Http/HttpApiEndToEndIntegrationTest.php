@@ -608,7 +608,62 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $replayRes = $this->dispatch($replayReq);
         $this->assertSame(401, $replayRes->getStatusCode(), 'Replayed challenge token must be rejected');
 
-        // Step 9: Login again and challenge with a Recovery Code
+        // Step 8b: TOTP Replay Protection: Login again in same step and submit same code -> 401
+        $loginAgainTotpReplay = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $resLoginAgainTotp = $this->dispatch($loginAgainTotpReplay);
+        $this->assertSame(200, $resLoginAgainTotp->getStatusCode());
+        $tokenTotpReplay = json_decode((string) $resLoginAgainTotp->getBody(), true)['challenge_token'];
+
+        $replayTotpReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $tokenTotpReplay,
+                'code' => $validTotpCode, // Same TOTP code replayed on a fresh challenge!
+            ]);
+        $replayTotpRes = $this->dispatch($replayTotpReq);
+        $this->assertSame(401, $replayTotpRes->getStatusCode(), 'TOTP code replay in the same step must be rejected with 401');
+
+        // Step 8c: Test previous step acceptance and subsequent replay rejection
+        $currentStep = (int) floor(time() / 30);
+        $prevCode = $twoFactor->getCode($secret, ($currentStep - 1) * 30);
+        // Note: $currentStep has already been accepted ($validTotpCode was at $currentStep), so $prevCode (currentStep - 1)
+        // must be rejected because ($currentStep - 1) <= $currentStep!
+        $loginForPrev = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $resLoginPrev = $this->dispatch($loginForPrev);
+        $tokenPrev = json_decode((string) $resLoginPrev->getBody(), true)['challenge_token'];
+
+        $prevStepReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $tokenPrev,
+                'code' => $prevCode,
+            ]);
+        $prevStepRes = $this->dispatch($prevStepReq);
+        $this->assertSame(401, $prevStepRes->getStatusCode(), 'Older/equal step code must be rejected once higher step is recorded');
+
+        // Step 8d: Challenge request using 'recovery_code' parameter must be rejected with 422
+        $loginForFieldCheck = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $resLoginField = $this->dispatch($loginForFieldCheck);
+        $tokenField = json_decode((string) $resLoginField->getBody(), true)['challenge_token'];
+
+        $badFieldReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $tokenField,
+                'recovery_code' => $recoveryCodes[0],
+            ]);
+        $badFieldRes = $this->dispatch($badFieldReq);
+        $this->assertSame(422, $badFieldRes->getStatusCode(), "'recovery_code' field must be rejected with 422");
+        $badFieldJson = json_decode((string) $badFieldRes->getBody(), true);
+        $this->assertStringContainsString('recovery_code', (string) ($badFieldJson['detail'] ?? ''));
+
+        // Step 9: Login again and challenge with a Recovery Code passed via 'code' parameter
         $loginAgain = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);

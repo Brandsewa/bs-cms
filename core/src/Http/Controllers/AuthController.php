@@ -90,12 +90,28 @@ class AuthController extends BaseController
         ], 200, ['Set-Cookie' => $cookieHeader]);
     }
 
+    /**
+     * POST /api/v1/auth/2fa/challenge
+     *
+     * Completes a 2FA challenge using a 6-digit TOTP code or a single-use recovery code.
+     * Note: The 'recovery_code' field is explicitly rejected (HTTP 422). All 2FA credentials
+     * (TOTP or recovery code) must be passed in the 'code' field.
+     */
     public function challenge2fa(ServerRequestInterface $request): ResponseInterface
     {
         $body = $this->getBody($request);
+
+        if (array_key_exists('recovery_code', $body)) {
+            return $this->problem(422, 'Unprocessable Content', "The 'recovery_code' field is not supported. Submit recovery codes in the 'code' field.");
+        }
+
         $challengeToken = (string) ($body['challenge_token'] ?? '');
         $code = (string) ($body['code'] ?? '');
         $remember = (bool) ($body['remember_me'] ?? false);
+
+        if ($challengeToken === '' || $code === '') {
+            return $this->problem(422, 'Unprocessable Content', "Both 'challenge_token' and 'code' are required.");
+        }
 
         $ip = $this->getClientIp($request);
         $userAgent = $request->getHeaderLine('User-Agent');
@@ -310,10 +326,19 @@ class AuthController extends BaseController
             } catch (\Throwable) {
                 $plainSecret = $rawSecret;
             }
+            $lastStep = !empty($user['totp_last_step']) ? (int) $user['totp_last_step'] : null;
             try {
-                $passed = $this->twoFactorService->verifyCode($plainSecret, trim($code)) !== null;
+                $step = $this->twoFactorService->verifyCode($plainSecret, trim($code), $lastStep);
             } catch (\Throwable) {
-                $passed = false;
+                $step = null;
+            }
+            if ($step !== null) {
+                $usersTable = $this->connection->prefixTable('users');
+                $stmt = $this->connection->getPdo()->prepare(
+                    "UPDATE `{$usersTable}` SET `totp_last_step` = ? WHERE `id` = ? AND (`totp_last_step` IS NULL OR `totp_last_step` < ?)"
+                );
+                $stmt->execute([$step, $user['id'], $step]);
+                $passed = $stmt->rowCount() > 0;
             }
         }
 
