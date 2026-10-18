@@ -212,6 +212,37 @@ final class SchemaApplier
 
                 // Invalidate cache
                 $this->registry->invalidate();
+
+                // If singleton, ensure default row exists with schema defaults
+                if (($targetDefinition['kind'] ?? '') === 'single') {
+                    $handle = (string) $targetDefinition['handle'];
+                    $tableName = $prefix . 'c_' . $handle;
+                    try {
+                        $checkStmt = $this->connection->execute("SELECT `id` FROM `{$tableName}` LIMIT 1");
+                        if (!$checkStmt->fetch()) {
+                            $defaults = [];
+                            $fields = (array) ($targetDefinition['fields'] ?? []);
+                            foreach ($fields as $fHandle => $fDef) {
+                                if (isset($fDef['default_value'])) {
+                                    $defaults[$fHandle] = $fDef['default_value'];
+                                }
+                            }
+                            $titleField = (string) ($targetDefinition['title_field'] ?? 'title');
+                            $title = (string) ($defaults[$titleField] ?? $targetDefinition['label_singular'] ?? $handle);
+                            $id = \BsCms\Security\Ulid::generate();
+                            $slug = strtolower($handle);
+                            $dataJson = json_encode($defaults, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+                            $now = date('Y-m-d H:i:s.v');
+                            $this->connection->execute(
+                                "INSERT INTO `{$tableName}` (`id`, `slug`, `title`, `status`, `locale`, `position`, `data`, `version`, `created_at`, `updated_at`)
+                                 VALUES (?, ?, ?, 'published', 'en', 0, ?, 1, ?, ?)",
+                                [$id, $slug, $title, $dataJson, $now, $now]
+                            );
+                        }
+                    } catch (Throwable) {
+                        // Table may not have been created yet if plan had no changes
+                    }
+                }
             } catch (Throwable $e) {
                 // Record failure
                 $this->connection->execute(

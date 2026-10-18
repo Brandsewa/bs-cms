@@ -120,4 +120,23 @@ final class FileLoggerAndRedactorTest extends TestCase
         $this->assertFileDoesNotExist($oldFile);
         $this->assertFileExists($newFile);
     }
+
+    public function testFileLoggerWritesToExplicitAppLogFileWithRequestId(): void
+    {
+        $explicitFile = $this->tempLogDir . '/app.log';
+        $logger = new FileLogger($explicitFile);
+        $logger->setRequestId('req_forced_500_xyz');
+
+        $logger->error('Server error in EntriesController::list', [
+            'exception' => 'PDOException: Table not found',
+            'action' => 'EntriesController::list',
+        ]);
+
+        $this->assertFileExists($explicitFile);
+        $content = file_get_contents($explicitFile);
+        $this->assertIsString($content);
+        $this->assertStringContainsString('req_forced_500_xyz', $content);
+        $this->assertStringContainsString('Server error in EntriesController::list', $content);
+        $this->assertStringContainsString('PDOException: Table not found', $content);
+    }
 }

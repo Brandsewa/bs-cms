@@ -88,8 +88,12 @@ class PublicEntriesController extends BaseController
                 'ETag' => $etag,
                 'Cache-Control' => 'public, max-age=60, stale-while-revalidate=600',
             ], $body));
+        } catch (\BsCms\Content\Query\QueryValidationException $e) {
+            return $this->problem(422, 'Query Validation Error', $e->getMessage(), null, $e->getErrors());
         } catch (\Throwable $e) {
-            return $this->problem(400, 'Query Error', $e->getMessage());
+            $this->logServerError($request, $e, 'PublicEntriesController::list');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while querying entries.' : $e->getMessage();
+            return $this->problem(500, 'Query Error', $msg);
         }
     }
 

@@ -43,7 +43,21 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Login successful or 2FA challenge required"
+                        "description": "Login successful or 2FA challenge required",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/components/schemas/AuthSuccessResponse"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/Auth2faChallengeRequiredResponse"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Invalid credentials or locked account"
@@ -59,7 +73,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Logged out successfully"
+                        "description": "Logged out successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -72,7 +93,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Active session details"
+                        "description": "Active session details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SessionResponse"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Unauthenticated"
@@ -111,7 +139,14 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "2FA verified, session activated"
+                        "description": "2FA verified, session activated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuthSuccessResponse"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "Invalid or replayed 2FA code"
@@ -130,7 +165,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Profile details"
+                        "description": "Profile details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -141,7 +183,68 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Profile updated"
+                        "description": "Profile updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/me/preferences": {
+            "get": {
+                "summary": "Get current authenticated user UI preferences",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User UI preferences",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserPreferences"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Update current authenticated user UI preferences",
+                "tags": [
+                    "Account"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserPreferences"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated user UI preferences",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserPreferences"
+                                }
+                            }
+                        }
+                    },
+                    "413": {
+                        "description": "Payload exceeds maximum allowed preferences size of 16KB"
+                    },
+                    "422": {
+                        "description": "Validation error (invalid preference values)"
                     }
                 }
             }
@@ -154,7 +257,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of sanitized users without secrets"
+                        "description": "List of sanitized users without secrets",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserListResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -167,7 +277,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of roles"
+                        "description": "List of roles",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/RoleListResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -180,7 +297,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of API tokens"
+                        "description": "List of API tokens",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenListResponse"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -191,7 +315,100 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Token created"
+                        "description": "Token created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenCreatedResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tokens/{id}": {
+            "delete": {
+                "summary": "Revoke API token",
+                "tags": [
+                    "Tokens"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Token revoked",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Token not found or already revoked"
+                    }
+                }
+            }
+        },
+        "/audit": {
+            "get": {
+                "summary": "List immutable audit log entries",
+                "tags": [
+                    "Audit"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Audit log entries",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuditListResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/audit/{id}": {
+            "get": {
+                "summary": "Get single audit log entry",
+                "tags": [
+                    "Audit"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Audit log entry details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AuditEntry"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Audit entry not found"
                     }
                 }
             }
@@ -204,7 +421,17 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Collection definitions list"
+                        "description": "Collection definitions list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -215,7 +442,14 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Collection created"
+                        "description": "Collection created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -238,7 +472,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Collection schema"
+                        "description": "Collection schema",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -259,7 +500,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Collection schema altered"
+                        "description": "Collection schema altered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required for destructive alteration"
@@ -283,7 +531,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Collection deleted"
+                        "description": "Collection deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required"
@@ -299,7 +554,31 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Proposed plan details and change_id"
+                        "description": "Proposed plan details and change_id",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "change_id": {
+                                            "type": "string"
+                                        },
+                                        "destructive": {
+                                            "type": "boolean"
+                                        },
+                                        "operations": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "change_id"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -322,7 +601,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Schema change applied successfully"
+                        "description": "Schema change applied successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required for data loss or already applied"
@@ -338,7 +624,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Schema changes history"
+                        "description": "Schema changes history",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -351,7 +655,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "User saved views"
+                        "description": "User saved views",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -362,7 +684,100 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Saved view created"
+                        "description": "Saved view created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/saved-views/{id}": {
+            "get": {
+                "summary": "Get saved view details",
+                "tags": [
+                    "Views"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved view details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update saved view",
+                "tags": [
+                    "Views"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved view updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete saved view",
+                "tags": [
+                    "Views"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved view deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -385,7 +800,46 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Job status payload"
+                        "description": "Job status payload",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "pending",
+                                                "running",
+                                                "completed",
+                                                "failed"
+                                            ]
+                                        },
+                                        "progress": {
+                                            "type": "integer"
+                                        },
+                                        "result": {
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "required": [
+                                        "id",
+                                        "status"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -398,7 +852,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Webhook configurations"
+                        "description": "Webhook configurations",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -409,7 +881,14 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Webhook created"
+                        "description": "Webhook created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -432,7 +911,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Webhook details"
+                        "description": "Webhook details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -453,7 +939,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Webhook updated"
+                        "description": "Webhook updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -474,7 +967,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Webhook deleted"
+                        "description": "Webhook deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -497,7 +997,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Test delivery executed"
+                        "description": "Test delivery executed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "http_code": {
+                                            "type": "integer"
+                                        },
+                                        "response_body": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -520,7 +1038,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Delivery history list"
+                        "description": "Delivery history list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -568,7 +1104,40 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of entries with pagination metadata"
+                        "description": "List of entries with pagination metadata",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/authors_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "cursor": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -589,7 +1158,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Entry created successfully"
+                        "description": "Entry created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation error"
@@ -605,7 +1181,33 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Bulk operation completed"
+                        "description": "Bulk operation completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "action": {
+                                            "type": "string"
+                                        },
+                                        "processed": {
+                                            "type": "integer"
+                                        },
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "action",
+                                        "processed",
+                                        "results"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required if bulk action count > 10"
@@ -631,7 +1233,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry details"
+                        "description": "Entry details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Entry not found"
@@ -664,7 +1273,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -703,7 +1319,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -733,7 +1356,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry moved to trash"
+                        "description": "Entry moved to trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -765,7 +1395,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry restored from trash"
+                        "description": "Entry restored from trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -800,7 +1437,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry permanently purged"
+                        "description": "Entry permanently purged",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "Forbidden (editor or non-permitted role)"
@@ -829,7 +1473,14 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Entry duplicated as new draft"
+                        "description": "Entry duplicated as new draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -861,7 +1512,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry published"
+                        "description": "Entry published",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -896,7 +1554,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry reverted to draft"
+                        "description": "Entry reverted to draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -931,7 +1596,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry archived"
+                        "description": "Entry archived",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -966,7 +1638,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry scheduled"
+                        "description": "Entry scheduled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1004,7 +1683,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry submitted for review"
+                        "description": "Entry submitted for review",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1046,7 +1732,30 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version difference diff"
+                        "description": "Version difference diff",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "from": {
+                                            "type": "integer"
+                                        },
+                                        "to": {
+                                            "type": "integer"
+                                        },
+                                        "diff": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "to",
+                                        "diff"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1069,7 +1778,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version history list"
+                        "description": "Version history list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1100,7 +1827,28 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published content entries with Cache-Control and ETag"
+                        "description": "Published content entries with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/authors_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified if If-None-Match header matches current ETag"
@@ -1126,7 +1874,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published entry with Cache-Control and ETag"
+                        "description": "Published entry with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/authors_Entry"
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified"
@@ -1145,7 +1900,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Singleton navigation content"
+                        "description": "Singleton navigation content",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/navigation_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1156,7 +1918,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Singleton navigation updated"
+                        "description": "Singleton navigation updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/navigation_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1204,7 +1973,40 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of entries with pagination metadata"
+                        "description": "List of entries with pagination metadata",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/pages_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "cursor": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1225,7 +2027,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Entry created successfully"
+                        "description": "Entry created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation error"
@@ -1241,7 +2050,33 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Bulk operation completed"
+                        "description": "Bulk operation completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "action": {
+                                            "type": "string"
+                                        },
+                                        "processed": {
+                                            "type": "integer"
+                                        },
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "action",
+                                        "processed",
+                                        "results"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required if bulk action count > 10"
@@ -1267,7 +2102,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry details"
+                        "description": "Entry details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Entry not found"
@@ -1300,7 +2142,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -1339,7 +2188,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -1369,7 +2225,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry moved to trash"
+                        "description": "Entry moved to trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1401,7 +2264,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry restored from trash"
+                        "description": "Entry restored from trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1436,7 +2306,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry permanently purged"
+                        "description": "Entry permanently purged",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "Forbidden (editor or non-permitted role)"
@@ -1465,7 +2342,14 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Entry duplicated as new draft"
+                        "description": "Entry duplicated as new draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1497,7 +2381,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry published"
+                        "description": "Entry published",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1532,7 +2423,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry reverted to draft"
+                        "description": "Entry reverted to draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1567,7 +2465,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry archived"
+                        "description": "Entry archived",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1602,7 +2507,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry scheduled"
+                        "description": "Entry scheduled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1640,7 +2552,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry submitted for review"
+                        "description": "Entry submitted for review",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -1682,7 +2601,30 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version difference diff"
+                        "description": "Version difference diff",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "from": {
+                                            "type": "integer"
+                                        },
+                                        "to": {
+                                            "type": "integer"
+                                        },
+                                        "diff": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "to",
+                                        "diff"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1705,7 +2647,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version history list"
+                        "description": "Version history list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1736,7 +2696,28 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published content entries with Cache-Control and ETag"
+                        "description": "Published content entries with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/pages_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified if If-None-Match header matches current ETag"
@@ -1762,7 +2743,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published entry with Cache-Control and ETag"
+                        "description": "Published entry with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/pages_Entry"
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified"
@@ -1816,7 +2804,40 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of entries with pagination metadata"
+                        "description": "List of entries with pagination metadata",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/posts_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "cursor": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1837,7 +2858,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Entry created successfully"
+                        "description": "Entry created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation error"
@@ -1853,7 +2881,33 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Bulk operation completed"
+                        "description": "Bulk operation completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "action": {
+                                            "type": "string"
+                                        },
+                                        "processed": {
+                                            "type": "integer"
+                                        },
+                                        "results": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "action",
+                                        "processed",
+                                        "results"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Confirmation required if bulk action count > 10"
@@ -1879,7 +2933,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry details"
+                        "description": "Entry details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "404": {
                         "description": "Entry not found"
@@ -1912,7 +2973,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -1951,7 +3019,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry updated"
+                        "description": "Entry updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict"
@@ -1981,7 +3056,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry moved to trash"
+                        "description": "Entry moved to trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2013,7 +3095,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry restored from trash"
+                        "description": "Entry restored from trash",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2048,7 +3137,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry permanently purged"
+                        "description": "Entry permanently purged",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StatusResponse"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "Forbidden (editor or non-permitted role)"
@@ -2077,7 +3173,14 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Entry duplicated as new draft"
+                        "description": "Entry duplicated as new draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2109,7 +3212,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry published"
+                        "description": "Entry published",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2144,7 +3254,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry reverted to draft"
+                        "description": "Entry reverted to draft",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2179,7 +3296,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry archived"
+                        "description": "Entry archived",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2214,7 +3338,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry scheduled"
+                        "description": "Entry scheduled",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2252,7 +3383,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Entry submitted for review"
+                        "description": "Entry submitted for review",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "409": {
                         "description": "Optimistic concurrency version conflict if stale"
@@ -2294,7 +3432,30 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version difference diff"
+                        "description": "Version difference diff",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "from": {
+                                            "type": "integer"
+                                        },
+                                        "to": {
+                                            "type": "integer"
+                                        },
+                                        "diff": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "to",
+                                        "diff"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2317,7 +3478,25 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Version history list"
+                        "description": "Version history list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2348,7 +3527,28 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published content entries with Cache-Control and ETag"
+                        "description": "Published content entries with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/posts_Entry"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "items"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified if If-None-Match header matches current ETag"
@@ -2374,7 +3574,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Published entry with Cache-Control and ETag"
+                        "description": "Published entry with Cache-Control and ETag",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/posts_Entry"
+                                }
+                            }
+                        }
                     },
                     "304": {
                         "description": "Not Modified"
@@ -2393,7 +3600,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Singleton site_settings content"
+                        "description": "Singleton site_settings content",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/site_settings_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -2404,7 +3618,14 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Singleton site_settings updated"
+                        "description": "Singleton site_settings updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/site_settings_Entry"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2412,6 +3633,504 @@
     },
     "components": {
         "schemas": {
+            "User": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "name",
+                    "status",
+                    "roles",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "suspended",
+                            "locked",
+                            "invited"
+                        ]
+                    },
+                    "avatar_media_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "locale": {
+                        "type": "string"
+                    },
+                    "timezone": {
+                        "type": "string"
+                    },
+                    "two_factor_enabled": {
+                        "type": "boolean"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "last_login_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                }
+            },
+            "AuthSuccessResponse": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "user",
+                    "csrf_token"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "success"
+                        ]
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    },
+                    "csrf_token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Auth2faChallengeRequiredResponse": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "user_id",
+                    "challenge_token"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "requires_2fa"
+                        ]
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "challenge_token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "SessionResponse": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "user",
+                    "csrf_token"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "authenticated"
+                        ]
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    },
+                    "csrf_token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UserPreferences": {
+                "type": "object",
+                "properties": {
+                    "theme": {
+                        "type": "string",
+                        "enum": [
+                            "light",
+                            "dark",
+                            "system"
+                        ]
+                    },
+                    "density": {
+                        "type": "string",
+                        "enum": [
+                            "compact",
+                            "comfortable",
+                            "spacious"
+                        ]
+                    },
+                    "locale": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": true
+            },
+            "UserListResponse": {
+                "type": "object",
+                "required": [
+                    "items"
+                ],
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/User"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                }
+            },
+            "Role": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "handle",
+                    "name",
+                    "permissions"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "handle": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "is_system": {
+                        "type": "boolean"
+                    },
+                    "is_ai": {
+                        "type": "boolean"
+                    },
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "action",
+                                "subject"
+                            ],
+                            "properties": {
+                                "action": {
+                                    "type": "string"
+                                },
+                                "subject": {
+                                    "type": "string"
+                                },
+                                "fields": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "nullable": true
+                                },
+                                "conditions": {
+                                    "type": "object",
+                                    "nullable": true
+                                },
+                                "inverted": {
+                                    "type": "boolean"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "RoleListResponse": {
+                "type": "object",
+                "required": [
+                    "items"
+                ],
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Role"
+                        }
+                    }
+                }
+            },
+            "ApiToken": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "scopes",
+                    "ai_mode",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "role_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "ai_mode": {
+                        "type": "string",
+                        "enum": [
+                            "read_only",
+                            "draft_only",
+                            "full_access"
+                        ]
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "last_used_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TokenCreatedResponse": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "plain_text_token",
+                    "scopes",
+                    "ai_mode",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "plain_text_token": {
+                        "type": "string"
+                    },
+                    "role_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "scopes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "ai_mode": {
+                        "type": "string"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TokenListResponse": {
+                "type": "object",
+                "required": [
+                    "items"
+                ],
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ApiToken"
+                        }
+                    }
+                }
+            },
+            "AuditEntry": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "request_id",
+                    "actor_type",
+                    "actor_id",
+                    "action",
+                    "subject_type",
+                    "subject_id",
+                    "summary",
+                    "result",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "actor_type": {
+                        "type": "string"
+                    },
+                    "actor_id": {
+                        "type": "string"
+                    },
+                    "actor_label": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "on_behalf_of": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "action": {
+                        "type": "string"
+                    },
+                    "subject_type": {
+                        "type": "string"
+                    },
+                    "subject_id": {
+                        "type": "string"
+                    },
+                    "collection_key": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "diff": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "ip": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "user_agent": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "result": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AuditListResponse": {
+                "type": "object",
+                "required": [
+                    "items"
+                ],
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditEntry"
+                        }
+                    },
+                    "next_cursor": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                }
+            },
+            "StatusResponse": {
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ProblemDetails": {
+                "type": "object",
+                "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail"
+                ],
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "integer"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "instance": {
+                        "type": "string"
+                    },
+                    "invalid_params": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "reason": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "authors_Entry": {
                 "type": "object",
                 "properties": {

@@ -84,6 +84,7 @@ class EntriesController extends BaseController
         } catch (QueryValidationException $e) {
             return $this->problem(422, 'Query Validation Error', $e->getMessage(), null, $e->getErrors());
         } catch (Throwable $e) {
+            $this->logServerError($request, $e, 'EntriesController::list');
             $msg = ($e instanceof \PDOException) ? 'A database error occurred while querying entries.' : $e->getMessage();
             return $this->problem(500, 'Query Error', $msg);
         }
@@ -192,6 +193,7 @@ class EntriesController extends BaseController
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
         } catch (\Throwable $e) {
+            $this->logServerError($request, $e, 'EntriesController::create');
             $msg = ($e instanceof \PDOException) ? 'A database error occurred while creating entry.' : $e->getMessage();
             return $this->problem(500, 'Create Error', $msg);
         }
@@ -354,6 +356,7 @@ class EntriesController extends BaseController
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
         } catch (\Throwable $e) {
+            $this->logServerError($request, $e, 'EntriesController::handleUpdate');
             $msg = ($e instanceof \PDOException) ? 'A database error occurred while updating entry.' : $e->getMessage();
             return $this->problem(500, 'Update Error', $msg);
         }
@@ -408,7 +411,9 @@ class EntriesController extends BaseController
 
             return $this->json(['success' => true]);
         } catch (\Throwable $e) {
-            return $this->problem(500, 'Delete Error', $e->getMessage());
+            $this->logServerError($request, $e, 'EntriesController::delete');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while deleting entry.' : $e->getMessage();
+            return $this->problem(500, 'Delete Error', $msg);
         }
     }
 
@@ -478,7 +483,9 @@ class EntriesController extends BaseController
             $presented = EntryPresenter::forAuthenticated($restored, $collection, $actor, $this->authorizer);
             return $this->json($presented);
         } catch (\Throwable $e) {
-            return $this->problem(500, 'Restore Error', $e->getMessage());
+            $this->logServerError($request, $e, 'EntriesController::restore');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while restoring entry.' : $e->getMessage();
+            return $this->problem(500, 'Restore Error', $msg);
         }
     }
 
@@ -555,7 +562,9 @@ class EntriesController extends BaseController
 
             return $this->json(['success' => true]);
         } catch (\Throwable $e) {
-            return $this->problem(500, 'Purge Error', $e->getMessage());
+            $this->logServerError($request, $e, 'EntriesController::purge');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while purging entry.' : $e->getMessage();
+            return $this->problem(500, 'Purge Error', $msg);
         }
     }
 
@@ -604,7 +613,9 @@ class EntriesController extends BaseController
             $presented = EntryPresenter::forAuthenticated($duplicated, $collection, $actor, $this->authorizer);
             return $this->json($presented, 201);
         } catch (Throwable $e) {
-            return $this->problem(500, 'Duplicate Error', $e->getMessage());
+            $this->logServerError($request, $e, 'EntriesController::duplicate');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while duplicating entry.' : $e->getMessage();
+            return $this->problem(500, 'Duplicate Error', $msg);
         }
     }
 
@@ -743,7 +754,9 @@ class EntriesController extends BaseController
             $presented = EntryPresenter::forAuthenticated($restored, $collection, $actor, $this->authorizer);
             return $this->json($presented);
         } catch (Throwable $e) {
-            return $this->problem(500, 'Restore Version Error', $e->getMessage());
+            $this->logServerError($request, $e, 'EntriesController::restoreVersion');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while restoring entry version.' : $e->getMessage();
+            return $this->problem(500, 'Restore Version Error', $msg);
         }
     }
 

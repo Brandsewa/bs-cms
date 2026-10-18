@@ -10,6 +10,7 @@ use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
 use BsCms\Database\Connection;
 use BsCms\Operations\ConfirmTokenService;
+use BsCms\Operations\Exceptions\ValidationException;
 use BsCms\Schema\CollectionRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -56,12 +57,25 @@ class SingletonsController extends BaseController
         $row = $stmt->fetch();
 
         if (!$row) {
-            // Return empty skeleton
-            return $this->json([
-                'handle' => $handle,
-                'data' => [],
-                'status' => 'draft',
-            ]);
+            // Seed singleton with defaults
+            $defaults = [];
+            $fields = (array) ($collection['fields'] ?? []);
+            foreach ($fields as $fHandle => $fDef) {
+                if (isset($fDef['default_value'])) {
+                    $defaults[$fHandle] = $fDef['default_value'];
+                }
+            }
+            $titleField = (string) ($collection['title_field'] ?? 'title');
+            $defaults[$titleField] = $defaults[$titleField] ?? ($collection['label_singular'] ?? $handle);
+            try {
+                $row = $this->repository->create($handle, $defaults, 'system', 'installer');
+            } catch (Throwable) {
+                $row = [
+                    'handle' => $handle,
+                    'data' => $defaults,
+                    'status' => 'published',
+                ];
+            }
         }
 
         if (is_string($row['data'])) {
@@ -72,9 +86,9 @@ class SingletonsController extends BaseController
         }
 
         $actor = $this->getActor($request);
-        $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $row, 'read');
+        $presented = \BsCms\Content\Presenters\EntryPresenter::forAuthenticated($row, $collection, $actor, $this->authorizer);
 
-        return $this->json($filtered);
+        return $this->json($presented);
     }
 
     /**
@@ -112,10 +126,10 @@ class SingletonsController extends BaseController
         // Enforce step-up and two-step confirmation on environment change (production/staging)
         if ($handle === 'site_settings' && isset($body['environment'])) {
             $existingData = $existing && is_string($existing['data']) ? json_decode($existing['data'], true) : [];
-            $oldEnv = $existingData['environment'] ?? ($existing['environment'] ?? null);
+            $oldEnv = $existingData['environment'] ?? ($existing['environment'] ?? 'production');
             $newEnv = (string) $body['environment'];
 
-            if ($oldEnv === null || $oldEnv !== $newEnv) {
+            if ($oldEnv !== $newEnv) {
                 $stepUpError = $this->requireStepUp($request);
                 if ($stepUpError !== null) {
                     return $stepUpError;
@@ -146,9 +160,17 @@ class SingletonsController extends BaseController
         try {
             if ($existing) {
                 $id = (string) $existing['id'];
-                $updated = $this->repository->update($handle, $id, $body, 'Updated singleton', null, $actor->type, $actor->label, $userId);
+                $updated = $this->repository->update($handle, $id, $body, 'Updated singleton', null, $actor->type, $actor->label, $userId, isAutosave: false, isPatch: true);
             } else {
-                $updated = $this->repository->create($handle, $body, $actor->type, $actor->label, $userId);
+                $defaults = [];
+                $fields = (array) ($collection['fields'] ?? []);
+                foreach ($fields as $fHandle => $fDef) {
+                    if (isset($fDef['default_value'])) {
+                        $defaults[$fHandle] = $fDef['default_value'];
+                    }
+                }
+                $merged = array_merge($defaults, $body);
+                $updated = $this->repository->create($handle, $merged, $actor->type, $actor->label, $userId);
             }
 
             $this->auditLogger->record(
@@ -164,10 +186,21 @@ class SingletonsController extends BaseController
                 collectionKey: $handle
             );
 
-            $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $updated, 'read');
-            return $this->json($filtered);
+            $presented = \BsCms\Content\Presenters\EntryPresenter::forAuthenticated($updated, $collection, $actor, $this->authorizer);
+            return $this->json($presented);
+        } catch (ValidationException $e) {
+            /** @var array<string, list<string>> $errs */
+            $errs = [];
+            foreach ($e->errors as $field => $messages) {
+                $errs[$field] = is_array($messages) ? $messages : [(string) $messages];
+            }
+            return $this->problem(422, 'Validation Error', $e->getMessage(), null, $errs);
+        } catch (\InvalidArgumentException $e) {
+            return $this->problem(422, 'Validation Error', $e->getMessage());
         } catch (Throwable $e) {
-            return $this->problem(500, 'Singleton Error', $e->getMessage());
+            $this->logServerError($request, $e, 'SingletonsController::update');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while updating singleton.' : $e->getMessage();
+            return $this->problem(500, 'Singleton Error', $msg);
         }
     }
 }

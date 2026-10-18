@@ -48,6 +48,25 @@ abstract class BaseController
         return $problem->toResponse()->withHeader('Cache-Control', 'no-store');
     }
 
+    protected function logServerError(ServerRequestInterface $request, \Throwable $e, string $action = 'request_error'): void
+    {
+        $requestId = (string) $request->getAttribute('request_id', '');
+        if ($requestId === '' || $requestId === 'unknown') {
+            $incoming = $request->getHeaderLine('X-Request-ID');
+            $requestId = ($incoming !== '' && preg_match('/^[A-Za-z0-9-]{8,64}$/', $incoming)) ? $incoming : \BsCms\Security\Ulid::generate();
+        }
+
+        $storageDir = dirname(__DIR__, 3) . '/storage';
+        $logger = new \BsCms\Log\FileLogger($storageDir . '/logs/app.log');
+        $logger->error("Server error in {$action} [{$requestId}]: " . (string) \BsCms\Log\Redactor::redact($e->getMessage()), [
+            'request_id' => $requestId,
+            'exception' => get_class($e),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => \BsCms\Log\Redactor::redact($e->getTraceAsString()),
+        ]);
+    }
+
     protected function getActor(ServerRequestInterface $request): Actor
     {
         $actor = $request->getAttribute('actor');

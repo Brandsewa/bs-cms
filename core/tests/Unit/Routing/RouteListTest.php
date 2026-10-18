@@ -75,6 +75,8 @@ final class RouteListTest extends TestCase
             'GET /api/v1/me/permissions',
             'GET /api/v1/me/notification-preferences',
             'PATCH /api/v1/me/notification-preferences',
+            'GET /api/v1/me/preferences',
+            'PATCH /api/v1/me/preferences',
 
             // Users
             'GET /api/v1/users',

@@ -1002,6 +1002,18 @@ if ($resPurgeReplay['status'] !== 409) {
 }
 passTest("14c. Entry purged permanently with two-step confirmation (and replayed token refused)");
 
+// 14d: Sort on non-sortable field returns 422 problem details listing sortable fields
+$resSortNonSortable = httpRequest('GET', "{$baseUrl}/api/v1/collections/campaigns/entries?sort=notes", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resSortNonSortable['status'] !== 422) {
+    failTest("GET campaigns?sort=notes expected 422, got {$resSortNonSortable['status']}: {$resSortNonSortable['body']}");
+}
+if (!str_contains($resSortNonSortable['body'], 'is not sortable')) {
+    failTest("422 problem details response did not indicate non-sortable field: {$resSortNonSortable['body']}");
+}
+passTest("14d. Sort on non-sortable field validated with 422 problem details listing sortable fields");
+
 // Clean up created collection
 $resDelCol = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns", [
     'Authorization' => "Bearer {$adminToken}",
@@ -1020,6 +1032,150 @@ if ($resDelColConfirmed['status'] !== 200) {
     failTest("DELETE collection with confirmation token expected 200, got {$resDelColConfirmed['status']}");
 }
 passTest("15. Two-step confirmation for destructive collection drop verified");
+
+// 16. Phase 3 Final Verification Checks
+echo "Testing 16: Phase 3 final acceptance checks...\n";
+
+// 16a. Create page with title only applies schema default (template=default)
+$resPageCreate = httpRequest('POST', "{$baseUrl}/api/v1/collections/pages/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Terms of Service',
+]);
+if ($resPageCreate['status'] !== 201) {
+    failTest("POST /collections/pages/entries with title only expected 201, got {$resPageCreate['status']}: {$resPageCreate['body']}");
+}
+if (($resPageCreate['json']['template'] ?? null) !== 'default') {
+    failTest("Create page with title only did not apply default template='default': " . json_encode($resPageCreate['json']));
+}
+passTest("16a. Create page with title only applies schema default (template=default)");
+
+// 16b. GET singleton on fresh install returns seeded defaults
+$resGetSiteSettings = httpRequest('GET', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resGetSiteSettings['status'] !== 200) {
+    failTest("GET singleton site_settings expected 200, got {$resGetSiteSettings['status']}: {$resGetSiteSettings['body']}");
+}
+if (($resGetSiteSettings['json']['site_name'] ?? null) !== 'BS CMS') {
+    failTest("GET singleton site_settings default site_name not seeded: " . json_encode($resGetSiteSettings['json']));
+}
+passTest("16b. GET singleton site_settings returns seeded defaults");
+
+// 16c. Partial singleton update (PATCH/merge semantics)
+$resPatchSiteSettings = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'site_name' => 'Brand Sewa CMS',
+]);
+if ($resPatchSiteSettings['status'] !== 200) {
+    failTest("PUT singleton site_settings partial update expected 200, got {$resPatchSiteSettings['status']}: {$resPatchSiteSettings['body']}");
+}
+if (($resPatchSiteSettings['json']['site_name'] ?? null) !== 'Brand Sewa CMS') {
+    failTest("PUT singleton site_settings did not update site_name: " . json_encode($resPatchSiteSettings['json']));
+}
+if (($resPatchSiteSettings['json']['environment'] ?? null) !== 'production') {
+    failTest("PUT singleton site_settings partial update did not preserve environment='production'");
+}
+passTest("16c. Partial singleton update merges data and preserves omitted fields");
+
+// 16d. Environment change on site_settings requires step-up + confirm token
+// Attempt without step-up
+$resEnvNoStepUp = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'environment' => 'staging',
+]);
+if ($resEnvNoStepUp['status'] !== 401 && $resEnvNoStepUp['status'] !== 403) {
+    failTest("Change environment without step-up expected 401/403, got {$resEnvNoStepUp['status']}");
+}
+
+// Perform step-up
+$resStepUp = httpRequest('POST', "{$baseUrl}/api/v1/auth/step-up", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'password' => $testPass,
+]);
+if ($resStepUp['status'] !== 200) {
+    failTest("Step-up auth expected 200, got {$resStepUp['status']}: {$resStepUp['body']}");
+}
+
+// Attempt with step-up but without confirm token -> 409
+$resEnvNoConfirm = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'environment' => 'staging',
+]);
+if ($resEnvNoConfirm['status'] !== 409) {
+    failTest("Change environment without confirm token expected 409, got {$resEnvNoConfirm['status']}: {$resEnvNoConfirm['body']}");
+}
+$envConfirmToken = (string) ($resEnvNoConfirm['json']['confirm_token'] ?? '');
+if ($envConfirmToken === '') {
+    failTest("Environment change 409 response missing confirm_token");
+}
+
+// Execute with confirm token -> 200
+$resEnvConfirmed = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'X-Confirm-Token' => $envConfirmToken,
+], [
+    'environment' => 'staging',
+]);
+if ($resEnvConfirmed['status'] !== 200) {
+    failTest("Change environment with step-up and confirm token expected 200, got {$resEnvConfirmed['status']}: {$resEnvConfirmed['body']}");
+}
+passTest("16d. Singleton environment change enforces step-up and two-step confirm token");
+
+// 16e. User preferences GET/PATCH
+$resGetPrefs = httpRequest('GET', "{$baseUrl}/api/v1/me/preferences", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resGetPrefs['status'] !== 200) {
+    failTest("GET /api/v1/me/preferences expected 200, got {$resGetPrefs['status']}: {$resGetPrefs['body']}");
+}
+
+$resPatchPrefs = httpRequest('PATCH', "{$baseUrl}/api/v1/me/preferences", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'theme' => 'dark',
+    'density' => 'compact',
+    'locale' => 'en-US',
+]);
+if ($resPatchPrefs['status'] !== 200) {
+    failTest("PATCH /api/v1/me/preferences expected 200, got {$resPatchPrefs['status']}: {$resPatchPrefs['body']}");
+}
+if (($resPatchPrefs['json']['theme'] ?? '') !== 'dark' || ($resPatchPrefs['json']['density'] ?? '') !== 'compact') {
+    failTest("PATCH /api/v1/me/preferences did not update preferences: " . json_encode($resPatchPrefs['json']));
+}
+
+// Invalid theme value -> 422
+$resInvalidTheme = httpRequest('PATCH', "{$baseUrl}/api/v1/me/preferences", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'theme' => 'neon_laser',
+]);
+if ($resInvalidTheme['status'] !== 422) {
+    failTest("PATCH /api/v1/me/preferences with invalid theme expected 422, got {$resInvalidTheme['status']}");
+}
+
+// Oversized payload (>16KB) -> 413
+$oversized = ['notes' => str_repeat('X', 17000)];
+$resOversized = httpRequest('PATCH', "{$baseUrl}/api/v1/me/preferences", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], $oversized);
+if ($resOversized['status'] !== 413) {
+    failTest("PATCH /api/v1/me/preferences with >16KB payload expected 413, got {$resOversized['status']}");
+}
+passTest("16e. User preferences GET/PATCH validated with size limits and schema validation");
 
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";

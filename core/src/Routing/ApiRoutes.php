@@ -74,6 +74,8 @@ final class ApiRoutes
         $routes->get('/api/v1/me/permissions', [$me, 'getPermissions']);
         $routes->get('/api/v1/me/notification-preferences', [$me, 'getNotificationPreferences']);
         $routes->patch('/api/v1/me/notification-preferences', [$me, 'updateNotificationPreferences']);
+        $routes->get('/api/v1/me/preferences', [$me, 'getPreferences']);
+        $routes->patch('/api/v1/me/preferences', [$me, 'updatePreferences']);
 
         // 3. Users endpoints
         $routes->get('/api/v1/users', [$users, 'list']);

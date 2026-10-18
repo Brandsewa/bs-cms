@@ -98,7 +98,11 @@ class CollectionsController extends BaseController
             return $this->json($created, 201);
         } catch (Throwable $e) {
             $status = ($e instanceof \InvalidArgumentException) ? 422 : 500;
-            return $this->problem($status, 'Schema Error', $e->getMessage());
+            if ($status === 500) {
+                $this->logServerError($request, $e, 'CollectionsController::create');
+            }
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while creating collection.' : $e->getMessage();
+            return $this->problem($status, 'Schema Error', $msg);
         }
     }
 
@@ -167,7 +171,11 @@ class CollectionsController extends BaseController
             return $this->json($updated);
         } catch (Throwable $e) {
             $status = ($e instanceof \InvalidArgumentException) ? 422 : 500;
-            return $this->problem($status, 'Schema Error', $e->getMessage());
+            if ($status === 500) {
+                $this->logServerError($request, $e, 'CollectionsController::update');
+            }
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while updating collection.' : $e->getMessage();
+            return $this->problem($status, 'Schema Error', $msg);
         }
     }
 
@@ -250,7 +258,9 @@ class CollectionsController extends BaseController
 
             return $this->json(['success' => true]);
         } catch (Throwable $e) {
-            return $this->problem(500, 'Delete Error', $e->getMessage());
+            $this->logServerError($request, $e, 'CollectionsController::delete');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while deleting collection.' : $e->getMessage();
+            return $this->problem(500, 'Delete Error', $msg);
         }
     }
 
@@ -376,7 +386,9 @@ class CollectionsController extends BaseController
 
             return $this->json(['success' => true, 'change_id' => $changeId]);
         } catch (Throwable $e) {
-            return $this->problem(500, 'Apply Error', $e->getMessage());
+            $this->logServerError($request, $e, 'CollectionsController::applyChange');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while applying schema change.' : $e->getMessage();
+            return $this->problem(500, 'Apply Error', $msg);
         }
     }
 

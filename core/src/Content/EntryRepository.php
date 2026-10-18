@@ -65,6 +65,15 @@ final class EntryRepository
 
         $id = Ulid::generate();
         $titleField = (string) ($collection['title_field'] ?? 'title');
+
+        // Apply field defaults defined in schema
+        $fields = (array) ($collection['fields'] ?? []);
+        foreach ($fields as $fHandle => $fDef) {
+            if ((!array_key_exists($fHandle, $input) || $input[$fHandle] === null) && isset($fDef['default_value'])) {
+                $input[$fHandle] = $fDef['default_value'];
+            }
+        }
+
         $title = trim((string) ($input[$titleField] ?? $input['title'] ?? 'Untitled'));
 
         $locale = (string) ($input['locale'] ?? 'en');

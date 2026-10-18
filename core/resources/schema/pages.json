@@ -27,6 +27,7 @@
             "label": "Page Template",
             "type": "enum",
             "required": true,
+            "default_value": "default",
             "is_filterable": true,
             "show_in_list": true,
             "config": {

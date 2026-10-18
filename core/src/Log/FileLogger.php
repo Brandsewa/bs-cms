@@ -16,12 +16,19 @@ use Stringable;
 final class FileLogger extends AbstractLogger
 {
     private string $logDirectory;
+    private ?string $explicitFile = null;
     private ?string $requestId = null;
     private int $retentionDays;
 
-    public function __construct(string $logDirectory, int $retentionDays = 14)
+    public function __construct(string $logDirectoryOrFile, int $retentionDays = 14)
     {
-        $this->logDirectory = rtrim(str_replace('\\', '/', $logDirectory), '/');
+        $normalized = rtrim(str_replace('\\', '/', $logDirectoryOrFile), '/');
+        if (str_ends_with(strtolower($normalized), '.log')) {
+            $this->explicitFile = $normalized;
+            $this->logDirectory = dirname($normalized);
+        } else {
+            $this->logDirectory = $normalized;
+        }
         $this->retentionDays = max(1, $retentionDays);
 
         if (!is_dir($this->logDirectory)) {
@@ -69,9 +76,19 @@ final class FileLogger extends AbstractLogger
         $line = Json::encode($logEntry) . "\n";
 
         $date = $now->format('Y-m-d');
-        $logFile = $this->logDirectory . "/bs-{$date}.log";
+        $primaryLog = $this->explicitFile ?? ($this->logDirectory . "/bs-{$date}.log");
+        @file_put_contents($primaryLog, $line, FILE_APPEND | LOCK_EX);
 
-        @file_put_contents($logFile, $line, FILE_APPEND | LOCK_EX);
+        // Also ensure app.log and daily log are synchronized
+        if ($this->explicitFile !== null) {
+            $dailyFile = $this->logDirectory . "/bs-{$date}.log";
+            if ($dailyFile !== $this->explicitFile) {
+                @file_put_contents($dailyFile, $line, FILE_APPEND | LOCK_EX);
+            }
+        } else {
+            $appLogFile = $this->logDirectory . '/app.log';
+            @file_put_contents($appLogFile, $line, FILE_APPEND | LOCK_EX);
+        }
 
         // Periodically prune logs (1% chance per write to avoid disk thrashing)
         if (random_int(1, 100) === 1) {

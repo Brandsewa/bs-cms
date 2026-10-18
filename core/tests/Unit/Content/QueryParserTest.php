@@ -152,7 +152,7 @@ final class QueryParserTest extends TestCase
             ]);
 
         $this->expectException(QueryValidationException::class);
-        $this->expectExceptionMessage("Field 'non_existent_column' does not exist for sorting.");
+        $this->expectExceptionMessage("Field 'non_existent_column' is not sortable. Sortable fields:");
 
         $this->parser->parse($request, $this->collection);
     }
@@ -181,6 +181,24 @@ final class QueryParserTest extends TestCase
         $this->expectExceptionMessage("Field 'template' cannot be populated; must be a relation field.");
 
         $this->parser->parse($request, $this->collection);
+    }
+
+    public function testRejectsSortOnNonSortableFieldTypes(): void
+    {
+        $nonSortableFields = ['unindexed_body', 'authors'];
+
+        foreach ($nonSortableFields as $field) {
+            $request = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))
+                ->withQueryParams(['sort' => $field]);
+
+            try {
+                $this->parser->parse($request, $this->collection);
+                $this->fail("Expected QueryValidationException for non-sortable field '{$field}'");
+            } catch (QueryValidationException $e) {
+                $this->assertStringContainsString("Field '{$field}' is not sortable", $e->getMessage());
+                $this->assertStringContainsString("Sortable fields:", $e->getMessage());
+            }
+        }
     }
 
     public function testRejectsSqlInjectionInPopulate(): void

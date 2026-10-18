@@ -503,4 +503,103 @@ class MeController extends BaseController
 
         return $this->json(['status' => 'preferences_updated']);
     }
+
+    public function getPreferences(ServerRequestInterface $request): ResponseInterface
+    {
+        $authError = $this->requireAuth($request);
+        if ($authError !== null) {
+            return $authError;
+        }
+
+        $actor = $this->getActor($request);
+        $settingsTable = $this->connection->prefixTable('settings');
+        $stmt = $this->connection->getPdo()->prepare(
+            "SELECT `value` FROM `{$settingsTable}` WHERE `key` = ?"
+        );
+        $stmt->execute(["user_prefs:{$actor->id}"]);
+        $val = $stmt->fetchColumn();
+
+        $defaults = [
+            'theme' => 'system',
+            'density' => 'comfortable',
+            'locale' => 'en',
+        ];
+
+        $prefs = is_string($val) ? array_merge($defaults, Json::decode($val)) : $defaults;
+
+        return $this->json($prefs);
+    }
+
+    public function updatePreferences(ServerRequestInterface $request): ResponseInterface
+    {
+        $authError = $this->requireAuth($request);
+        if ($authError !== null) {
+            return $authError;
+        }
+
+        $bodyRaw = (string) $request->getBody();
+        if (strlen($bodyRaw) > 16384) {
+            return $this->problem(413, 'Payload Too Large', 'User preferences payload must not exceed 16 KB.');
+        }
+
+        $actor = $this->getActor($request);
+        $body = $this->getBody($request);
+
+        // Validate specific well-known keys if provided
+        $errors = [];
+        if (array_key_exists('theme', $body)) {
+            $allowedThemes = ['light', 'dark', 'system'];
+            if (!is_string($body['theme']) || !in_array($body['theme'], $allowedThemes, true)) {
+                $errors['/theme'] = ["Theme must be one of: " . implode(', ', $allowedThemes) . "."];
+            }
+        }
+
+        if (array_key_exists('density', $body)) {
+            $allowedDensities = ['compact', 'comfortable', 'spacious'];
+            if (!is_string($body['density']) || !in_array($body['density'], $allowedDensities, true)) {
+                $errors['/density'] = ["Density must be one of: " . implode(', ', $allowedDensities) . "."];
+            }
+        }
+
+        if (array_key_exists('locale', $body)) {
+            if (!is_string($body['locale']) || !preg_match('/^[a-z]{2}(-[A-Za-z0-9]+)?$/', $body['locale'])) {
+                $errors['/locale'] = ["Locale must be a valid language code (e.g. 'en', 'en-US')."];
+            }
+        }
+
+        if (!empty($errors)) {
+            return $this->problem(422, 'Validation Error', 'Invalid preference values.', null, $errors);
+        }
+
+        // Fetch existing
+        $settingsTable = $this->connection->prefixTable('settings');
+        $stmt = $this->connection->getPdo()->prepare(
+            "SELECT `value` FROM `{$settingsTable}` WHERE `key` = ?"
+        );
+        $stmt->execute(["user_prefs:{$actor->id}"]);
+        $val = $stmt->fetchColumn();
+
+        $defaults = [
+            'theme' => 'system',
+            'density' => 'comfortable',
+            'locale' => 'en',
+        ];
+        $current = is_string($val) ? array_merge($defaults, Json::decode($val)) : $defaults;
+        $merged = array_merge($current, $body);
+
+        $now = Clock::sql(Clock::now());
+        $upsertStmt = $this->connection->getPdo()->prepare(
+            "INSERT INTO `{$settingsTable}` (`key`, `value`, `is_secret`, `updated_at`, `updated_by`)
+             VALUES (?, ?, 0, ?, ?)
+             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = VALUES(`updated_at`), `updated_by` = VALUES(`updated_by`)"
+        );
+        $upsertStmt->execute([
+            "user_prefs:{$actor->id}",
+            Json::encode($merged),
+            $now,
+            $actor->id,
+        ]);
+
+        return $this->json($merged);
+    }
 }

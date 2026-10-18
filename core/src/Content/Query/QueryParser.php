@@ -149,6 +149,18 @@ final class QueryParser
             $rawSort = $defaultSort !== '' ? $defaultSort : 'id';
         }
 
+        $systemSortable = [
+            'id', 'slug', 'title', 'status', 'locale', 'parent_id', 'position',
+            'author_id', 'published_at', 'scheduled_at', 'created_at', 'updated_at',
+        ];
+        $customSortable = [];
+        foreach ($collectionFields as $fHandle => $fDef) {
+            if (!empty($fDef['is_sortable'])) {
+                $customSortable[] = (string) $fHandle;
+            }
+        }
+        $sortableFields = array_values(array_unique(array_merge($systemSortable, $customSortable)));
+
         $parts = array_filter(array_map('trim', explode(',', $rawSort)));
         $sorts = [];
 
@@ -167,14 +179,17 @@ final class QueryParser
                 ]);
             }
 
-            $isSystem = in_array(strtolower($part), $systemColumns, true);
-            $customDef = $collectionFields[$part] ?? null;
+            $isSortable = in_array(strtolower($part), $systemSortable, true)
+                || (isset($collectionFields[$part]) && !empty($collectionFields[$part]['is_sortable']));
 
-            if (!$isSystem && $customDef === null) {
-                throw new QueryValidationException("Field '{$part}' does not exist for sorting.", [
-                    'sort' => ["Field '{$part}' does not exist for sorting."],
+            if (!$isSortable) {
+                $sortableList = implode(', ', $sortableFields);
+                throw new QueryValidationException("Field '{$part}' is not sortable. Sortable fields: {$sortableList}.", [
+                    'sort' => ["Field '{$part}' is not sortable. Sortable fields: {$sortableList}."],
                 ]);
             }
+
+            $isSystem = in_array(strtolower($part), $systemSortable, true);
 
             $sorts[] = [
                 'field' => $part,

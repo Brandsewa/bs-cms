@@ -21,6 +21,7 @@
             "label": "Site Name",
             "type": "text",
             "required": true,
+            "default_value": "BS CMS",
             "show_in_list": true,
             "config": {
                 "max_length": 120
@@ -41,6 +42,7 @@
             "label": "Default Language",
             "type": "enum",
             "required": true,
+            "default_value": "en",
             "show_in_list": true,
             "config": {
                 "options": [
@@ -61,6 +63,7 @@
             "label": "Environment",
             "type": "enum",
             "required": true,
+            "default_value": "production",
             "show_in_list": true,
             "config": {
                 "options": [
