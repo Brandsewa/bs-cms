@@ -27,12 +27,23 @@ final class OpenApiDiffTest extends TestCase
             }
         }
 
-        $mockRegistry = new class($builtIns) extends CollectionRegistry {
+        $mockRegistry = new class ($builtIns) extends CollectionRegistry {
             /** @param array<string, array<string, mixed>> $cols */
-            public function __construct(private array $cols) {}
-            public function all(): array { return $this->cols; }
-            public function has(string $h): bool { return isset($this->cols[$h]); }
-            public function get(string $h): array { return $this->cols[$h] ?? []; }
+            public function __construct(private array $cols)
+            {
+            }
+            public function all(): array
+            {
+                return $this->cols;
+            }
+            public function has(string $h): bool
+            {
+                return isset($this->cols[$h]);
+            }
+            public function get(string $h): array
+            {
+                return $this->cols[$h] ?? [];
+            }
         };
 
         $fieldTypeRegistry = new FieldTypeRegistry();
