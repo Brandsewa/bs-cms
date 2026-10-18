@@ -19,7 +19,7 @@ use BsCms\Auth\PasswordHasher;
 use BsCms\Auth\TwoFactorService;
 use BsCms\Database\Connection;
 use BsCms\Support\Clock;
-use BsCms\Support\Ulid;
+use BsCms\Security\Ulid;
 use BsCms\Users\RoleRepository;
 use BsCms\Users\UserRepository;
 
