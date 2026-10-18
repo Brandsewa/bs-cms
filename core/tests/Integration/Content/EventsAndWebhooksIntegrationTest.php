@@ -188,12 +188,18 @@ final class EventsAndWebhooksIntegrationTest extends TestCase
             [$this->ownerId, $now, $now]
         );
 
-        $ownerRoleId = Ulid::generate();
-        $this->connection->execute(
-            "INSERT INTO `{$prefix}roles` (`id`, `name`, `handle`, `is_system`, `created_at`, `updated_at`)
-             VALUES (?, 'Owner', 'owner', 1, ?, ?)",
-            [$ownerRoleId, $now, $now]
-        );
+        $roleRepo = new \BsCms\Users\RoleRepository($this->connection);
+        $ownerRole = $roleRepo->findByHandle('owner');
+        if ($ownerRole === null) {
+            $ownerRoleId = Ulid::generate();
+            $this->connection->execute(
+                "INSERT INTO `{$prefix}roles` (`id`, `name`, `handle`, `is_system`, `created_at`, `updated_at`)
+                 VALUES (?, 'Owner', 'owner', 1, ?, ?)",
+                [$ownerRoleId, $now, $now]
+            );
+        } else {
+            $ownerRoleId = (string) $ownerRole['id'];
+        }
 
         $this->connection->execute(
             "INSERT INTO `{$prefix}user_roles` (`user_id`, `role_id`) VALUES (?, ?)",
