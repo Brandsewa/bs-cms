@@ -463,12 +463,11 @@ final class ContentRestApiIntegrationTest extends TestCase
     public function testJobsEndpoint(): void
     {
         $prefix = $this->connection->getPrefix();
-        $jobId = Ulid::generate();
         $this->connection->execute(
-            "INSERT INTO `{$prefix}jobs` (`id`, `queue`, `type`, `payload`, `status`, `attempts`, `max_attempts`, `available_at`, `created_at`)
-             VALUES (?, 'default', 'test_job', '{}', 'completed', 1, 3, NOW(), NOW())",
-            [$jobId]
+            "INSERT INTO `{$prefix}jobs` (`queue`, `type`, `payload`, `status`, `attempts`, `max_attempts`, `available_at`, `created_at`)
+             VALUES ('default', 'test_job', '{}', 'completed', 1, 3, NOW(), NOW())"
         );
+        $jobId = (string) $this->connection->getPdo()->lastInsertId();
 
         $req = $this->makeRequest('GET', "/api/v1/jobs/{$jobId}", $this->ownerActor);
         $res = $this->jobsController->get($req, ['id' => $jobId]);

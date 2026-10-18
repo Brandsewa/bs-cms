@@ -30,18 +30,15 @@ class SavedViewsController extends BaseController
         $userId = $actor->onBehalfOf ?? $actor->id;
 
         $params = $request->getQueryParams();
-        $collectionHandle = (string) ($params['collection'] ?? '');
+        $collectionKey = (string) ($params['collection'] ?? $params['collection_key'] ?? '');
 
         $prefix = $this->connection->getPrefix();
         $sql = "SELECT * FROM `{$prefix}saved_views` WHERE `user_id` = ?";
         $bindings = [$userId];
 
-        if ($collectionHandle !== '') {
-            if ($this->registry->has($collectionHandle)) {
-                $col = $this->registry->get($collectionHandle);
-                $sql .= " AND `collection_id` = ?";
-                $bindings[] = (string) $col['id'];
-            }
+        if ($collectionKey !== '') {
+            $sql .= " AND `collection_key` = ?";
+            $bindings[] = $collectionKey;
         }
 
         $sql .= " ORDER BY `position` ASC, `name` ASC";
@@ -52,10 +49,7 @@ class SavedViewsController extends BaseController
             if (is_string($row['filters'])) {
                 $row['filters'] = json_decode($row['filters'], true) ?? [];
             }
-            if (is_string($row['sorts'])) {
-                $row['sorts'] = json_decode($row['sorts'], true) ?? [];
-            }
-            if (is_string($row['columns'])) {
+            if (isset($row['columns']) && is_string($row['columns'])) {
                 $row['columns'] = json_decode($row['columns'], true) ?? [];
             }
         }
@@ -82,13 +76,25 @@ class SavedViewsController extends BaseController
             ]);
         }
 
-        $colHandle = (string) ($body['collection'] ?? '');
-        $colId = null;
-        if ($colHandle !== '' && $this->registry->has($colHandle)) {
-            $colId = (string) $this->registry->get($colHandle)['id'];
-        } elseif (!empty($body['collection_id'])) {
-            $colId = (string) $body['collection_id'];
+        $collectionKey = trim((string) ($body['collection'] ?? $body['collection_key'] ?? ''));
+        if ($collectionKey === '') {
+            return $this->problem(422, 'Validation Error', 'Collection key is required.', null, [
+                'collection' => ['Collection key is required.'],
+            ]);
         }
+
+        if (!$this->registry->has($collectionKey)) {
+            return $this->problem(422, 'Validation Error', "Collection '{$collectionKey}' does not exist.", null, [
+                'collection' => ["Collection '{$collectionKey}' does not exist."],
+            ]);
+        }
+
+        $sort = isset($body['sort']) ? (string) $body['sort'] : (isset($body['sorts']) ? (is_array($body['sorts']) ? json_encode($body['sorts']) : (string) $body['sorts']) : null);
+        $columns = isset($body['columns']) ? (is_array($body['columns']) ? json_encode($body['columns'], JSON_THROW_ON_ERROR) : (string) $body['columns']) : null;
+        $filters = json_encode($body['filters'] ?? [], JSON_THROW_ON_ERROR);
+        $density = isset($body['density']) ? (string) $body['density'] : null;
+        $isShared = !empty($body['is_shared']) ? 1 : 0;
+        $position = (int) ($body['position'] ?? 0);
 
         $prefix = $this->connection->getPrefix();
         $id = Ulid::generate();
@@ -96,22 +102,20 @@ class SavedViewsController extends BaseController
 
         $this->connection->execute(
             "INSERT INTO `{$prefix}saved_views` (
-                `id`, `user_id`, `collection_id`, `name`, `icon`, `filters`,
-                `sorts`, `columns`, `per_page`, `is_pinned`, `position`, `created_at`, `updated_at`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                `id`, `user_id`, `collection_key`, `name`, `filters`,
+                `sort`, `columns`, `density`, `is_shared`, `position`, `created_at`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 $id,
                 $userId,
-                $colId,
+                $collectionKey,
                 $name,
-                $body['icon'] ?? null,
-                json_encode($body['filters'] ?? [], JSON_THROW_ON_ERROR),
-                json_encode($body['sorts'] ?? [], JSON_THROW_ON_ERROR),
-                json_encode($body['columns'] ?? [], JSON_THROW_ON_ERROR),
-                (int) ($body['per_page'] ?? 25),
-                !empty($body['is_pinned']) ? 1 : 0,
-                (int) ($body['position'] ?? 0),
-                $now,
+                $filters,
+                $sort,
+                $columns,
+                $density,
+                $isShared,
+                $position,
                 $now,
             ]
         );
@@ -162,30 +166,38 @@ class SavedViewsController extends BaseController
 
         $body = $this->getBody($request);
         $prefix = $this->connection->getPrefix();
-        $now = date('Y-m-d H:i:s.v');
+
+        $name = isset($body['name']) ? trim((string) $body['name']) : null;
+        $collectionKey = isset($body['collection']) || isset($body['collection_key'])
+            ? (string) ($body['collection'] ?? $body['collection_key'])
+            : null;
+        $filters = isset($body['filters']) ? json_encode($body['filters'], JSON_THROW_ON_ERROR) : null;
+        $sort = isset($body['sort']) ? (string) $body['sort'] : (isset($body['sorts']) ? (is_array($body['sorts']) ? json_encode($body['sorts']) : (string) $body['sorts']) : null);
+        $columns = isset($body['columns']) ? (is_array($body['columns']) ? json_encode($body['columns'], JSON_THROW_ON_ERROR) : (string) $body['columns']) : null;
+        $density = isset($body['density']) ? (string) $body['density'] : null;
+        $isShared = isset($body['is_shared']) ? (!empty($body['is_shared']) ? 1 : 0) : null;
+        $position = isset($body['position']) ? (int) $body['position'] : null;
 
         $this->connection->execute(
             "UPDATE `{$prefix}saved_views` SET
                 `name` = COALESCE(?, `name`),
-                `icon` = COALESCE(?, `icon`),
+                `collection_key` = COALESCE(?, `collection_key`),
                 `filters` = COALESCE(?, `filters`),
-                `sorts` = COALESCE(?, `sorts`),
+                `sort` = COALESCE(?, `sort`),
                 `columns` = COALESCE(?, `columns`),
-                `per_page` = COALESCE(?, `per_page`),
-                `is_pinned` = COALESCE(?, `is_pinned`),
-                `position` = COALESCE(?, `position`),
-                `updated_at` = ?
+                `density` = COALESCE(?, `density`),
+                `is_shared` = COALESCE(?, `is_shared`),
+                `position` = COALESCE(?, `position`)
              WHERE `id` = ? AND `user_id` = ?",
             [
-                $body['name'] ?? null,
-                $body['icon'] ?? null,
-                isset($body['filters']) ? json_encode($body['filters'], JSON_THROW_ON_ERROR) : null,
-                isset($body['sorts']) ? json_encode($body['sorts'], JSON_THROW_ON_ERROR) : null,
-                isset($body['columns']) ? json_encode($body['columns'], JSON_THROW_ON_ERROR) : null,
-                $body['per_page'] ?? null,
-                isset($body['is_pinned']) ? (!empty($body['is_pinned']) ? 1 : 0) : null,
-                $body['position'] ?? null,
-                $now,
+                $name,
+                $collectionKey,
+                $filters,
+                $sort,
+                $columns,
+                $density,
+                $isShared,
+                $position,
                 $id,
                 $userId,
             ]
@@ -237,10 +249,7 @@ class SavedViewsController extends BaseController
         if (is_string($row['filters'])) {
             $row['filters'] = json_decode($row['filters'], true) ?? [];
         }
-        if (is_string($row['sorts'])) {
-            $row['sorts'] = json_decode($row['sorts'], true) ?? [];
-        }
-        if (is_string($row['columns'])) {
+        if (isset($row['columns']) && is_string($row['columns'])) {
             $row['columns'] = json_decode($row['columns'], true) ?? [];
         }
 

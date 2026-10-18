@@ -227,9 +227,10 @@ final class SchemaPlanner
             }
         }
 
-        // Check for removed fields: they are hidden, NOT dropped (data kept)
+        // Check for removed fields: they are hidden, NOT dropped (data kept), but considered destructive
         foreach ($existingFields as $oldHandle => $oldDef) {
             if (!isset($targetFields[$oldHandle])) {
+                $dataLoss = true;
                 $changes[] = [
                     'type' => 'hide_field',
                     'field_handle' => $oldHandle,

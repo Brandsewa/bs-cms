@@ -125,8 +125,9 @@ final class ConfirmTokenService
                     throw new OperationException('Confirmation token has already been used.');
                 }
 
+                $windowStart = date('Y-m-d H:i:s', $expiresAt);
                 $insert = $pdo->prepare("INSERT INTO `{$table}` (`bucket`, `window_start`, `hits`) VALUES (?, ?, 1)");
-                $insert->execute([$bucket, $expiresAt]);
+                $insert->execute([$bucket, $windowStart]);
             } catch (OperationException $oe) {
                 throw $oe;
             } catch (Throwable $e) {
