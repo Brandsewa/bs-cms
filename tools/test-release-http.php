@@ -19,6 +19,7 @@ use BsCms\Auth\PasswordHasher;
 use BsCms\Auth\TwoFactorService;
 use BsCms\Database\Connection;
 use BsCms\Support\Clock;
+use BsCms\Support\Ulid;
 use BsCms\Users\RoleRepository;
 use BsCms\Users\UserRepository;
 
@@ -397,18 +398,23 @@ passTest("7. Full 2FA lifecycle (code-only confirm, challenge, replay protection
 echo "Testing 8: API Token permissions, role inheritance, and scopes...\n";
 
 $tokensTable = $connection->prefixTable('api_tokens');
-$rawToken = bin2hex(random_bytes(32));
+$tokenId = Ulid::generate();
+$prefix = bin2hex(random_bytes(4));
+$secret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+$rawToken = "bstok_{$prefix}_{$secret}";
 $tokenHash = hash('sha256', $rawToken);
 $now = Clock::sql(Clock::now());
 
 // Insert API token with scope "users:read" and owner role inheritance (role_id = null)
 $stmt = $connection->getPdo()->prepare(
     "INSERT INTO `{$tokensTable}`
-     (`user_id`, `name`, `token_hash`, `role_id`, `scopes`, `ai_mode`, `created_at`, `expires_at`)
-     VALUES (?, 'Test Scoped Token', ?, NULL, ?, 'draft_only', ?, NULL)"
+     (`id`, `user_id`, `role_id`, `name`, `token_prefix`, `token_hash`, `scopes`, `ai_mode`, `created_at`, `expires_at`)
+     VALUES (?, ?, NULL, 'Test Scoped Token', ?, ?, ?, 'draft_only', ?, NULL)"
 );
 $stmt->execute([
+    $tokenId,
     $userId,
+    $prefix,
     $tokenHash,
     json_encode(['users:read']),
     $now,
