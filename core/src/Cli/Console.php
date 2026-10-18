@@ -53,6 +53,9 @@ final class Console
                 'key:generate' => $this->keyGenerate(),
                 'key:rotate' => $this->keyRotate(),
                 'config:show' => $this->configShow(),
+                'schema:export' => $this->schemaExport($args),
+                'schema:diff' => $this->schemaDiff($args),
+                'schema:apply' => $this->schemaApply($args),
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),
@@ -364,7 +367,204 @@ final class Console
         echo "  key:generate      Generate a new libsodium 32-byte secret key\n";
         echo "  key:rotate        Re-encrypt secret settings with the primary key\n";
         echo "  config:show       Display current configuration (redacted)\n";
+        echo "  schema:export     Export collections to JSON files (--dir=path)\n";
+        echo "  schema:diff       Show planned schema differences against files (--dir=path)\n";
+        echo "  schema:apply      Apply file-based schema changes (--dir=path, --dry-run)\n";
         return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function schemaExport(array $args): int
+    {
+        $dir = $this->parseDirArg($args, $this->app->basePath('resources/schema'));
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+
+        $conn = $this->getConnection();
+        $cacheFile = $this->app->storagePath('cache/schema.php');
+        $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+        $collections = $registry->all();
+
+        $count = 0;
+        foreach ($collections as $handle => $def) {
+            // Strip primary keys / timestamps for clean schema-as-code
+            $clean = [
+                'handle' => $def['handle'],
+                'kind' => $def['kind'],
+                'label_singular' => $def['label_singular'],
+                'label_plural' => $def['label_plural'],
+                'description' => $def['description'],
+                'icon' => $def['icon'],
+                'is_system' => (bool) $def['is_system'],
+                'has_public_pages' => (bool) $def['has_public_pages'],
+                'route_pattern' => $def['route_pattern'],
+                'list_route_pattern' => $def['list_route_pattern'],
+                'features' => $def['features'],
+                'title_field' => $def['title_field'],
+                'slug_source' => $def['slug_source'],
+                'default_sort' => $def['default_sort'],
+                'schema_org' => $def['schema_org'],
+                'list_columns' => $def['list_columns'],
+                'fields' => [],
+            ];
+
+            foreach ($def['fields'] ?? [] as $fHandle => $fDef) {
+                $clean['fields'][$fHandle] = [
+                    'handle' => $fDef['handle'],
+                    'label' => $fDef['label'],
+                    'type' => $fDef['type'],
+                    'config' => $fDef['config'],
+                    'required' => (bool) $fDef['required'],
+                    'is_unique' => (bool) $fDef['is_unique'],
+                    'is_filterable' => (bool) $fDef['is_filterable'],
+                    'is_sortable' => (bool) $fDef['is_sortable'],
+                    'is_searchable' => (bool) $fDef['is_searchable'],
+                    'show_in_list' => (bool) $fDef['show_in_list'],
+                    'default_value' => $fDef['default_value'],
+                    'help_text' => $fDef['help_text'],
+                    'placeholder' => $fDef['placeholder'],
+                    'group_key' => $fDef['group_key'],
+                    'width' => $fDef['width'] ?? 'full',
+                    'validation' => $fDef['validation'],
+                    'conditional' => $fDef['conditional'],
+                ];
+            }
+
+            ksort($clean);
+            $filePath = $dir . '/' . $handle . '.json';
+            file_put_contents($filePath, json_encode($clean, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+            echo "Exported collection '{$handle}' -> {$filePath}\n";
+            ++$count;
+        }
+
+        echo "Total exported: {$count} collection(s).\n";
+        return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function schemaDiff(array $args): int
+    {
+        $dir = $this->parseDirArg($args, $this->app->basePath('resources/schema'));
+        if (!is_dir($dir)) {
+            fwrite(STDERR, "Schema directory '{$dir}' does not exist.\n");
+            return 1;
+        }
+
+        $conn = $this->getConnection();
+        $cacheFile = $this->app->storagePath('cache/schema.php');
+        $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+        $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
+        $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
+
+        $files = glob($dir . '/*.json') ?: [];
+        if (empty($files)) {
+            echo "No schema JSON files found in {$dir}\n";
+            return 0;
+        }
+
+        $totalChanges = 0;
+        foreach ($files as $file) {
+            $content = (string) file_get_contents($file);
+            $target = json_decode($content, true);
+            if (!is_array($target) || empty($target['handle'])) {
+                continue;
+            }
+
+            $plan = $planner->plan($target);
+            if (!empty($plan->changes) || !empty($plan->sqlStatements)) {
+                echo "\n[Collection: {$target['handle']}]\n";
+                foreach ($plan->changes as $change) {
+                    echo " - Change: " . json_encode($change, JSON_UNESCAPED_SLASHES) . "\n";
+                    ++$totalChanges;
+                }
+                foreach ($plan->sqlStatements as $sql) {
+                    echo "   SQL: {$sql}\n";
+                }
+            }
+        }
+
+        if ($totalChanges === 0) {
+            echo "Schema is up to date. No differences found.\n";
+        } else {
+            echo "\nTotal planned changes: {$totalChanges}\n";
+        }
+
+        return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function schemaApply(array $args): int
+    {
+        $dir = $this->parseDirArg($args, $this->app->basePath('resources/schema'));
+        $dryRun = in_array('--dry-run', $args, true);
+
+        if (!is_dir($dir)) {
+            fwrite(STDERR, "Schema directory '{$dir}' does not exist.\n");
+            return 1;
+        }
+
+        $conn = $this->getConnection();
+        $cacheFile = $this->app->storagePath('cache/schema.php');
+        $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+        $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
+        $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
+        $lock = new \BsCms\Schema\SchemaLock($conn);
+        $applier = new \BsCms\Schema\SchemaApplier($conn, $registry, $lock);
+
+        $files = glob($dir . '/*.json') ?: [];
+        if (empty($files)) {
+            echo "No schema JSON files found in {$dir}\n";
+            return 0;
+        }
+
+        echo ($dryRun ? "Dry-running" : "Applying") . " schema changes from {$dir}...\n";
+
+        foreach ($files as $file) {
+            $content = (string) file_get_contents($file);
+            $target = json_decode($content, true);
+            if (!is_array($target) || empty($target['handle'])) {
+                continue;
+            }
+
+            $plan = $planner->plan($target);
+            if (empty($plan->changes) && empty($plan->sqlStatements)) {
+                echo "Collection '{$target['handle']}' is already up to date.\n";
+                continue;
+            }
+
+            echo "Applying changes for '{$target['handle']}'...\n";
+            foreach ($plan->sqlStatements as $sql) {
+                echo "   SQL: {$sql}\n";
+            }
+
+            if (!$dryRun) {
+                $applier->apply($plan, $target, null, 'cli');
+                echo "Applied successfully.\n";
+            }
+        }
+
+        echo ($dryRun ? "Dry-run complete." : "All schema changes applied successfully.") . "\n";
+        return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function parseDirArg(array $args, string $default): string
+    {
+        foreach ($args as $arg) {
+            if (str_starts_with($arg, '--dir=')) {
+                return substr($arg, 6);
+            }
+        }
+        return $default;
     }
 
     private function unknownCommand(string $command): int
