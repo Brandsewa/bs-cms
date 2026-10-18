@@ -856,6 +856,7 @@ final class EntryRepository
         $systemAllowed = [
             'id', 'slug', 'title', 'status', 'locale', 'parent_id', 'position',
             'author_id', 'published_at', 'scheduled_at', 'seo', 'data',
+            'version', 'expected_version',
             '_change_summary', '_autosave', 'confirm_token',
         ];
 
