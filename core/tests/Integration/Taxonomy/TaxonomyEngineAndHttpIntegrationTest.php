@@ -492,9 +492,9 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $relTable = $this->connection->prefixTable('term_relationships');
         $entryId = Ulid::generate();
         $this->connection->execute(
-            "INSERT INTO `{$relTable}` (`id`, `taxonomy_id`, `term_id`, `collection_id`, `entry_id`, `created_at`)
-             VALUES (?, ?, ?, 'col1', ?, NOW())",
-            [Ulid::generate(), $tax['id'], $termA['id'], $entryId]
+            "INSERT INTO `{$relTable}` (`collection_id`, `entry_id`, `term_id`, `is_primary`, `position`, `is_published`, `sort_at`)
+             VALUES ('col1', ?, ?, 1, 0, 1, NOW())",
+            [$entryId, $termA['id']]
         );
 
         // Merge termA into termB
@@ -527,7 +527,7 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $term = $body[0];
         $expectedKeys = [
             'id', 'taxonomy_id', 'parent_id', 'name', 'slug', 'slug_path',
-            'depth', 'position', 'image_media_id', 'color', 'icon', 'data', 'seo', 'entry_count'
+            'description', 'depth', 'position', 'image_media_id', 'color', 'icon', 'seo', 'entry_count'
         ];
         sort($expectedKeys);
         $actualKeys = array_keys($term);
@@ -554,7 +554,6 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
             'kind' => 'collection',
             'title_field' => 'title',
             'fields' => [
-                'title' => ['handle' => 'title', 'type' => 'text', 'required' => true],
                 'topic' => [
                     'handle' => 'topic',
                     'type' => 'taxonomy',
@@ -669,7 +668,6 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
             'kind' => 'collection',
             'title_field' => 'title',
             'fields' => [
-                'title' => ['handle' => 'title', 'type' => 'text', 'required' => true],
                 'genres' => [
                     'handle' => 'genres',
                     'type' => 'taxonomy',
@@ -734,10 +732,10 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
 
         $relTable = $this->connection->prefixTable('term_relationships');
         $sql = "EXPLAIN SELECT `entry_id` FROM `{$relTable}`
-                WHERE `term_id` = ? AND `is_published` = 1
-                ORDER BY `published_at` DESC";
+                WHERE `term_id` = ? AND `collection_id` = ? AND `is_published` = 1
+                ORDER BY `sort_at` DESC";
 
-        $stmt = $this->connection->execute($sql, [$term['id']]);
+        $stmt = $this->connection->execute($sql, [$term['id'], 'articles']);
         /** @var list<array<string, mixed>> $rows */
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

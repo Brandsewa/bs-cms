@@ -276,7 +276,7 @@ final class TaxonomiesController extends BaseController
         }
 
         $body = (array) $request->getParsedBody();
-        $newParentId = array_key_exists('parent_id', $body) && $body['parent_id'] !== '' ? (string) $body['parent_id'] : null;
+        $newParentId = !empty($body['parent_id']) ? (string) $body['parent_id'] : null;
         $newPosition = isset($body['position']) ? (int) $body['position'] : null;
 
         try {
