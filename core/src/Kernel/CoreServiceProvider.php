@@ -355,6 +355,27 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
+        $container->singleton(\BsCms\Security\HttpClient::class, function (Container $c): \BsCms\Security\HttpClient {
+            return new \BsCms\Security\HttpClient();
+        });
+
+        $container->singleton(\BsCms\Events\EventBus::class, function (Container $c): \BsCms\Events\EventBus {
+            return new \BsCms\Events\EventBus();
+        });
+
+        $container->singleton(\BsCms\Content\Cache\PublicResponseCache::class, function (Container $c) use ($app): \BsCms\Content\Cache\PublicResponseCache {
+            return new \BsCms\Content\Cache\PublicResponseCache($app->basePath('storage/cache/public'));
+        });
+
+        $container->singleton(\BsCms\Webhooks\WebhookDispatcher::class, function (Container $c): \BsCms\Webhooks\WebhookDispatcher {
+            return new \BsCms\Webhooks\WebhookDispatcher(
+                $c->get(Connection::class),
+                $c->get(Crypto::class),
+                $c->get(\BsCms\Security\HttpClient::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
         $container->singleton(\BsCms\Http\Controllers\EntriesController::class, function (Container $c): \BsCms\Http\Controllers\EntriesController {
             return new \BsCms\Http\Controllers\EntriesController(
                 $c->get(\BsCms\Schema\CollectionRegistry::class),
@@ -362,7 +383,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\Query\QueryParser::class),
                 $c->get(\BsCms\Content\VersionManager::class),
                 $c->get(Authorizer::class),
-                $c->get(AuditLogger::class)
+                $c->get(AuditLogger::class),
+                $c->get(\BsCms\Events\EventBus::class)
             );
         });
 
@@ -373,7 +395,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\EntryRepository::class),
                 $c->get(Authorizer::class),
                 $c->get(\BsCms\Operations\ConfirmTokenService::class),
-                $c->get(AuditLogger::class)
+                $c->get(AuditLogger::class),
+                $c->get(\BsCms\Events\EventBus::class)
             );
         });
 
@@ -399,9 +422,49 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(Connection::class)
             );
         });
+
+        $container->singleton(\BsCms\Http\Controllers\WebhooksController::class, function (Container $c): \BsCms\Http\Controllers\WebhooksController {
+            return new \BsCms\Http\Controllers\WebhooksController(
+                $c->get(Connection::class),
+                $c->get(Crypto::class),
+                $c->get(\BsCms\Webhooks\WebhookDispatcher::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PublicEntriesController::class, function (Container $c): \BsCms\Http\Controllers\PublicEntriesController {
+            return new \BsCms\Http\Controllers\PublicEntriesController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(\BsCms\Content\Query\QueryParser::class),
+                $c->get(\BsCms\Content\Cache\PublicResponseCache::class)
+            );
+        });
     }
 
     public function boot(Container $container): void
     {
+        if ($container->has(\BsCms\Events\EventBus::class)) {
+            /** @var \BsCms\Events\EventBus $bus */
+            $bus = $container->get(\BsCms\Events\EventBus::class);
+
+            $bus->subscribeAll(function (\BsCms\Events\Event $e) use ($container) {
+                // 1. Dispatch matching webhooks
+                if ($container->has(\BsCms\Webhooks\WebhookDispatcher::class)) {
+                    $container->get(\BsCms\Webhooks\WebhookDispatcher::class)->onEvent($e);
+                }
+
+                // 2. Invalidate public response cache for collection
+                if ($container->has(\BsCms\Content\Cache\PublicResponseCache::class)) {
+                    $payload = $e->payload();
+                    $colKey = (string) ($payload['collection_key'] ?? $payload['collection'] ?? '');
+                    if ($colKey !== '') {
+                        $container->get(\BsCms\Content\Cache\PublicResponseCache::class)->invalidateCollection($colKey);
+                    }
+                }
+            });
+        }
     }
 }

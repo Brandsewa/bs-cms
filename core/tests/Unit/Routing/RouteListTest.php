@@ -6,12 +6,20 @@ namespace BsCms\Tests\Unit\Routing;
 
 use BsCms\Http\Controllers\AuthController;
 use BsCms\Http\Controllers\AuditController;
+use BsCms\Http\Controllers\BulkEntriesController;
+use BsCms\Http\Controllers\CollectionsController;
 use BsCms\Http\Controllers\EmailSettingsController;
+use BsCms\Http\Controllers\EntriesController;
+use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
 use BsCms\Http\Controllers\NotificationsController;
+use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\RolesController;
+use BsCms\Http\Controllers\SavedViewsController;
+use BsCms\Http\Controllers\SingletonsController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
+use BsCms\Http\Controllers\WebhooksController;
 use BsCms\Routing\ApiRoutes;
 use BsCms\Routing\RouteCollection;
 use PHPUnit\Framework\TestCase;
@@ -136,12 +144,14 @@ final class RouteListTest extends TestCase
         $email = $this->createMock(EmailSettingsController::class);
         $notifications = $this->createMock(NotificationsController::class);
 
-        $collections = $this->createMock(\BsCms\Http\Controllers\CollectionsController::class);
-        $entries = $this->createMock(\BsCms\Http\Controllers\EntriesController::class);
-        $bulk = $this->createMock(\BsCms\Http\Controllers\BulkEntriesController::class);
-        $singletons = $this->createMock(\BsCms\Http\Controllers\SingletonsController::class);
-        $views = $this->createMock(\BsCms\Http\Controllers\SavedViewsController::class);
-        $jobs = $this->createMock(\BsCms\Http\Controllers\JobsController::class);
+        $collections = $this->createMock(CollectionsController::class);
+        $entries = $this->createMock(EntriesController::class);
+        $bulk = $this->createMock(BulkEntriesController::class);
+        $singletons = $this->createMock(SingletonsController::class);
+        $views = $this->createMock(SavedViewsController::class);
+        $jobs = $this->createMock(JobsController::class);
+        $webhooks = $this->createMock(WebhooksController::class);
+        $publicEntries = $this->createMock(PublicEntriesController::class);
 
         ApiRoutes::register(
             $routes,
@@ -158,7 +168,9 @@ final class RouteListTest extends TestCase
             $bulk,
             $singletons,
             $views,
-            $jobs
+            $jobs,
+            $webhooks,
+            $publicEntries
         );
 
         $registered = [];
@@ -192,6 +204,17 @@ final class RouteListTest extends TestCase
             'PUT /api/v1/saved-views/{id}',
             'DELETE /api/v1/saved-views/{id}',
             'GET /api/v1/jobs/{id}',
+            'GET /api/v1/webhooks',
+            'POST /api/v1/webhooks',
+            'GET /api/v1/webhooks/{id}',
+            'PATCH /api/v1/webhooks/{id}',
+            'PUT /api/v1/webhooks/{id}',
+            'DELETE /api/v1/webhooks/{id}',
+            'POST /api/v1/webhooks/{id}/test',
+            'GET /api/v1/webhooks/{id}/deliveries',
+            'POST /api/v1/deliveries/{id:\d+}/retry',
+            'GET /api/v1/public/collections/{handle}/entries',
+            'GET /api/v1/public/collections/{handle}/entries/by-slug/{slug}',
         ];
 
         foreach ($expectedPhase3Endpoints as $endpoint) {

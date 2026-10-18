@@ -14,6 +14,8 @@ use BsCms\Schema\CollectionRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
+use BsCms\Events\EventBus;
+use BsCms\Events\GenericEvent;
 
 class BulkEntriesController extends BaseController
 {
@@ -32,7 +34,8 @@ class BulkEntriesController extends BaseController
         private readonly EntryRepository $repository,
         private readonly Authorizer $authorizer,
         private readonly ConfirmTokenService $confirmTokenService,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly ?EventBus $eventBus = null
     ) {
     }
 
@@ -169,6 +172,14 @@ class BulkEntriesController extends BaseController
             subjectId: null,
             collectionKey: $handle
         );
+
+        $this->eventBus?->dispatch(new GenericEvent('entry.bulk.' . $operation, [
+            'collection_key' => $handle,
+            'operation' => $operation,
+            'processed' => $processed,
+            'failed' => $failed,
+            'actor' => $actor->toArray(),
+        ]));
 
         return $this->json([
             'success' => true,

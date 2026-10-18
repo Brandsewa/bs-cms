@@ -135,4 +135,20 @@ final class Actor
     {
         return in_array($roleId, $this->roleIds, true);
     }
+
+    /**
+     * @return array{id: string, label: string, type: string, on_behalf_of: ?string, role_ids: list<string>, ai_mode: ?string, scopes: list<string>}
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'label' => $this->label,
+            'type' => $this->type,
+            'on_behalf_of' => $this->onBehalfOf,
+            'role_ids' => $this->roleIds,
+            'ai_mode' => $this->aiMode,
+            'scopes' => $this->scopes,
+        ];
+    }
 }

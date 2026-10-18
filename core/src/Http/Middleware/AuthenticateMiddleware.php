@@ -46,6 +46,11 @@ final class AuthenticateMiddleware implements MiddlewareInterface
         $this->addPublic('GET', '#^/api/v1/auth/invitations/[^/]+$#');
         $this->addPublic('POST', '#^/api/v1/auth/invitations/[^/]+/accept$#');
         $this->addPublic('POST', '#^/api/v1/auth/email/verify$#');
+
+        // Public API & docs
+        $this->addPublic('GET', '#^/api/v1/public(/.*)?$#');
+        $this->addPublic('HEAD', '#^/api/v1/public(/.*)?$#');
+        $this->addPublic('GET', '#^/api/v1/openapi\.json$#');
     }
 
     private function addPublic(string $method, string $regex): void

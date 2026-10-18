@@ -107,7 +107,9 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\BulkEntriesController::class),
     $container->get(\BsCms\Http\Controllers\SingletonsController::class),
     $container->get(\BsCms\Http\Controllers\SavedViewsController::class),
-    $container->get(\BsCms\Http\Controllers\JobsController::class)
+    $container->get(\BsCms\Http\Controllers\JobsController::class),
+    $container->get(\BsCms\Http\Controllers\WebhooksController::class),
+    $container->get(\BsCms\Http\Controllers\PublicEntriesController::class)
 );
 
 // Build middleware pipeline

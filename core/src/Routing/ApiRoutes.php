@@ -13,11 +13,13 @@ use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
 use BsCms\Http\Controllers\NotificationsController;
+use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
 use BsCms\Http\Controllers\SingletonsController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
+use BsCms\Http\Controllers\WebhooksController;
 
 /**
  * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, and jobs.
@@ -39,7 +41,9 @@ final class ApiRoutes
         ?BulkEntriesController $bulkEntries = null,
         ?SingletonsController $singletons = null,
         ?SavedViewsController $savedViews = null,
-        ?JobsController $jobs = null
+        ?JobsController $jobs = null,
+        ?WebhooksController $webhooks = null,
+        ?PublicEntriesController $publicEntries = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -158,6 +162,25 @@ final class ApiRoutes
         // 13. Jobs endpoints
         if ($jobs !== null) {
             $routes->get('/api/v1/jobs/{id}', [$jobs, 'get']);
+        }
+
+        // 14. Webhooks endpoints
+        if ($webhooks !== null) {
+            $routes->get('/api/v1/webhooks', [$webhooks, 'list']);
+            $routes->post('/api/v1/webhooks', [$webhooks, 'create']);
+            $routes->get('/api/v1/webhooks/{id}', [$webhooks, 'get']);
+            $routes->patch('/api/v1/webhooks/{id}', [$webhooks, 'update']);
+            $routes->put('/api/v1/webhooks/{id}', [$webhooks, 'update']);
+            $routes->delete('/api/v1/webhooks/{id}', [$webhooks, 'delete']);
+            $routes->post('/api/v1/webhooks/{id}/test', [$webhooks, 'test']);
+            $routes->get('/api/v1/webhooks/{id}/deliveries', [$webhooks, 'deliveries']);
+            $routes->post('/api/v1/deliveries/{id:\d+}/retry', [$webhooks, 'retry']);
+        }
+
+        // 15. Public Content endpoints
+        if ($publicEntries !== null) {
+            $routes->get('/api/v1/public/collections/{handle}/entries', [$publicEntries, 'list']);
+            $routes->get('/api/v1/public/collections/{handle}/entries/by-slug/{slug}', [$publicEntries, 'bySlug']);
         }
     }
 }

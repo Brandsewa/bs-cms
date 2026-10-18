@@ -16,6 +16,8 @@ use BsCms\Database\Connection;
 use BsCms\Schema\CollectionRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use BsCms\Events\EventBus;
+use BsCms\Events\GenericEvent;
 use Throwable;
 
 class EntriesController extends BaseController
@@ -26,7 +28,8 @@ class EntriesController extends BaseController
         private readonly QueryParser $queryParser,
         private readonly VersionManager $versionManager,
         private readonly Authorizer $authorizer,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly ?EventBus $eventBus = null
     ) {
     }
 
@@ -154,11 +157,26 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
+            $this->eventBus?->dispatch(new GenericEvent('entry.created', [
+                'collection_key' => $handle,
+                'entry_id' => $created['id'],
+                'data' => $created,
+                'actor' => $actor->toArray(),
+            ]));
+            if (($created['status'] ?? '') === 'published') {
+                $this->eventBus?->dispatch(new GenericEvent('entry.published', [
+                    'collection_key' => $handle,
+                    'entry_id' => $created['id'],
+                    'data' => $created,
+                    'actor' => $actor->toArray(),
+                ]));
+            }
+
             $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $created, 'read');
             return $this->json($filtered, 201);
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return $this->problem(500, 'Create Error', $e->getMessage());
         }
     }
@@ -227,13 +245,35 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
+            $this->eventBus?->dispatch(new GenericEvent('entry.updated', [
+                'collection_key' => $handle,
+                'entry_id' => $id,
+                'data' => $updated,
+                'diff' => ['before' => $existing, 'after' => $updated],
+                'actor' => $actor->toArray(),
+            ]));
+            if (($existing['status'] ?? '') !== 'published' && ($updated['status'] ?? '') === 'published') {
+                $this->eventBus?->dispatch(new GenericEvent('entry.published', [
+                    'collection_key' => $handle,
+                    'entry_id' => $id,
+                    'data' => $updated,
+                    'actor' => $actor->toArray(),
+                ]));
+            } elseif (($existing['status'] ?? '') === 'published' && ($updated['status'] ?? '') !== 'published') {
+                $this->eventBus?->dispatch(new GenericEvent('entry.unpublished', [
+                    'collection_key' => $handle,
+                    'entry_id' => $id,
+                    'actor' => $actor->toArray(),
+                ]));
+            }
+
             $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $updated, 'read');
             return $this->json($filtered);
         } catch (OptimisticConcurrencyException $e) {
             return $this->problem(409, 'Conflict', $e->getMessage());
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return $this->problem(500, 'Update Error', $e->getMessage());
         }
     }
@@ -278,8 +318,15 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
+            $this->eventBus?->dispatch(new GenericEvent('entry.deleted', [
+                'collection_key' => $handle,
+                'entry_id' => $id,
+                'permanent' => false,
+                'actor' => $actor->toArray(),
+            ]));
+
             return $this->json(['success' => true]);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return $this->problem(500, 'Delete Error', $e->getMessage());
         }
     }
@@ -324,9 +371,16 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
+            $this->eventBus?->dispatch(new GenericEvent('entry.restored', [
+                'collection_key' => $handle,
+                'entry_id' => $id,
+                'data' => $restored,
+                'actor' => $actor->toArray(),
+            ]));
+
             $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $restored, 'read');
             return $this->json($filtered);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return $this->problem(500, 'Restore Error', $e->getMessage());
         }
     }
@@ -371,8 +425,15 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
+            $this->eventBus?->dispatch(new GenericEvent('entry.deleted', [
+                'collection_key' => $handle,
+                'entry_id' => $id,
+                'permanent' => true,
+                'actor' => $actor->toArray(),
+            ]));
+
             return $this->json(['success' => true]);
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             return $this->problem(500, 'Purge Error', $e->getMessage());
         }
     }
