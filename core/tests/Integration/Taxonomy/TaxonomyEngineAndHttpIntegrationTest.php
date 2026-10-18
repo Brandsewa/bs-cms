@@ -8,6 +8,7 @@ use BsCms\Audit\AuditLogger;
 use BsCms\Auth\Actor;
 use BsCms\Auth\ApiTokenService;
 use BsCms\Auth\SessionManager;
+use BsCms\Auth\SystemRoles;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\PermissionCompiler;
 use BsCms\Content\Cache\PublicResponseCache;
@@ -181,8 +182,8 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         );
         $this->connection->execute(
             "INSERT INTO `{$this->connection->prefixTable('user_roles')}` (`user_id`, `role_id`)
-             VALUES (?, '01H00000000000000000000001')",
-            [$ownerId]
+             VALUES (?, ?)",
+            [$ownerId, SystemRoles::ROLE_OWNER]
         );
 
         $tokenSecret = bin2hex(random_bytes(20));
@@ -191,8 +192,8 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $this->connection->execute(
             "INSERT INTO `{$this->connection->prefixTable('api_tokens')}`
              (`id`, `user_id`, `name`, `token_hash`, `role_id`, `mode`, `created_at`, `updated_at`)
-             VALUES (?, ?, 'Test Token', ?, '01H00000000000000000000001', 'full', NOW(), NOW())",
-            [Ulid::generate(), $ownerId, $tokenHash]
+             VALUES (?, ?, 'Test Token', ?, ?, 'full', NOW(), NOW())",
+            [Ulid::generate(), $ownerId, $tokenHash, SystemRoles::ROLE_OWNER]
         );
 
         // Build Router and Kernel
