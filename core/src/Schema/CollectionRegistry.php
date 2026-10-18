@@ -14,7 +14,7 @@ class CollectionRegistry
 
     public function __construct(
         private readonly Connection $connection,
-        private readonly string $cacheFile
+        private readonly ?string $cacheFile = null
     ) {
     }
 
@@ -68,11 +68,11 @@ class CollectionRegistry
     public function invalidate(): void
     {
         $this->collections = null;
-        if (file_exists($this->cacheFile)) {
+        if ($this->cacheFile !== null && file_exists($this->cacheFile)) {
             @unlink($this->cacheFile);
-        }
-        if (function_exists('opcache_invalidate')) {
-            @opcache_invalidate($this->cacheFile, true);
+            if (function_exists('opcache_invalidate')) {
+                @opcache_invalidate($this->cacheFile, true);
+            }
         }
     }
 
@@ -81,7 +81,7 @@ class CollectionRegistry
      */
     private function loadFromCache(): ?array
     {
-        if (!file_exists($this->cacheFile)) {
+        if ($this->cacheFile === null || !file_exists($this->cacheFile)) {
             return null;
         }
 
@@ -169,6 +169,10 @@ class CollectionRegistry
      */
     private function compileCache(array $collections): void
     {
+        if ($this->cacheFile === null) {
+            return;
+        }
+
         $dir = dirname($this->cacheFile);
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);

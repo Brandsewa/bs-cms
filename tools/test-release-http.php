@@ -200,7 +200,8 @@ if ($existing === null) {
 passTest("3. Test admin user seeded ({$testEmail})");
 
 // Ensure built-in collections (e.g. site_settings, pages, posts) are seeded
-$collRegistry = new \BsCms\Schema\CollectionRegistry($connection);
+$cacheFile = $corePath . '/storage/cache/schema.php';
+$collRegistry = new \BsCms\Schema\CollectionRegistry($connection, $cacheFile);
 if (!$collRegistry->has('site_settings')) {
     $schemaDir = $corePath . '/resources/schema';
     if (is_dir($schemaDir)) {
