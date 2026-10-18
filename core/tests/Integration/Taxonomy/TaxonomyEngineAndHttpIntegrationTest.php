@@ -199,29 +199,45 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $routes = new RouteCollection();
         $router = new Router($routes);
 
-        $dummyAuth = new class extends \BsCms\Http\Controllers\AuthController {
-            public function __construct() {}
+        $dummyAuth = new class () extends \BsCms\Http\Controllers\AuthController {
+            public function __construct()
+            {
+            }
         };
-        $dummyMe = new class extends \BsCms\Http\Controllers\MeController {
-            public function __construct() {}
+        $dummyMe = new class () extends \BsCms\Http\Controllers\MeController {
+            public function __construct()
+            {
+            }
         };
-        $dummyUsers = new class extends \BsCms\Http\Controllers\UsersController {
-            public function __construct() {}
+        $dummyUsers = new class () extends \BsCms\Http\Controllers\UsersController {
+            public function __construct()
+            {
+            }
         };
-        $dummyRoles = new class extends \BsCms\Http\Controllers\RolesController {
-            public function __construct() {}
+        $dummyRoles = new class () extends \BsCms\Http\Controllers\RolesController {
+            public function __construct()
+            {
+            }
         };
-        $dummyTokens = new class extends \BsCms\Http\Controllers\TokensController {
-            public function __construct() {}
+        $dummyTokens = new class () extends \BsCms\Http\Controllers\TokensController {
+            public function __construct()
+            {
+            }
         };
-        $dummyAudit = new class extends \BsCms\Http\Controllers\AuditController {
-            public function __construct() {}
+        $dummyAudit = new class () extends \BsCms\Http\Controllers\AuditController {
+            public function __construct()
+            {
+            }
         };
-        $dummyEmail = new class extends \BsCms\Http\Controllers\EmailSettingsController {
-            public function __construct() {}
+        $dummyEmail = new class () extends \BsCms\Http\Controllers\EmailSettingsController {
+            public function __construct()
+            {
+            }
         };
-        $dummyNotif = new class extends \BsCms\Http\Controllers\NotificationsController {
-            public function __construct() {}
+        $dummyNotif = new class () extends \BsCms\Http\Controllers\NotificationsController {
+            public function __construct()
+            {
+            }
         };
 
         ApiRoutes::register(
