@@ -247,7 +247,7 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
 
         $this->assertSame(200, $loginRes->getStatusCode());
         $loginData = json_decode((string) $loginRes->getBody(), true);
-        $this->assertSame('authenticated', $loginData['status']);
+        $this->assertSame('success', $loginData['status']);
         $this->assertArrayHasKey('user', $loginData);
         $this->assertArrayNotHasKey('password_hash', $loginData['user']);
         $this->assertArrayNotHasKey('totp_secret', $loginData['user']);

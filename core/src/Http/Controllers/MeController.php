@@ -48,7 +48,8 @@ class MeController extends BaseController
         }
 
         $actor = $this->getActor($request);
-        $user = $this->users->findById($actor->id);
+        $userId = $actor->onBehalfOf ?? $actor->id;
+        $user = $this->users->findById($userId);
 
         if ($user === null) {
             return $this->problem(404, 'Not Found', 'User profile not found.');

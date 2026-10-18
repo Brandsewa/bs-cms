@@ -77,6 +77,15 @@ jobs:
     name: Build & Verify Release Zip
     runs-on: ubuntu-latest
     needs: [php-quality]
+    services:
+      database:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bscms_release
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -u root --password=root" --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -130,11 +139,12 @@ jobs:
           echo "$CSRF_RESP" | grep -q "403 Forbidden"
           echo "$CSRF_RESP" | grep -q "application/problem+json"
 
-          # 5. Create dummy installed.lock to test post-install front-controller API routing
-          touch storage/installed.lock
+          # 5. Run migrations via CLI tool and configure app to test live post-install API endpoints
           mkdir -p config
           echo "<?php return ['name' => 'CI Test', 'env' => 'production', 'url' => 'http://127.0.0.1:8888', 'key' => 'base64:$(openssl rand -base64 32)'];" > config/app.php
-          echo "<?php return ['host' => '127.0.0.1', 'port' => 3306, 'database' => 'none', 'username' => 'none', 'password' => 'none', 'prefix' => 'bs_'];" > config/database.php
+          echo "<?php return ['host' => '127.0.0.1', 'port' => 3306, 'database' => 'bscms_release', 'username' => 'root', 'password' => 'root', 'prefix' => 'bs_'];" > config/database.php
+          php bin/bs migrate
+          touch storage/installed.lock
 
           # Unauthenticated protected API route returns 401 Problem Details (proves ApiRoutes and AuthenticateMiddleware are active in front controller)
           API_AUTH_RESP=$(curl -s -i http://127.0.0.1:8888/api/v1/auth/session)
