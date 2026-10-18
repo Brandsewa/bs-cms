@@ -444,7 +444,9 @@ passTest("8. API Token role inheritance, scope enforcement, and CSRF bypass veri
 
 // 9. ErrorHandler logging & Instance ID
 echo "Testing 9: ErrorHandlerMiddleware Problem Details instance and logging...\n";
-$res404 = httpRequest('GET', "{$baseUrl}/api/v1/nonexistent-endpoint-test-404");
+$res404 = httpRequest('GET', "{$baseUrl}/api/v1/nonexistent-endpoint-test-404", [
+    'Authorization' => "Bearer {$rawToken}",
+]);
 if ($res404['status'] !== 404) {
     failTest("Expected 404, got {$res404['status']}");
 }

@@ -108,21 +108,26 @@ final class Kernel implements RequestHandlerInterface
         $match = $this->router->dispatch($method, $path);
 
         if ($match['status'] === 404) {
-            return ProblemDetails::notFound("The requested URL '{$path}' was not found.")->toResponse();
+            $requestId = (string) $request->getAttribute('request_id', 'unknown');
+            return ProblemDetails::notFound("The requested URL '{$path}' was not found.", $requestId)->toResponse();
         }
 
         if ($match['status'] === 405) {
+            $requestId = (string) $request->getAttribute('request_id', 'unknown');
             /** @var list<string> $allowed */
             $allowed = $match['allowed_methods'] ?? [];
             return ProblemDetails::create(
                 405,
                 'Method Not Allowed',
-                "Method '{$method}' is not allowed for '{$path}'."
+                "Method '{$method}' is not allowed for '{$path}'.",
+                'https://errors.bscms.org/method-not-allowed',
+                $requestId
             )->toResponse()->withHeader('Allow', implode(', ', $allowed));
         }
 
         if (!isset($match['handler'])) {
-            return ProblemDetails::notFound("The requested URL '{$path}' was not found.")->toResponse();
+            $requestId = (string) $request->getAttribute('request_id', 'unknown');
+            return ProblemDetails::notFound("The requested URL '{$path}' was not found.", $requestId)->toResponse();
         }
 
         /** @var callable $handler */

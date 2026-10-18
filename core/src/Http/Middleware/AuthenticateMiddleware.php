@@ -120,11 +120,13 @@ final class AuthenticateMiddleware implements MiddlewareInterface
 
         // 4. Protected API endpoints require an authenticated actor
         if ($actor === null || !($actor instanceof Actor) || $actor->type === Actor::TYPE_ANONYMOUS) {
+            $requestId = (string) $request->getAttribute('request_id', 'unknown');
             return ProblemDetails::create(
                 401,
                 'Unauthorized',
                 'Authentication is required to access this resource.',
-                'https://errors.bscms.org/unauthorized'
+                'https://errors.bscms.org/unauthorized',
+                $requestId
             )->toResponse()->withHeader('Cache-Control', 'no-store');
         }
 
