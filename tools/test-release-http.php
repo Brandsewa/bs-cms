@@ -1082,22 +1082,29 @@ if (($resPatchSiteSettings['json']['environment'] ?? null) !== 'production') {
 passTest("16c. Partial singleton update merges data and preserves omitted fields");
 
 // 16d. Environment change on site_settings requires step-up + confirm token
-// Attempt without step-up
-$resEnvNoStepUp = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
-    'Authorization' => "Bearer {$adminToken}",
+// Create a session without step-up (mfa_passed_at = null)
+$stepUpSessionManager = new \BsCms\Auth\SessionManager($connection);
+$stepUpSess = $stepUpSessionManager->create($userId, null, null, false);
+$sessCookie = $stepUpSess['token'];
+$sessCsrf = $stepUpSess['csrf_token'];
+
+$sessHeaders = [
+    'Cookie' => "{$cookieName}={$sessCookie}",
+    'X-CSRF-Token' => $sessCsrf,
+    'Origin' => $baseUrl,
     'Content-Type' => 'application/json',
-], [
+];
+
+// Attempt without step-up -> 403 Step-Up Authentication Required
+$resEnvNoStepUp = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", $sessHeaders, [
     'environment' => 'staging',
 ]);
-if ($resEnvNoStepUp['status'] !== 401 && $resEnvNoStepUp['status'] !== 403) {
-    failTest("Change environment without step-up expected 401/403, got {$resEnvNoStepUp['status']}");
+if ($resEnvNoStepUp['status'] !== 403) {
+    failTest("Change environment without step-up expected 403, got {$resEnvNoStepUp['status']}: {$resEnvNoStepUp['body']}");
 }
 
-// Perform step-up
-$resStepUp = httpRequest('POST', "{$baseUrl}/api/v1/auth/step-up", [
-    'Authorization' => "Bearer {$adminToken}",
-    'Content-Type' => 'application/json',
-], [
+// Perform step-up via POST /auth/step-up
+$resStepUp = httpRequest('POST', "{$baseUrl}/api/v1/auth/step-up", $sessHeaders, [
     'password' => $testPass,
 ]);
 if ($resStepUp['status'] !== 200) {
@@ -1105,10 +1112,7 @@ if ($resStepUp['status'] !== 200) {
 }
 
 // Attempt with step-up but without confirm token -> 409
-$resEnvNoConfirm = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
-    'Authorization' => "Bearer {$adminToken}",
-    'Content-Type' => 'application/json',
-], [
+$resEnvNoConfirm = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", $sessHeaders, [
     'environment' => 'staging',
 ]);
 if ($resEnvNoConfirm['status'] !== 409) {
@@ -1120,11 +1124,9 @@ if ($envConfirmToken === '') {
 }
 
 // Execute with confirm token -> 200
-$resEnvConfirmed = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
-    'Authorization' => "Bearer {$adminToken}",
-    'Content-Type' => 'application/json',
+$resEnvConfirmed = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", array_merge($sessHeaders, [
     'X-Confirm-Token' => $envConfirmToken,
-], [
+]), [
     'environment' => 'staging',
 ]);
 if ($resEnvConfirmed['status'] !== 200) {

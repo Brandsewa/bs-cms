@@ -497,7 +497,7 @@ final class ContentRestApiIntegrationTest extends TestCase
         $updateRes = $this->singletonsController->update($updateReq, ['handle' => 'site_config']);
         $this->assertSame(200, $updateRes->getStatusCode());
         $updated = json_decode((string) $updateRes->getBody(), true);
-        $this->assertSame('The best CMS in the world', $updated['data']['tagline']);
+        $this->assertSame('The best CMS in the world', $updated['tagline']);
     }
 
     public function testSavedViewsUserIsolation(): void
