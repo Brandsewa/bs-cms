@@ -4207,6 +4207,12 @@
                     "user": {
                         "type": "string",
                         "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                    },
+                    "avatar": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -4274,6 +4280,18 @@
                     "nav_label": {
                         "type": "string",
                         "maxLength": 64
+                    },
+                    "blocks": {
+                        "type": [
+                            "object",
+                            "array"
+                        ]
+                    },
+                    "featured_image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },
@@ -4295,6 +4313,39 @@
                             "published",
                             "archived"
                         ]
+                    },
+                    "body": {
+                        "type": [
+                            "object",
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "featured_image": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "categories": {
+                        "type": [
+                            "string",
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "tags": {
+                        "type": [
+                            "string",
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "excerpt": {
                         "type": "string",

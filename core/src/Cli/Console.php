@@ -580,10 +580,55 @@ final class Console
         $result = $this->schemaApply($args);
 
         if ($result === 0) {
+            $this->seedTaxonomies();
             echo "Built-in collections seeded successfully.\n";
         }
 
         return $result;
+    }
+
+    private function seedTaxonomies(): void
+    {
+        $taxFile = $this->app->basePath('resources/taxonomies.json');
+        if (!is_file($taxFile)) {
+            return;
+        }
+
+        $content = (string) file_get_contents($taxFile);
+        $taxonomies = json_decode($content, true);
+        if (!is_array($taxonomies)) {
+            return;
+        }
+
+        $conn = $this->getConnection();
+        $taxRepo = new \BsCms\Taxonomy\TaxonomyRepository($conn);
+        $termRepo = new \BsCms\Taxonomy\TermRepository($conn);
+
+        foreach ($taxonomies as $taxData) {
+            if (!is_array($taxData) || empty($taxData['handle'])) {
+                continue;
+            }
+
+            $handle = (string) $taxData['handle'];
+            $existing = $taxRepo->findByHandle($handle);
+            if ($existing === null) {
+                $created = $taxRepo->create($taxData);
+                $taxId = (string) $created['id'];
+                echo "Seeded taxonomy '{$handle}'.\n";
+            } else {
+                $taxId = (string) $existing['id'];
+            }
+
+            if (!empty($taxData['default_term']) && is_array($taxData['default_term'])) {
+                $defaultTerm = $taxData['default_term'];
+                $termSlug = (string) ($defaultTerm['slug'] ?? 'uncategorized');
+                $existingTerm = $termRepo->findBySlug($taxId, $termSlug);
+                if ($existingTerm === null) {
+                    $termRepo->create($taxId, $defaultTerm);
+                    echo "Seeded default term '{$defaultTerm['name']}' in taxonomy '{$handle}'.\n";
+                }
+            }
+        }
     }
 
     /**

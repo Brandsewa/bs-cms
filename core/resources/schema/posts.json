@@ -20,6 +20,51 @@
     "slug_source": "title",
     "default_sort": "-published_at",
     "fields": {
+        "body": {
+            "handle": "body",
+            "label": "Body",
+            "type": "richtext",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "profile": "article"
+            }
+        },
+        "featured_image": {
+            "handle": "featured_image",
+            "label": "Featured Image",
+            "type": "media",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "allowed_types": ["image"],
+                "multiple": false
+            }
+        },
+        "categories": {
+            "handle": "categories",
+            "label": "Categories",
+            "type": "taxonomy",
+            "required": false,
+            "is_filterable": true,
+            "show_in_list": true,
+            "config": {
+                "taxonomy": "categories",
+                "multiple": true
+            }
+        },
+        "tags": {
+            "handle": "tags",
+            "label": "Tags",
+            "type": "taxonomy",
+            "required": false,
+            "is_filterable": true,
+            "show_in_list": true,
+            "config": {
+                "taxonomy": "tags",
+                "multiple": true
+            }
+        },
         "excerpt": {
             "handle": "excerpt",
             "label": "Excerpt",

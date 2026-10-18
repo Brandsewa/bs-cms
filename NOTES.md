@@ -506,3 +506,16 @@ Hostinger runs LiteSpeed Web Server, which may bypass Apache-style per-directory
 - Integrated with `EntryRepository`: automatically extracts media references from both `media` field types and embedded image nodes in `richtext` documents upon entry create, update, and purge.
 - `DELETE /api/v1/media/{id}` returns HTTP 409 Conflict if `usage_count > 0` with Problem Details listing all referencing entries, unless `?force=true` is explicitly provided.
 
+### 8.4 Built-in Schema Extensions & Seed Taxonomies (Step 5)
+- **Built-in Schema Definitions:**
+  - `posts.json`: Added `body` (`richtext` with `article` profile), `featured_image` (`media`), `categories` (`taxonomy` pointing to `categories`, multi-select), `tags` (`taxonomy` pointing to `tags`, multi-select). `faq` and `key_facts` preserved.
+  - `pages.json`: Added `blocks` (`json`) and `featured_image` (`media`).
+  - `authors.json`: Added `avatar` (`media`).
+- **Seed Taxonomies (`core/resources/taxonomies.json`):**
+  - `categories`: Hierarchical (`hierarchical: true`, `max_depth: 5`, route `/category/{slug}`), seeded with default system term "Uncategorized" (`uncategorized`).
+  - `tags`: Flat (`hierarchical: false`, route `/tag/{slug}`).
+- **Engine-Driven Seeding & Upgrade Path:**
+  - Seeding executed through `bs schema:seed` via `SchemaPlanner` and `SchemaApplier`, as well as during installation (`InstallerController` and CLI `bs install`).
+  - Idempotent: running `bs schema:seed` repeatedly produces no schema mutations or duplicate taxonomy terms.
+  - Minimal creation verified: every built-in collection creates cleanly with minimal required input (post with title only, page with title only, author with name only).
+

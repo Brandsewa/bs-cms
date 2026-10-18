@@ -1,0 +1,29 @@
+[
+    {
+        "handle": "categories",
+        "label_singular": "Category",
+        "label_plural": "Categories",
+        "description": "Hierarchical content categories",
+        "hierarchical": true,
+        "max_depth": 5,
+        "has_public_archive": true,
+        "archive_route_pattern": "/category/{slug}",
+        "is_system": true,
+        "default_term": {
+            "name": "Uncategorized",
+            "slug": "uncategorized",
+            "description": "Default category for uncategorized posts"
+        }
+    },
+    {
+        "handle": "tags",
+        "label_singular": "Tag",
+        "label_plural": "Tags",
+        "description": "Flat content tags",
+        "hierarchical": false,
+        "max_depth": null,
+        "has_public_archive": true,
+        "archive_route_pattern": "/tag/{slug}",
+        "is_system": true
+    }
+]

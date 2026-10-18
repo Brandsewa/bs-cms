@@ -74,6 +74,17 @@
             "required": false,
             "show_in_list": false,
             "config": {}
+        },
+        "avatar": {
+            "handle": "avatar",
+            "label": "Avatar Image",
+            "type": "media",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "allowed_types": ["image"],
+                "multiple": false
+            }
         }
     }
 }

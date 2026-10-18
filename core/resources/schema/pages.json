@@ -66,6 +66,25 @@
             "config": {
                 "max_length": 64
             }
+        },
+        "blocks": {
+            "handle": "blocks",
+            "label": "Page Blocks",
+            "type": "json",
+            "required": false,
+            "show_in_list": false,
+            "config": {}
+        },
+        "featured_image": {
+            "handle": "featured_image",
+            "label": "Featured Image",
+            "type": "media",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "allowed_types": ["image"],
+                "multiple": false
+            }
         }
     }
 }

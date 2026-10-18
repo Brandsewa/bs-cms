@@ -372,6 +372,40 @@ final class InstallerController
                     }
                 }
             }
+
+            // Seed built-in taxonomies
+            $taxFile = $this->rootDir . '/resources/taxonomies.json';
+            if (is_file($taxFile)) {
+                $taxContent = (string) file_get_contents($taxFile);
+                $taxonomies = json_decode($taxContent, true);
+                if (is_array($taxonomies)) {
+                    $taxRepo = new \BsCms\Taxonomy\TaxonomyRepository($conn);
+                    $termRepo = new \BsCms\Taxonomy\TermRepository($conn);
+
+                    foreach ($taxonomies as $taxData) {
+                        if (!is_array($taxData) || empty($taxData['handle'])) {
+                            continue;
+                        }
+                        $taxHandle = (string) $taxData['handle'];
+                        $existing = $taxRepo->findByHandle($taxHandle);
+                        if ($existing === null) {
+                            $created = $taxRepo->create($taxData);
+                            $taxId = (string) $created['id'];
+                        } else {
+                            $taxId = (string) $existing['id'];
+                        }
+
+                        if (!empty($taxData['default_term']) && is_array($taxData['default_term'])) {
+                            $defaultTerm = $taxData['default_term'];
+                            $termSlug = (string) ($defaultTerm['slug'] ?? 'uncategorized');
+                            $existingTerm = $termRepo->findBySlug($taxId, $termSlug);
+                            if ($existingTerm === null) {
+                                $termRepo->create($taxId, $defaultTerm);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // 6. Create Owner User & Assign Owner Role
