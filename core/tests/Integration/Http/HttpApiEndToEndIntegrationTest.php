@@ -275,46 +275,43 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $this->assertNotEmpty($sessionJson['csrf_token']);
         $csrfToken = $sessionJson['csrf_token'];
 
-        // 3. Mutating POST without CSRF token fails with 403
-        $createRoleNoCsrf = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/roles'))
+        // 3. Mutating PATCH /api/v1/me without CSRF token fails with 403
+        $updateProfileNoCsrf = (new ServerRequest('PATCH', 'https://test.bscms.local/api/v1/me'))
             ->withCookieParams(['__Host-bs_session' => $sessionCookie])
             ->withHeader('Origin', 'https://test.bscms.local')
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
-                'handle' => 'contributor_test',
-                'name' => 'Contributor Test',
+                'name' => 'Updated Admin Name',
             ]);
-        $resNoCsrf = $this->dispatch($createRoleNoCsrf);
+        $resNoCsrf = $this->dispatch($updateProfileNoCsrf);
         $this->assertSame(403, $resNoCsrf->getStatusCode());
         $this->assertStringContainsString('Invalid or missing CSRF token', (string) $resNoCsrf->getBody());
 
-        // 4. Mutating POST with origin mismatch fails with 403
-        $createRoleEvilOrigin = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/roles'))
+        // 4. Mutating PATCH /api/v1/me with origin mismatch fails with 403
+        $updateProfileEvilOrigin = (new ServerRequest('PATCH', 'https://test.bscms.local/api/v1/me'))
             ->withCookieParams(['__Host-bs_session' => $sessionCookie])
             ->withHeader('Origin', 'https://evil-attacker.com')
             ->withHeader('X-CSRF-Token', $csrfToken)
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
-                'handle' => 'contributor_test',
-                'name' => 'Contributor Test',
+                'name' => 'Updated Admin Name',
             ]);
-        $resEvilOrigin = $this->dispatch($createRoleEvilOrigin);
+        $resEvilOrigin = $this->dispatch($updateProfileEvilOrigin);
         $this->assertSame(403, $resEvilOrigin->getStatusCode());
 
-        // 5. Mutating POST with valid session, origin, and CSRF token succeeds
-        $createRoleValid = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/roles'))
+        // 5. Mutating PATCH /api/v1/me with valid session, origin, and CSRF token succeeds
+        $updateProfileValid = (new ServerRequest('PATCH', 'https://test.bscms.local/api/v1/me'))
             ->withCookieParams(['__Host-bs_session' => $sessionCookie])
             ->withHeader('Origin', 'https://test.bscms.local')
             ->withHeader('X-CSRF-Token', $csrfToken)
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
-                'handle' => 'contributor_test',
-                'name' => 'Contributor Test',
+                'name' => 'Updated Admin Name',
             ]);
-        $resValid = $this->dispatch($createRoleValid);
-        $this->assertSame(201, $resValid->getStatusCode());
-        $newRole = json_decode((string) $resValid->getBody(), true);
-        $this->assertSame('contributor_test', $newRole['handle']);
+        $resValid = $this->dispatch($updateProfileValid);
+        $this->assertSame(200, $resValid->getStatusCode());
+        $updatedUser = json_decode((string) $resValid->getBody(), true);
+        $this->assertSame('Updated Admin Name', $updatedUser['name']);
 
         // 6. Last owner protection: Attempting to delete the sole initial owner or remove owner role
         $deleteInitialOwnerReq = (new ServerRequest('DELETE', "https://test.bscms.local/api/v1/users/{$userId}"))
