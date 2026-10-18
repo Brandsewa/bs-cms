@@ -234,7 +234,8 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
         $resInvalidMedia = $this->entriesController->create($reqInvalidMedia, ['handle' => 'posts']);
         $this->assertSame(422, $resInvalidMedia->getStatusCode());
         $errBody = json_decode((string) $resInvalidMedia->getBody(), true);
-        $this->assertArrayHasKey('invalid_params', $errBody);
+        $this->assertArrayHasKey('errors', $errBody);
+        $this->assertArrayHasKey('featured_image', $errBody['errors']);
 
         // 4. Test validation error for unsafe URL in document
         $reqUnsafeDoc = (new ServerRequest('POST', '/api/v1/collections/posts/entries'))
@@ -262,5 +263,8 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
 
         $resUnsafeDoc = $this->entriesController->create($reqUnsafeDoc, ['handle' => 'posts']);
         $this->assertSame(422, $resUnsafeDoc->getStatusCode());
+        $errDoc = json_decode((string) $resUnsafeDoc->getBody(), true);
+        $this->assertArrayHasKey('errors', $errDoc);
+        $this->assertArrayHasKey('body', $errDoc['errors']);
     }
 }
