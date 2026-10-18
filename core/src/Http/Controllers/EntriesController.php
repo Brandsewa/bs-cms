@@ -16,7 +16,6 @@ use BsCms\Content\VersionManager;
 use BsCms\Database\Connection;
 use BsCms\Events\EventBus;
 use BsCms\Events\GenericEvent;
-use BsCms\Migrations\SeedSystemRoles;
 use BsCms\Operations\ConfirmTokenService;
 use BsCms\Operations\Exceptions\ValidationException;
 use BsCms\Schema\CollectionRegistry;
@@ -203,7 +202,7 @@ class EntriesController extends BaseController
      */
     public function update(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        return $this->handleUpdate($request, $args, false);
+        return $this->handleUpdate($request, $args, false, false);
     }
 
     /**
@@ -211,14 +210,18 @@ class EntriesController extends BaseController
      */
     public function patch(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
-        return $this->handleUpdate($request, $args, true);
+        return $this->handleUpdate($request, $args, true, false);
     }
 
     /**
      * @param array<string, mixed> $args
      */
-    private function handleUpdate(ServerRequestInterface $request, array $args, bool $isPatch): ResponseInterface
-    {
+    private function handleUpdate(
+        ServerRequestInterface $request,
+        array $args,
+        bool $isPatch,
+        bool $isStateChange = false
+    ): ResponseInterface {
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
 
@@ -236,27 +239,31 @@ class EntriesController extends BaseController
             return $permError;
         }
 
-        // Concurrency: require If-Match header (428 Precondition Required if missing)
+        // Concurrency: require If-Match header for content updates (428 Precondition Required if missing).
+        // For state-change endpoints (publish, unpublish, archive, schedule, submit-review), If-Match is optional.
         $ifMatch = trim($request->getHeaderLine('If-Match'));
         if ($ifMatch === '') {
-            return $this->problem(428, 'Precondition Required', "An 'If-Match' header containing the entity's current version or ETag is required to prevent lost updates.");
-        }
+            if (!$isStateChange) {
+                return $this->problem(428, 'Precondition Required', "An 'If-Match' header containing the entity's current version or ETag is required to prevent lost updates.");
+            }
+            $expectedVersionInt = (int) $existing['version'];
+        } else {
+            $expectedVersion = trim($ifMatch, '"');
+            if (!is_numeric($expectedVersion)) {
+                return $this->problem(428, 'Precondition Required', "Invalid 'If-Match' header format.");
+            }
 
-        $expectedVersion = trim($ifMatch, '"');
-        if (!is_numeric($expectedVersion)) {
-            return $this->problem(428, 'Precondition Required', "Invalid 'If-Match' header format.");
-        }
-
-        $expectedVersionInt = (int) $expectedVersion;
-        if ((int) $existing['version'] !== $expectedVersionInt) {
-            $conflictProblem = new \BsCms\Http\ProblemDetails(
-                409,
-                'Conflict',
-                "Entry '{$id}' was modified by another request. Expected version {$expectedVersionInt}, current version is {$existing['version']}.",
-                'about:blank'
-            );
-            $response = $conflictProblem->toResponse()->withHeader('ETag', '"' . $existing['version'] . '"');
-            return $response;
+            $expectedVersionInt = (int) $expectedVersion;
+            if ((int) $existing['version'] !== $expectedVersionInt) {
+                $conflictProblem = new \BsCms\Http\ProblemDetails(
+                    409,
+                    'Conflict',
+                    "Entry '{$id}' was modified by another request. Expected version {$expectedVersionInt}, current version is {$existing['version']}.",
+                    'about:blank'
+                );
+                $response = $conflictProblem->toResponse()->withHeader('ETag', '"' . $existing['version'] . '"');
+                return $response;
+            }
         }
 
         $actor = $this->getActor($request);
@@ -418,6 +425,21 @@ class EntriesController extends BaseController
             return $permError;
         }
 
+        // Optional If-Match on restore: check version if provided
+        $ifMatch = trim($request->getHeaderLine('If-Match'));
+        if ($ifMatch !== '') {
+            $expectedVersion = trim($ifMatch, '"');
+            if (!is_numeric($expectedVersion) || (int) $existing['version'] !== (int) $expectedVersion) {
+                $conflictProblem = new \BsCms\Http\ProblemDetails(
+                    409,
+                    'Conflict',
+                    "Entry '{$id}' was modified by another request. Expected version {$expectedVersion}, current version is {$existing['version']}.",
+                    'about:blank'
+                );
+                return $conflictProblem->toResponse()->withHeader('ETag', '"' . $existing['version'] . '"');
+            }
+        }
+
         $actor = $this->getActor($request);
 
         try {
@@ -443,8 +465,9 @@ class EntriesController extends BaseController
                 'actor' => $actor->toArray(),
             ]));
 
-            $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $restored, 'read');
-            return $this->json($filtered);
+            $collection = $this->registry->get($handle);
+            $presented = EntryPresenter::forAuthenticated($restored, $collection, $actor, $this->authorizer);
+            return $this->json($presented);
         } catch (\Throwable $e) {
             return $this->problem(500, 'Restore Error', $e->getMessage());
         }
@@ -469,22 +492,9 @@ class EntriesController extends BaseController
 
         $actor = $this->getActor($request);
 
-        // Editors must not be allowed to purge (only owner, admin, or developer with purge permission)
-        $isEditor = in_array(SeedSystemRoles::ROLE_EDITOR, $actor->roleIds, true);
-        $isPrivileged = in_array(SeedSystemRoles::ROLE_OWNER, $actor->roleIds, true)
-            || in_array(SeedSystemRoles::ROLE_ADMIN, $actor->roleIds, true)
-            || in_array(SeedSystemRoles::ROLE_DEVELOPER, $actor->roleIds, true);
-
-        if ($isEditor && !$isPrivileged) {
-            return $this->problem(403, 'Forbidden', "Role 'editor' is not permitted to permanently purge entries.");
-        }
-
         $permCheck = $this->authorizer->can($actor, 'purge', new Subject('collection', $handle), $existing);
         if (!$permCheck->allowed) {
-            $permCheckDelete = $this->authorizer->can($actor, 'delete', new Subject('collection', $handle), $existing);
-            if (!$permCheckDelete->allowed) {
-                return $this->problem(403, 'Forbidden', $permCheck->reason);
-            }
+            return $this->problem(403, 'Forbidden', $permCheck->reason);
         }
 
         // Two-step confirmation for entry.purge
@@ -581,8 +591,9 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
-            $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $duplicated, 'read');
-            return $this->json($filtered, 201);
+            $collection = $this->registry->get($handle);
+            $presented = EntryPresenter::forAuthenticated($duplicated, $collection, $actor, $this->authorizer);
+            return $this->json($presented, 201);
         } catch (Throwable $e) {
             return $this->problem(500, 'Duplicate Error', $e->getMessage());
         }
@@ -719,7 +730,9 @@ class EntriesController extends BaseController
                 collectionKey: $handle
             );
 
-            return $this->json($restored);
+            $collection = $this->registry->get($handle);
+            $presented = EntryPresenter::forAuthenticated($restored, $collection, $actor, $this->authorizer);
+            return $this->json($presented);
         } catch (Throwable $e) {
             return $this->problem(500, 'Restore Version Error', $e->getMessage());
         }
@@ -733,7 +746,7 @@ class EntriesController extends BaseController
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'published']));
-        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+        return $this->handleUpdate($requestWithStatus, ['handle' => $handle, 'id' => $id], isPatch: true, isStateChange: true);
     }
 
     /**
@@ -744,7 +757,7 @@ class EntriesController extends BaseController
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'draft']));
-        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+        return $this->handleUpdate($requestWithStatus, ['handle' => $handle, 'id' => $id], isPatch: true, isStateChange: true);
     }
 
     /**
@@ -755,7 +768,7 @@ class EntriesController extends BaseController
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'archived']));
-        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+        return $this->handleUpdate($requestWithStatus, ['handle' => $handle, 'id' => $id], isPatch: true, isStateChange: true);
     }
 
     /**
@@ -784,7 +797,7 @@ class EntriesController extends BaseController
             'status' => 'scheduled',
             'scheduled_at' => date('Y-m-d H:i:s', (int) strtotime($scheduledAt)),
         ]));
-        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+        return $this->handleUpdate($requestWithStatus, ['handle' => $handle, 'id' => $id], isPatch: true, isStateChange: true);
     }
 
     /**
@@ -797,7 +810,7 @@ class EntriesController extends BaseController
         $body = $this->getBody($request);
 
         $requestWithStatus = $request->withParsedBody(array_merge($body, ['status' => 'in_review']));
-        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+        return $this->handleUpdate($requestWithStatus, ['handle' => $handle, 'id' => $id], isPatch: true, isStateChange: true);
     }
 
     /**

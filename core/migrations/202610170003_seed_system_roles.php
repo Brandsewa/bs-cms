@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Migrations;
 
+use BsCms\Auth\SystemRoles;
 use BsCms\Database\Migration;
 use BsCms\Security\Ulid;
 use BsCms\Support\Clock;
@@ -14,15 +15,15 @@ use BsCms\Support\Clock;
  */
 final class SeedSystemRoles extends Migration
 {
-    public const ROLE_OWNER = '01JB0000000000000000000001';
-    public const ROLE_ADMIN = '01JB0000000000000000000002';
-    public const ROLE_DEVELOPER = '01JB0000000000000000000003';
-    public const ROLE_EDITOR = '01JB0000000000000000000004';
-    public const ROLE_AUTHOR = '01JB0000000000000000000005';
-    public const ROLE_CONTRIBUTOR = '01JB0000000000000000000006';
-    public const ROLE_VIEWER = '01JB0000000000000000000007';
-    public const ROLE_AI_DRAFT = '01JB0000000000000000000008';
-    public const ROLE_AI_PUBLISHER = '01JB0000000000000000000009';
+    public const ROLE_OWNER = SystemRoles::ROLE_OWNER;
+    public const ROLE_ADMIN = SystemRoles::ROLE_ADMIN;
+    public const ROLE_DEVELOPER = SystemRoles::ROLE_DEVELOPER;
+    public const ROLE_EDITOR = SystemRoles::ROLE_EDITOR;
+    public const ROLE_AUTHOR = SystemRoles::ROLE_AUTHOR;
+    public const ROLE_CONTRIBUTOR = SystemRoles::ROLE_CONTRIBUTOR;
+    public const ROLE_VIEWER = SystemRoles::ROLE_VIEWER;
+    public const ROLE_AI_DRAFT = SystemRoles::ROLE_AI_DRAFT;
+    public const ROLE_AI_PUBLISHER = SystemRoles::ROLE_AI_PUBLISHER;
 
     public function up(): void
     {

@@ -176,7 +176,8 @@ final class EntryRepository
         string $actorType = 'user',
         ?string $actorLabel = null,
         ?string $updatedBy = null,
-        bool $isAutosave = false
+        bool $isAutosave = false,
+        bool $isPatch = true
     ): array {
         $collection = $this->collectionRegistry->get($collectionHandle);
         $collectionId = (string) $collection['id'];
@@ -236,7 +237,8 @@ final class EntryRepository
             $input,
             $title,
             $id,
-            true
+            true,
+            $isPatch
         );
         $mergedData = array_merge($existingData, $newDataValues);
 
@@ -840,7 +842,8 @@ final class EntryRepository
         array $input,
         string $title,
         ?string $entryId = null,
-        bool $isUpdate = false
+        bool $isUpdate = false,
+        bool $isPatch = false
     ): array {
         $dataValues = [];
         $columnValues = [];
@@ -875,12 +878,18 @@ final class EntryRepository
             $fTypeStr = (string) ($def['type'] ?? 'text');
             $fType = $this->fieldTypeRegistry->get($fTypeStr);
             $config = (array) ($def['config'] ?? []);
-            $isRequired = !empty($def['is_required']);
+            $isRequired = !empty($def['required']) || !empty($def['is_required']);
 
             $hasInput = array_key_exists($fHandle, $input);
 
-            // On create, missing required field is an error
-            if (!$isUpdate && $isRequired && (!$hasInput || $input[$fHandle] === null || $input[$fHandle] === '')) {
+            // On create or full update (PUT): missing or empty required field is an error
+            if ((!$isUpdate || !$isPatch) && $isRequired && (!$hasInput || $input[$fHandle] === null || $input[$fHandle] === '')) {
+                $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
+                continue;
+            }
+
+            // On PATCH: if field is explicitly sent and set to null/empty when required, it is an error
+            if ($isUpdate && $isPatch && $isRequired && $hasInput && ($input[$fHandle] === null || $input[$fHandle] === '')) {
                 $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
                 continue;
             }
@@ -890,12 +899,6 @@ final class EntryRepository
             }
 
             $rawVal = $input[$fHandle];
-
-            // If updating and required, cannot set to null/empty
-            if ($isUpdate && $isRequired && ($rawVal === null || $rawVal === '')) {
-                $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
-                continue;
-            }
 
             // Field-type validation
             $vContext = new ValidationContext($input, $def, $collection, $entryId, $isUpdate);

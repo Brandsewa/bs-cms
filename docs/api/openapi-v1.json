@@ -639,7 +639,7 @@
                 }
             },
             "put": {
-                "summary": "Update entry in authors",
+                "summary": "Full replace entry in authors",
                 "tags": [
                     "Collection: Authors"
                 ],
@@ -648,6 +648,54 @@
                         "name": "id",
                         "in": "path",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error (missing required fields or invalid data)"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Partial update entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
                         "schema": {
                             "type": "string"
                         }
@@ -662,6 +710,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
                     }
                 }
             },
@@ -701,11 +752,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry restored from trash"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -724,11 +787,26 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "X-Confirm-Token",
+                        "in": "header",
+                        "required": false,
+                        "description": "Two-step confirmation token required for permanent purge.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry permanently purged"
+                    },
+                    "403": {
+                        "description": "Forbidden (editor or non-permitted role)"
+                    },
+                    "409": {
+                        "description": "Confirmation required (returns confirm_token) or token invalid/consumed"
                     }
                 }
             }
@@ -770,11 +848,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry published"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -793,11 +883,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry reverted to draft"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -816,11 +918,96 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry archived"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/schedule": {
+            "post": {
+                "summary": "Schedule entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry scheduled"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    },
+                    "422": {
+                        "description": "Invalid scheduled_at date"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/submit-review": {
+            "post": {
+                "summary": "Submit entry for review in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry submitted for review"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1088,7 +1275,7 @@
                 }
             },
             "put": {
-                "summary": "Update entry in pages",
+                "summary": "Full replace entry in pages",
                 "tags": [
                     "Collection: Pages"
                 ],
@@ -1097,6 +1284,54 @@
                         "name": "id",
                         "in": "path",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error (missing required fields or invalid data)"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Partial update entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
                         "schema": {
                             "type": "string"
                         }
@@ -1111,6 +1346,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
                     }
                 }
             },
@@ -1150,11 +1388,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry restored from trash"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1173,11 +1423,26 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "X-Confirm-Token",
+                        "in": "header",
+                        "required": false,
+                        "description": "Two-step confirmation token required for permanent purge.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry permanently purged"
+                    },
+                    "403": {
+                        "description": "Forbidden (editor or non-permitted role)"
+                    },
+                    "409": {
+                        "description": "Confirmation required (returns confirm_token) or token invalid/consumed"
                     }
                 }
             }
@@ -1219,11 +1484,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry published"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1242,11 +1519,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry reverted to draft"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1265,11 +1554,96 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry archived"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/schedule": {
+            "post": {
+                "summary": "Schedule entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry scheduled"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    },
+                    "422": {
+                        "description": "Invalid scheduled_at date"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/submit-review": {
+            "post": {
+                "summary": "Submit entry for review in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry submitted for review"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1513,7 +1887,7 @@
                 }
             },
             "put": {
-                "summary": "Update entry in posts",
+                "summary": "Full replace entry in posts",
                 "tags": [
                     "Collection: Posts"
                 ],
@@ -1522,6 +1896,54 @@
                         "name": "id",
                         "in": "path",
                         "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error (missing required fields or invalid data)"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Partial update entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": true,
+                        "description": "Required current version or ETag to prevent lost updates.",
                         "schema": {
                             "type": "string"
                         }
@@ -1536,6 +1958,9 @@
                     },
                     "422": {
                         "description": "Validation error"
+                    },
+                    "428": {
+                        "description": "Precondition Required (missing If-Match header)"
                     }
                 }
             },
@@ -1575,11 +2000,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry restored from trash"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1598,11 +2035,26 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "X-Confirm-Token",
+                        "in": "header",
+                        "required": false,
+                        "description": "Two-step confirmation token required for permanent purge.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry permanently purged"
+                    },
+                    "403": {
+                        "description": "Forbidden (editor or non-permitted role)"
+                    },
+                    "409": {
+                        "description": "Confirmation required (returns confirm_token) or token invalid/consumed"
                     }
                 }
             }
@@ -1644,11 +2096,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry published"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1667,11 +2131,23 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry reverted to draft"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }
@@ -1690,11 +2166,96 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "Entry archived"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/schedule": {
+            "post": {
+                "summary": "Schedule entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry scheduled"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
+                    },
+                    "422": {
+                        "description": "Invalid scheduled_at date"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/submit-review": {
+            "post": {
+                "summary": "Submit entry for review in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "required": false,
+                        "description": "Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry submitted for review"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict if stale"
                     }
                 }
             }

@@ -423,15 +423,43 @@ final class OpenApiGenerator
                     ],
                 ],
                 'put' => [
-                    'summary' => "Update entry in {$handle}",
+                    'summary' => "Full replace entry in {$handle}",
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => true,
+                            'description' => 'Required current version or ETag to prevent lost updates.',
+                            'schema' => ['type' => 'string'],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => ['description' => 'Entry updated'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict'],
+                        '422' => ['description' => 'Validation error (missing required fields or invalid data)'],
+                        '428' => ['description' => 'Precondition Required (missing If-Match header)'],
+                    ],
+                ],
+                'patch' => [
+                    'summary' => "Partial update entry in {$handle}",
+                    'tags' => [$tag],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => true,
+                            'description' => 'Required current version or ETag to prevent lost updates.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
                     'responses' => [
                         '200' => ['description' => 'Entry updated'],
                         '409' => ['description' => 'Optimistic concurrency version conflict'],
                         '422' => ['description' => 'Validation error'],
+                        '428' => ['description' => 'Precondition Required (missing If-Match header)'],
                     ],
                 ],
                 'delete' => [
@@ -451,8 +479,18 @@ final class OpenApiGenerator
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
-                    'responses' => ['200' => ['description' => 'Entry restored from trash']],
+                    'responses' => [
+                        '200' => ['description' => 'Entry restored from trash'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                    ],
                 ],
             ],
             "/collections/{$handle}/entries/{id}/purge" => [
@@ -461,8 +499,19 @@ final class OpenApiGenerator
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'X-Confirm-Token',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Two-step confirmation token required for permanent purge.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
-                    'responses' => ['200' => ['description' => 'Entry permanently purged']],
+                    'responses' => [
+                        '200' => ['description' => 'Entry permanently purged'],
+                        '403' => ['description' => 'Forbidden (editor or non-permitted role)'],
+                        '409' => ['description' => 'Confirmation required (returns confirm_token) or token invalid/consumed'],
+                    ],
                 ],
             ],
             "/collections/{$handle}/entries/{id}/duplicate" => [
@@ -481,8 +530,18 @@ final class OpenApiGenerator
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
-                    'responses' => ['200' => ['description' => 'Entry published']],
+                    'responses' => [
+                        '200' => ['description' => 'Entry published'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                    ],
                 ],
             ],
             "/collections/{$handle}/entries/{id}/unpublish" => [
@@ -491,8 +550,18 @@ final class OpenApiGenerator
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
-                    'responses' => ['200' => ['description' => 'Entry reverted to draft']],
+                    'responses' => [
+                        '200' => ['description' => 'Entry reverted to draft'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                    ],
                 ],
             ],
             "/collections/{$handle}/entries/{id}/archive" => [
@@ -501,8 +570,59 @@ final class OpenApiGenerator
                     'tags' => [$tag],
                     'parameters' => [
                         ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
                     ],
-                    'responses' => ['200' => ['description' => 'Entry archived']],
+                    'responses' => [
+                        '200' => ['description' => 'Entry archived'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                    ],
+                ],
+            ],
+            "/collections/{$handle}/entries/{id}/schedule" => [
+                'post' => [
+                    'summary' => "Schedule entry in {$handle}",
+                    'tags' => [$tag],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => ['description' => 'Entry scheduled'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                        '422' => ['description' => 'Invalid scheduled_at date'],
+                    ],
+                ],
+            ],
+            "/collections/{$handle}/entries/{id}/submit-review" => [
+                'post' => [
+                    'summary' => "Submit entry for review in {$handle}",
+                    'tags' => [$tag],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'If-Match',
+                            'in' => 'header',
+                            'required' => false,
+                            'description' => 'Optional entry version or ETag; verified if provided (409 if stale), acts on current version if omitted.',
+                            'schema' => ['type' => 'string'],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => ['description' => 'Entry submitted for review'],
+                        '409' => ['description' => 'Optimistic concurrency version conflict if stale'],
+                    ],
                 ],
             ],
             "/collections/{$handle}/entries/{id}/compare" => [

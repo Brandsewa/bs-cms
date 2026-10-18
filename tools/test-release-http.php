@@ -585,6 +585,7 @@ $resCreateCol = httpRequest('POST', "{$baseUrl}/api/v1/collections", [
     'fields' => [
         'budget' => ['handle' => 'budget', 'type' => 'number', 'is_filterable' => true, 'is_sortable' => true],
         'notes' => ['handle' => 'notes', 'type' => 'textarea'],
+        'goal_amount' => ['handle' => 'goal_amount', 'type' => 'number', 'required' => true],
     ],
 ]);
 if ($resCreateCol['status'] !== 201) {
@@ -595,12 +596,32 @@ passTest("11. Collections created and listed successfully");
 
 // 12. Phase 3: Content Entries CRUD & Versioning
 echo "Testing 12: Content Entries CRUD and Versioning...\n";
+
+// 12a. Missing required field on create returns 422 with field pointer
+$resMissingReq = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Missing Required Goal Amount',
+    'budget' => 5000,
+    'notes' => 'Early launch',
+    'status' => 'draft',
+]);
+if ($resMissingReq['status'] !== 422) {
+    failTest("POST entry missing required goal_amount expected 422, got {$resMissingReq['status']}: {$resMissingReq['body']}");
+}
+if (!isset($resMissingReq['json']['errors']['goal_amount'])) {
+    failTest("POST entry missing required field missing error pointer for goal_amount");
+}
+
+// 12b. Successful create with required field
 $resCreateEntry = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
     'Authorization' => "Bearer {$adminToken}",
     'Content-Type' => 'application/json',
 ], [
     'title' => 'Black Friday Sale',
     'budget' => 5000,
+    'goal_amount' => 10000,
     'notes' => 'Early launch',
     'status' => 'draft',
 ]);
@@ -611,21 +632,77 @@ $campaignId = (string) $resCreateEntry['json']['id'];
 $version = (int) $resCreateEntry['json']['version'];
 scanNoSecrets($resCreateEntry['json']);
 
-// Publish entry
-$resPublish = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/publish", [
+// Authenticated entry presentation check: custom fields at top-level, no 'data' blob, no internal columns
+if (!isset($resCreateEntry['json']['goal_amount']) || $resCreateEntry['json']['goal_amount'] !== 10000) {
+    failTest("Authenticated entry missing top-level custom field 'goal_amount'");
+}
+if (isset($resCreateEntry['json']['data'])) {
+    failTest("Authenticated entry response contains redundant 'data' blob");
+}
+if (isset($resCreateEntry['json']['search_text']) || isset($resCreateEntry['json']['created_by']) || isset($resCreateEntry['json']['updated_by'])) {
+    failTest("Authenticated entry response contains internal columns (search_text, created_by, updated_by)");
+}
+
+// Create second entry for purge cross-entry token test
+$resCreateEntry2 = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
     'Authorization' => "Bearer {$adminToken}",
     'Content-Type' => 'application/json',
 ], [
-    'version' => $version,
+    'title' => 'Cyber Monday Sale',
+    'budget' => 8000,
+    'goal_amount' => 15000,
+    'status' => 'draft',
 ]);
-if ($resPublish['status'] !== 200) {
-    failTest("POST publish entry expected 200, got {$resPublish['status']}: {$resPublish['body']}");
+if ($resCreateEntry2['status'] !== 201) {
+    failTest("POST second entry expected 201, got {$resCreateEntry2['status']}");
 }
-if ($resPublish['json']['status'] !== 'published') {
+$campaignId2 = (string) $resCreateEntry2['json']['id'];
+
+// 12c. State-change endpoints: optional If-Match (acts on current version if omitted, 409 if stale)
+// Publish without If-Match -> 200
+$resPublishNoIfMatch = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/publish", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+]);
+if ($resPublishNoIfMatch['status'] !== 200) {
+    failTest("POST publish entry without If-Match expected 200, got {$resPublishNoIfMatch['status']}: {$resPublishNoIfMatch['body']}");
+}
+if ($resPublishNoIfMatch['json']['status'] !== 'published') {
     failTest("Entry status was not updated to published");
 }
+$publishVersion = (int) $resPublishNoIfMatch['json']['version'];
+
+// Unpublish with STALE If-Match -> 409 Conflict
+$resUnpublishStale = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/unpublish", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => '"1"', // Stale (version was bumped on publish)
+]);
+if ($resUnpublishStale['status'] !== 409) {
+    failTest("POST unpublish with stale If-Match expected 409 Conflict, got {$resUnpublishStale['status']}");
+}
+
+// Unpublish with MATCHING If-Match -> 200
+$resUnpublishValid = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/unpublish", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => (string) $publishVersion,
+]);
+if ($resUnpublishValid['status'] !== 200) {
+    failTest("POST unpublish with matching If-Match expected 200, got {$resUnpublishValid['status']}");
+}
+
+// Re-publish for public API test
+$resPublish = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/publish", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+]);
+if ($resPublish['status'] !== 200) {
+    failTest("POST re-publish expected 200, got {$resPublish['status']}");
+}
+$currentVersion = (int) $resPublish['json']['version'];
 scanNoSecrets($resPublish['json']);
-passTest("12. Content Entry created and published successfully");
+passTest("12. Content Entry created, validated, and state changes verified (optional If-Match & stale 409)");
 
 // 13. Phase 3: Public Content API with ETag and 304 Not Modified
 echo "Testing 13: Public Content API with ETag and 304...\n";
@@ -726,7 +803,7 @@ if ($resPatchStale['status'] !== 409) {
 $resPatchValid = httpRequest('PATCH', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
     'Authorization' => "Bearer {$adminToken}",
     'Content-Type' => 'application/json',
-    'If-Match' => (string) $resPublish['json']['version'],
+    'If-Match' => (string) $currentVersion,
 ], [
     'notes' => 'Patched notes successfully',
 ]);
@@ -736,7 +813,60 @@ if ($resPatchValid['status'] !== 200) {
 scanNoSecrets($resPatchValid['json']);
 $currentVersion = (int) $resPatchValid['json']['version'];
 
-// Defect 3: Purge requires two-step confirmation
+// Enforce required fields on PUT (full replace) and PATCH (null/empty)
+$resPutMissingReq = httpRequest('PUT', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => (string) $currentVersion,
+], [
+    'title' => 'PUT Missing Required Field',
+    'budget' => 5000,
+    // goal_amount is missing
+]);
+if ($resPutMissingReq['status'] !== 422 || !isset($resPutMissingReq['json']['errors']['goal_amount'])) {
+    failTest("PUT entry missing required goal_amount expected 422 with pointer, got {$resPutMissingReq['status']}");
+}
+
+$resPatchNullReq = httpRequest('PATCH', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => (string) $currentVersion,
+], [
+    'goal_amount' => null,
+]);
+if ($resPatchNullReq['status'] !== 422 || !isset($resPatchNullReq['json']['errors']['goal_amount'])) {
+    failTest("PATCH entry setting required goal_amount to null expected 422 with pointer, got {$resPatchNullReq['status']}");
+}
+
+// Defect 3: Purge token lifecycle & editor authorization
+// Seed Editor user and token
+$editorUserId = Ulid::generate();
+$editorTokenPrefix = bin2hex(random_bytes(4));
+$editorTokenSecret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+$editorToken = "bstok_{$editorTokenPrefix}_{$editorTokenSecret}";
+$editorTokenHash = hash('sha256', $editorToken);
+
+$usersTable = $dbConfig['prefix'] . 'users';
+$userRolesTable = $dbConfig['prefix'] . 'user_roles';
+$connection->getPdo()->prepare(
+    "INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`) VALUES (?, 'editor@example.com', 'dummy_hash', 'Test Editor', 'active', ?, ?)"
+)->execute([$editorUserId, $now, $now]);
+$connection->getPdo()->prepare(
+    "INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (?, ?)"
+)->execute([$editorUserId, \BsCms\Auth\SystemRoles::ROLE_EDITOR]);
+$connection->getPdo()->prepare(
+    "INSERT INTO `{$tokensTable}` (`id`, `user_id`, `role_id`, `name`, `token_prefix`, `token_hash`, `scopes`, `ai_mode`, `created_at`, `expires_at`) VALUES (?, ?, NULL, 'Editor Test Token', ?, ?, ?, 'full', ?, NULL)"
+)->execute([Ulid::generate(), $editorUserId, $editorTokenPrefix, $editorTokenHash, json_encode(['*']), $now]);
+
+// a. Editor attempts purge -> 403 Forbidden
+$resEditorPurge = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/purge", [
+    'Authorization' => "Bearer {$editorToken}",
+]);
+if ($resEditorPurge['status'] !== 403) {
+    failTest("DELETE purge by Editor expected 403 Forbidden, got {$resEditorPurge['status']}: {$resEditorPurge['body']}");
+}
+
+// b. Admin purge without token -> 409 Confirmation Required + confirm_token
 $resPurgeNoToken = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/purge", [
     'Authorization' => "Bearer {$adminToken}",
 ]);
@@ -746,6 +876,24 @@ if ($resPurgeNoToken['status'] !== 409) {
 $purgeToken = (string) ($resPurgeNoToken['json']['confirm_token'] ?? '');
 if ($purgeToken === '') {
     failTest("DELETE purge 409 response missing confirm_token");
+}
+
+// c. Admin purge with tampered token -> 409
+$resPurgeTampered = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/purge", [
+    'Authorization' => "Bearer {$adminToken}",
+    'X-Confirm-Token' => $purgeToken . 'tampered',
+]);
+if ($resPurgeTampered['status'] !== 409) {
+    failTest("DELETE purge with tampered token expected 409, got {$resPurgeTampered['status']}");
+}
+
+// d. Admin purge with token bound to another entry -> 409
+$resPurgeOtherEntry = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId2}/purge", [
+    'Authorization' => "Bearer {$adminToken}",
+    'X-Confirm-Token' => $purgeToken,
+]);
+if ($resPurgeOtherEntry['status'] !== 409) {
+    failTest("DELETE purge with token bound to another entry expected 409, got {$resPurgeOtherEntry['status']}");
 }
 
 // Defect 4: Step-up on site_settings environment change
@@ -819,7 +967,18 @@ $resPurgeConfirmed = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campai
 if ($resPurgeConfirmed['status'] !== 200) {
     failTest("DELETE purge with confirm token expected 200, got {$resPurgeConfirmed['status']}: {$resPurgeConfirmed['body']}");
 }
-passTest("14c. Entry purged permanently with two-step confirmation");
+
+// Replayed token must be rejected with 409
+$resPurgeReplay = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId2}/purge", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'confirm_token' => $purgeToken,
+]);
+if ($resPurgeReplay['status'] !== 409) {
+    failTest("DELETE purge with replayed confirm token expected 409, got {$resPurgeReplay['status']}");
+}
+passTest("14c. Entry purged permanently with two-step confirmation (and replayed token refused)");
 
 // Clean up created collection
 $resDelCol = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns", [

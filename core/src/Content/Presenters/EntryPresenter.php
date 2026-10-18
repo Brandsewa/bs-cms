@@ -79,6 +79,18 @@ final class EntryPresenter
             unset($sanitized['deleted_at']);
         }
 
+        // Unpack custom fields from data to top-level and eliminate duplicate data blob
+        if (isset($sanitized['data']) && is_array($sanitized['data'])) {
+            $data = $sanitized['data'];
+            unset($sanitized['data']);
+            foreach ($data as $k => $v) {
+                // Do not overwrite core system metadata if colliding
+                if (!in_array($k, ['id', 'collection_id', 'locale', 'slug', 'title', 'status', 'parent_id', 'position', 'author_id', 'published_at', 'scheduled_at', 'seo', 'version', 'created_at', 'updated_at', 'deleted_at'], true)) {
+                    $sanitized[$k] = $v;
+                }
+            }
+        }
+
         // Apply field-level read permissions
         $handle = (string) ($collection['handle'] ?? '');
         return $authorizer->filterFields($actor, new Subject('collection', $handle), $sanitized, 'read');

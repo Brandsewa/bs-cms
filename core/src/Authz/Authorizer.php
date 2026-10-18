@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace BsCms\Authz;
 
 use BsCms\Auth\Actor;
+use BsCms\Auth\SystemRoles;
 use BsCms\Database\Connection;
-use BsCms\Migrations\SeedSystemRoles;
 use PDO;
 
 /**
@@ -140,7 +140,7 @@ final class Authorizer
             JOIN `{$rolesTable}` r ON r.`id` = ur.`role_id`
             WHERE ur.`user_id` = :uid AND (r.`id` = :owner_id OR r.`handle` = 'owner')
             LIMIT 1");
-        $stmt->execute(['uid' => $targetUserId, 'owner_id' => SeedSystemRoles::ROLE_OWNER]);
+        $stmt->execute(['uid' => $targetUserId, 'owner_id' => SystemRoles::ROLE_OWNER]);
 
         if ($stmt->fetchColumn() === false) {
             // Target is not an owner
@@ -152,7 +152,7 @@ final class Authorizer
             JOIN `{$userRoles}` ur ON ur.`user_id` = u.`id`
             JOIN `{$rolesTable}` r ON r.`id` = ur.`role_id`
             WHERE u.`status` = 'active' AND (r.`id` = :owner_id OR r.`handle` = 'owner')");
-        $countStmt->execute(['owner_id' => SeedSystemRoles::ROLE_OWNER]);
+        $countStmt->execute(['owner_id' => SystemRoles::ROLE_OWNER]);
         $ownerCount = (int) $countStmt->fetchColumn();
 
         if ($ownerCount <= 1) {
