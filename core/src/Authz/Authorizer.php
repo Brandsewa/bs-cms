@@ -38,7 +38,24 @@ final class Authorizer
             return Decision::allow('System actor has unrestricted access.');
         }
 
-        // 2. AI Mode restrictions
+        // 2. Token Scope restrictions (if actor is an API token or has explicit scopes)
+        if ($actor->type === Actor::TYPE_API_TOKEN) {
+            $scopes = $actor->scopes;
+            if (!in_array('*', $scopes, true)) {
+                $scopeAllowed = false;
+                foreach ($scopes as $scope) {
+                    if ($this->matchesScope($scope, $action, $subject)) {
+                        $scopeAllowed = true;
+                        break;
+                    }
+                }
+                if (!$scopeAllowed) {
+                    return Decision::deny("Token scope does not permit action '{$action}' on '{$subject->type}'.");
+                }
+            }
+        }
+
+        // 3. AI Mode restrictions
         if ($actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
             $destructiveActions = ['publish', 'unpublish', 'delete', 'export', 'manage'];
             $sensitiveSubjects = ['users', 'roles', 'settings', 'schema', 'system'];
@@ -56,23 +73,6 @@ final class Authorizer
 
             if (in_array($action, $approvalActions, true) || (in_array($subject->type, $approvalSubjects, true) && $action !== 'read')) {
                 return Decision::deny("Action '{$action}' on '{$subject->type}' requires human approval in approval_required mode.");
-            }
-        }
-
-        // 3. Token Scope restrictions (if actor is an API token or has explicit scopes)
-        if ($actor->type === Actor::TYPE_API_TOKEN) {
-            $scopes = $actor->scopes;
-            if (!in_array('*', $scopes, true)) {
-                $scopeAllowed = false;
-                foreach ($scopes as $scope) {
-                    if ($this->matchesScope($scope, $action, $subject)) {
-                        $scopeAllowed = true;
-                        break;
-                    }
-                }
-                if (!$scopeAllowed) {
-                    return Decision::deny("Token scope does not permit action '{$action}' on '{$subject->type}'.");
-                }
             }
         }
 

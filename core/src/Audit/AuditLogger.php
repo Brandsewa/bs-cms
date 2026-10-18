@@ -52,7 +52,7 @@ final class AuditLogger
         $pdo = $this->connection->getPdo();
         $now = Clock::sql(Clock::now());
 
-        $reqId = $requestId ?? Ulid::generate();
+        $reqId = ($requestId !== null && trim($requestId) !== '') ? substr(trim($requestId), 0, 26) : Ulid::generate();
 
         $stmt = $pdo->prepare("INSERT INTO `{$table}` (
             `request_id`, `actor_type`, `actor_id`, `actor_label`, `on_behalf_of`,

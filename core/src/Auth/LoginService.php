@@ -225,6 +225,8 @@ final class LoginService
         }
 
         if (!$totpPassed && !$recoveryUsed) {
+            $this->record2faAttempt($challengeToken);
+
             $this->auditLogger->record(
                 actor: Actor::system(),
                 action: 'auth.2fa_failed',
@@ -242,6 +244,9 @@ final class LoginService
                 'message' => 'Invalid two-factor code or recovery code.',
             ];
         }
+
+        // Verification succeeded: consume single-use challenge token
+        $this->consume2faChallenge($challengeToken);
 
         return $this->completeLogin($user, $ip, $userAgent, true, $rememberMe, $requestId);
     }
@@ -341,7 +346,7 @@ final class LoginService
     }
 
     /**
-     * Resolve and consume 2FA challenge token.
+     * Resolve 2FA challenge token without consuming it.
      */
     private function resolve2faChallenge(string $challengeToken): ?string
     {
@@ -358,18 +363,52 @@ final class LoginService
         $pdo = $this->connection->getPdo();
         $cutoff = Clock::sql(Clock::now()->modify('-5 minutes'));
 
-        $stmt = $pdo->prepare("SELECT `bucket` FROM `{$rateTable}` WHERE `bucket` = ? AND `window_start` >= ?");
+        $stmt = $pdo->prepare("SELECT `hits` FROM `{$rateTable}` WHERE `bucket` = ? AND `window_start` >= ?");
         $stmt->execute([$bucket, $cutoff]);
-        $row = $stmt->fetch();
+        /** @var array<string, mixed>|false $row */
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         if ($row === false) {
             return null;
         }
 
-        // Consume single-use challenge
-        $del = $pdo->prepare("DELETE FROM `{$rateTable}` WHERE `bucket` = ?");
-        $del->execute([$bucket]);
+        // Limit maximum wrong attempts on a challenge token to 5
+        if ((int) $row['hits'] >= 5) {
+            $del = $pdo->prepare("DELETE FROM `{$rateTable}` WHERE `bucket` = ?");
+            $del->execute([$bucket]);
+            return null;
+        }
 
         return $userId;
+    }
+
+    private function consume2faChallenge(string $challengeToken): void
+    {
+        $parts = explode('.', $challengeToken, 2);
+        if (count($parts) !== 2) {
+            return;
+        }
+        [$token, $userId] = $parts;
+        $hash = hash('sha256', $token);
+        $bucket = "2fa:{$hash}:{$userId}";
+
+        $rateTable = $this->connection->prefixTable('rate_limits');
+        $del = $this->connection->getPdo()->prepare("DELETE FROM `{$rateTable}` WHERE `bucket` = ?");
+        $del->execute([$bucket]);
+    }
+
+    private function record2faAttempt(string $challengeToken): void
+    {
+        $parts = explode('.', $challengeToken, 2);
+        if (count($parts) !== 2) {
+            return;
+        }
+        [$token, $userId] = $parts;
+        $hash = hash('sha256', $token);
+        $bucket = "2fa:{$hash}:{$userId}";
+
+        $rateTable = $this->connection->prefixTable('rate_limits');
+        $up = $this->connection->getPdo()->prepare("UPDATE `{$rateTable}` SET `hits` = `hits` + 1 WHERE `bucket` = ?");
+        $up->execute([$bucket]);
     }
 }

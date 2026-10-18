@@ -460,7 +460,7 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
 
         $ipv6 = '2001:0db8:85a3:0000:0000:8a2e:0370:7334';
         $customUa = 'Custom-IPv6-Agent/2.5.0 (Platform; Arch) ComplianceTest/99';
-        $customReqId = 'custom-ipv6-trace-id-123456';
+        $customReqId = 'custom-ipv6-trace-id-12345';
 
         $loginReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login', [], null, '1.1', ['REMOTE_ADDR' => $ipv6]))
             ->withHeader('User-Agent', $customUa)

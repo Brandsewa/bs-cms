@@ -36,7 +36,7 @@ final class ApiTokenService
         string $name,
         ?string $roleId = null,
         array $scopes = ['*'],
-        string $aiMode = 'draft_only',
+        string $aiMode = Actor::AI_MODE_FULL,
         ?DateTimeInterface $expiresAt = null,
         ?string $ip = null,
         ?string $userAgent = null
