@@ -203,7 +203,7 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
                 'gallery' => [$validMediaUlid1, $validMediaUlid2],
             ]);
 
-        $res1 = $this->entriesController->create($req1, ['collection' => 'posts']);
+        $res1 = $this->entriesController->create($req1, ['handle' => 'posts']);
         $this->assertSame(201, $res1->getStatusCode());
         $body1 = json_decode((string) $res1->getBody(), true);
         $this->assertIsArray($body1);
@@ -231,7 +231,7 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
                 'featured_image' => 'not-a-valid-ulid',
             ]);
 
-        $resInvalidMedia = $this->entriesController->create($reqInvalidMedia, ['collection' => 'posts']);
+        $resInvalidMedia = $this->entriesController->create($reqInvalidMedia, ['handle' => 'posts']);
         $this->assertSame(422, $resInvalidMedia->getStatusCode());
         $errBody = json_decode((string) $resInvalidMedia->getBody(), true);
         $this->assertArrayHasKey('invalid_params', $errBody);
@@ -260,7 +260,7 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
                 ],
             ]);
 
-        $resUnsafeDoc = $this->entriesController->create($reqUnsafeDoc, ['collection' => 'posts']);
+        $resUnsafeDoc = $this->entriesController->create($reqUnsafeDoc, ['handle' => 'posts']);
         $this->assertSame(422, $resUnsafeDoc->getStatusCode());
     }
 }
