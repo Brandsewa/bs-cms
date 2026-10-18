@@ -195,6 +195,16 @@ export type {
   SingleValueArrayFieldProps,
   UseDirtyGuardOptions,
 } from './form';
+
+// Feedback and status
+export { Alert, alertVariants } from './feedback';
+export type { AlertProps, AlertVariant } from './feedback';
+export { ConfirmationModal, TypeToConfirmDialog } from './feedback';
+export type { ConfirmationModalProps, TypeToConfirmDialogProps } from './feedback';
+export { MetricCard, StatusBadge, StatusDot } from './feedback';
+export type { EntryStatus, MetricCardProps, StatusDotProps } from './feedback';
+export { undoToast } from './feedback';
+export type { UndoToastOptions } from './feedback';
 export {
   Combobox,
   type ComboboxOption,
