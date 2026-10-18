@@ -150,6 +150,20 @@ export {
 } from './components/sheet';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs';
 export {
+  Combobox,
+  type ComboboxOption,
+  type ComboboxProps,
+} from './components/combobox';
+export { InputOTP } from './components/input-otp';
+export type { InputOTPProps } from './components/input-otp';
+export { MultiSelect } from './components/multi-select';
+export type { MultiSelectProps } from './components/multi-select';
+export { TagInput } from './components/tag-input';
+export type { TagInputProps } from './components/tag-input';
+export { Toaster, errorToast, infoToast, successToast, toast } from './components/toaster';
+export { TreeView } from './components/tree-view';
+export type { TreeNode, TreeViewProps } from './components/tree-view';
+export {
   Tooltip,
   TooltipContent,
   TooltipProvider,
