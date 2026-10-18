@@ -463,6 +463,7 @@ final class Console
         $conn = $this->getConnection();
         $cacheFile = $this->app->storagePath('cache/schema.php');
         $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+        $registry->invalidate();
         $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
         $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
 
@@ -518,6 +519,7 @@ final class Console
         $conn = $this->getConnection();
         $cacheFile = $this->app->storagePath('cache/schema.php');
         $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+        $registry->invalidate();
         $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
         $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
         $lock = new \BsCms\Schema\SchemaLock($conn);
