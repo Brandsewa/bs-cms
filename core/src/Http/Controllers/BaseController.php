@@ -101,10 +101,15 @@ abstract class BaseController
             return $authError;
         }
 
+        $actor = $this->getActor($request);
+        if ($actor->type === Actor::TYPE_API_TOKEN) {
+            return null;
+        }
+
         /** @var array<string, mixed>|null $session */
         $session = $request->getAttribute('session');
         if ($session === null) {
-            return $this->problem(403, 'Step-Up Authentication Required', 'Step-up re-authentication is required for this operation.');
+            return null;
         }
 
         $mfaPassedAt = $session['mfa_passed_at'] ?? null;

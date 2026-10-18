@@ -418,6 +418,7 @@ final class EventsAndWebhooksIntegrationTest extends TestCase
         $updateReq = $this->makeRequest('PUT', "/api/v1/collections/articles/entries/{$entryId}", $this->ownerActor, [
             'title' => 'Updated Article Headline',
             'headline' => 'Updated Big Story',
+            'version' => 1,
         ]);
         $updateRes = $this->entriesController->update($updateReq, ['handle' => 'articles', 'id' => $entryId]);
         $this->assertSame(200, $updateRes->getStatusCode());

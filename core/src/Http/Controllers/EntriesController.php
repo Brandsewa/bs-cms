@@ -239,9 +239,18 @@ class EntriesController extends BaseController
             return $permError;
         }
 
-        // Concurrency: require If-Match header for content updates (428 Precondition Required if missing).
+        $body = $this->getBody($request);
+
+        // Concurrency: require If-Match header (or version/expected_version in body) for content updates (428 Precondition Required if missing).
         // For state-change endpoints (publish, unpublish, archive, schedule, submit-review), If-Match is optional.
         $ifMatch = trim($request->getHeaderLine('If-Match'));
+        if ($ifMatch === '') {
+            $bodyVersion = $body['expected_version'] ?? ($body['version'] ?? null);
+            if ($bodyVersion !== null) {
+                $ifMatch = (string) $bodyVersion;
+            }
+        }
+
         if ($ifMatch === '') {
             if (!$isStateChange) {
                 return $this->problem(428, 'Precondition Required', "An 'If-Match' header containing the entity's current version or ETag is required to prevent lost updates.");
@@ -267,7 +276,6 @@ class EntriesController extends BaseController
         }
 
         $actor = $this->getActor($request);
-        $body = $this->getBody($request);
 
         // Check publish permission if changing to published
         $newStatus = $body['status'] ?? ($existing['status'] ?? 'draft');
@@ -292,7 +300,8 @@ class EntriesController extends BaseController
                 $actor->type,
                 $actor->label,
                 $userId,
-                $isAutosave
+                $isAutosave,
+                $isPatch
             );
 
             $this->auditLogger->record(
