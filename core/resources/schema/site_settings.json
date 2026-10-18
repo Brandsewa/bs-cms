@@ -1,0 +1,141 @@
+{
+    "handle": "site_settings",
+    "kind": "single",
+    "label_singular": "Site Settings",
+    "label_plural": "Site Settings",
+    "description": "Global website configuration and metadata",
+    "icon": "settings",
+    "is_system": true,
+    "has_public_pages": false,
+    "route_pattern": null,
+    "list_route_pattern": null,
+    "features": {
+        "versions": true
+    },
+    "title_field": "site_name",
+    "slug_source": "site_name",
+    "default_sort": "site_name",
+    "fields": {
+        "site_name": {
+            "handle": "site_name",
+            "label": "Site Name",
+            "type": "text",
+            "required": true,
+            "show_in_list": true,
+            "config": {
+                "max_length": 120
+            }
+        },
+        "tagline": {
+            "handle": "tagline",
+            "label": "Tagline",
+            "type": "text",
+            "required": false,
+            "show_in_list": true,
+            "config": {
+                "max_length": 255
+            }
+        },
+        "default_language": {
+            "handle": "default_language",
+            "label": "Default Language",
+            "type": "enum",
+            "required": true,
+            "show_in_list": true,
+            "config": {
+                "options": [
+                    "en"
+                ]
+            }
+        },
+        "canonical_base_url": {
+            "handle": "canonical_base_url",
+            "label": "Canonical Base URL",
+            "type": "url",
+            "required": false,
+            "show_in_list": true,
+            "config": {}
+        },
+        "environment": {
+            "handle": "environment",
+            "label": "Environment",
+            "type": "enum",
+            "required": true,
+            "show_in_list": true,
+            "config": {
+                "options": [
+                    "production",
+                    "staging"
+                ]
+            }
+        },
+        "social_links": {
+            "handle": "social_links",
+            "label": "Social Media Links",
+            "type": "repeater",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "platform",
+                        "label": "Platform",
+                        "type": "text"
+                    },
+                    {
+                        "handle": "url",
+                        "label": "URL",
+                        "type": "url"
+                    }
+                ]
+            }
+        },
+        "contact_details": {
+            "handle": "contact_details",
+            "label": "Contact Details",
+            "type": "group",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "email",
+                        "label": "Contact Email",
+                        "type": "email"
+                    },
+                    {
+                        "handle": "phone",
+                        "label": "Phone Number",
+                        "type": "phone"
+                    },
+                    {
+                        "handle": "address",
+                        "label": "Physical Address",
+                        "type": "textarea"
+                    }
+                ]
+            }
+        },
+        "organization_details": {
+            "handle": "organization_details",
+            "label": "Organization Details (JSON-LD)",
+            "type": "group",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "legal_name",
+                        "label": "Legal Organization Name",
+                        "type": "text"
+                    },
+                    {
+                        "handle": "tax_id",
+                        "label": "Tax / VAT ID",
+                        "type": "text"
+                    }
+                ]
+            }
+        }
+    }
+}

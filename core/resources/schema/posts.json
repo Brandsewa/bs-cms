@@ -1,0 +1,165 @@
+{
+    "handle": "posts",
+    "kind": "collection",
+    "label_singular": "Post",
+    "label_plural": "Posts",
+    "description": "Blog and article posts",
+    "icon": "book-open",
+    "is_system": true,
+    "has_public_pages": true,
+    "route_pattern": "/blog/{slug}",
+    "list_route_pattern": "/blog",
+    "features": {
+        "drafts": true,
+        "versions": true,
+        "scheduling": true,
+        "seo": true,
+        "soft_delete": true
+    },
+    "title_field": "title",
+    "slug_source": "title",
+    "default_sort": "-published_at",
+    "fields": {
+        "title": {
+            "handle": "title",
+            "label": "Title",
+            "type": "text",
+            "required": true,
+            "is_filterable": true,
+            "is_sortable": true,
+            "is_searchable": true,
+            "show_in_list": true,
+            "config": {
+                "max_length": 255
+            }
+        },
+        "slug": {
+            "handle": "slug",
+            "label": "Slug",
+            "type": "slug",
+            "required": true,
+            "is_unique": true,
+            "show_in_list": true,
+            "config": {}
+        },
+        "excerpt": {
+            "handle": "excerpt",
+            "label": "Excerpt",
+            "type": "textarea",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "max_length": 500
+            }
+        },
+        "summary": {
+            "handle": "summary",
+            "label": "Answer Summary",
+            "type": "textarea",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "max_length": 500
+            }
+        },
+        "authors": {
+            "handle": "authors",
+            "label": "Authors",
+            "type": "relation",
+            "required": false,
+            "is_filterable": true,
+            "show_in_list": true,
+            "config": {
+                "target_collection": "authors",
+                "cardinality": "many_to_many"
+            }
+        },
+        "related_posts": {
+            "handle": "related_posts",
+            "label": "Related Posts",
+            "type": "relation",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "target_collection": "posts",
+                "cardinality": "many_to_many"
+            }
+        },
+        "faq": {
+            "handle": "faq",
+            "label": "Frequently Asked Questions",
+            "type": "faq",
+            "required": false,
+            "show_in_list": false,
+            "config": {}
+        },
+        "key_facts": {
+            "handle": "key_facts",
+            "label": "Key Facts",
+            "type": "repeater",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "statement",
+                        "label": "Statement",
+                        "type": "text"
+                    },
+                    {
+                        "handle": "value",
+                        "label": "Value",
+                        "type": "text"
+                    },
+                    {
+                        "handle": "source_url",
+                        "label": "Source URL",
+                        "type": "url"
+                    }
+                ]
+            }
+        },
+        "reviewed_by": {
+            "handle": "reviewed_by",
+            "label": "Reviewed By",
+            "type": "relation",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "target_collection": "authors",
+                "cardinality": "one_to_one"
+            }
+        },
+        "last_reviewed_at": {
+            "handle": "last_reviewed_at",
+            "label": "Last Reviewed Date",
+            "type": "date",
+            "required": false,
+            "show_in_list": false,
+            "config": {}
+        },
+        "reading_time": {
+            "handle": "reading_time",
+            "label": "Reading Time (Minutes)",
+            "type": "computed",
+            "required": false,
+            "is_filterable": true,
+            "is_sortable": true,
+            "show_in_list": true,
+            "config": {
+                "compute": "reading_time",
+                "return_type": "integer"
+            }
+        },
+        "is_featured": {
+            "handle": "is_featured",
+            "label": "Featured Post",
+            "type": "boolean",
+            "required": false,
+            "is_filterable": true,
+            "is_sortable": true,
+            "show_in_list": true,
+            "config": {}
+        }
+    }
+}

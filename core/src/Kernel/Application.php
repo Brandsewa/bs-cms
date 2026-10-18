@@ -14,6 +14,7 @@ final class Application
     public const VERSION = '0.1.0';
 
     private string $basePath;
+    private ?string $storagePath = null;
     private Container $container;
     private Config $config;
     private Environment $environment;
@@ -22,9 +23,10 @@ final class Application
     /** @var list<ServiceProvider> */
     private array $providers = [];
 
-    public function __construct(string $basePath)
+    public function __construct(string $basePath, ?string $storagePath = null)
     {
         $this->basePath = rtrim(str_replace('\\', '/', $basePath), '/');
+        $this->storagePath = $storagePath !== null ? rtrim(str_replace('\\', '/', $storagePath), '/') : null;
         $this->container = new Container();
 
         // Bind core singletons
@@ -82,7 +84,8 @@ final class Application
 
     public function storagePath(?string $path = null): string
     {
-        return $this->basePath('storage' . ($path ? '/' . ltrim($path, '/') : ''));
+        $base = $this->storagePath ?? $this->basePath('storage');
+        return $path === null ? $base : $base . '/' . ltrim($path, '/');
     }
 
     public function publicPath(?string $path = null): string

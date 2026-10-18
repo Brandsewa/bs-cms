@@ -56,6 +56,7 @@ final class Console
                 'schema:export' => $this->schemaExport($args),
                 'schema:diff' => $this->schemaDiff($args),
                 'schema:apply' => $this->schemaApply($args),
+                'schema:seed' => $this->schemaSeed($args),
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),
@@ -342,7 +343,10 @@ final class Console
         $migrator->registerNamespace('core', $this->app->basePath('migrations'));
         $migrator->migrate();
 
-        // 4. Mark installed
+        // 4. Seed built-in schemas via schema engine
+        $this->schemaSeed([]);
+
+        // 5. Mark installed
         file_put_contents($storageDir . '/installed.lock', Clock::sql(Clock::now()));
 
         echo "BS CMS installed successfully via CLI.\n";
@@ -370,6 +374,7 @@ final class Console
         echo "  schema:export     Export collections to JSON files (--dir=path)\n";
         echo "  schema:diff       Show planned schema differences against files (--dir=path)\n";
         echo "  schema:apply      Apply file-based schema changes (--dir=path, --dry-run)\n";
+        echo "  schema:seed       Seed built-in collections idempotently via schema engine\n";
         return 0;
     }
 
@@ -552,6 +557,29 @@ final class Console
 
         echo ($dryRun ? "Dry-run complete." : "All schema changes applied successfully.") . "\n";
         return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function schemaSeed(array $args): int
+    {
+        $dir = $this->parseDirArg($args, $this->app->basePath('resources/schema'));
+        if (!is_dir($dir)) {
+            fwrite(STDERR, "Schema resources directory '{$dir}' not found.\n");
+            return 1;
+        }
+
+        echo "Seeding built-in collections from {$dir}...\n";
+
+        // Call schemaApply directly
+        $result = $this->schemaApply($args);
+
+        if ($result === 0) {
+            echo "Built-in collections seeded successfully.\n";
+        }
+
+        return $result;
     }
 
     /**

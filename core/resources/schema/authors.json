@@ -1,0 +1,88 @@
+{
+    "handle": "authors",
+    "kind": "collection",
+    "label_singular": "Author",
+    "label_plural": "Authors",
+    "description": "Article and content authors",
+    "icon": "user",
+    "is_system": true,
+    "has_public_pages": true,
+    "route_pattern": "/author/{slug}",
+    "list_route_pattern": "/authors",
+    "features": {
+        "drafts": true,
+        "versions": true,
+        "soft_delete": true
+    },
+    "title_field": "name",
+    "slug_source": "name",
+    "default_sort": "name",
+    "fields": {
+        "name": {
+            "handle": "name",
+            "label": "Full Name",
+            "type": "text",
+            "required": true,
+            "is_filterable": true,
+            "is_sortable": true,
+            "is_searchable": true,
+            "show_in_list": true,
+            "config": {
+                "max_length": 190
+            }
+        },
+        "slug": {
+            "handle": "slug",
+            "label": "Slug",
+            "type": "slug",
+            "required": true,
+            "is_unique": true,
+            "show_in_list": false,
+            "config": {}
+        },
+        "bio": {
+            "handle": "bio",
+            "label": "Biography",
+            "type": "textarea",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "max_length": 2000
+            }
+        },
+        "job_title": {
+            "handle": "job_title",
+            "label": "Job Title",
+            "type": "text",
+            "required": false,
+            "show_in_list": true,
+            "config": {
+                "max_length": 120
+            }
+        },
+        "same_as": {
+            "handle": "same_as",
+            "label": "Social Profiles (URLs)",
+            "type": "repeater",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "url",
+                        "label": "Profile URL",
+                        "type": "url"
+                    }
+                ]
+            }
+        },
+        "user": {
+            "handle": "user",
+            "label": "Linked User Account",
+            "type": "user",
+            "required": false,
+            "show_in_list": false,
+            "config": {}
+        }
+    }
+}

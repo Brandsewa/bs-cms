@@ -1,0 +1,56 @@
+{
+    "handle": "navigation",
+    "kind": "single",
+    "label_singular": "Navigation",
+    "label_plural": "Navigation Menus",
+    "description": "Header, footer, and custom navigation menus",
+    "icon": "menu",
+    "is_system": true,
+    "has_public_pages": false,
+    "route_pattern": null,
+    "list_route_pattern": null,
+    "features": {
+        "versions": true
+    },
+    "title_field": "title",
+    "slug_source": "title",
+    "default_sort": "title",
+    "fields": {
+        "title": {
+            "handle": "title",
+            "label": "Menu Name",
+            "type": "text",
+            "required": true,
+            "show_in_list": true,
+            "config": {
+                "max_length": 120
+            }
+        },
+        "items": {
+            "handle": "items",
+            "label": "Menu Items",
+            "type": "repeater",
+            "required": false,
+            "show_in_list": false,
+            "config": {
+                "fields": [
+                    {
+                        "handle": "label",
+                        "label": "Item Label",
+                        "type": "text"
+                    },
+                    {
+                        "handle": "url",
+                        "label": "Target URL",
+                        "type": "url"
+                    },
+                    {
+                        "handle": "target",
+                        "label": "Open in New Tab",
+                        "type": "boolean"
+                    }
+                ]
+            }
+        }
+    }
+}
