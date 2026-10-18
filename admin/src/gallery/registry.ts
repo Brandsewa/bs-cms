@@ -21,9 +21,23 @@ export interface GallerySection {
   entries: GalleryEntry[];
 }
 
+import { controlsSection } from './sections/controls';
+import { dateTimeSection } from './sections/date-time';
+import { feedbackSection } from './sections/feedback';
+import { formSection } from './sections/form';
 import { foundationsSection } from './sections/foundations';
+import { overlaysSection } from './sections/overlays';
+import { primitivesSection } from './sections/primitives';
 
-/** Every component must register an entry here: it is the source for the
- * gallery page and for the axe acceptance suite (CI fails on new components
- * missing from the gallery because their tests reference this registry). */
-export const sections: GallerySection[] = [foundationsSection];
+/** Every component must register an entry here: the gallery page and the axe
+ * acceptance suite both render from this registry, so a component without a
+ * gallery entry is a missing acceptance test. */
+export const sections: GallerySection[] = [
+  foundationsSection,
+  primitivesSection,
+  controlsSection,
+  dateTimeSection,
+  formSection,
+  overlaysSection,
+  feedbackSection,
+];

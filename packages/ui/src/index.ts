@@ -139,6 +139,7 @@ export {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  DrawerTrigger,
   Sheet,
   SheetClose,
   SheetContent,
