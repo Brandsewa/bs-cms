@@ -209,11 +209,11 @@ final class WebhookDispatcher
     {
         $prefix = $this->connection->getPrefix();
 
-        // Count consecutive failures after the last successful delivery
+        // Count consecutive non-delivered attempts after the last successful delivery
         $countStmt = $this->connection->execute(
             "SELECT COUNT(*) AS `consecutive_failures`
              FROM `{$prefix}webhook_deliveries`
-             WHERE `webhook_id` = ? AND `status` = 'failed'
+             WHERE `webhook_id` = ? AND (`status` = 'failed' OR (`attempts` > 0 AND (`response_code` IS NULL OR `response_code` < 200 OR `response_code` >= 300)))
                AND `id` > COALESCE((SELECT MAX(`id`) FROM `{$prefix}webhook_deliveries` WHERE `webhook_id` = ? AND `status` = 'delivered'), 0)",
             [$webhookId, $webhookId]
         );
