@@ -458,6 +458,27 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\OpenApi\OpenApiGenerator::class)
             );
         });
+
+        // 11. Taxonomy Services & Controllers
+        $container->singleton(\BsCms\Taxonomy\TaxonomyRepository::class, function (Container $c): \BsCms\Taxonomy\TaxonomyRepository {
+            return new \BsCms\Taxonomy\TaxonomyRepository(
+                $c->get(Connection::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Taxonomy\TermRepository::class, function (Container $c): \BsCms\Taxonomy\TermRepository {
+            return new \BsCms\Taxonomy\TermRepository(
+                $c->get(Connection::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\TaxonomiesController::class, function (Container $c): \BsCms\Http\Controllers\TaxonomiesController {
+            return new \BsCms\Http\Controllers\TaxonomiesController(
+                $c->get(\BsCms\Taxonomy\TaxonomyRepository::class),
+                $c->get(\BsCms\Taxonomy\TermRepository::class),
+                $c->get(Authorizer::class)
+            );
+        });
     }
 
     public function boot(Container $container): void

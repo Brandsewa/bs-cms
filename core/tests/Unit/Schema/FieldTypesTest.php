@@ -51,7 +51,7 @@ final class FieldTypesTest extends TestCase
 
     public function testPhase4FieldTypesRefuseUsageWithExplicitError(): void
     {
-        $phase4Types = ['richtext', 'media', 'taxonomy', 'blocks'];
+        $phase4Types = ['richtext', 'media', 'blocks'];
         foreach ($phase4Types as $typeName) {
             $this->assertTrue($this->registry->has($typeName), "Registry must know {$typeName}");
             $type = $this->registry->get($typeName);
@@ -63,6 +63,16 @@ final class FieldTypesTest extends TestCase
                 "Field type {$typeName} must refuse with exact Phase 4 message"
             );
         }
+    }
+
+    public function testTaxonomyTypeValidationAndStorage(): void
+    {
+        $tax = new TaxonomyType();
+        $this->assertSame('taxonomy', $tax->name());
+        $this->assertSame(['taxonomy' => "The 'taxonomy' handle or ID is required in taxonomy field configuration."], $tax->validateConfig([]));
+        $this->assertSame([], $tax->validateConfig(['taxonomy' => 'categories']));
+        $this->assertContains('in', $tax->filterOperators());
+        $this->assertContains('all', $tax->filterOperators());
     }
 
     public function testTextTypeValidationAndStorage(): void

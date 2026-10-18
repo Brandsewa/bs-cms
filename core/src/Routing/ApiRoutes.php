@@ -18,12 +18,13 @@ use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
 use BsCms\Http\Controllers\SingletonsController;
+use BsCms\Http\Controllers\TaxonomiesController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
 use BsCms\Http\Controllers\WebhooksController;
 
 /**
- * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, and jobs.
+ * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, and taxonomies.
  */
 final class ApiRoutes
 {
@@ -45,7 +46,8 @@ final class ApiRoutes
         ?JobsController $jobs = null,
         ?WebhooksController $webhooks = null,
         ?PublicEntriesController $publicEntries = null,
-        ?OpenApiController $openApi = null
+        ?OpenApiController $openApi = null,
+        ?TaxonomiesController $taxonomies = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -201,6 +203,25 @@ final class ApiRoutes
         // 16. OpenAPI Specification
         if ($openApi !== null) {
             $routes->get('/api/v1/openapi.json', [$openApi, 'spec']);
+        }
+
+        // 17. Taxonomy and Term endpoints
+        if ($taxonomies !== null) {
+            $routes->get('/api/v1/taxonomies', [$taxonomies, 'listTaxonomies']);
+            $routes->post('/api/v1/taxonomies', [$taxonomies, 'createTaxonomy']);
+            $routes->get('/api/v1/taxonomies/{handle}', [$taxonomies, 'getTaxonomy']);
+            $routes->patch('/api/v1/taxonomies/{handle}', [$taxonomies, 'updateTaxonomy']);
+            $routes->delete('/api/v1/taxonomies/{handle}', [$taxonomies, 'deleteTaxonomy']);
+
+            $routes->get('/api/v1/taxonomies/{handle}/terms', [$taxonomies, 'listTerms']);
+            $routes->post('/api/v1/taxonomies/{handle}/terms', [$taxonomies, 'createTerm']);
+            $routes->get('/api/v1/taxonomies/{handle}/terms/{id}', [$taxonomies, 'getTerm']);
+            $routes->patch('/api/v1/taxonomies/{handle}/terms/{id}', [$taxonomies, 'updateTerm']);
+            $routes->delete('/api/v1/taxonomies/{handle}/terms/{id}', [$taxonomies, 'deleteTerm']);
+            $routes->post('/api/v1/taxonomies/{handle}/terms/{id}/move', [$taxonomies, 'moveTerm']);
+            $routes->post('/api/v1/taxonomies/{handle}/terms/{id}/merge', [$taxonomies, 'mergeTerm']);
+
+            $routes->get('/api/v1/public/taxonomies/{handle}/terms', [$taxonomies, 'publicListTerms']);
         }
     }
 }

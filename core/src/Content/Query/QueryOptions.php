@@ -22,7 +22,8 @@ final class QueryOptions
         public readonly ?string $cursor = null,
         public readonly array $populate = [],
         public readonly bool $includeTrashed = false,
-        public readonly ?string $ownerFilter = null
+        public readonly ?string $ownerFilter = null,
+        public readonly bool $includeDescendants = false
     ) {
     }
 }

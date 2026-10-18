@@ -110,7 +110,8 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\JobsController::class),
     $container->get(\BsCms\Http\Controllers\WebhooksController::class),
     $container->get(\BsCms\Http\Controllers\PublicEntriesController::class),
-    $container->get(\BsCms\Http\Controllers\OpenApiController::class)
+    $container->get(\BsCms\Http\Controllers\OpenApiController::class),
+    $container->get(\BsCms\Http\Controllers\TaxonomiesController::class)
 );
 
 // Build middleware pipeline

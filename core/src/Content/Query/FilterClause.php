@@ -17,6 +17,7 @@ final class FilterClause
     public const OP_LIKE = 'like';
     public const OP_NULL = 'null';
     public const OP_NNULL = 'nnull';
+    public const OP_ALL = 'all';
 
     public const ALLOWED_OPS = [
         self::OP_EQ,
@@ -30,6 +31,7 @@ final class FilterClause
         self::OP_LIKE,
         self::OP_NULL,
         self::OP_NNULL,
+        self::OP_ALL,
     ];
 
     /**

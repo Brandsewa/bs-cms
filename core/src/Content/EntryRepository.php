@@ -141,6 +141,9 @@ final class EntryRepository
             );
         }
 
+        // Sync taxonomy term relationships
+        $this->syncTaxonomyTerms($collection, $id, $dataValues, $status, $publishedAt, $now);
+
         // Record initial version
         $snapshot = array_merge($input, [
             'id' => $id,
@@ -285,6 +288,9 @@ final class EntryRepository
             );
         }
 
+        // Sync taxonomy term relationships
+        $this->syncTaxonomyTerms($collection, $id, $mergedData, $newStatus, $publishedAt, $now);
+
         // Record version
         $snapshot = array_merge($existing, $input, [
             'id' => $id,
@@ -333,6 +339,8 @@ final class EntryRepository
         if ($permanent) {
             // Delete relations
             $this->relationManager->purgeEntry($collectionId, $id);
+            // Delete taxonomy relationships
+            $this->purgeTaxonomyTerms($id);
             // Delete versions
             $this->connection->execute(
                 "DELETE FROM `{$prefix}entry_versions` WHERE `collection_id` = ? AND `entry_id` = ?",
@@ -347,6 +355,8 @@ final class EntryRepository
                 "UPDATE `{$tableName}` SET `slug` = ?, `deleted_at` = ? WHERE `id` = ?",
                 [$deletedSlug, $now, $id]
             );
+            // Unpublish term relationships so entry_count decreases
+            $this->updateTaxonomyStatus($id, 0, null);
         }
     }
 
@@ -373,6 +383,10 @@ final class EntryRepository
             "UPDATE `{$tableName}` SET `slug` = ?, `deleted_at` = NULL WHERE `id` = ?",
             [$restoredSlug, $id]
         );
+
+        $isPublished = ($existing['status'] === self::STATUS_PUBLISHED) ? 1 : 0;
+        $publishedAt = $isPublished ? (string) ($existing['published_at'] ?? '') : null;
+        $this->updateTaxonomyStatus($id, $isPublished, $publishedAt);
 
         return $this->find($collectionHandle, $id) ?? [];
     }
@@ -520,7 +534,87 @@ final class EntryRepository
         }
 
         // 4. Dynamic filters
+        $collectionFields = (array) ($collection['fields'] ?? []);
+        $termRelTable = $this->connection->prefixTable('term_relationships');
+        $termsTable = $this->connection->prefixTable('terms');
+
         foreach ($options->filters as $filter) {
+            $fieldKey = $filter->field;
+            $fDef = $collectionFields[$fieldKey] ?? null;
+            $isTaxonomyField = is_array($fDef) && ($fDef['type'] ?? '') === 'taxonomy';
+
+            if ($isTaxonomyField) {
+                // Taxonomy filtering via term_relationships
+                $op = $filter->operator;
+                $val = $filter->value;
+                $rawVals = is_array($val) ? array_values($val) : explode(',', (string) $val);
+                $rawVals = array_filter(array_map('trim', $rawVals));
+
+                if (empty($rawVals)) {
+                    continue;
+                }
+
+                // Resolve term IDs (support ULIDs or slugs)
+                $resolvedTermIds = [];
+                $paths = [];
+                foreach ($rawVals as $rv) {
+                    $tStmt = $this->connection->execute(
+                        "SELECT `id`, `path` FROM `{$termsTable}` WHERE `id` = ? OR `slug` = ?",
+                        [$rv, $rv]
+                    );
+                    $tRow = $tStmt->fetch();
+                    if ($tRow) {
+                        $resolvedTermIds[] = (string) $tRow['id'];
+                        $paths[] = (string) $tRow['path'];
+                    }
+                }
+
+                if ($op === \BsCms\Content\Query\FilterClause::OP_ALL) {
+                    // Match entries that have ALL specified terms
+                    if (empty($resolvedTermIds)) {
+                        $whereClauses[] = '0=1';
+                    } else {
+                        foreach ($resolvedTermIds as $tid) {
+                            $whereClauses[] = "`id` IN (SELECT `entry_id` FROM `{$termRelTable}` WHERE `collection_id` = ? AND `term_id` = ?)";
+                            $bindings[] = $collectionId;
+                            $bindings[] = $tid;
+                        }
+                    }
+                } else {
+                    // in or eq
+                    if (empty($resolvedTermIds)) {
+                        $whereClauses[] = '0=1';
+                    } else {
+                        if ($options->includeDescendants && !empty($paths)) {
+                            // Expand to include descendant term IDs
+                            $subClauses = [];
+                            $subBindings = [];
+                            foreach ($paths as $p) {
+                                $subClauses[] = "`path` LIKE ?";
+                                $subBindings[] = \BsCms\Taxonomy\TermRepository::escapeLike($p) . '%';
+                            }
+                            $descStmt = $this->connection->execute(
+                                "SELECT `id` FROM `{$termsTable}` WHERE " . implode(' OR ', $subClauses),
+                                $subBindings
+                            );
+                            /** @var list<string> $allIds */
+                            $allIds = $descStmt->fetchAll(\PDO::FETCH_COLUMN);
+                            if (!empty($allIds)) {
+                                $resolvedTermIds = array_values(array_unique(array_merge($resolvedTermIds, $allIds)));
+                            }
+                        }
+
+                        $placeholders = implode(',', array_fill(0, count($resolvedTermIds), '?'));
+                        $whereClauses[] = "`id` IN (SELECT `entry_id` FROM `{$termRelTable}` WHERE `collection_id` = ? AND `term_id` IN ({$placeholders}))";
+                        $bindings[] = $collectionId;
+                        foreach ($resolvedTermIds as $tid) {
+                            $bindings[] = $tid;
+                        }
+                    }
+                }
+                continue;
+            }
+
             $colName = "`{$filter->field}`";
             $op = $filter->operator;
             $val = $filter->value;
@@ -948,5 +1042,158 @@ final class EntryRepository
 
         $searchText = implode(' ', array_filter($searchTerms));
         return [$columnValues, $dataValues, $relationsToSync, $searchText];
+    }
+
+    /**
+     * @param array<string, mixed> $collection
+     * @param array<string, mixed> $dataValues
+     */
+    private function syncTaxonomyTerms(
+        array $collection,
+        string $entryId,
+        array $dataValues,
+        string $status,
+        ?string $publishedAt,
+        string $now
+    ): void {
+        $fields = (array) ($collection['fields'] ?? []);
+        $taxonomyFields = [];
+        foreach ($fields as $fKey => $fDef) {
+            if (is_array($fDef) && ($fDef['type'] ?? '') === 'taxonomy') {
+                $taxonomyFields[$fKey] = $fDef;
+            }
+        }
+
+        if (empty($taxonomyFields)) {
+            return;
+        }
+
+        $collectionId = (string) $collection['id'];
+        $termRelTable = $this->connection->prefixTable('term_relationships');
+        $termsTable = $this->connection->prefixTable('terms');
+
+        $isPublished = ($status === self::STATUS_PUBLISHED) ? 1 : 0;
+        $pubAt = $isPublished ? $publishedAt : null;
+
+        // Collect existing term IDs for this entry to update their counts later
+        $prevTermIdsStmt = $this->connection->execute(
+            "SELECT `term_id` FROM `{$termRelTable}` WHERE `collection_id` = ? AND `entry_id` = ?",
+            [$collectionId, $entryId]
+        );
+        /** @var list<string> $affectedTermIds */
+        $affectedTermIds = $prevTermIdsStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        // Delete existing relationships for this entry
+        $this->connection->execute(
+            "DELETE FROM `{$termRelTable}` WHERE `collection_id` = ? AND `entry_id` = ?",
+            [$collectionId, $entryId]
+        );
+
+        foreach ($taxonomyFields as $fKey => $fDef) {
+            if (!array_key_exists($fKey, $dataValues) || $dataValues[$fKey] === null) {
+                continue;
+            }
+
+            $val = $dataValues[$fKey];
+            $items = is_array($val) ? array_values($val) : [$val];
+            $items = array_filter(array_map('trim', array_map('strval', $items)));
+
+            if (empty($items)) {
+                continue;
+            }
+
+            $order = 0;
+            foreach ($items as $item) {
+                // Look up term
+                $tStmt = $this->connection->execute(
+                    "SELECT `id`, `taxonomy_id` FROM `{$termsTable}` WHERE `id` = ? OR `slug` = ?",
+                    [$item, $item]
+                );
+                $term = $tStmt->fetch();
+                if ($term) {
+                    $tid = (string) $term['id'];
+                    $taxId = (string) $term['taxonomy_id'];
+                    $relId = Ulid::generate();
+
+                    $this->connection->execute(
+                        "INSERT IGNORE INTO `{$termRelTable}` (
+                            `id`, `taxonomy_id`, `term_id`, `collection_id`, `entry_id`,
+                            `sort_order`, `is_published`, `published_at`, `created_at`
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$relId, $taxId, $tid, $collectionId, $entryId, $order++, $isPublished, $pubAt, $now]
+                    );
+
+                    $affectedTermIds[] = $tid;
+                }
+            }
+        }
+
+        // Recompute entry_count for all affected terms
+        $uniqueTermIds = array_values(array_unique($affectedTermIds));
+        if (!empty($uniqueTermIds)) {
+            $this->recomputeTermsCount($uniqueTermIds);
+        }
+    }
+
+    private function updateTaxonomyStatus(string $entryId, int $isPublished, ?string $publishedAt): void
+    {
+        $termRelTable = $this->connection->prefixTable('term_relationships');
+        $prevTermIdsStmt = $this->connection->execute(
+            "SELECT `term_id` FROM `{$termRelTable}` WHERE `entry_id` = ?",
+            [$entryId]
+        );
+        /** @var list<string> $affectedTermIds */
+        $affectedTermIds = $prevTermIdsStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        if (empty($affectedTermIds)) {
+            return;
+        }
+
+        $this->connection->execute(
+            "UPDATE `{$termRelTable}` SET `is_published` = ?, `published_at` = ? WHERE `entry_id` = ?",
+            [$isPublished, $publishedAt, $entryId]
+        );
+
+        $this->recomputeTermsCount(array_values(array_unique($affectedTermIds)));
+    }
+
+    private function purgeTaxonomyTerms(string $entryId): void
+    {
+        $termRelTable = $this->connection->prefixTable('term_relationships');
+        $prevTermIdsStmt = $this->connection->execute(
+            "SELECT `term_id` FROM `{$termRelTable}` WHERE `entry_id` = ?",
+            [$entryId]
+        );
+        /** @var list<string> $affectedTermIds */
+        $affectedTermIds = $prevTermIdsStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        if (empty($affectedTermIds)) {
+            return;
+        }
+
+        $this->connection->execute("DELETE FROM `{$termRelTable}` WHERE `entry_id` = ?", [$entryId]);
+        $this->recomputeTermsCount(array_values(array_unique($affectedTermIds)));
+    }
+
+    /**
+     * @param list<string> $termIds
+     */
+    private function recomputeTermsCount(array $termIds): void
+    {
+        if (empty($termIds)) {
+            return;
+        }
+        $termsTable = $this->connection->prefixTable('terms');
+        $termRelTable = $this->connection->prefixTable('term_relationships');
+        $placeholders = implode(',', array_fill(0, count($termIds), '?'));
+
+        $sql = "UPDATE `{$termsTable}` t
+                SET `entry_count` = (
+                    SELECT COUNT(DISTINCT r.entry_id)
+                    FROM `{$termRelTable}` r
+                    WHERE r.term_id = t.id AND r.is_published = 1
+                )
+                WHERE t.id IN ({$placeholders})";
+        $this->connection->execute($sql, $termIds);
     }
 }

@@ -49,6 +49,12 @@ final class QueryParser
             $includeTrashed = true;
         }
 
+        // 8. Include descendants filter for hierarchical taxonomies
+        $includeDescendants = false;
+        if (isset($params['include_descendants']) && ($params['include_descendants'] === '1' || $params['include_descendants'] === 'true')) {
+            $includeDescendants = true;
+        }
+
         return new QueryOptions(
             filters: $filters,
             sort: $sort,
@@ -58,7 +64,8 @@ final class QueryParser
             size: $size,
             cursor: $cursor,
             populate: $populate,
-            includeTrashed: $includeTrashed
+            includeTrashed: $includeTrashed,
+            includeDescendants: $includeDescendants
         );
     }
 
@@ -107,7 +114,8 @@ final class QueryParser
                 ];
                 $isIndexed = in_array(strtolower($field), $indexedSystem, true);
             } else {
-                $isIndexed = !empty($customDef['is_filterable']) || !empty($customDef['is_unique']) || !empty($customDef['is_sortable']);
+                $isTaxonomyField = ($customDef['type'] ?? '') === 'taxonomy';
+                $isIndexed = $isTaxonomyField || !empty($customDef['is_filterable']) || !empty($customDef['is_unique']) || !empty($customDef['is_sortable']);
             }
 
             if (!$isIndexed) {

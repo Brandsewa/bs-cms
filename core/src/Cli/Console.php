@@ -57,6 +57,7 @@ final class Console
                 'schema:diff' => $this->schemaDiff($args),
                 'schema:apply' => $this->schemaApply($args),
                 'schema:seed' => $this->schemaSeed($args),
+                'taxonomy:recompute-counts' => $this->taxonomyRecomputeCounts($args),
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),
@@ -375,6 +376,7 @@ final class Console
         echo "  schema:diff       Show planned schema differences against files (--dir=path)\n";
         echo "  schema:apply      Apply file-based schema changes (--dir=path, --dry-run)\n";
         echo "  schema:seed       Seed built-in collections idempotently via schema engine\n";
+        echo "  taxonomy:recompute-counts Recompute cached entry counts for taxonomies (--taxonomy=<id>)\n";
         return 0;
     }
 
@@ -582,6 +584,27 @@ final class Console
         }
 
         return $result;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function taxonomyRecomputeCounts(array $args): int
+    {
+        $conn = $this->getConnection();
+        $terms = new \BsCms\Taxonomy\TermRepository($conn);
+
+        $taxonomyId = null;
+        foreach ($args as $arg) {
+            if (str_starts_with($arg, '--taxonomy=')) {
+                $taxonomyId = substr($arg, 11);
+            }
+        }
+
+        echo "Recomputing taxonomy entry counts...\n";
+        $terms->recomputeCounts($taxonomyId);
+        echo "Taxonomy entry counts recomputed successfully.\n";
+        return 0;
     }
 
     /**
