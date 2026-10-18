@@ -22,19 +22,6 @@
     "slug_source": "title",
     "default_sort": "position",
     "fields": {
-        "title": {
-            "handle": "title",
-            "label": "Title",
-            "type": "text",
-            "required": true,
-            "is_filterable": true,
-            "is_sortable": true,
-            "is_searchable": true,
-            "show_in_list": true,
-            "config": {
-                "max_length": 255
-            }
-        },
         "template": {
             "handle": "template",
             "label": "Page Template",

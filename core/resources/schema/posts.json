@@ -20,19 +20,6 @@
     "slug_source": "title",
     "default_sort": "-published_at",
     "fields": {
-        "title": {
-            "handle": "title",
-            "label": "Title",
-            "type": "text",
-            "required": true,
-            "is_filterable": true,
-            "is_sortable": true,
-            "is_searchable": true,
-            "show_in_list": true,
-            "config": {
-                "max_length": 255
-            }
-        },
         "excerpt": {
             "handle": "excerpt",
             "label": "Excerpt",

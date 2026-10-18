@@ -125,7 +125,7 @@ final class SchemaPlanner
         }
 
         $allDefs = array_merge($columnsSql, $indexesSql);
-        $createSql = "CREATE TABLE {$escapedFullTable} (\n  " . implode(",\n  ", $allDefs) . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
+        $createSql = "CREATE TABLE IF NOT EXISTS {$escapedFullTable} (\n  " . implode(",\n  ", $allDefs) . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
 
         return new SchemaPlan(
             $planId,

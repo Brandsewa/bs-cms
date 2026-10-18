@@ -16,16 +16,6 @@
     "slug_source": "title",
     "default_sort": "title",
     "fields": {
-        "title": {
-            "handle": "title",
-            "label": "Menu Name",
-            "type": "text",
-            "required": true,
-            "show_in_list": true,
-            "config": {
-                "max_length": 120
-            }
-        },
         "items": {
             "handle": "items",
             "label": "Menu Items",

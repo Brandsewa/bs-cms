@@ -186,6 +186,18 @@ final class CreateContentEngineTables extends Migration
 
         $pdo = $this->connection->getPdo();
 
+        // Drop any collection content tables
+        try {
+            $stmt = $pdo->query("SELECT `table_name` FROM `{$collections}`");
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                if (!empty($row['table_name'])) {
+                    $cTable = $this->connection->prefixTable((string) $row['table_name']);
+                    $pdo->exec("DROP TABLE IF EXISTS `{$cTable}`;");
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
         // Drop in reverse dependency order
         $pdo->exec("DROP TABLE IF EXISTS `{$entryRelations}`;");
         $pdo->exec("DROP TABLE IF EXISTS `{$webhookDeliveries}`;");
