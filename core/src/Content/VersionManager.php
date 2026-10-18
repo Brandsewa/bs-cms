@@ -161,4 +161,22 @@ final class VersionManager
         $row['snapshot'] = is_string($row['snapshot']) ? json_decode($row['snapshot'], true) : [];
         return $row;
     }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listVersions(string $collectionId, string $entryId): array
+    {
+        $prefix = $this->connection->getPrefix();
+        $stmt = $this->connection->execute(
+            "SELECT `id`, `version_no`, `status`, `change_summary`, `actor_type`, `actor_label`, `created_by`, `is_autosave`, `created_at`
+             FROM `{$prefix}entry_versions`
+             WHERE `collection_id` = ? AND `entry_id` = ?
+             ORDER BY `version_no` DESC",
+            [$collectionId, $entryId]
+        );
+        /** @var list<array<string, mixed>> $rows */
+        $rows = array_values($stmt->fetchAll());
+        return $rows;
+    }
 }

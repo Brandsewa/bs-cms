@@ -262,8 +262,9 @@ final class Authorizer
 
         // 1. owner=self check
         if (isset($rule->conditions['owner']) && $rule->conditions['owner'] === 'self') {
-            $createdBy = $entity['created_by'] ?? null;
-            if ($createdBy === null || $actor->onBehalfOf === null || $createdBy !== $actor->onBehalfOf) {
+            $ownerId = $entity['created_by'] ?? ($entity['author_id'] ?? null);
+            $userId = $actor->onBehalfOf ?? $actor->id;
+            if ($ownerId === null || $ownerId !== $userId) {
                 return false;
             }
         }

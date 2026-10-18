@@ -101,7 +101,13 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\TokensController::class),
     $container->get(\BsCms\Http\Controllers\AuditController::class),
     $container->get(\BsCms\Http\Controllers\EmailSettingsController::class),
-    $container->get(\BsCms\Http\Controllers\NotificationsController::class)
+    $container->get(\BsCms\Http\Controllers\NotificationsController::class),
+    $container->get(\BsCms\Http\Controllers\CollectionsController::class),
+    $container->get(\BsCms\Http\Controllers\EntriesController::class),
+    $container->get(\BsCms\Http\Controllers\BulkEntriesController::class),
+    $container->get(\BsCms\Http\Controllers\SingletonsController::class),
+    $container->get(\BsCms\Http\Controllers\SavedViewsController::class),
+    $container->get(\BsCms\Http\Controllers\JobsController::class)
 );
 
 // Build middleware pipeline

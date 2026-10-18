@@ -167,6 +167,7 @@ final class EntryRepository
         string $collectionHandle,
         string $id,
         array $input,
+        ?string $changeSummary = null,
         ?int $expectedVersion = null,
         string $actorType = 'user',
         ?string $actorLabel = null,
@@ -286,7 +287,7 @@ final class EntryRepository
             $id,
             $newStatus,
             $snapshot,
-            'Entry updated',
+            $changeSummary ?? 'Entry updated',
             $actorType,
             $actorLabel,
             $updatedBy,
@@ -450,6 +451,329 @@ final class EntryRepository
         }
 
         return $this->find($collectionHandle, (string) $row['id']);
+    }
+
+    /**
+     * Query entries in a collection with filters, sorting, search, pagination, and populates.
+     *
+     * @return array{
+     *     data: list<array<string, mixed>>,
+     *     meta: array{
+     *         pagination: array{
+     *             total: int,
+     *             page: int,
+     *             size: int,
+     *             pages: int,
+     *             has_more: bool,
+     *             next_cursor: ?string
+     *         }
+     *     }
+     * }
+     */
+    public function query(
+        string $collectionHandle,
+        \BsCms\Content\Query\QueryOptions $options,
+        ?string $actorId = null,
+        bool $ownerOnly = false
+    ): array {
+        $collection = $this->collectionRegistry->get($collectionHandle);
+        $collectionId = (string) $collection['id'];
+        $prefix = $this->connection->getPrefix();
+        $tableName = $prefix . 'c_' . $collectionHandle;
+
+        $whereClauses = [];
+        $bindings = [];
+
+        // 1. Soft delete filter
+        if (!$options->includeTrashed) {
+            $whereClauses[] = "`deleted_at` IS NULL";
+        }
+
+        // 2. Owner-only filter (e.g. author role or owner self condition)
+        if ($ownerOnly && $actorId !== null) {
+            $whereClauses[] = "`author_id` = ?";
+            $bindings[] = $actorId;
+        }
+
+        // 3. Search query
+        if ($options->search !== null && $options->search !== '') {
+            $whereClauses[] = "(`title` LIKE ? OR `search_text` LIKE ?)";
+            $bindings[] = '%' . $options->search . '%';
+            $bindings[] = '%' . $options->search . '%';
+        }
+
+        // 4. Dynamic filters
+        foreach ($options->filters as $filter) {
+            $colName = "`{$filter->field}`";
+            $op = $filter->operator;
+            $val = $filter->value;
+
+            switch ($op) {
+                case \BsCms\Content\Query\FilterClause::OP_EQ:
+                    $whereClauses[] = "{$colName} = ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_NE:
+                    $whereClauses[] = "{$colName} != ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_GT:
+                    $whereClauses[] = "{$colName} > ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_GTE:
+                    $whereClauses[] = "{$colName} >= ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_LT:
+                    $whereClauses[] = "{$colName} < ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_LTE:
+                    $whereClauses[] = "{$colName} <= ?";
+                    $bindings[] = $val;
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_LIKE:
+                    $whereClauses[] = "{$colName} LIKE ?";
+                    $bindings[] = '%' . (string) $val . '%';
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_NULL:
+                    $whereClauses[] = "{$colName} IS NULL";
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_NNULL:
+                    $whereClauses[] = "{$colName} IS NOT NULL";
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_IN:
+                    $inVals = is_array($val) ? array_values($val) : explode(',', (string) $val);
+                    if (empty($inVals)) {
+                        $whereClauses[] = '0=1';
+                    } else {
+                        $placeholders = implode(',', array_fill(0, count($inVals), '?'));
+                        $whereClauses[] = "{$colName} IN ({$placeholders})";
+                        foreach ($inVals as $iv) {
+                            $bindings[] = $iv;
+                        }
+                    }
+                    break;
+                case \BsCms\Content\Query\FilterClause::OP_NIN:
+                    $inVals = is_array($val) ? array_values($val) : explode(',', (string) $val);
+                    if (!empty($inVals)) {
+                        $placeholders = implode(',', array_fill(0, count($inVals), '?'));
+                        $whereClauses[] = "{$colName} NOT IN ({$placeholders})";
+                        foreach ($inVals as $iv) {
+                            $bindings[] = $iv;
+                        }
+                    }
+                    break;
+            }
+        }
+
+        $whereSql = !empty($whereClauses) ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
+
+        // Count total for offset pagination
+        $total = 0;
+        if ($options->cursor === null) {
+            $countStmt = $this->connection->execute("SELECT COUNT(*) AS cnt FROM `{$tableName}`{$whereSql}", $bindings);
+            $countRow = $countStmt->fetch();
+            $total = (int) ($countRow['cnt'] ?? 0);
+        }
+
+        // Build ORDER BY
+        $orderClauses = [];
+        $hasIdSort = false;
+        foreach ($options->sort as $sort) {
+            $dir = strtoupper($sort['direction']);
+            $orderClauses[] = "`{$sort['field']}` {$dir}";
+            if ($sort['field'] === 'id') {
+                $hasIdSort = true;
+            }
+        }
+        if (!$hasIdSort) {
+            $orderClauses[] = "`id` ASC";
+        }
+        $orderSql = ' ORDER BY ' . implode(', ', $orderClauses);
+
+        // Build LIMIT / OFFSET or Cursor
+        $limit = $options->size;
+        $page = $options->page;
+        $offset = ($page - 1) * $limit;
+
+        if ($options->cursor !== null) {
+            $cursorWhere = !empty($whereClauses) ? "{$whereSql} AND `id` > ?" : " WHERE `id` > ?";
+            $queryBindings = array_merge($bindings, [$options->cursor]);
+            $sql = "SELECT * FROM `{$tableName}`{$cursorWhere}{$orderSql} LIMIT " . ($limit + 1);
+            $stmt = $this->connection->execute($sql, $queryBindings);
+        } else {
+            $sql = "SELECT * FROM `{$tableName}`{$whereSql}{$orderSql} LIMIT {$limit} OFFSET {$offset}";
+            $stmt = $this->connection->execute($sql, $bindings);
+        }
+
+        $rows = $stmt->fetchAll();
+        $hasMore = false;
+        $nextCursor = null;
+
+        if ($options->cursor !== null && count($rows) > $limit) {
+            $hasMore = true;
+            array_pop($rows);
+            $lastItem = end($rows);
+            $nextCursor = is_array($lastItem) ? (string) ($lastItem['id'] ?? '') : null;
+        }
+
+        // Process rows and decode data / seo
+        $entries = [];
+        foreach ($rows as $row) {
+            if (is_string($row['data'])) {
+                $row['data'] = json_decode($row['data'], true) ?? [];
+            }
+            if (is_string($row['seo'])) {
+                $row['seo'] = json_decode($row['seo'], true);
+            }
+            $entries[] = $row;
+        }
+
+        // Populates (batch query relations)
+        if (!empty($options->populate) && !empty($entries)) {
+            $entries = $this->populateRelations($collection, $entries, $options->populate);
+        }
+
+        // Sparse fieldsets
+        if ($options->fields !== null) {
+            $entries = $this->applySparseFields($entries, $options->fields);
+        }
+
+        $pages = $limit > 0 ? (int) ceil($total / $limit) : 1;
+        if ($options->cursor === null) {
+            $hasMore = $page < $pages;
+            $lastItem = end($entries);
+            $nextCursor = ($hasMore && is_array($lastItem)) ? (string) ($lastItem['id'] ?? '') : null;
+        }
+
+        return [
+            'data' => $entries,
+            'meta' => [
+                'pagination' => [
+                    'total' => $total,
+                    'page' => $page,
+                    'size' => $limit,
+                    'pages' => $pages,
+                    'has_more' => $hasMore,
+                    'next_cursor' => $nextCursor,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $collection
+     * @param list<array<string, mixed>> $entries
+     * @param list<string> $populateFields
+     * @return list<array<string, mixed>>
+     */
+    private function populateRelations(array $collection, array $entries, array $populateFields): array
+    {
+        $collectionId = (string) $collection['id'];
+        $prefix = $this->connection->getPrefix();
+        $entryIds = array_column($entries, 'id');
+
+        if (empty($entryIds)) {
+            return $entries;
+        }
+
+        $fields = (array) ($collection['fields'] ?? []);
+
+        foreach ($populateFields as $relHandle) {
+            $fieldDef = $fields[$relHandle] ?? null;
+            if (!$fieldDef || ($fieldDef['type'] ?? '') !== 'relation') {
+                continue;
+            }
+
+            $targetCollection = (string) ($fieldDef['config']['target_collection'] ?? '');
+            if (!$this->collectionRegistry->has($targetCollection)) {
+                continue;
+            }
+
+            $targetTableName = $prefix . 'c_' . $targetCollection;
+
+            // Query relations in batch
+            $inPlaceholders = implode(',', array_fill(0, count($entryIds), '?'));
+            $relSql = "SELECT `entry_id`, `target_entry_id`, `position` FROM `{$prefix}entry_relations` WHERE `collection_id` = ? AND `field_key` = ? AND `entry_id` IN ({$inPlaceholders}) ORDER BY `position` ASC";
+            $params = array_merge([$collectionId, $relHandle], $entryIds);
+            $relStmt = $this->connection->execute($relSql, $params);
+            $relRows = $relStmt->fetchAll();
+
+            $targetIds = array_unique(array_filter(array_column($relRows, 'target_entry_id')));
+            $targetsById = [];
+
+            if (!empty($targetIds)) {
+                $targetPlaceholders = implode(',', array_fill(0, count($targetIds), '?'));
+                $targetSql = "SELECT * FROM `{$targetTableName}` WHERE `id` IN ({$targetPlaceholders}) AND `deleted_at` IS NULL";
+                $targetStmt = $this->connection->execute($targetSql, array_values($targetIds));
+                while ($tRow = $targetStmt->fetch()) {
+                    if (is_string($tRow['data'])) {
+                        $tRow['data'] = json_decode($tRow['data'], true) ?? [];
+                    }
+                    if (is_string($tRow['seo'])) {
+                        $tRow['seo'] = json_decode($tRow['seo'], true);
+                    }
+                    $targetsById[(string) $tRow['id']] = $tRow;
+                }
+            }
+
+            $relationsByEntryId = [];
+            foreach ($relRows as $rRow) {
+                $eId = (string) $rRow['entry_id'];
+                $tId = (string) $rRow['target_entry_id'];
+                if (isset($targetsById[$tId])) {
+                    $relationsByEntryId[$eId][] = $targetsById[$tId];
+                }
+            }
+
+            $cardinality = (string) ($fieldDef['config']['cardinality'] ?? 'many_to_many');
+            foreach ($entries as &$entry) {
+                $eId = (string) $entry['id'];
+                $populatedItems = $relationsByEntryId[$eId] ?? [];
+                if ($cardinality === 'one_to_one') {
+                    $entry['data'][$relHandle] = $populatedItems[0] ?? null;
+                } else {
+                    $entry['data'][$relHandle] = $populatedItems;
+                }
+            }
+            unset($entry);
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $entries
+     * @param list<string> $requestedFields
+     * @return list<array<string, mixed>>
+     */
+    private function applySparseFields(array $entries, array $requestedFields): array
+    {
+        $systemAlwaysInclude = ['id', 'status', 'locale'];
+        $filtered = [];
+
+        foreach ($entries as $entry) {
+            $item = [];
+            foreach ($systemAlwaysInclude as $sys) {
+                if (isset($entry[$sys])) {
+                    $item[$sys] = $entry[$sys];
+                }
+            }
+
+            foreach ($requestedFields as $req) {
+                if (isset($entry[$req])) {
+                    $item[$req] = $entry[$req];
+                } elseif (isset($entry['data'][$req])) {
+                    $item[$req] = $entry['data'][$req];
+                }
+            }
+
+            $filtered[] = $item;
+        }
+
+        return $filtered;
     }
 
     /**

@@ -6,15 +6,21 @@ namespace BsCms\Routing;
 
 use BsCms\Http\Controllers\AuthController;
 use BsCms\Http\Controllers\AuditController;
+use BsCms\Http\Controllers\BulkEntriesController;
+use BsCms\Http\Controllers\CollectionsController;
 use BsCms\Http\Controllers\EmailSettingsController;
+use BsCms\Http\Controllers\EntriesController;
+use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
 use BsCms\Http\Controllers\NotificationsController;
 use BsCms\Http\Controllers\RolesController;
+use BsCms\Http\Controllers\SavedViewsController;
+use BsCms\Http\Controllers\SingletonsController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
 
 /**
- * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, and notifications.
+ * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, and jobs.
  */
 final class ApiRoutes
 {
@@ -27,7 +33,13 @@ final class ApiRoutes
         TokensController $tokens,
         AuditController $audit,
         EmailSettingsController $email,
-        NotificationsController $notifications
+        NotificationsController $notifications,
+        ?CollectionsController $collections = null,
+        ?EntriesController $entries = null,
+        ?BulkEntriesController $bulkEntries = null,
+        ?SingletonsController $singletons = null,
+        ?SavedViewsController $savedViews = null,
+        ?JobsController $jobs = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -100,5 +112,52 @@ final class ApiRoutes
         $routes->get('/api/v1/notifications', [$notifications, 'list']);
         $routes->post('/api/v1/notifications/read', [$notifications, 'markRead']);
         $routes->post('/api/v1/notifications/read-all', [$notifications, 'markAllRead']);
+
+        // 9. Collections & Schema endpoints
+        if ($collections !== null) {
+            $routes->get('/api/v1/collections', [$collections, 'list']);
+            $routes->post('/api/v1/collections', [$collections, 'create']);
+            $routes->get('/api/v1/collections/{handle}', [$collections, 'get']);
+            $routes->put('/api/v1/collections/{handle}', [$collections, 'update']);
+            $routes->delete('/api/v1/collections/{handle}', [$collections, 'delete']);
+        }
+
+        // 10. Entries & Bulk endpoints
+        if ($entries !== null) {
+            $routes->get('/api/v1/collections/{handle}/entries', [$entries, 'list']);
+            $routes->post('/api/v1/collections/{handle}/entries', [$entries, 'create']);
+            if ($bulkEntries !== null) {
+                $routes->post('/api/v1/collections/{handle}/entries/bulk', [$bulkEntries, 'bulk']);
+            }
+            $routes->get('/api/v1/collections/{handle}/entries/{id}', [$entries, 'get']);
+            $routes->put('/api/v1/collections/{handle}/entries/{id}', [$entries, 'update']);
+            $routes->delete('/api/v1/collections/{handle}/entries/{id}', [$entries, 'delete']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/restore', [$entries, 'restore']);
+            $routes->delete('/api/v1/collections/{handle}/entries/{id}/purge', [$entries, 'purge']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/duplicate', [$entries, 'duplicate']);
+            $routes->get('/api/v1/collections/{handle}/entries/{id}/versions', [$entries, 'listVersions']);
+            $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore', [$entries, 'restoreVersion']);
+        }
+
+        // 11. Singletons endpoints
+        if ($singletons !== null) {
+            $routes->get('/api/v1/singletons/{handle}', [$singletons, 'get']);
+            $routes->put('/api/v1/singletons/{handle}', [$singletons, 'update']);
+        }
+
+        // 12. Saved Views endpoints
+        if ($savedViews !== null) {
+            $routes->get('/api/v1/saved-views', [$savedViews, 'list']);
+            $routes->post('/api/v1/saved-views', [$savedViews, 'create']);
+            $routes->get('/api/v1/saved-views/{id}', [$savedViews, 'get']);
+            $routes->put('/api/v1/saved-views/{id}', [$savedViews, 'update']);
+            $routes->delete('/api/v1/saved-views/{id}', [$savedViews, 'delete']);
+        }
+
+        // 13. Jobs endpoints
+        if ($jobs !== null) {
+            $routes->get('/api/v1/jobs/{id}', [$jobs, 'get']);
+        }
     }
 }

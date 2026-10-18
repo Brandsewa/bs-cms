@@ -173,7 +173,7 @@ final class EntryRepositoryIntegrationTest extends TestCase
         $updated = $this->repository->update('posts', $entry['id'], [
             'headline' => 'Updated Headline',
             'views' => 150,
-        ], 1);
+        ], null, 1);
 
         $this->assertSame(2, $updated['version']);
         $this->assertSame(150, $updated['data']['views']);
@@ -181,7 +181,7 @@ final class EntryRepositoryIntegrationTest extends TestCase
         // 3. Optimistic concurrency conflict
         $this->expectException(OptimisticConcurrencyException::class);
         $this->expectExceptionCode(409);
-        $this->repository->update('posts', $entry['id'], ['views' => 200], 1); // Stale version 1
+        $this->repository->update('posts', $entry['id'], ['views' => 200], null, 1); // Stale version 1
     }
 
     public function testSoftDeleteAndRestoreWithSlugSuffix(): void

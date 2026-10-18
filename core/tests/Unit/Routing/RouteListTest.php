@@ -122,4 +122,84 @@ final class RouteListTest extends TestCase
 
         $this->assertCount(count($expectedEndpoints), $registered);
     }
+
+    public function testAllPhase3EndpointsAreRegistered(): void
+    {
+        $routes = new RouteCollection();
+
+        $auth = $this->createMock(AuthController::class);
+        $me = $this->createMock(MeController::class);
+        $users = $this->createMock(UsersController::class);
+        $roles = $this->createMock(RolesController::class);
+        $tokens = $this->createMock(TokensController::class);
+        $audit = $this->createMock(AuditController::class);
+        $email = $this->createMock(EmailSettingsController::class);
+        $notifications = $this->createMock(NotificationsController::class);
+
+        $collections = $this->createMock(\BsCms\Http\Controllers\CollectionsController::class);
+        $entries = $this->createMock(\BsCms\Http\Controllers\EntriesController::class);
+        $bulk = $this->createMock(\BsCms\Http\Controllers\BulkEntriesController::class);
+        $singletons = $this->createMock(\BsCms\Http\Controllers\SingletonsController::class);
+        $views = $this->createMock(\BsCms\Http\Controllers\SavedViewsController::class);
+        $jobs = $this->createMock(\BsCms\Http\Controllers\JobsController::class);
+
+        ApiRoutes::register(
+            $routes,
+            $auth,
+            $me,
+            $users,
+            $roles,
+            $tokens,
+            $audit,
+            $email,
+            $notifications,
+            $collections,
+            $entries,
+            $bulk,
+            $singletons,
+            $views,
+            $jobs
+        );
+
+        $registered = [];
+        foreach ($routes->getRoutes() as $r) {
+            $registered[$r->getMethod() . ' ' . $r->getPattern()] = true;
+        }
+
+        $expectedPhase3Endpoints = [
+            'GET /api/v1/collections',
+            'POST /api/v1/collections',
+            'GET /api/v1/collections/{handle}',
+            'PUT /api/v1/collections/{handle}',
+            'DELETE /api/v1/collections/{handle}',
+            'GET /api/v1/collections/{handle}/entries',
+            'POST /api/v1/collections/{handle}/entries',
+            'POST /api/v1/collections/{handle}/entries/bulk',
+            'GET /api/v1/collections/{handle}/entries/{id}',
+            'PUT /api/v1/collections/{handle}/entries/{id}',
+            'DELETE /api/v1/collections/{handle}/entries/{id}',
+            'POST /api/v1/collections/{handle}/entries/{id}/restore',
+            'DELETE /api/v1/collections/{handle}/entries/{id}/purge',
+            'POST /api/v1/collections/{handle}/entries/{id}/duplicate',
+            'GET /api/v1/collections/{handle}/entries/{id}/versions',
+            'GET /api/v1/collections/{handle}/entries/{id}/versions/{version_id}',
+            'POST /api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore',
+            'GET /api/v1/singletons/{handle}',
+            'PUT /api/v1/singletons/{handle}',
+            'GET /api/v1/saved-views',
+            'POST /api/v1/saved-views',
+            'GET /api/v1/saved-views/{id}',
+            'PUT /api/v1/saved-views/{id}',
+            'DELETE /api/v1/saved-views/{id}',
+            'GET /api/v1/jobs/{id}',
+        ];
+
+        foreach ($expectedPhase3Endpoints as $endpoint) {
+            $this->assertArrayHasKey(
+                $endpoint,
+                $registered,
+                "Expected Phase 3 route '{$endpoint}' was not registered in ApiRoutes."
+            );
+        }
+    }
 }

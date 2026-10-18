@@ -273,6 +273,132 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(NotificationService::class)
             );
         });
+
+        // 10. Phase 3 Schema, Content & Operations Services
+        $container->singleton(\BsCms\Schema\CollectionRegistry::class, function (Container $c) use ($app): \BsCms\Schema\CollectionRegistry {
+            return new \BsCms\Schema\CollectionRegistry($c->get(Connection::class), $app->storagePath('cache/schema.php'));
+        });
+
+        $container->singleton(\BsCms\Schema\FieldTypeRegistry::class, function (): \BsCms\Schema\FieldTypeRegistry {
+            return new \BsCms\Schema\FieldTypeRegistry();
+        });
+
+        $container->singleton(\BsCms\Schema\SchemaLock::class, function (Container $c): \BsCms\Schema\SchemaLock {
+            return new \BsCms\Schema\SchemaLock($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Schema\SchemaPlanner::class, function (Container $c): \BsCms\Schema\SchemaPlanner {
+            return new \BsCms\Schema\SchemaPlanner(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Schema\FieldTypeRegistry::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Schema\SchemaApplier::class, function (Container $c): \BsCms\Schema\SchemaApplier {
+            return new \BsCms\Schema\SchemaApplier(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Schema\SchemaLock::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Content\SlugService::class, function (Container $c): \BsCms\Content\SlugService {
+            return new \BsCms\Content\SlugService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Content\HierarchyValidator::class, function (Container $c): \BsCms\Content\HierarchyValidator {
+            return new \BsCms\Content\HierarchyValidator($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Content\VersionManager::class, function (Container $c): \BsCms\Content\VersionManager {
+            return new \BsCms\Content\VersionManager($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Content\RelationManager::class, function (Container $c): \BsCms\Content\RelationManager {
+            return new \BsCms\Content\RelationManager($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Operations\ConfirmTokenService::class, function (Container $c): \BsCms\Operations\ConfirmTokenService {
+            /** @var Config $config */
+            $config = $c->get(Config::class);
+            $appKey = (string) $config->get('app.key', '01234567890123456789012345678901');
+            return new \BsCms\Operations\ConfirmTokenService($appKey, $c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Content\Query\QueryParser::class, function (): \BsCms\Content\Query\QueryParser {
+            return new \BsCms\Content\Query\QueryParser();
+        });
+
+        $container->singleton(\BsCms\Content\EntryRepository::class, function (Container $c): \BsCms\Content\EntryRepository {
+            return new \BsCms\Content\EntryRepository(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Schema\FieldTypeRegistry::class),
+                $c->get(\BsCms\Content\SlugService::class),
+                $c->get(\BsCms\Content\HierarchyValidator::class),
+                $c->get(\BsCms\Content\VersionManager::class),
+                $c->get(\BsCms\Content\RelationManager::class)
+            );
+        });
+
+        // 11. Phase 3 Controllers
+        $container->singleton(\BsCms\Http\Controllers\CollectionsController::class, function (Container $c): \BsCms\Http\Controllers\CollectionsController {
+            return new \BsCms\Http\Controllers\CollectionsController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Schema\SchemaPlanner::class),
+                $c->get(\BsCms\Schema\SchemaApplier::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\EntriesController::class, function (Container $c): \BsCms\Http\Controllers\EntriesController {
+            return new \BsCms\Http\Controllers\EntriesController(
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(\BsCms\Content\Query\QueryParser::class),
+                $c->get(\BsCms\Content\VersionManager::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\BulkEntriesController::class, function (Container $c): \BsCms\Http\Controllers\BulkEntriesController {
+            return new \BsCms\Http\Controllers\BulkEntriesController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SingletonsController::class, function (Container $c): \BsCms\Http\Controllers\SingletonsController {
+            return new \BsCms\Http\Controllers\SingletonsController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SavedViewsController::class, function (Container $c): \BsCms\Http\Controllers\SavedViewsController {
+            return new \BsCms\Http\Controllers\SavedViewsController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\JobsController::class, function (Container $c): \BsCms\Http\Controllers\JobsController {
+            return new \BsCms\Http\Controllers\JobsController(
+                $c->get(Connection::class)
+            );
+        });
     }
 
     public function boot(Container $container): void
