@@ -29,6 +29,17 @@ if (typeof window !== 'undefined' && typeof window.ResizeObserver === 'undefined
   window.ResizeObserver = ResizeObserverStub;
 }
 
+// jsdom does not implement the Pointer Capture or scrollIntoView APIs that
+// Radix primitives (select, slider, dropdown) call during interactions.
+if (typeof Element !== 'undefined' && !Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.setPointerCapture = () => {};
+  Element.prototype.releasePointerCapture = () => {};
+}
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // axe html-has-lang / html-lang-valid run at the page level, not the component
 // level; the admin index.html sets the real value.
 document.documentElement.lang = 'en';
