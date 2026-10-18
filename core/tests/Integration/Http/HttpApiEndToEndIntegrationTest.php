@@ -287,7 +287,7 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
             ]);
         $resNoCsrf = $this->dispatch($createReqNoCsrf);
         $this->assertSame(403, $resNoCsrf->getStatusCode());
-        $this->assertStringContainsString('Missing or invalid CSRF token', (string) $resNoCsrf->getBody());
+        $this->assertStringContainsString('Invalid or missing CSRF token', (string) $resNoCsrf->getBody());
 
         // 4. Mutating POST with origin mismatch fails with 403
         $createReqEvilOrigin = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/users'))
