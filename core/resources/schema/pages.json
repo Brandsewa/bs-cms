@@ -35,15 +35,6 @@
                 "max_length": 255
             }
         },
-        "slug": {
-            "handle": "slug",
-            "label": "Slug",
-            "type": "slug",
-            "required": true,
-            "is_unique": true,
-            "show_in_list": true,
-            "config": {}
-        },
         "template": {
             "handle": "template",
             "label": "Page Template",

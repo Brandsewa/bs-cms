@@ -31,15 +31,6 @@
                 "max_length": 190
             }
         },
-        "slug": {
-            "handle": "slug",
-            "label": "Slug",
-            "type": "slug",
-            "required": true,
-            "is_unique": true,
-            "show_in_list": false,
-            "config": {}
-        },
         "bio": {
             "handle": "bio",
             "label": "Biography",
