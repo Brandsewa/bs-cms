@@ -585,30 +585,65 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $wrongRes = $this->dispatch($wrongReq);
         $this->assertSame(401, $wrongRes->getStatusCode());
 
-        // Step 7: Challenge with valid TOTP code
-        $validTotpCode = $twoFactor->getCode($secret);
-        $validChallengeReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+        // Step 7: Test previous step acceptance and subsequent replay rejection over HTTP
+        $currentStep = (int) floor(time() / 30);
+        $prevCode = $twoFactor->getCode($secret, ($currentStep - 1) * 30);
+        $prevChallengeReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
                 'challenge_token' => $challengeToken,
-                'code' => $validTotpCode,
+                'code' => $prevCode,
             ]);
-        $validChallengeRes = $this->dispatch($validChallengeReq);
-        $this->assertSame(200, $validChallengeRes->getStatusCode());
-        $this->assertNoSecretsInResponse($validChallengeRes);
-        $this->assertStringContainsString('__Host-bs_session=', $validChallengeRes->getHeaderLine('Set-Cookie'));
+        $prevChallengeRes = $this->dispatch($prevChallengeReq);
+        $this->assertSame(200, $prevChallengeRes->getStatusCode(), 'Code from previous step must be accepted on first use');
+        $this->assertNoSecretsInResponse($prevChallengeRes);
+        $this->assertStringContainsString('__Host-bs_session=', $prevChallengeRes->getHeaderLine('Set-Cookie'));
 
         // Step 8: Replay same challenge token -> must be rejected (single use!)
         $replayReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
                 'challenge_token' => $challengeToken,
-                'code' => $validTotpCode,
+                'code' => $prevCode,
             ]);
         $replayRes = $this->dispatch($replayReq);
         $this->assertSame(401, $replayRes->getStatusCode(), 'Replayed challenge token must be rejected');
 
-        // Step 8b: TOTP Replay Protection: Login again in same step and submit same code -> 401
+        // Step 8a: Previous step replay on fresh login challenge must return 401 (accepted once only!)
+        $loginForPrevReplay = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $resLoginPrevReplay = $this->dispatch($loginForPrevReplay);
+        $this->assertSame(200, $resLoginPrevReplay->getStatusCode());
+        $tokenPrevReplay = json_decode((string) $resLoginPrevReplay->getBody(), true)['challenge_token'];
+
+        $replayPrevTotpReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $tokenPrevReplay,
+                'code' => $prevCode,
+            ]);
+        $replayPrevTotpRes = $this->dispatch($replayPrevTotpReq);
+        $this->assertSame(401, $replayPrevTotpRes->getStatusCode(), 'Code from previous step must not be accepted twice');
+
+        // Step 8b: Advance to current step code -> 200
+        $validTotpCode = $twoFactor->getCode($secret);
+        $loginForCurr = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $resLoginCurr = $this->dispatch($loginForCurr);
+        $tokenCurr = json_decode((string) $resLoginCurr->getBody(), true)['challenge_token'];
+
+        $currChallengeReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $tokenCurr,
+                'code' => $validTotpCode,
+            ]);
+        $currChallengeRes = $this->dispatch($currChallengeReq);
+        $this->assertSame(200, $currChallengeRes->getStatusCode(), 'Current step code must be accepted');
+
+        // Step 8c: TOTP Replay Protection: Login again in same step and submit same code -> 401
         $loginAgainTotpReplay = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
@@ -625,25 +660,21 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $replayTotpRes = $this->dispatch($replayTotpReq);
         $this->assertSame(401, $replayTotpRes->getStatusCode(), 'TOTP code replay in the same step must be rejected with 401');
 
-        // Step 8c: Test previous step acceptance and subsequent replay rejection
-        $currentStep = (int) floor(time() / 30);
-        $prevCode = $twoFactor->getCode($secret, ($currentStep - 1) * 30);
-        // Note: $currentStep has already been accepted ($validTotpCode was at $currentStep), so $prevCode (currentStep - 1)
-        // must be rejected because ($currentStep - 1) <= $currentStep!
-        $loginForPrev = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+        // Step 8c2: Replaying older step ($prevCode) after current step recorded -> 401
+        $loginForOlder = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
-        $resLoginPrev = $this->dispatch($loginForPrev);
-        $tokenPrev = json_decode((string) $resLoginPrev->getBody(), true)['challenge_token'];
+        $resLoginOlder = $this->dispatch($loginForOlder);
+        $tokenOlder = json_decode((string) $resLoginOlder->getBody(), true)['challenge_token'];
 
-        $prevStepReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+        $olderStepReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody([
-                'challenge_token' => $tokenPrev,
+                'challenge_token' => $tokenOlder,
                 'code' => $prevCode,
             ]);
-        $prevStepRes = $this->dispatch($prevStepReq);
-        $this->assertSame(401, $prevStepRes->getStatusCode(), 'Older/equal step code must be rejected once higher step is recorded');
+        $olderStepRes = $this->dispatch($olderStepReq);
+        $this->assertSame(401, $olderStepRes->getStatusCode(), 'Older step code must be rejected once higher step is recorded');
 
         // Step 8d: Challenge request using 'recovery_code' parameter must be rejected with 422
         $loginForFieldCheck = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
