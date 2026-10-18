@@ -70,7 +70,7 @@ function InputsShowcase() {
       <div className="space-y-1">
         <Label htmlFor="g-title-err">Title (error)</Label>
         <Input id="g-title-err" defaultValue="Hi" aria-invalid="true" />
-        <p className="text-xs text-destructive">Title needs at least 3 characters.</p>
+        <p className="text-xs text-destructive-text">Title needs at least 3 characters.</p>
       </div>
       <div className="space-y-1">
         <Label htmlFor="g-bio">Bio</Label>

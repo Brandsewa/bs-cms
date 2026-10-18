@@ -55,7 +55,7 @@ export function TimeInput({ value, onChange, disabled = false, className, 'aria-
         className={cn('w-24 font-mono', className)}
       />
       {touched && !isValid(draft) ? (
-        <p id={invalidId} role="alert" className="mt-1 text-xs text-destructive">
+        <p id={invalidId} role="alert" className="mt-1 text-xs text-destructive-text">
           {t('dateTime.invalidTime')}
         </p>
       ) : null}

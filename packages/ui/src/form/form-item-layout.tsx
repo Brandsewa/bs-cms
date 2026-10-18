@@ -85,7 +85,7 @@ export function FormItemLayout({
       {required ? (
         <>
           {' '}
-          <span aria-hidden="true" className="text-destructive">
+          <span aria-hidden="true" className="text-destructive-text">
             *
           </span>
           <span className="sr-only"> ({t('form.required')})</span>
@@ -132,7 +132,7 @@ export function FormItemLayout({
             aria-live="polite"
             className={cn(
               'mt-1 text-right text-xs',
-              counter.current > counter.max ? 'text-destructive' : 'text-muted-foreground'
+              counter.current > counter.max ? 'text-destructive-text' : 'text-muted-foreground'
             )}
           >
             {counter.current > counter.max
@@ -141,7 +141,7 @@ export function FormItemLayout({
           </p>
         ) : null}
         {error ? (
-          <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+          <p id={errorId} role="alert" className="mt-1 text-xs text-destructive-text">
             {error}
           </p>
         ) : null}

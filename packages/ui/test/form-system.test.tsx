@@ -114,7 +114,7 @@ describe('FormItemLayout', () => {
         <input id="meta" />
       </FormItemLayout>
     );
-    expect(screen.getByText('5 over the 160 character limit')).toHaveClass('text-destructive');
+    expect(screen.getByText('5 over the 160 character limit')).toHaveClass('text-destructive-text');
   });
 
   it('renders horizontal layout for settings pages', () => {

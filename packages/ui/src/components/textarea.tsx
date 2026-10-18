@@ -112,7 +112,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textare
           aria-live="polite"
           className={cn(
             'mt-1 text-right text-xs',
-            overLimit ? 'text-destructive' : 'text-muted-foreground'
+            overLimit ? 'text-destructive-text' : 'text-muted-foreground'
           )}
         >
           {overLimit

@@ -6,12 +6,15 @@
     <!-- The CMS host sends X-Robots-Tag: noindex; repeated here as defence in depth. -->
     <meta name="robots" content="noindex, nofollow" />
     <title>BS CMS</title>
+    <!-- Suppress the browser's automatic /favicon.ico request (404 on static hosts). -->
+    <link rel="icon" href="data:," />
     <!--
       Applies the stored theme before first paint (no flash of wrong theme).
-      External file, loaded synchronously: the admin CSP is script-src 'self'
-      with no inline scripts.
+      External file, loaded synchronously, rewritten onto the build base
+      (/admin/theme-init.js): the admin CSP is script-src 'self' with no
+      inline scripts.
     -->
-    <script src="./theme-init.js"></script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

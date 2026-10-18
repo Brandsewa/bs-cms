@@ -1,8 +1,53 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { DayPicker, type DayPickerProps } from 'react-day-picker';
+import {
+  DayPicker,
+  type DayPickerProps,
+  type DropdownProps,
+} from 'react-day-picker';
 import { cn } from '../lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/select';
 
 export type CalendarProps = DayPickerProps;
+
+/**
+ * Month/year caption dropdowns rendered with the @bs/ui Select (Radix).
+ * react-day-picker's default dropdowns are native <select> elements, which
+ * the BS CMS spec forbids anywhere in the UI (docs/02-ui-spec.md, and the
+ * DOM-level gallery test enforces it for library-rendered markup too).
+ * onChange is synthesised as the library expects a select change event.
+ */
+function CalendarDropdown({ options, value, onChange, disabled, ...props }: DropdownProps) {
+  const handleValueChange = (next: string): void => {
+    (onChange as ((event: { target: { value: string } }) => void) | undefined)?.({
+      target: { value: next },
+    });
+  };
+
+  return (
+    <Select
+      value={value !== undefined ? String(value) : undefined}
+      onValueChange={handleValueChange}
+      disabled={disabled}
+    >
+      <SelectTrigger aria-label={props['aria-label']} className="h-7 w-auto gap-1 px-2 text-13">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        {(options ?? []).map((option) => (
+          <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 /**
  * Calendar primitive on react-day-picker, styled with BS CMS tokens
@@ -51,6 +96,8 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         ...classNames,
       }}
       components={{
+        MonthsDropdown: CalendarDropdown,
+        YearsDropdown: CalendarDropdown,
         Chevron: ({ orientation }) =>
           orientation === 'left' ? (
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />

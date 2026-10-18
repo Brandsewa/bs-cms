@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
-import defaultMessages from './en.json';
+import defaultMessages from './en.json' with { type: 'json' };
 
 /**
  * All user-facing strings in @bs/ui live in this message catalog

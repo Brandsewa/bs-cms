@@ -29,7 +29,7 @@ describe('Textarea', () => {
     area.removeAttribute('maxlength');
     await userEvent.type(area, 'X');
     expect(screen.getByText('1 over the 10 character limit')).toBeInTheDocument();
-    expect(screen.getByText(/over the 10 character limit/)).toHaveClass('text-destructive');
+    expect(screen.getByText(/over the 10 character limit/)).toHaveClass('text-destructive-text');
   });
 
   it('links the counter to the field via aria-describedby', () => {

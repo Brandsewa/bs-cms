@@ -37,6 +37,10 @@ dist/
 # (never committed; core/public/index.php serves /admin from here at runtime).
 /core/public/admin/
 
+# Playwright artifacts
+test-results/
+playwright-report/
+
 # OS and Editor
 .DS_Store
 Thumbs.db

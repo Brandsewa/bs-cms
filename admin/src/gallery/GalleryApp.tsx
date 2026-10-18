@@ -82,7 +82,7 @@ export function GalleryApp() {
           {sections.map((section) => (
             <li key={section.id}>
               <Link
-                to="_gallery"
+                to="/_gallery"
                 search={{ section: section.id }}
                 activeProps={{ 'aria-current': 'page' }}
                 className={cn(

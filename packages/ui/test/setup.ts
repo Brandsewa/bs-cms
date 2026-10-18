@@ -40,6 +40,12 @@ if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
+// jsdom implements window.scrollTo as a "not implemented" throw; TanStack
+// Router calls it on every navigation for scroll restoration.
+if (typeof window !== 'undefined') {
+  window.scrollTo = () => {};
+}
+
 // axe html-has-lang / html-lang-valid run at the page level, not the component
 // level; the admin index.html sets the real value.
 document.documentElement.lang = 'en';

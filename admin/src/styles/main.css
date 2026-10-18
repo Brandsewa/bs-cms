@@ -38,6 +38,7 @@
 
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
 
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);

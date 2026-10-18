@@ -110,7 +110,7 @@ function MetricCard({ label, value, hint, trend, loading = false, className }: M
               className={cn(
                 'font-medium',
                 trend.direction === 'up' && 'text-success',
-                trend.direction === 'down' && 'text-destructive'
+                trend.direction === 'down' && 'text-destructive-text'
               )}
             >
               {trend.direction === 'up' ? '↑' : trend.direction === 'down' ? '↓' : '→'}{' '}

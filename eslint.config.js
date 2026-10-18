@@ -1,3 +1,4 @@
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -10,9 +11,14 @@ export default tseslint.config(
   },
   {
     files: ['packages/ui/**/*.{ts,tsx}', 'packages/client/**/*.{ts,tsx}', 'admin/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       // BS CMS forbids native selects and native date/time inputs (docs/02-ui-spec.md 3.2, 3.6).
       'no-restricted-syntax': [
         'error',
