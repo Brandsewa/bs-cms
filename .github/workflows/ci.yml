@@ -112,8 +112,8 @@ jobs:
           mkdir -p /tmp/bs-cms-test
           unzip -q build/bs-cms-1.0.0-dev.zip -d /tmp/bs-cms-test
           cd /tmp/bs-cms-test/core
-          # Start background built-in PHP web server serving on [::]:8888
-          php -S [::]:8888 -t public > /tmp/php-server.log 2>&1 &
+          # Start background built-in PHP web server serving on [::]:8888 with index.php as router script
+          php -S [::]:8888 -t public public/index.php > /tmp/php-server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
 

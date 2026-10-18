@@ -276,16 +276,16 @@ class CollectionsController extends BaseController
 
             $this->connection->execute(
                 "INSERT INTO `{$prefix}schema_changes` (
-                    `id`, `collection_id`, `source`, `status`, `plan`, `sql_up`, `risk_flags`,
-                    `estimated_rows`, `created_by`, `created_at`
-                ) VALUES (?, ?, 'api', 'proposed', ?, ?, ?, ?, ?, ?)",
+                    `id`, `collection_id`, `change_type`, `before_state`, `after_state`,
+                    `sql_statements`, `applied_by`, `applied_via`, `dry_run`, `status`, `created_at`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'api', 0, 'proposed', ?)",
                 [
                     $changeId,
                     $collectionId,
-                    json_encode($plan->changes, JSON_THROW_ON_ERROR),
+                    $plan->changes[0]['type'] ?? 'create_collection',
+                    null,
+                    json_encode($body, JSON_THROW_ON_ERROR),
                     json_encode($plan->sqlStatements, JSON_THROW_ON_ERROR),
-                    json_encode($plan->riskFlags, JSON_THROW_ON_ERROR),
-                    $plan->estimatedRows,
                     $actor->id,
                     $now,
                 ]
@@ -330,11 +330,12 @@ class CollectionsController extends BaseController
             return $this->problem(409, 'Conflict', "Schema change '{$changeId}' has already been applied.");
         }
 
-        $riskFlags = json_decode((string) $change['risk_flags'], true) ?? [];
+        $targetDefinition = json_decode((string) ($change['after_state'] ?? '{}'), true) ?? [];
         $actor = $this->getActor($request);
         $body = $this->getBody($request);
 
-        if (!empty($riskFlags['data_loss'])) {
+        $plan = $this->planner->plan($targetDefinition);
+        if (!empty($plan->riskFlags['data_loss'])) {
             $confirmToken = (string) ($body['confirm_token'] ?? $request->getHeaderLine('X-Confirm-Token'));
             $canonicalInput = ['change_id' => $changeId];
             if ($confirmToken === '') {
@@ -356,20 +357,14 @@ class CollectionsController extends BaseController
         }
 
         try {
-            $sqlUp = json_decode((string) $change['sql_up'], true) ?? [];
-            foreach ($sqlUp as $sql) {
-                $this->connection->execute($sql);
-            }
+            $this->applier->apply($plan, $targetDefinition, appliedBy: $actor->id, appliedVia: 'api');
 
-            $now = date('Y-m-d H:i:s.v');
             $this->connection->execute(
-                "UPDATE `{$prefix}schema_changes` SET `status` = 'applied', `applied_at` = ? WHERE `id` = ?",
-                [$now, $changeId]
+                "UPDATE `{$prefix}schema_changes` SET `status` = 'applied' WHERE `id` = ?",
+                [$changeId]
             );
 
-            $this->registry->invalidate();
-
-            return $this->json(['success' => true, 'change_id' => $changeId, 'applied_at' => $now]);
+            return $this->json(['success' => true, 'change_id' => $changeId]);
         } catch (Throwable $e) {
             return $this->problem(500, 'Apply Error', $e->getMessage());
         }
@@ -384,17 +379,11 @@ class CollectionsController extends BaseController
 
         $prefix = $this->connection->getPrefix();
         $stmt = $this->connection->execute(
-            "SELECT `id`, `collection_id`, `source`, `status`, `risk_flags`, `estimated_rows`, `created_by`, `created_at`, `applied_at`
+            "SELECT `id`, `collection_id`, `change_type`, `applied_by`, `applied_via`, `dry_run`, `status`, `created_at`
              FROM `{$prefix}schema_changes`
              ORDER BY `created_at` DESC LIMIT 100"
         );
         $rows = $stmt->fetchAll();
-        foreach ($rows as &$r) {
-            if (isset($r['risk_flags']) && is_string($r['risk_flags'])) {
-                $r['risk_flags'] = json_decode($r['risk_flags'], true);
-            }
-        }
-
         return $this->json($rows);
     }
 }
