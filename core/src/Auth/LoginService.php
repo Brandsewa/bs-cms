@@ -10,6 +10,7 @@ use BsCms\Database\Connection;
 use BsCms\Mail\Mailer;
 use BsCms\Mail\MailMessage;
 use BsCms\Mail\TemplateRenderer;
+use BsCms\Security\Crypto;
 use BsCms\Security\Ulid;
 use BsCms\Support\Clock;
 use BsCms\Support\Json;
@@ -30,7 +31,8 @@ final class LoginService
         private readonly TwoFactorService $twoFactor,
         private readonly AuditLogger $auditLogger,
         private readonly ?Mailer $mailer = null,
-        private readonly ?TemplateRenderer $templates = null
+        private readonly ?TemplateRenderer $templates = null,
+        private readonly ?Crypto $crypto = null
     ) {
     }
 
@@ -44,7 +46,8 @@ final class LoginService
         string $password,
         ?string $ip = null,
         ?string $userAgent = null,
-        bool $rememberMe = false
+        bool $rememberMe = false,
+        ?string $requestId = null
     ): array {
         $user = $this->users->findByEmail($email);
 
@@ -58,6 +61,7 @@ final class LoginService
                 subject: new Subject('auth', 'login'),
                 summary: "Login attempt for non-existent email '{$email}'",
                 result: 'failure',
+                requestId: $requestId,
                 ip: $ip,
                 userAgent: $userAgent
             );
@@ -117,6 +121,7 @@ final class LoginService
                 subject: new Subject('user', (string) $user['id']),
                 summary: "Failed password verification for user '{$user['email']}' (attempt {$failedLogins})",
                 result: 'failure',
+                requestId: $requestId,
                 ip: $ip,
                 userAgent: $userAgent,
                 subjectId: (string) $user['id']
@@ -146,7 +151,7 @@ final class LoginService
         }
 
         // Complete normal login
-        return $this->completeLogin($user, $ip, $userAgent, false, $rememberMe);
+        return $this->completeLogin($user, $ip, $userAgent, false, $rememberMe, $requestId);
     }
 
     /**
@@ -159,7 +164,8 @@ final class LoginService
         string $code,
         ?string $ip = null,
         ?string $userAgent = null,
-        bool $rememberMe = false
+        bool $rememberMe = false,
+        ?string $requestId = null
     ): array {
         $userId = $this->resolve2faChallenge($challengeToken);
         if ($userId === null) {
@@ -182,7 +188,19 @@ final class LoginService
         $totpPassed = false;
 
         if ($totpSecretEnc !== null && strlen(trim($code)) === 6 && ctype_digit(trim($code))) {
-            $totpPassed = $this->twoFactor->verifyCode($totpSecretEnc, trim($code)) !== null;
+            try {
+                $plainSecret = ($this->crypto !== null)
+                    ? $this->twoFactor->decryptSecret($totpSecretEnc, $this->crypto)
+                    : $totpSecretEnc;
+            } catch (\Throwable) {
+                $plainSecret = $totpSecretEnc;
+            }
+
+            try {
+                $totpPassed = $this->twoFactor->verifyCode($plainSecret, trim($code)) !== null;
+            } catch (\Throwable) {
+                $totpPassed = false;
+            }
         }
 
         // If TOTP did not pass, attempt recovery code verification
@@ -213,6 +231,7 @@ final class LoginService
                 subject: new Subject('user', (string) $user['id']),
                 summary: "Failed 2FA code verification for user '{$user['email']}'",
                 result: 'failure',
+                requestId: $requestId,
                 ip: $ip,
                 userAgent: $userAgent,
                 subjectId: (string) $user['id']
@@ -224,7 +243,7 @@ final class LoginService
             ];
         }
 
-        return $this->completeLogin($user, $ip, $userAgent, true, $rememberMe);
+        return $this->completeLogin($user, $ip, $userAgent, true, $rememberMe, $requestId);
     }
 
     /**
@@ -238,7 +257,8 @@ final class LoginService
         ?string $ip,
         ?string $userAgent,
         bool $mfaPassed,
-        bool $rememberMe
+        bool $rememberMe,
+        ?string $requestId = null
     ): array {
         $userId = (string) $user['id'];
         $now = Clock::sql(Clock::now());
@@ -262,6 +282,7 @@ final class LoginService
             subject: new Subject('user', $userId),
             summary: "User signed in" . ($mfaPassed ? ' with 2FA' : ''),
             result: 'success',
+            requestId: $requestId,
             ip: $ip,
             userAgent: $userAgent,
             subjectId: $userId

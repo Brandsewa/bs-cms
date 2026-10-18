@@ -120,6 +120,15 @@ final class UserRepository
             (string) ($data['updated_at'] ?? $now),
         ]);
 
+        if (empty($roleIds)) {
+            if (isset($data['role_id']) && is_string($data['role_id']) && $data['role_id'] !== '') {
+                $roleIds = [$data['role_id']];
+            } elseif (isset($data['roles']) && is_array($data['roles'])) {
+                /** @var array<int, string> $roleIds */
+                $roleIds = array_values($data['roles']);
+            }
+        }
+
         if (!empty($roleIds)) {
             $this->setRoles($id, $roleIds);
         }

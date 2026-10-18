@@ -144,7 +144,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(TwoFactorService::class),
                 $c->get(AuditLogger::class),
                 $c->get(Mailer::class),
-                $c->get(TemplateRenderer::class)
+                $c->get(TemplateRenderer::class),
+                $c->get(Crypto::class)
             );
         });
 
@@ -205,7 +206,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(UserRepository::class),
                 $c->get(PasswordHasher::class),
                 $c->get(TwoFactorService::class),
-                $c->get(Connection::class)
+                $c->get(Connection::class),
+                $c->get(Crypto::class)
             );
         });
 

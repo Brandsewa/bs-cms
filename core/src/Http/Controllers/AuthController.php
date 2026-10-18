@@ -13,6 +13,7 @@ use BsCms\Auth\RecoveryCodes;
 use BsCms\Auth\SessionManager;
 use BsCms\Auth\TwoFactorService;
 use BsCms\Database\Connection;
+use BsCms\Security\Crypto;
 use BsCms\Support\Clock;
 use BsCms\Support\Json;
 use BsCms\Users\UserPresenter;
@@ -35,7 +36,8 @@ class AuthController extends BaseController
         private readonly UserRepository $userRepository,
         private readonly PasswordHasher $passwordHasher,
         private readonly TwoFactorService $twoFactorService,
-        private readonly Connection $connection
+        private readonly Connection $connection,
+        private readonly ?Crypto $crypto = null
     ) {
     }
 
@@ -48,8 +50,9 @@ class AuthController extends BaseController
 
         $ip = $this->getClientIp($request);
         $userAgent = $request->getHeaderLine('User-Agent');
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
 
-        $result = $this->loginService->login($email, $password, $ip, $userAgent, $remember);
+        $result = $this->loginService->login($email, $password, $ip, $userAgent, $remember, $requestId);
 
         if ($result['status'] === 'failed') {
             return $this->problem(401, 'Unauthorized', (string) $result['message']);
@@ -96,8 +99,9 @@ class AuthController extends BaseController
 
         $ip = $this->getClientIp($request);
         $userAgent = $request->getHeaderLine('User-Agent');
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
 
-        $result = $this->loginService->verify2faChallenge($challengeToken, $code, $ip, $userAgent, $remember);
+        $result = $this->loginService->verify2faChallenge($challengeToken, $code, $ip, $userAgent, $remember, $requestId);
 
         if ($result['status'] === 'failed') {
             return $this->problem(401, 'Unauthorized', (string) $result['message']);
@@ -298,7 +302,19 @@ class AuthController extends BaseController
 
         // Try TOTP code
         if (!$passed && $code !== null && $code !== '' && !empty($user['totp_secret_enc'])) {
-            $passed = $this->twoFactorService->verifyCode((string) $user['totp_secret_enc'], trim($code)) !== null;
+            $rawSecret = (string) $user['totp_secret_enc'];
+            try {
+                $plainSecret = ($this->crypto !== null)
+                    ? $this->twoFactorService->decryptSecret($rawSecret, $this->crypto)
+                    : $rawSecret;
+            } catch (\Throwable) {
+                $plainSecret = $rawSecret;
+            }
+            try {
+                $passed = $this->twoFactorService->verifyCode($plainSecret, trim($code)) !== null;
+            } catch (\Throwable) {
+                $passed = false;
+            }
         }
 
         if (!$passed) {

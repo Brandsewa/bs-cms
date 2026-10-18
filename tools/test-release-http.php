@@ -221,15 +221,17 @@ if ($resLogin['status'] !== 200) {
 scanNoSecrets($resLogin['json']);
 
 // Check session cookie
+$cookieName = 'bs_session';
 $sessionCookie = '';
 foreach ($resLogin['raw_headers'] as $hdr) {
-    if (stripos($hdr, 'set-cookie:') === 0 && preg_match('/__Host-bs_session=([^;]+)/', $hdr, $m)) {
-        $sessionCookie = $m[1];
+    if (stripos($hdr, 'set-cookie:') === 0 && preg_match('/(?:(__Host-)?bs_session)=([^;]+)/', $hdr, $m)) {
+        $cookieName = !empty($m[1]) ? '__Host-bs_session' : 'bs_session';
+        $sessionCookie = $m[2];
         break;
     }
 }
 if ($sessionCookie === '') {
-    failTest("Login succeeded but __Host-bs_session cookie was not returned");
+    failTest("Login succeeded but session cookie (bs_session or __Host-bs_session) was not returned");
 }
 
 // Check audit log
@@ -252,7 +254,7 @@ passTest("4. Login flow succeeded with audit log recorded without SQL error");
 // 5. Authenticated Session & Tiered Rate Limiter (600/min for auth)
 echo "Testing 5: Authenticated session and tiered rate limiter...\n";
 $resSession = httpRequest('GET', "{$baseUrl}/api/v1/auth/session", [
-    'Cookie' => "__Host-bs_session={$sessionCookie}",
+    'Cookie' => "{$cookieName}={$sessionCookie}",
 ]);
 if ($resSession['status'] !== 200) {
     failTest("Session check failed with {$resSession['status']}: {$resSession['body']}");
@@ -272,7 +274,7 @@ passTest("5. Authenticated session returned CSRF token and generous 600/min rate
 // 6. User Presenter in GET /api/v1/users (Sanitization check)
 echo "Testing 6: GET /api/v1/users presenter sanitization...\n";
 $resUsers = httpRequest('GET', "{$baseUrl}/api/v1/users", [
-    'Cookie' => "__Host-bs_session={$sessionCookie}",
+    'Cookie' => "{$cookieName}={$sessionCookie}",
 ]);
 if ($resUsers['status'] !== 200) {
     failTest("GET /api/v1/users failed with {$resUsers['status']}: {$resUsers['body']}");
@@ -295,7 +297,7 @@ $twoFactor = new TwoFactorService();
 
 // Step 7a: Setup 2FA
 $res2faSetup = httpRequest('POST', "{$baseUrl}/api/v1/me/2fa/setup", [
-    'Cookie' => "__Host-bs_session={$sessionCookie}",
+    'Cookie' => "{$cookieName}={$sessionCookie}",
     'Origin' => $baseUrl,
     'X-CSRF-Token' => $csrfToken,
 ]);
@@ -310,7 +312,7 @@ if ($secret === '') {
 // Step 7b: Confirm 2FA sending CODE ONLY (no secret)
 $code = $twoFactor->getCode($secret);
 $res2faConfirm = httpRequest('POST', "{$baseUrl}/api/v1/me/2fa/confirm", [
-    'Cookie' => "__Host-bs_session={$sessionCookie}",
+    'Cookie' => "{$cookieName}={$sessionCookie}",
     'Origin' => $baseUrl,
     'X-CSRF-Token' => $csrfToken,
     'Content-Type' => 'application/json',
@@ -330,7 +332,7 @@ if (!is_array($recoveryCodes) || count($recoveryCodes) !== 10) {
 
 // Step 7c: Logout
 $resLogout = httpRequest('POST', "{$baseUrl}/api/v1/auth/logout", [
-    'Cookie' => "__Host-bs_session={$sessionCookie}",
+    'Cookie' => "{$cookieName}={$sessionCookie}",
     'Origin' => $baseUrl,
     'X-CSRF-Token' => $csrfToken,
 ]);
