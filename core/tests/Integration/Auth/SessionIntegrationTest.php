@@ -118,17 +118,17 @@ final class SessionIntegrationTest extends TestCase
 
     public function testTimeouts(): void
     {
-        $sessionData = $this->sessionManager->create($this->testUserId);
-        $token = $sessionData['token'];
+        // 1. Within limits: valid
+        $session1 = $this->sessionManager->create($this->testUserId);
+        $this->assertNotNull($this->sessionManager->findValidSession($session1['token'], Clock::now()->modify('+10 minutes')));
 
-        // Within limits: valid
-        $this->assertNotNull($this->sessionManager->findValidSession($token, Clock::now()->modify('+10 minutes')));
+        // 2. Past idle limit (3600 seconds): invalid
+        $session2 = $this->sessionManager->create($this->testUserId);
+        $this->assertNull($this->sessionManager->findValidSession($session2['token'], Clock::now()->modify('+3601 seconds')));
 
-        // Past idle limit (3600 seconds): invalid
-        $this->assertNull($this->sessionManager->findValidSession($token, Clock::now()->modify('+3601 seconds')));
-
-        // Past absolute limit (86400 seconds): invalid
-        $this->assertNull($this->sessionManager->findValidSession($token, Clock::now()->modify('+86401 seconds')));
+        // 3. Past absolute limit (86400 seconds): invalid
+        $session3 = $this->sessionManager->create($this->testUserId);
+        $this->assertNull($this->sessionManager->findValidSession($session3['token'], Clock::now()->modify('+86401 seconds')));
     }
 
     public function testCsrfMiddlewareEnforcement(): void

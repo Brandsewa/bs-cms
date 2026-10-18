@@ -226,9 +226,9 @@ final class AuthSecuritySuiteTest extends TestCase
         $token2 = $session2['token'];
         $hash2 = hash('sha256', $token2);
 
-        // Manually age created_at by 15 days
+        // Manually age created_at and expires_at by 15 days
         $fifteenDaysAgo = Clock::sql((new DateTimeImmutable())->modify('-15 days'));
-        $pdo->exec("UPDATE `{$sessionsTable}` SET `created_at` = '{$fifteenDaysAgo}' WHERE `token_hash` = '{$hash2}'");
+        $pdo->exec("UPDATE `{$sessionsTable}` SET `created_at` = '{$fifteenDaysAgo}', `expires_at` = '{$fifteenDaysAgo}' WHERE `token_hash` = '{$hash2}'");
 
         $this->assertNull($this->sessions->findValidSession($token2), 'Session past 14d absolute timeout must be rejected');
     }
@@ -332,11 +332,13 @@ final class AuthSecuritySuiteTest extends TestCase
         $code = $this->twoFactor->getCode($secret, $now);
         $step = (int) floor($now / 30);
 
-        // First verification succeeds
-        $this->assertTrue($this->twoFactor->verifyCode($secret, $code, lastUsedStep: $step - 1));
+        // First verification succeeds (returns verified step int)
+        $verifiedStep = $this->twoFactor->verifyCode($secret, $code, lastUsedStep: $step - 1);
+        $this->assertNotNull($verifiedStep);
+        $this->assertSame($step, $verifiedStep);
 
-        // Replaying same code with lastUsedStep = current step must be rejected
-        $this->assertFalse(
+        // Replaying same code with lastUsedStep = current step must be rejected (returns null)
+        $this->assertNull(
             $this->twoFactor->verifyCode($secret, $code, lastUsedStep: $step),
             'Replay of TOTP within the same time step must be rejected'
         );

@@ -69,8 +69,13 @@ final class CsrfMiddleware implements MiddlewareInterface
 
     private function isOriginAllowed(string $sourceOrigin, ServerRequestInterface $request): bool
     {
+        $normalizedSource = rtrim(strtolower($sourceOrigin), '/');
+
         if ($this->allowedOrigin !== null && $this->allowedOrigin !== '') {
-            return strtolower($sourceOrigin) === strtolower($this->allowedOrigin);
+            $normalizedAllowed = rtrim(strtolower($this->allowedOrigin), '/');
+            if ($normalizedSource === $normalizedAllowed) {
+                return true;
+            }
         }
 
         $uri = $request->getUri();
@@ -78,9 +83,12 @@ final class CsrfMiddleware implements MiddlewareInterface
         $host = $request->getHeaderLine('Host');
         if ($host === '') {
             $host = $uri->getHost();
+            if ($uri->getPort() !== null) {
+                $host .= ':' . $uri->getPort();
+            }
         }
 
-        $expectedOrigin = strtolower("{$scheme}://{$host}");
-        return strtolower($sourceOrigin) === $expectedOrigin;
+        $expectedOrigin = rtrim(strtolower("{$scheme}://{$host}"), '/');
+        return $normalizedSource === $expectedOrigin;
     }
 }

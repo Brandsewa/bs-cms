@@ -9,8 +9,10 @@ declare(strict_types=1);
  */
 
 $subject = (string) ($strings['subject'] ?? 'Security notice: Your email address was changed');
-$siteName = htmlspecialchars((string) ($data['site_name'] ?? 'BS CMS'), ENT_QUOTES, 'UTF-8');
-$newEmail = htmlspecialchars((string) ($data['new_email'] ?? ''), ENT_QUOTES, 'UTF-8');
+$siteNameRaw = (string) ($data['site_name'] ?? 'BS CMS');
+$newEmailRaw = (string) ($data['new_email'] ?? '');
+$siteName = htmlspecialchars($siteNameRaw, ENT_QUOTES, 'UTF-8');
+$newEmail = htmlspecialchars($newEmailRaw, ENT_QUOTES, 'UTF-8');
 $instructions = (string) ($strings['instructions'] ?? 'Your account email address was changed.');
 $alert = (string) ($strings['alert'] ?? 'If you did not perform this change, contact your administrator immediately.');
 
@@ -32,7 +34,7 @@ $html = <<<HTML
 </html>
 HTML;
 
-$text = "{$instructions} New email: {$data['new_email']}.\n\n{$alert}\n\n- {$data['site_name']}";
+$text = "{$instructions} New email: {$newEmailRaw}.\n\n{$alert}\n\n- {$siteNameRaw}";
 
 return [
     'subject' => $subject,

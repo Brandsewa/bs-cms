@@ -130,6 +130,24 @@ jobs:
           echo "$CSRF_RESP" | grep -q "403 Forbidden"
           echo "$CSRF_RESP" | grep -q "application/problem+json"
 
+          # 5. Create dummy installed.lock to test post-install front-controller API routing
+          touch storage/installed.lock
+          mkdir -p config
+          echo "<?php return ['name' => 'CI Test', 'env' => 'production', 'url' => 'http://127.0.0.1:8888', 'key' => 'base64:$(openssl rand -base64 32)'];" > config/app.php
+          echo "<?php return ['host' => '127.0.0.1', 'port' => 3306, 'database' => 'none', 'username' => 'none', 'password' => 'none', 'prefix' => 'bs_'];" > config/database.php
+
+          # Unauthenticated protected API route returns 401 Problem Details (proves ApiRoutes and AuthenticateMiddleware are active in front controller)
+          API_AUTH_RESP=$(curl -s -i http://127.0.0.1:8888/api/v1/auth/session)
+          echo "$API_AUTH_RESP"
+          echo "$API_AUTH_RESP" | grep -q "401 Unauthorized"
+          echo "$API_AUTH_RESP" | grep -q "application/problem+json"
+
+          # Bad login returns 401 with generic message
+          LOGIN_RESP=$(curl -s -i -X POST http://127.0.0.1:8888/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"bad"}')
+          echo "$LOGIN_RESP"
+          echo "$LOGIN_RESP" | grep -q "401 Unauthorized"
+          echo "$LOGIN_RESP" | grep -q "Email or password is incorrect"
+
           kill $SERVER_PID
 
   php-test-matrix:

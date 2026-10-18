@@ -84,9 +84,25 @@ $container = $app->getContainer();
 $config = $app->getConfig();
 $env = $app->getEnvironment();
 
+$app->register(new \BsCms\Kernel\CoreServiceProvider($app));
+$app->boot();
+
 // Setup routes
 $routes = new RouteCollection();
 $router = new Router($routes);
+
+// Register all API routes from controllers resolved from container
+\BsCms\Routing\ApiRoutes::register(
+    $routes,
+    $container->get(\BsCms\Http\Controllers\AuthController::class),
+    $container->get(\BsCms\Http\Controllers\MeController::class),
+    $container->get(\BsCms\Http\Controllers\UsersController::class),
+    $container->get(\BsCms\Http\Controllers\RolesController::class),
+    $container->get(\BsCms\Http\Controllers\TokensController::class),
+    $container->get(\BsCms\Http\Controllers\AuditController::class),
+    $container->get(\BsCms\Http\Controllers\EmailSettingsController::class),
+    $container->get(\BsCms\Http\Controllers\NotificationsController::class)
+);
 
 // Build middleware pipeline
 $kernel = new Kernel($router, __DIR__ . '/admin/index.html');
@@ -98,18 +114,28 @@ $kernel->addMiddleware(new MaintenanceModeMiddleware($storageDir));
 $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024));
 $kernel->addMiddleware(new JsonBodyMiddleware());
 
-$limiter = new RateLimiter(60, 60, [], function () use ($config): ?Connection {
-    $dbConfig = (array) $config->get('database', []);
-    if (!empty($dbConfig['database'])) {
-        try {
-            return new Connection($dbConfig);
-        } catch (\Throwable $e) {
-            return null;
-        }
+$limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
+    try {
+        return $container->get(Connection::class);
+    } catch (\Throwable $e) {
+        return null;
     }
-    return null;
 });
 $kernel->addMiddleware(new RateLimitMiddleware($limiter));
+
+// Phase 2 Auth Middleware pipeline: Session -> Authenticate -> CSRF
+/** @var Connection $db */
+$db = $container->get(Connection::class);
+/** @var \BsCms\Auth\SessionManager $sessionManager */
+$sessionManager = $container->get(\BsCms\Auth\SessionManager::class);
+/** @var \BsCms\Auth\ApiTokenService $apiTokenService */
+$apiTokenService = $container->get(\BsCms\Auth\ApiTokenService::class);
+
+$kernel->addMiddleware(new \BsCms\Http\Middleware\SessionMiddleware($sessionManager, $db));
+$kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware($apiTokenService));
+
+$adminOrigin = (string) $config->get('app.url', '');
+$kernel->addMiddleware(new \BsCms\Http\Middleware\CsrfMiddleware($adminOrigin !== '' ? $adminOrigin : null));
 
 // Handle request
 $response = $kernel->handle($request);
