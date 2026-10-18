@@ -166,7 +166,7 @@ class BulkEntriesController extends BaseController
             requestId: (string) $request->getAttribute('request_id', ''),
             ip: $request->getServerParams()['REMOTE_ADDR'] ?? null,
             userAgent: $request->getHeaderLine('User-Agent') ?: null,
-            subjectId: implode(',', array_slice(array_map('strval', $ids), 0, 5)),
+            subjectId: null,
             collectionKey: $handle
         );
 
