@@ -128,7 +128,7 @@ final class SchemaEngineIntegrationTest extends TestCase
         $plan = $this->planner->plan($target);
         $this->assertCount(1, $plan->sqlStatements);
         $this->assertStringContainsString('CREATE TABLE', $plan->sqlStatements[0]);
-        $this->assertStringContainsString('`c_articles`', $plan->sqlStatements[0]);
+        $this->assertStringContainsString('`bs_c_articles`', $plan->sqlStatements[0]);
         $this->assertStringContainsString('`headline` VARCHAR(200) GENERATED ALWAYS AS', $plan->sqlStatements[0]);
 
         $this->applier->apply($plan, $target, null, 'cli');
