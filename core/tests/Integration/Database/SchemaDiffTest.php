@@ -212,6 +212,60 @@ final class SchemaDiffTest extends TestCase
             'from_collection_id', 'from_entry_id', 'field_key', 'to_collection_id', 'to_entry_id', 'position'
         ]);
 
+        // 25. Verify taxonomies table columns
+        $this->assertTableColumns($pdo, 'bs_taxonomies', [
+            'id', 'handle', 'label_singular', 'label_plural', 'description', 'hierarchical',
+            'max_depth', 'has_public_archive', 'archive_route_pattern', 'is_system',
+            'plugin_key', 'created_at', 'updated_at'
+        ]);
+
+        // 26. Verify collection_taxonomies table columns
+        $this->assertTableColumns($pdo, 'bs_collection_taxonomies', [
+            'collection_id', 'taxonomy_id', 'required', 'allow_multiple', 'field_key', 'position'
+        ]);
+
+        // 27. Verify terms table columns
+        $this->assertTableColumns($pdo, 'bs_terms', [
+            'id', 'taxonomy_id', 'parent_id', 'name', 'slug', 'description', 'path',
+            'slug_path', 'depth', 'position', 'image_media_id', 'color', 'icon',
+            'data', 'seo', 'entry_count', 'created_at', 'updated_at', 'parent_key'
+        ]);
+
+        // 28. Verify term_relationships table columns
+        $this->assertTableColumns($pdo, 'bs_term_relationships', [
+            'collection_id', 'entry_id', 'term_id', 'is_primary', 'position', 'is_published', 'sort_at'
+        ]);
+
+        // 29. Verify media_folders table columns
+        $this->assertTableColumns($pdo, 'bs_media_folders', [
+            'id', 'parent_id', 'name', 'path', 'created_at', 'parent_key'
+        ]);
+
+        // 30. Verify media table columns
+        $this->assertTableColumns($pdo, 'bs_media', [
+            'id', 'folder_id', 'filename', 'original_name', 'mime', 'extension', 'size_bytes',
+            'width', 'height', 'duration_seconds', 'content_hash', 'storage_driver',
+            'storage_path', 'alt_text', 'caption', 'title', 'focal_x', 'focal_y',
+            'blurhash', 'dominant_color', 'usage_count', 'uploaded_by', 'created_at',
+            'updated_at', 'deleted_at'
+        ]);
+
+        // 31. Verify media_variants table columns
+        $this->assertTableColumns($pdo, 'bs_media_variants', [
+            'id', 'media_id', 'preset', 'format', 'width', 'height', 'size_bytes', 'storage_path'
+        ]);
+
+        // 32. Verify media_usage table columns
+        $this->assertTableColumns($pdo, 'bs_media_usage', [
+            'media_id', 'collection_id', 'entry_id', 'field_key'
+        ]);
+
+        // 33. Verify redirects table columns
+        $this->assertTableColumns($pdo, 'bs_redirects', [
+            'id', 'from_path', 'match_type', 'to_path', 'status_code', 'is_auto',
+            'hits', 'last_hit_at', 'created_by', 'created_at', 'from_hash'
+        ]);
+
         // Verify ULID columns are ascii_bin
         $colStmt = $pdo->prepare("SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db AND TABLE_NAME = 'bs_users' AND COLUMN_NAME = 'id'");
         $colStmt->execute(['db' => $this->dbName]);
