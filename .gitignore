@@ -1,5 +1,5 @@
 # Dependencies
-/node_modules/
+node_modules/
 /core/vendor/
 /.pnpm-store/
 
@@ -26,12 +26,16 @@
 *.key
 
 # Build outputs
-/dist/
+dist/
 /build/
-/admin/dist/
 /starter/dist/
 /coverage/
 /tools/dist/
+*.tsbuildinfo
+
+# Built admin app copied into the PHP document root by CI or the local build
+# (never committed; core/public/index.php serves /admin from here at runtime).
+/core/public/admin/
 
 # OS and Editor
 .DS_Store

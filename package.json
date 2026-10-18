@@ -4,19 +4,35 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/renderer"
+    "packages/renderer",
+    "packages/ui",
+    "packages/client",
+    "admin"
   ],
   "scripts": {
-    "lint": "eslint packages/renderer/src packages/renderer/test",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run --workspace=@bs/renderer test"
+    "lint": "eslint packages/renderer/src packages/renderer/test packages/ui/src packages/ui/test packages/client/src packages/client/test admin/src",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/ui && tsc --noEmit -p packages/client && tsc --noEmit -p admin",
+    "test": "npm run test -w @bs/renderer && npm run test -w @bs/ui && npm run test -w admin",
+    "test:axe": "npm run test:axe -w @bs/ui && npm run test:axe -w admin",
+    "build": "npm run build -w @bs/ui && npm run build -w admin",
+    "size-budget": "node admin/scripts/check-size.mjs"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
     "@types/node": "^22.13.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "axe-core": "4.14.0",
     "eslint": "^9.20.1",
+    "jsdom": "26.1.0",
     "prettier": "^3.5.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
   }
 }

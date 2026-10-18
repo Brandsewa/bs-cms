@@ -397,3 +397,80 @@ Benchmarked on local reference environments (Docker containers configured with r
 - **OpenAPI 3.1 & Route Matrix (Commit 9):** Dynamic OpenAPI 3.1 generator reflecting system routes and dynamic schema definitions with actor permission filtering. Frozen contract committed to `docs/api/openapi-v1.json`. Real HTTP test matrix in `tools/test-release-http.php` covering entry lifecycle, ETag caching, webhooks, and two-step confirmation over `[::1]:8888` IPv6.
 
 
+
+---
+
+## 7. Phase 5: Design System (`@bs/ui`) and Admin Shell — Decisions & Measurements
+
+### 7.1 Token corrections (WCAG AA, 2026-10-18)
+
+Spike E's audit covered primary and body/muted pairs but inherited near-white
+foreground values on mid-lightness solid backgrounds from the shadcn starter.
+Recomputed with the relative-luminance formula and corrected in
+`packages/ui/src/tokens.css`:
+
+| Pair | Before | After (light) | Measured ratio |
+|---|---|---|---|
+| `--warning` / `--warning-foreground` | #f59e0b on pale yellow text (~2.5:1, fails) | dark ink `hsl(30,70%,14%)` on #f59e0b | **6.7:1** |
+| `--success` / `--success-foreground` | green-500 with pale text (~2.7:1, fails) | dark ink `hsl(150,85%,12%)` on #22c55e-class green | **6.5:1** |
+| `--destructive` / `--destructive-foreground` (light) | red-500 with white (3.6:1, fails for 14px text) | deepened to `hsl(0,72%,51%)` with white | **4.8:1** |
+| `--info` / `--info-foreground` (light) | added | `hsl(210,90%,45%)` with white | **4.7:1** |
+| `--ai` / `--ai-foreground` | added; violet flips to bright + dark ink in dark mode | light `hsl(262,83%,50%)`+white (5.7:1); dark `hsl(262,83%,66%)`+ink (6.8:1) | passes |
+
+Dark mode `--info` stays deep (`hsl(211,75%,45%)`, white 4.8:1) instead of a
+bright blue, which cannot carry white text at AA. jsdom cannot compute
+contrast, so the axe runs exclude `color-contrast` (rule documented in
+`packages/ui/test/axe.ts`); contrast is enforced at the token level here.
+
+### 7.2 Theme persistence
+
+M1 persists `bs-theme` in localStorage only (owner instruction at M1 kickoff;
+at that time no general preferences endpoint existed). During the pre-PR
+rebase, main @ 7498e28 added `GET/PATCH /api/v1/me/preferences`, so API
+persistence is unblocked: `ThemeProvider` gets read-on-bootstrap /
+PATCH-on-change wired through `@bs/client` in M2/M3, keeping localStorage as
+the cache and the pre-paint fallback (owner updated via PR #1).
+No-flash bootstrap ships as an external file (`admin/public/theme-init.js`)
+because the admin CSP is `script-src 'self'` (no inline scripts) — owner
+decision, 2026-10-18.
+
+### 7.3 Phase 2 response types
+
+At M1 kickoff `docs/api/openapi-v1.json` documented no Phase 2 response
+bodies; shapes were taken from the committed controllers. During the pre-PR
+rebase the backend agent backfilled full response schemas (main @ 7498e28),
+so the M2 client generates types from the document and the interim
+hand-written shapes serve only as documentation of the login
+success/requires_2fa split.
+
+### 7.4 Accessibility test strategy
+
+Per-component axe checks plus a gallery acceptance suite rendering all 31
+entries in light and dark (`admin/src/gallery/axe.test.tsx`), failing CI on
+serious/critical violations. Disabled rules and reasons are documented in the
+runner: `color-contrast` (no layout engine in jsdom; enforced at token level,
+§7.1) and `region` (isolated fixtures have no landmark shell).
+
+### 7.5 Bundle budget (measured, 2026-10-18)
+
+Vite production build of the M1 admin (router + query client + theme +
+intermediate entry screen, gallery excluded):
+- JS **100.1 KB gzip** (budget 200 KB — pass, 50% headroom)
+- CSS 4.69 KB gzip
+- Baseline committed at `admin/scripts/size-budget.json`; CI fails on >5%
+  regression or any gallery/mock leak (`admin/scripts/check-size.mjs`).
+Editor/schema-builder/date-range/code-editor chunks are verified as separate
+lazy chunks from M2/M3 onward.
+
+### 7.6 Deviations recorded
+
+- Resizable panels, OTP input and the Zod resolver are hand-rolled; the
+  common libraries are not on the allow-list (DEPENDENCIES.md §4.3).
+- `eslint-plugin-react-hooks` not installed (approval pending, PR #1).
+- axe-core is MPL-2.0 (dev-only; justification in DEPENDENCIES.md §4.2).
+- Radix ToggleGroup renders single-mode items with `role="radio"`; radio
+  arrow-to-select is native-browser behaviour, so jsdom tests assert focus
+  movement + Space selection (test comment in `radio-group.test.tsx`).
+- Sonner keeps dismissed toasts until its exit animation completes; jsdom
+  fires no animation events, so tests assert `data-removed` instead of
+  unmount (`feedback.test.tsx`).

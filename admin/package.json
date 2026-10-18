@@ -1,0 +1,29 @@
+{
+  "name": "admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:axe": "vitest run -t axe",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@bs/ui": "*",
+    "@tanstack/react-query": "5.104.4",
+    "@tanstack/react-router": "1.170.45",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.7.3",
+    "vite": "8.3.4"
+  }
+}

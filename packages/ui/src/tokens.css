@@ -2,7 +2,9 @@
  * BS CMS Design Tokens (@bs/ui)
  * Adheres to Supabase UX patterns and shadcn/ui semantic architecture.
  * Primary Brand Hue: Blue (221 deg)
- * Contrast checked for WCAG AA compliance in both Light and Dark modes.
+ * Contrast checked for WCAG AA compliance in both Light and Dark modes
+ * (relative-luminance formula, values recorded in NOTES.md Spike E and the
+ * Phase 5 corrections note).
  */
 
 :root {
@@ -36,14 +38,25 @@
   --accent: hsl(210, 20%, 94%);
   --accent-foreground: hsl(222.2, 47.4%, 11.2%);
 
-  --destructive: hsl(0, 84.2%, 60.2%);
+  /* Deepened from hsl(0, 84%, 60%) so white text passes 4.5:1 (4.8:1 measured). */
+  --destructive: hsl(0, 72%, 51%);
   --destructive-foreground: hsl(210, 40%, 98%);
 
+  /* Solid warning/success use dark ink: white/pale text on mid-lightness
+     amber/green fails AA (~2.5:1). Dark ink measures 6.5-6.7:1. */
   --warning: hsl(38, 92%, 50%);
-  --warning-foreground: hsl(48, 96%, 89%);
+  --warning-foreground: hsl(30, 70%, 14%);
 
   --success: hsl(142, 71%, 45%);
-  --success-foreground: hsl(144, 70%, 96%);
+  --success-foreground: hsl(150, 85%, 12%);
+
+  --info: hsl(210, 90%, 45%);
+  --info-foreground: hsl(210, 40%, 98%);
+
+  --ai: hsl(262, 83%, 50%);
+  --ai-foreground: hsl(0, 0%, 100%);
+
+  --overlay: hsla(222.2, 47.4%, 11.2%, 0.55);
 
   --border: hsl(214.3, 31.8%, 91.4%);
   --border-muted: hsl(214.3, 20%, 95%);
@@ -51,6 +64,7 @@
 
   --input: hsl(214.3, 31.8%, 91.4%);
   --ring: hsl(var(--primary-hue), var(--primary-sat), var(--primary-light));
+  --ring-offset-width: 2px;
 
   /* Radius scale */
   --radius-sm: 4px;
@@ -63,6 +77,40 @@
   --density-row-compact: 36px;
   --density-row-default: 44px;
   --density-row-comfortable: 52px;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Shadow scale */
+  --shadow-xs: 0 1px 2px 0 hsla(222.2, 47.4%, 11.2%, 0.05);
+  --shadow-sm: 0 1px 3px 0 hsla(222.2, 47.4%, 11.2%, 0.1), 0 1px 2px -1px hsla(222.2, 47.4%, 11.2%, 0.1);
+  --shadow-md: 0 4px 6px -1px hsla(222.2, 47.4%, 11.2%, 0.1), 0 2px 4px -2px hsla(222.2, 47.4%, 11.2%, 0.1);
+  --shadow-lg: 0 10px 15px -3px hsla(222.2, 47.4%, 11.2%, 0.1), 0 4px 6px -4px hsla(222.2, 47.4%, 11.2%, 0.1);
+  --shadow-xl: 0 20px 25px -5px hsla(222.2, 47.4%, 11.2%, 0.1), 0 8px 10px -6px hsla(222.2, 47.4%, 11.2%, 0.1);
+
+  /* Z-index scale */
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Fonts */
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -99,10 +147,20 @@
   --destructive-foreground: hsl(210, 40%, 98%);
 
   --warning: hsl(38, 92%, 50%);
-  --warning-foreground: hsl(48, 96%, 89%);
+  --warning-foreground: hsl(30, 70%, 14%);
 
   --success: hsl(142, 71%, 45%);
-  --success-foreground: hsl(144, 70%, 96%);
+  --success-foreground: hsl(150, 85%, 12%);
+
+  /* Dark info keeps white text AA by staying deep enough (4.8:1 measured). */
+  --info: hsl(211, 75%, 45%);
+  --info-foreground: hsl(210, 40%, 98%);
+
+  /* Bright violet carries dark ink in dark mode (6.8:1 measured). */
+  --ai: hsl(262, 83%, 66%);
+  --ai-foreground: hsl(262, 60%, 12%);
+
+  --overlay: hsla(0, 0%, 0%, 0.65);
 
   --border: hsl(217.2, 32.6%, 17.5%);
   --border-muted: hsl(217.2, 32.6%, 13%);
@@ -110,4 +168,34 @@
 
   --input: hsl(217.2, 32.6%, 17.5%);
   --ring: hsl(217.2, 91.2%, 59.8%);
+
+  --shadow-xs: 0 1px 2px 0 hsla(0, 0%, 0%, 0.3);
+  --shadow-sm: 0 1px 3px 0 hsla(0, 0%, 0%, 0.4), 0 1px 2px -1px hsla(0, 0%, 0%, 0.4);
+  --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.4), 0 2px 4px -2px hsla(0, 0%, 0%, 0.4);
+  --shadow-lg: 0 10px 15px -3px hsla(0, 0%, 0%, 0.45), 0 4px 6px -4px hsla(0, 0%, 0%, 0.45);
+  --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.5), 0 8px 10px -6px hsla(0, 0%, 0%, 0.5);
+}
+
+/* Respect the OS reduced-motion preference globally (docs/02-ui-spec.md 1). */
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(30%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

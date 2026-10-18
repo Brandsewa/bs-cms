@@ -50,6 +50,51 @@ Shipped as static assets in `core/public/admin/`:
 - `@tiptap/core`, `@tiptap/starter-kit`, `@tiptap/extension-*` (MIT extensions only)
 - `date-fns`, `react-day-picker`, `@dnd-kit/*`
 
+### 4.1 Pinned runtime dependencies (Phase 5, exact versions)
+
+All licences permissive (MIT unless noted). Sizes are approximate gzipped minified.
+
+| Package | Version | Licence | Size (gzip) | Reason |
+|---|---|---|---|---|
+| `react` / `react-dom` | 19.3.1 | MIT | ~45 KB | Admin UI runtime. |
+| `@radix-ui/react-*` (accordion, alert-dialog, avatar, checkbox, context-menu, dialog, dropdown-menu, hover-card, label, popover, progress, radio-group, scroll-area, select, separator, slider, slot, switch, tabs, toggle, toggle-group, tooltip) | see `packages/ui/package.json` | MIT | per-primitive 2–10 KB | Accessible primitives for the shadcn-style components (allow-listed as "@radix-ui/*"). |
+| `class-variance-authority` | 0.7.1 | Apache-2.0 | ~2 KB | Variant typing for Button/Badge/Alert. |
+| `clsx` | 2.1.1 | MIT | <1 KB | Conditional class joining. |
+| `tailwind-merge` | 3.7.0 | MIT | ~7 KB | Resolves Tailwind class conflicts in `cn()`. |
+| `lucide-react` | 1.59.0 | ISC | tree-shaken (~1 KB/icon) | The one icon set (docs/02-ui-spec.md 5). |
+| `cmdk` | 1.1.1 | MIT | ~5 KB | Command menu primitives (Ctrl/Cmd+K). |
+| `sonner` | 2.0.8 | MIT | ~8 KB | Toasts with undo/action buttons. |
+| `react-day-picker` | 10.0.2 | MIT | ~20 KB | Calendar/date pickers. |
+| `date-fns` | 4.4.0 | MIT | tree-shaken | Date formatting in pickers. |
+| `@tanstack/react-router` | 1.170.45 | MIT | ~25 KB | Admin routing, URL state, loaders. Code-based routes (no router-plugin dependency). |
+| `@tanstack/react-query` | 5.104.4 | MIT | ~13 KB | Server state cache. |
+| `react-hook-form` | 7.90.0 | MIT | ~9 KB | Form state; Zod resolver hand-rolled (see 4.3). |
+
+### 4.2 Dev-only tooling (never shipped)
+
+| Package | Version | Licence | Reason |
+|---|---|---|---|
+| `vite` | 8.3.4 | MIT | Library + app builds. |
+| `@vitejs/plugin-react` | 6.1.2 | MIT | React fast-refresh/JSX. |
+| `tailwindcss` / `@tailwindcss/vite` | 4.3.3 | MIT | Token-driven utility CSS. |
+| `vitest` | 5.0.5 | MIT | Unit/component/axe test runner. |
+| `jsdom` | 30.1.3 | MIT | DOM for vitest. |
+| `@testing-library/react` / `-user-event` / `-jest-dom` / `@testing-library/dom` | 16.3.3 / 14.6.8 / 7.0.1 / 10.4.2 | MIT | Component testing. |
+| `axe-core` | 4.14.0 | **MPL-2.0** | Accessibility checks. Dev-only: never shipped in the release zip; MPL obligations apply only if its source is modified. Flagged for the owner as the one non-MIT/Apache/BSD/ISC licence; removing it would mean losing automated a11y verification. |
+| `zod` | 4.6.7 (dev in `@bs/ui`; runtime dep lands with admin forms in M2/M3) | MIT | Validation shared with the server contract. |
+
+### 4.3 Deliberately NOT added (hand-rolled in `@bs/ui`)
+
+| Common package | Replacement | Reason |
+|---|---|---|
+| `@hookform/resolvers` | `packages/ui/src/form/zod-resolver.ts` | ~30-line Zod→RHF mapping avoids a dependency. |
+| `react-resizable-panels` | `packages/ui/src/components/resizable.tsx` | Pointer + keyboard resizable split with ARIA separator semantics. |
+| `input-otp` | `packages/ui/src/components/input-otp.tsx` | OTP cells with auto-advance/paste/arrows. |
+| `vaul` | Drawer built on Radix dialog (bottom sheet) | Drag-to-dismiss not required by spec. |
+| `jest-axe` | `packages/ui/test/axe.ts` helper | Direct axe-core run with documented jsdom rule overrides. |
+
+Pending approval (not installed): `eslint-plugin-react-hooks` (hook dep linting; requested in PR #1).
+
 ---
 
 ## 5. Public Starter Dependencies (Static Astro Build, Off-Host)

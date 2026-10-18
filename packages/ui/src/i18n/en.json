@@ -1,0 +1,121 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "clear": "Clear",
+    "close": "Close",
+    "open": "Open",
+    "actions": "Actions",
+    "search": "Search",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noResults": "No results found.",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "selected": "{count} selected"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "combobox": {
+    "searchPlaceholder": "Search…",
+    "empty": "No options found.",
+    "loading": "Searching…",
+    "create": "Create \"{value}\"",
+    "clearLabel": "Clear selection"
+  },
+  "multiSelect": {
+    "placeholder": "Select…",
+    "selectAll": "Select all",
+    "clearAll": "Clear all",
+    "empty": "No options found.",
+    "loading": "Searching…",
+    "moreCount": "+{count} more"
+  },
+  "tagInput": {
+    "placeholder": "Add…",
+    "duplicate": "\"{value}\" has already been added.",
+    "invalid": "\"{value}\" is not a valid value."
+  },
+  "otp": {
+    "label": "Verification code",
+    "description": "Enter the {length}-digit code."
+  },
+  "form": {
+    "required": "Required",
+    "optional": "optional",
+    "errorSummary": "The form has {count} error.",
+    "errorSummaryPlural": "The form has {count} errors.",
+    "charsCount": "{count} of {max} characters",
+    "charsOverLimit": "{count} over the {max} character limit",
+    "copyButtonLabel": "Copy value",
+    "unsavedTitle": "Unsaved changes",
+    "unsavedBody": "You have unsaved changes that will be lost if you leave now.",
+    "discard": "Discard changes",
+    "keepEditing": "Keep editing",
+    "loading": "Saving…"
+  },
+  "dateTime": {
+    "pickDate": "Pick a date",
+    "pickDateRange": "Pick a date range",
+    "pickDateTime": "Pick a date and time",
+    "pickTime": "Pick a time",
+    "today": "Today",
+    "now": "Now",
+    "clear": "Clear",
+    "apply": "Apply",
+    "timezone": "Timezone: {tz}",
+    "invalidDate": "Enter a valid date.",
+    "invalidTime": "Enter a valid time (HH:MM).",
+    "beforeMin": "Date is before the earliest allowed date.",
+    "afterMax": "Date is after the latest allowed date.",
+    "presetToday": "Today",
+    "presetLast7": "Last 7 days",
+    "presetLast30": "Last 30 days",
+    "presetThisMonth": "This month",
+    "presetCustom": "Custom range",
+    "goToToday": "Go to today"
+  },
+  "relativeTime": {
+    "justNow": "just now",
+    "ago": "{time} ago",
+    "inFuture": "in {time}",
+    "exactTime": "{datetime}"
+  },
+  "confirm": {
+    "confirmTitle": "Are you sure?",
+    "destructiveTitle": "This cannot be undone",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "confirmDestructive": "Delete",
+    "typeToConfirmPrompt": "Type {phrase} to confirm.",
+    "typeToConfirmMismatch": "The text does not match. Check spelling and try again."
+  },
+  "toast": {
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "view": "View"
+  },
+  "tree": {
+    "expand": "Expand \"{label}\"",
+    "collapse": "Collapse \"{label}\"",
+    "empty": "No items.",
+    "loading": "Loading…"
+  },
+  "resizable": {
+    "separatorLabel": "Resize panels"
+  },
+  "status": {
+    "draft": "Draft",
+    "inReview": "In review",
+    "scheduled": "Scheduled",
+    "published": "Published",
+    "archived": "Archived",
+    "trashed": "Trashed",
+    "aiCreated": "AI-created"
+  }
+}
