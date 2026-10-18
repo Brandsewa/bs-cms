@@ -175,6 +175,7 @@ class AuthController extends BaseController
         }
 
         return $this->json([
+            'status' => 'authenticated',
             'user' => [
                 'id' => $user['id'],
                 'email' => $user['email'],

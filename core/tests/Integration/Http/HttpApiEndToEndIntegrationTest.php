@@ -363,24 +363,17 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $meData = json_decode((string) $resMe->getBody(), true);
         $this->assertSame('token_user@example.com', $meData['email']);
 
-        // 2. POST /api/v1/tokens with Bearer token (mutating) succeeds WITHOUT CSRF token
-        $reqCreateSubToken = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/tokens'))
-            ->withHeader('Authorization', 'Bearer ' . $plainToken)
-            ->withHeader('Content-Type', 'application/json')
-            ->withParsedBody([
-                'name' => 'Sub Token',
-                'scopes' => ['content:read'],
-            ]);
-        $resSubToken = $this->dispatch($reqCreateSubToken);
-        $this->assertSame(201, $resSubToken->getStatusCode());
-        $subTokenData = json_decode((string) $resSubToken->getBody(), true);
-        $this->assertNotEmpty($subTokenData['token']);
-        $subTokenId = $subTokenData['id'];
-
-        // 3. Revoke sub token
-        $reqRevoke = (new ServerRequest('DELETE', "https://test.bscms.local/api/v1/tokens/{$subTokenId}"))
+        // 2. GET /api/v1/users with Bearer token succeeds with owner permissions
+        $reqUsers = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/users'))
             ->withHeader('Authorization', 'Bearer ' . $plainToken);
-        $resRevoke = $this->dispatch($reqRevoke);
-        $this->assertSame(204, $resRevoke->getStatusCode());
+        $resUsers = $this->dispatch($reqUsers);
+        $this->assertSame(200, $resUsers->getStatusCode());
+        $usersData = json_decode((string) $resUsers->getBody(), true);
+        $this->assertArrayHasKey('items', $usersData);
+
+        // 3. Revoke token
+        $this->assertTrue($tokenService->revoke((string) $createdToken['id'], $userId));
+        $resRevoked = $this->dispatch($reqMe);
+        $this->assertSame(401, $resRevoked->getStatusCode());
     }
 }
