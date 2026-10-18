@@ -175,7 +175,7 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $ownerId = Ulid::generate();
         $this->connection->execute(
             "INSERT INTO `{$this->connection->prefixTable('users')}`
-             (`id`, `email`, `password_hash`, `status`, `name`, `failed_attempts`, `created_at`, `updated_at`)
+             (`id`, `email`, `password_hash`, `status`, `name`, `failed_logins`, `created_at`, `updated_at`)
              VALUES (?, 'owner@bscms.local', 'hash', 'active', 'Owner', 0, NOW(), NOW())",
             [$ownerId]
         );
