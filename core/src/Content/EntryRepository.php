@@ -696,7 +696,7 @@ final class EntryRepository
 
             // Query relations in batch
             $inPlaceholders = implode(',', array_fill(0, count($entryIds), '?'));
-            $relSql = "SELECT `entry_id`, `target_entry_id`, `position` FROM `{$prefix}entry_relations` WHERE `collection_id` = ? AND `field_key` = ? AND `entry_id` IN ({$inPlaceholders}) ORDER BY `position` ASC";
+            $relSql = "SELECT `from_entry_id` AS `entry_id`, `to_entry_id` AS `target_entry_id`, `position` FROM `{$prefix}entry_relations` WHERE `from_collection_id` = ? AND `field_key` = ? AND `from_entry_id` IN ({$inPlaceholders}) ORDER BY `position` ASC";
             $params = array_merge([$collectionId, $relHandle], $entryIds);
             $relStmt = $this->connection->execute($relSql, $params);
             $relRows = $relStmt->fetchAll();

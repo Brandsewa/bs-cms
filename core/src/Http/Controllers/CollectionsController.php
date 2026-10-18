@@ -216,7 +216,7 @@ class CollectionsController extends BaseController
 
             $this->connection->transaction(function (Connection $conn) use ($prefix, $collectionId, $handle) {
                 // Delete relations and versions
-                $conn->execute("DELETE FROM `{$prefix}entry_relations` WHERE `collection_id` = ?", [$collectionId]);
+                $conn->execute("DELETE FROM `{$prefix}entry_relations` WHERE `from_collection_id` = ? OR `to_collection_id` = ?", [$collectionId, $collectionId]);
                 $conn->execute("DELETE FROM `{$prefix}entry_versions` WHERE `collection_id` = ?", [$collectionId]);
                 $conn->execute("DELETE FROM `{$prefix}saved_views` WHERE `collection_key` = ?", [$handle]);
                 $conn->execute("DELETE FROM `{$prefix}fields` WHERE `collection_id` = ?", [$collectionId]);
