@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+@import '@bs/ui/tokens.css';
+
+/* Class-based dark mode (tokens.css defines .dark variable values). */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Map semantic tokens to Tailwind utilities: bg-background, text-foreground,
+ * border-border, bg-primary, rounded-lg, text-13 … With `inline`, utilities
+ * reference the token variables directly, so tokens.css stays the single
+ * source of truth and switching .dark re-themes everything.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-ai: var(--ai);
+  --color-ai-foreground: var(--ai-foreground);
+
+  --color-border: var(--border);
+  --color-border-muted: var(--border-muted);
+  --color-border-strong: var(--border-strong);
+
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Compact typographic scale (12/13/14/16/20/24, docs/02-ui-spec.md 5). */
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.35rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.35rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus ring everywhere (docs/02-ui-spec.md 1, keyboard DoD). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: var(--ring-offset-width);
+  }
+}

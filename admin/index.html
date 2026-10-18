@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The CMS host sends X-Robots-Tag: noindex; repeated here as defence in depth. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>BS CMS</title>
+    <!--
+      Applies the stored theme before first paint (no flash of wrong theme).
+      External file, loaded synchronously: the admin CSP is script-src 'self'
+      with no inline scripts.
+    -->
+    <script src="./theme-init.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
