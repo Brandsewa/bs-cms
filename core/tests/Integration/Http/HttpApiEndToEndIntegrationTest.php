@@ -310,8 +310,16 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
             ]);
         $resValid = $this->dispatch($updateProfileValid);
         $this->assertSame(200, $resValid->getStatusCode());
-        $updatedUser = json_decode((string) $resValid->getBody(), true);
-        $this->assertSame('Updated Admin Name', $updatedUser['name']);
+        $respData = json_decode((string) $resValid->getBody(), true);
+        $this->assertSame('profile_updated', $respData['status']);
+
+        // Verify updated profile through GET /api/v1/me
+        $getUpdatedMe = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/me'))
+            ->withCookieParams(['__Host-bs_session' => $sessionCookie]);
+        $resUpdatedMe = $this->dispatch($getUpdatedMe);
+        $this->assertSame(200, $resUpdatedMe->getStatusCode());
+        $meUpdatedData = json_decode((string) $resUpdatedMe->getBody(), true);
+        $this->assertSame('Updated Admin Name', $meUpdatedData['name']);
 
         // 6. Last owner protection: Attempting to delete the sole initial owner or remove owner role
         $deleteInitialOwnerReq = (new ServerRequest('DELETE', "https://test.bscms.local/api/v1/users/{$userId}"))
