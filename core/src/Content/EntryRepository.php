@@ -6,8 +6,10 @@ namespace BsCms\Content;
 
 use BsCms\Database\Connection;
 use BsCms\Database\QueryBuilder;
+use BsCms\Operations\Exceptions\ValidationException;
 use BsCms\Schema\CollectionRegistry;
 use BsCms\Schema\FieldTypeRegistry;
+use BsCms\Schema\FieldTypes\ValidationContext;
 use BsCms\Security\Ulid;
 use BsCms\Support\Clock;
 use InvalidArgumentException;
@@ -84,11 +86,13 @@ final class EntryRepository
         $scheduledAt = ($status === self::STATUS_SCHEDULED) ? ($input['scheduled_at'] ?? null) : null;
         $seo = isset($input['seo']) && is_array($input['seo']) ? json_encode($input['seo'], JSON_THROW_ON_ERROR) : null;
 
-        // Process fields into column vs data JSON
+        // Process fields into column vs data JSON and validate
         [$columnValues, $dataValues, $relationsToSync, $searchText] = $this->partitionFields(
             $collection,
             $input,
-            $title
+            $title,
+            null,
+            false
         );
 
         $sql = "INSERT INTO `{$tableName}` (
@@ -109,7 +113,7 @@ final class EntryRepository
             $publishedAt,
             $scheduledAt,
             $seo,
-            json_encode($dataValues, JSON_THROW_ON_ERROR),
+            self::serializeDataJson($dataValues),
             $searchText,
             $now,
             $createdBy,
@@ -225,12 +229,14 @@ final class EntryRepository
             ? json_encode($input['seo'], JSON_THROW_ON_ERROR)
             : (isset($existing['seo']) ? json_encode($existing['seo'], JSON_THROW_ON_ERROR) : null);
 
-        // Merge data fields
+        // Merge data fields and validate
         $existingData = (array) ($existing['data'] ?? []);
         [$columnValues, $newDataValues, $relationsToSync, $searchText] = $this->partitionFields(
             $collection,
             $input,
-            $title
+            $title,
+            $id,
+            true
         );
         $mergedData = array_merge($existingData, $newDataValues);
 
@@ -250,7 +256,7 @@ final class EntryRepository
             $publishedAt,
             $scheduledAt,
             $seo,
-            json_encode($mergedData, JSON_THROW_ON_ERROR),
+            self::serializeDataJson($mergedData),
             $searchText,
             $now,
             $updatedBy,
@@ -809,32 +815,97 @@ final class EntryRepository
     }
 
     /**
-     * Partition input fields into column fields, JSON data fields, relations to sync, and search text.
+     * Serialize data array to JSON object string (guaranteeing '{}' instead of '[]' when empty).
+     *
+     * @param array<string, mixed> $data
+     */
+    private static function serializeDataJson(array $data): string
+    {
+        if (empty($data)) {
+            return '{}';
+        }
+        return json_encode((object) $data, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Partition and validate input fields.
+     * Rejects unknown fields with 422, validates required fields and field type constraints.
      *
      * @param array<string, mixed> $collection
      * @param array<string, mixed> $input
      * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: list<array<string, mixed>>, 3: string}
      */
-    private function partitionFields(array $collection, array $input, string $title): array
-    {
+    private function partitionFields(
+        array $collection,
+        array $input,
+        string $title,
+        ?string $entryId = null,
+        bool $isUpdate = false
+    ): array {
         $dataValues = [];
         $columnValues = [];
         $relationsToSync = [];
         $searchTerms = [$title];
 
-        $fields = $collection['fields'] ?? [];
+        $fields = (array) ($collection['fields'] ?? []);
 
+        // System top-level columns allowed in payload
+        $systemAllowed = [
+            'id', 'slug', 'title', 'status', 'locale', 'parent_id', 'position',
+            'author_id', 'published_at', 'scheduled_at', 'seo', 'data',
+            '_change_summary', '_autosave', 'confirm_token',
+        ];
+
+        $validationErrors = [];
+
+        // Check for unknown fields in input
+        foreach ($input as $key => $val) {
+            $keyStr = (string) $key;
+            if (in_array($keyStr, $systemAllowed, true)) {
+                continue;
+            }
+            if (!isset($fields[$keyStr])) {
+                $validationErrors[$keyStr] = ["Unknown field '{$keyStr}' is not defined in collection '{$collection['handle']}'."];
+            }
+        }
+
+        // Validate each defined field
         foreach ($fields as $handle => $def) {
             $fHandle = (string) $handle;
             $fTypeStr = (string) ($def['type'] ?? 'text');
             $fType = $this->fieldTypeRegistry->get($fTypeStr);
             $config = (array) ($def['config'] ?? []);
+            $isRequired = !empty($def['is_required']);
 
-            if (!array_key_exists($fHandle, $input)) {
+            $hasInput = array_key_exists($fHandle, $input);
+
+            // On create, missing required field is an error
+            if (!$isUpdate && $isRequired && (!$hasInput || $input[$fHandle] === null || $input[$fHandle] === '')) {
+                $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
+                continue;
+            }
+
+            if (!$hasInput) {
                 continue;
             }
 
             $rawVal = $input[$fHandle];
+
+            // If updating and required, cannot set to null/empty
+            if ($isUpdate && $isRequired && ($rawVal === null || $rawVal === '')) {
+                $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
+                continue;
+            }
+
+            // Field-type validation
+            $vContext = new ValidationContext($input, $def, $collection, $entryId, $isUpdate);
+            $errs = $fType->validate($rawVal, $config, $vContext);
+            if (!empty($errs)) {
+                $validationErrors[$fHandle] = $errs;
+                continue;
+            }
+
+            // Normalize value
             $normalizedVal = $fType->normalize($rawVal, $config);
 
             if ($fTypeStr === 'relation') {
@@ -856,6 +927,10 @@ final class EntryRepository
                     $searchTerms[] = (string) $normalizedVal;
                 }
             }
+        }
+
+        if (!empty($validationErrors)) {
+            throw new ValidationException('Validation failed for entry.', $validationErrors);
         }
 
         $searchText = implode(' ', array_filter($searchTerms));

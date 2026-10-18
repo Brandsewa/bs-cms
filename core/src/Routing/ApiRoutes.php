@@ -140,6 +140,7 @@ final class ApiRoutes
             }
             $routes->get('/api/v1/collections/{handle}/entries/{id}', [$entries, 'get']);
             $routes->put('/api/v1/collections/{handle}/entries/{id}', [$entries, 'update']);
+            $routes->patch('/api/v1/collections/{handle}/entries/{id}', [$entries, 'patch']);
             $routes->delete('/api/v1/collections/{handle}/entries/{id}', [$entries, 'delete']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/restore', [$entries, 'restore']);
             $routes->delete('/api/v1/collections/{handle}/entries/{id}/purge', [$entries, 'purge']);
@@ -147,6 +148,8 @@ final class ApiRoutes
             $routes->post('/api/v1/collections/{handle}/entries/{id}/publish', [$entries, 'publish']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/unpublish', [$entries, 'unpublish']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/archive', [$entries, 'archive']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/schedule', [$entries, 'schedule']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/submit-review', [$entries, 'submitReview']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/compare', [$entries, 'compare']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions', [$entries, 'listVersions']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);

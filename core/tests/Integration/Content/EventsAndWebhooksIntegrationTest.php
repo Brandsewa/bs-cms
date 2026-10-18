@@ -145,6 +145,7 @@ final class EventsAndWebhooksIntegrationTest extends TestCase
             }
         });
 
+        $confirmTokenService = new \BsCms\Operations\ConfirmTokenService($key, $this->connection);
         $queryParser = new QueryParser();
 
         $this->entriesController = new EntriesController(
@@ -154,6 +155,7 @@ final class EventsAndWebhooksIntegrationTest extends TestCase
             $this->versionManager,
             $this->authorizer,
             $this->auditLogger,
+            $confirmTokenService,
             $this->eventBus
         );
 

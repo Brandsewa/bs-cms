@@ -350,6 +350,30 @@ final class InstallerController
         $migrator->registerNamespace('core', $this->rootDir . '/migrations');
         $migrator->migrate();
 
+        // 5b. Seed built-in collections from core/resources/schema
+        $schemaDir = $this->rootDir . '/resources/schema';
+        if (is_dir($schemaDir)) {
+            $cacheFile = $this->storageDir . '/cache/schema.php';
+            $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+            $registry->invalidate();
+            $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
+            $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
+            $lock = new \BsCms\Schema\SchemaLock($conn);
+            $applier = new \BsCms\Schema\SchemaApplier($conn, $registry, $lock);
+
+            $schemaFiles = glob($schemaDir . '/*.json') ?: [];
+            foreach ($schemaFiles as $file) {
+                $content = (string) file_get_contents($file);
+                $target = json_decode($content, true);
+                if (is_array($target) && !empty($target['handle'])) {
+                    $plan = $planner->plan($target);
+                    if (!empty($plan->changes) || !empty($plan->sqlStatements)) {
+                        $applier->apply($plan, $target, null, 'installer');
+                    }
+                }
+            }
+        }
+
         // 6. Create Owner User & Assign Owner Role
         $userRepo = new \BsCms\Users\UserRepository($conn);
         $roleRepo = new \BsCms\Users\RoleRepository($conn);

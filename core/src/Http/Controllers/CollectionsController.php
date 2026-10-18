@@ -176,6 +176,11 @@ class CollectionsController extends BaseController
      */
     public function delete(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $stepUpError = $this->requireStepUp($request);
+        if ($stepUpError !== null) {
+            return $stepUpError;
+        }
+
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'delete', new Subject('schema', $handle));
         if ($permError !== null) {
@@ -310,6 +315,11 @@ class CollectionsController extends BaseController
      */
     public function applyChange(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $stepUpError = $this->requireStepUp($request);
+        if ($stepUpError !== null) {
+            return $stepUpError;
+        }
+
         $changeId = (string) ($args['change_id'] ?? $request->getAttribute('change_id', ''));
         $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('schema', '*'));
         if ($permError !== null) {

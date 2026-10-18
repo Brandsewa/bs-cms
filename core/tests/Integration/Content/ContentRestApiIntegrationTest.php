@@ -151,7 +151,8 @@ final class ContentRestApiIntegrationTest extends TestCase
             $queryParser,
             $this->versionManager,
             $this->authorizer,
-            $this->auditLogger
+            $this->auditLogger,
+            $this->confirmTokens
         );
 
         $this->bulkController = new BulkEntriesController(
@@ -168,7 +169,8 @@ final class ContentRestApiIntegrationTest extends TestCase
             $this->collectionRegistry,
             $this->repository,
             $this->authorizer,
-            $this->auditLogger
+            $this->auditLogger,
+            $this->confirmTokens
         );
 
         $this->savedViewsController = new SavedViewsController(

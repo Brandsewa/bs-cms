@@ -384,6 +384,7 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\VersionManager::class),
                 $c->get(Authorizer::class),
                 $c->get(AuditLogger::class),
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
                 $c->get(\BsCms\Events\EventBus::class)
             );
         });
@@ -406,7 +407,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Schema\CollectionRegistry::class),
                 $c->get(\BsCms\Content\EntryRepository::class),
                 $c->get(Authorizer::class),
-                $c->get(AuditLogger::class)
+                $c->get(AuditLogger::class),
+                $c->get(\BsCms\Operations\ConfirmTokenService::class)
             );
         });
 

@@ -50,7 +50,7 @@ class BulkEntriesController extends BaseController
         }
 
         $body = $this->getBody($request);
-        $operation = (string) ($body['operation'] ?? '');
+        $operation = (string) ($body['operation'] ?? $body['action'] ?? '');
         $ids = (array) ($body['ids'] ?? []);
         $params = (array) ($body['params'] ?? []);
 
@@ -113,6 +113,7 @@ class BulkEntriesController extends BaseController
         $userId = $actor->onBehalfOf ?? $actor->id;
         $processed = 0;
         $failed = 0;
+        $items = [];
         $now = date('Y-m-d H:i:s.v');
         $prefix = $this->connection->getPrefix();
         $tableName = $prefix . 'c_' . $handle;
@@ -122,6 +123,7 @@ class BulkEntriesController extends BaseController
             $entry = $this->repository->find($handle, $id, true);
             if ($entry === null) {
                 $failed++;
+                $items[] = ['id' => $id, 'status' => 'failed', 'error' => 'Entry not found'];
                 continue;
             }
 
@@ -129,6 +131,7 @@ class BulkEntriesController extends BaseController
             $check = $this->authorizer->can($actor, $requiredAction, new Subject('collection', $handle), $entry);
             if (!$check->allowed) {
                 $failed++;
+                $items[] = ['id' => $id, 'status' => 'failed', 'error' => 'Permission denied'];
                 continue;
             }
 
@@ -155,8 +158,10 @@ class BulkEntriesController extends BaseController
                         break;
                 }
                 $processed++;
-            } catch (Throwable) {
+                $items[] = ['id' => $id, 'status' => 'success'];
+            } catch (Throwable $e) {
                 $failed++;
+                $items[] = ['id' => $id, 'status' => 'failed', 'error' => $e->getMessage()];
             }
         }
 
@@ -187,6 +192,7 @@ class BulkEntriesController extends BaseController
             'processed' => $processed,
             'failed' => $failed,
             'total' => count($ids),
+            'items' => $items,
         ]);
     }
 }

@@ -111,7 +111,8 @@ final class SchemaPlanner
                 $escapedCol = IdentifierValidator::escapeIdentifier($fHandle);
                 $escapedIdx = IdentifierValidator::escapeIdentifier('ix_' . $tableName . '_' . $fHandle);
 
-                $columnsSql[] = "{$escapedCol} {$colType} GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$fHandle}'))) VIRTUAL";
+                $expr = self::buildGeneratedColumnExpression($fTypeStr, $fHandle);
+                $columnsSql[] = "{$escapedCol} {$colType} GENERATED ALWAYS AS ({$expr}) VIRTUAL";
                 $indexesSql[] = "KEY {$escapedIdx} ({$escapedCol})";
             }
 
@@ -125,7 +126,7 @@ final class SchemaPlanner
         }
 
         $allDefs = array_merge($columnsSql, $indexesSql);
-        $createSql = "CREATE TABLE IF NOT EXISTS {$escapedFullTable} (\n  " . implode(",\n  ", $allDefs) . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;";
+        $createSql = "CREATE TABLE IF NOT EXISTS {$escapedFullTable} (\n  " . implode(",\n  ", $allDefs) . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
         return new SchemaPlan(
             $planId,
@@ -135,6 +136,18 @@ final class SchemaPlanner
             ['data_loss' => false, 'long_running' => false, 'locks_table' => false],
             0
         );
+    }
+
+    /**
+     * Build expression for MySQL virtual generated column based on field type.
+     */
+    private static function buildGeneratedColumnExpression(string $fieldType, string $handle): string
+    {
+        if ($fieldType === 'boolean') {
+            return "(CASE WHEN JSON_EXTRACT(`data`, '$.{$handle}') = true OR JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$handle}')) IN ('1','true') THEN 1 WHEN JSON_EXTRACT(`data`, '$.{$handle}') = false OR JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$handle}')) IN ('0','false') THEN 0 ELSE NULL END)";
+        }
+
+        return "JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$handle}'))";
     }
 
     /**
@@ -187,8 +200,9 @@ final class SchemaPlanner
                     $colType = $storage->columnType ?? 'VARCHAR(255)';
                     $escapedCol = IdentifierValidator::escapeIdentifier($handleStr);
                     $escapedIdx = IdentifierValidator::escapeIdentifier('ix_' . $tableName . '_' . $handleStr);
+                    $expr = self::buildGeneratedColumnExpression($fTypeStr, $handleStr);
 
-                    $sqlStatements[] = "ALTER TABLE {$escapedFullTable} ADD COLUMN {$escapedCol} {$colType} GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$handleStr}'))) VIRTUAL, ADD KEY {$escapedIdx} ({$escapedCol});";
+                    $sqlStatements[] = "ALTER TABLE {$escapedFullTable} ADD COLUMN {$escapedCol} {$colType} GENERATED ALWAYS AS ({$expr}) VIRTUAL, ADD KEY {$escapedIdx} ({$escapedCol});";
                 }
             } else {
                 // Existing field: check type compatibility
@@ -207,12 +221,13 @@ final class SchemaPlanner
                     $colType = $storage->columnType ?? 'VARCHAR(255)';
                     $escapedCol = IdentifierValidator::escapeIdentifier($handleStr);
                     $escapedIdx = IdentifierValidator::escapeIdentifier('ix_' . $tableName . '_' . $handleStr);
+                    $expr = self::buildGeneratedColumnExpression($fTypeStr, $handleStr);
 
                     $changes[] = [
                         'type' => 'add_index',
                         'field_handle' => $handleStr,
                     ];
-                    $sqlStatements[] = "ALTER TABLE {$escapedFullTable} ADD COLUMN {$escapedCol} {$colType} GENERATED ALWAYS AS (JSON_UNQUOTE(JSON_EXTRACT(`data`, '$.{$handleStr}'))) VIRTUAL, ADD KEY {$escapedIdx} ({$escapedCol});";
+                    $sqlStatements[] = "ALTER TABLE {$escapedFullTable} ADD COLUMN {$escapedCol} {$colType} GENERATED ALWAYS AS ({$expr}) VIRTUAL, ADD KEY {$escapedIdx} ({$escapedCol});";
                 } elseif (!($isFilterable || $isSortable) && ($oldFilterable || $oldSortable)) {
                     // Remove virtual column and index
                     $escapedCol = IdentifierValidator::escapeIdentifier($handleStr);

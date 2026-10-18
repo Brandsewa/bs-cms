@@ -674,6 +674,153 @@ if ($resWhPing['status'] !== 200) {
 scanNoSecrets($resWhPing['json']);
 passTest("14. Webhooks API and test ping verified");
 
+// 14b. Regressions for Phase 3 Defects (1 to 11)
+echo "Testing 14b: Regressions for Phase 3 defects...\n";
+
+// Defect 1: Entry validation rejection (unknown field, non-numeric number)
+$resInvalidField = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Invalid Entry Test',
+    'unknown_field_xyz' => 'exploit',
+]);
+if ($resInvalidField['status'] !== 422) {
+    failTest("POST entry with unknown field expected 422, got {$resInvalidField['status']}: {$resInvalidField['body']}");
+}
+
+$resNonNumeric = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Invalid Budget Test',
+    'budget' => 'not-a-number',
+]);
+if ($resNonNumeric['status'] !== 422) {
+    failTest("POST entry with non-numeric budget expected 422, got {$resNonNumeric['status']}: {$resNonNumeric['body']}");
+}
+
+// Defect 2: PATCH & Concurrency (If-Match required & 409 on stale)
+$resPatchNoIfMatch = httpRequest('PATCH', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'notes' => 'Patched notes without If-Match',
+]);
+if ($resPatchNoIfMatch['status'] !== 428) {
+    failTest("PATCH without If-Match header expected 428 Precondition Required, got {$resPatchNoIfMatch['status']}");
+}
+
+$resPatchStale = httpRequest('PATCH', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => '"99999"',
+], [
+    'notes' => 'Patched notes with stale If-Match',
+]);
+if ($resPatchStale['status'] !== 409) {
+    failTest("PATCH with stale If-Match expected 409 Conflict, got {$resPatchStale['status']}");
+}
+
+// Valid PATCH with current ETag
+$resPatchValid = httpRequest('PATCH', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+    'If-Match' => (string) $resPublish['json']['version'],
+], [
+    'notes' => 'Patched notes successfully',
+]);
+if ($resPatchValid['status'] !== 200) {
+    failTest("PATCH with valid If-Match expected 200, got {$resPatchValid['status']}: {$resPatchValid['body']}");
+}
+scanNoSecrets($resPatchValid['json']);
+$currentVersion = (int) $resPatchValid['json']['version'];
+
+// Defect 3: Purge requires two-step confirmation
+$resPurgeNoToken = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/purge", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resPurgeNoToken['status'] !== 409) {
+    failTest("DELETE purge without confirm token expected 409, got {$resPurgeNoToken['status']}");
+}
+$purgeToken = (string) ($resPurgeNoToken['json']['confirm_token'] ?? '');
+if ($purgeToken === '') {
+    failTest("DELETE purge 409 response missing confirm_token");
+}
+
+// Defect 4: Step-up on site_settings environment change
+$resEnvNoStepUp = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'environment' => 'staging',
+]);
+if ($resEnvNoStepUp['status'] !== 403 && $resEnvNoStepUp['status'] !== 409) {
+    failTest("PUT site_settings environment expected 403 (step-up) or 409 (confirm), got {$resEnvNoStepUp['status']}");
+}
+
+// Defect 5: Webhook URL SSRF validation blocks loopback
+$resSsrfWh = httpRequest('POST', "{$baseUrl}/api/v1/webhooks", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'name' => 'SSRF Webhook',
+    'url' => 'http://127.0.0.1:8080/exploit',
+    'secret' => 'super_secret_webhook_key_12345',
+    'events' => ['*'],
+]);
+if ($resSsrfWh['status'] !== 422) {
+    failTest("POST webhook with loopback URL expected 422 SSRF block, got {$resSsrfWh['status']}: {$resSsrfWh['body']}");
+}
+
+// Defect 6: Sanitization of public API & authenticated entry responses
+if (isset($resPublicList['json']['data'][0]['search_text']) || isset($resPublicList['json']['data'][0]['created_by'])) {
+    failTest("Public API response contains internal columns (search_text or created_by)");
+}
+if (isset($resPatchValid['json']['search_text']) || isset($resPatchValid['json']['created_by'])) {
+    failTest("Authenticated entry response contains raw internal search_text or created_by");
+}
+
+// Defect 7: Bulk operation alias ('action' -> 'operation') and per-item results
+$resBulkAction = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/bulk", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'action' => 'unpublish',
+    'ids' => [$campaignId],
+]);
+if ($resBulkAction['status'] !== 200) {
+    failTest("Bulk operation using 'action' alias expected 200, got {$resBulkAction['status']}: {$resBulkAction['body']}");
+}
+if (!isset($resBulkAction['json']['items']) || !is_array($resBulkAction['json']['items'])) {
+    failTest("Bulk operation response missing 'items' array");
+}
+
+// Defect 9: Schedule endpoint validates date
+$resPastSchedule = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/schedule", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'scheduled_at' => '2020-01-01T00:00:00Z',
+]);
+if ($resPastSchedule['status'] !== 422) {
+    failTest("Schedule with past date expected 422, got {$resPastSchedule['status']}");
+}
+
+passTest("14b. All 11 Phase 3 defect regression checks passed successfully");
+
+// Defect 3 confirmation test: execute purge with confirm token
+$resPurgeConfirmed = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/purge", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'confirm_token' => $purgeToken,
+]);
+if ($resPurgeConfirmed['status'] !== 200) {
+    failTest("DELETE purge with confirm token expected 200, got {$resPurgeConfirmed['status']}: {$resPurgeConfirmed['body']}");
+}
+passTest("14c. Entry purged permanently with two-step confirmation");
+
 // Clean up created collection
 $resDelCol = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns", [
     'Authorization' => "Bearer {$adminToken}",

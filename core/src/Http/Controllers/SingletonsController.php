@@ -9,6 +9,7 @@ use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
 use BsCms\Database\Connection;
+use BsCms\Operations\ConfirmTokenService;
 use BsCms\Schema\CollectionRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,7 +22,8 @@ class SingletonsController extends BaseController
         private readonly CollectionRegistry $registry,
         private readonly EntryRepository $repository,
         private readonly Authorizer $authorizer,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly ConfirmTokenService $confirmTokenService
     ) {
     }
 
@@ -104,8 +106,42 @@ class SingletonsController extends BaseController
 
         $prefix = $this->connection->getPrefix();
         $tableName = $prefix . 'c_' . $handle;
-        $stmt = $this->connection->execute("SELECT `id` FROM `{$tableName}` LIMIT 1");
+        $stmt = $this->connection->execute("SELECT * FROM `{$tableName}` LIMIT 1");
         $existing = $stmt->fetch();
+
+        // Enforce step-up and two-step confirmation on environment change (production/staging)
+        if ($handle === 'site_settings' && isset($body['environment'])) {
+            $existingData = $existing && is_string($existing['data']) ? json_decode($existing['data'], true) : [];
+            $oldEnv = $existingData['environment'] ?? ($existing['environment'] ?? null);
+            $newEnv = (string) $body['environment'];
+
+            if ($oldEnv === null || $oldEnv !== $newEnv) {
+                $stepUpError = $this->requireStepUp($request);
+                if ($stepUpError !== null) {
+                    return $stepUpError;
+                }
+
+                $confirmToken = (string) ($body['confirm_token'] ?? $request->getHeaderLine('X-Confirm-Token'));
+                $canonicalInput = ['handle' => $handle, 'environment' => $newEnv];
+
+                if ($confirmToken === '') {
+                    $token = $this->confirmTokenService->generate($actor->id, 'site_settings.environment', $canonicalInput);
+                    return $this->json([
+                        'type' => 'https://errors.bscms.org/confirmation-required',
+                        'title' => 'Confirmation Required',
+                        'status' => 409,
+                        'detail' => "Changing site environment to '{$newEnv}' requires two-step confirmation.",
+                        'confirm_token' => $token,
+                    ], 409);
+                }
+
+                try {
+                    $this->confirmTokenService->validateAndConsume($confirmToken, $actor->id, 'site_settings.environment', $canonicalInput);
+                } catch (Throwable $e) {
+                    return $this->problem(409, 'Confirmation Failed', $e->getMessage());
+                }
+            }
+        }
 
         try {
             if ($existing) {

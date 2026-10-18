@@ -64,6 +64,14 @@ class PublicEntriesController extends BaseController
             $collection = $this->registry->get($handle);
             $queryOptions = $this->queryParser->parse($requestWithFilter, $collection);
             $result = $this->repository->query($handle, $queryOptions);
+
+            // Present entries through EntryPresenter::forPublic to strip internal columns
+            $publicEntries = [];
+            foreach ($result['data'] as $entry) {
+                $publicEntries[] = \BsCms\Content\Presenters\EntryPresenter::forPublic($entry, $collection);
+            }
+            $result['data'] = $publicEntries;
+
             $body = json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             $etag = '"' . hash('sha256', $body) . '"';
 
@@ -134,7 +142,10 @@ class PublicEntriesController extends BaseController
             $entry['seo'] = json_decode($entry['seo'], true);
         }
 
-        $body = json_encode(['data' => $entry], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $collection = $this->registry->get($handle);
+        $publicEntry = \BsCms\Content\Presenters\EntryPresenter::forPublic($entry, $collection);
+
+        $body = json_encode(['data' => $publicEntry], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $etag = '"' . hash('sha256', $body) . '"';
 
         $this->cache->set($handle, $cacheKey, 200, ['Content-Type' => 'application/json'], $body, $etag, 60);

@@ -9,15 +9,19 @@ use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
 use BsCms\Content\OptimisticConcurrencyException;
+use BsCms\Content\Presenters\EntryPresenter;
 use BsCms\Content\Query\QueryParser;
 use BsCms\Content\Query\QueryValidationException;
 use BsCms\Content\VersionManager;
 use BsCms\Database\Connection;
+use BsCms\Events\EventBus;
+use BsCms\Events\GenericEvent;
+use BsCms\Migrations\SeedSystemRoles;
+use BsCms\Operations\ConfirmTokenService;
+use BsCms\Operations\Exceptions\ValidationException;
 use BsCms\Schema\CollectionRegistry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use BsCms\Events\EventBus;
-use BsCms\Events\GenericEvent;
 use Throwable;
 
 class EntriesController extends BaseController
@@ -29,6 +33,7 @@ class EntriesController extends BaseController
         private readonly VersionManager $versionManager,
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $auditLogger,
+        private readonly ConfirmTokenService $confirmTokenService,
         private readonly ?EventBus $eventBus = null
     ) {
     }
@@ -71,16 +76,17 @@ class EntriesController extends BaseController
             $queryOptions = $this->queryParser->parse($request, $collection);
             $result = $this->repository->query($handle, $queryOptions, $userId, $ownerOnly);
 
-            // Apply field-level read filtering across results
-            $result['data'] = array_map(function (array $item) use ($actor, $handle): array {
-                return $this->authorizer->filterFields($actor, new Subject('collection', $handle), $item, 'read');
+            // Present entries using EntryPresenter::forAuthenticated
+            $result['data'] = array_map(function (array $item) use ($actor, $collection): array {
+                return EntryPresenter::forAuthenticated($item, $collection, $actor, $this->authorizer);
             }, $result['data']);
 
             return $this->json($result);
         } catch (QueryValidationException $e) {
             return $this->problem(422, 'Query Validation Error', $e->getMessage(), null, $e->getErrors());
         } catch (Throwable $e) {
-            return $this->problem(500, 'Query Error', $e->getMessage());
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while querying entries.' : $e->getMessage();
+            return $this->problem(500, 'Query Error', $msg);
         }
     }
 
@@ -107,9 +113,10 @@ class EntriesController extends BaseController
         }
 
         $actor = $this->getActor($request);
-        $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $entry, 'read');
+        $collection = $this->registry->get($handle);
+        $presented = EntryPresenter::forAuthenticated($entry, $collection, $actor, $this->authorizer, !empty($entry['deleted_at']));
 
-        return $this->json($filtered);
+        return $this->json($presented);
     }
 
     /**
@@ -125,7 +132,8 @@ class EntriesController extends BaseController
         $actor = $this->getActor($request);
         $body = $this->getBody($request);
 
-        $permError = $this->requirePermission($this->authorizer, $request, 'create', new Subject('collection', $handle), $body);
+        $effectiveEntity = array_merge(['status' => 'draft'], $body);
+        $permError = $this->requirePermission($this->authorizer, $request, 'create', new Subject('collection', $handle), $effectiveEntity);
         if ($permError !== null) {
             return $permError;
         }
@@ -133,7 +141,7 @@ class EntriesController extends BaseController
         // Check if publish action is requested and permitted
         $status = $body['status'] ?? 'draft';
         if ($status === 'published') {
-            $pubCheck = $this->authorizer->can($actor, 'publish', new Subject('collection', $handle), $body);
+            $pubCheck = $this->authorizer->can($actor, 'publish', new Subject('collection', $handle), $effectiveEntity);
             if (!$pubCheck->allowed) {
                 return $this->problem(403, 'Forbidden', "You do not have permission to publish in collection '{$handle}'.");
             }
@@ -172,12 +180,21 @@ class EntriesController extends BaseController
                 ]));
             }
 
-            $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $created, 'read');
-            return $this->json($filtered, 201);
+            $collection = $this->registry->get($handle);
+            $presented = EntryPresenter::forAuthenticated($created, $collection, $actor, $this->authorizer);
+            return $this->json($presented, 201);
+        } catch (ValidationException $e) {
+            /** @var array<string, list<string>> $errs */
+            $errs = [];
+            foreach ($e->errors as $field => $messages) {
+                $errs[$field] = is_array($messages) ? $messages : [(string) $messages];
+            }
+            return $this->problem(422, 'Validation Error', $e->getMessage(), null, $errs);
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
         } catch (\Throwable $e) {
-            return $this->problem(500, 'Create Error', $e->getMessage());
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while creating entry.' : $e->getMessage();
+            return $this->problem(500, 'Create Error', $msg);
         }
     }
 
@@ -185,6 +202,22 @@ class EntriesController extends BaseController
      * @param array<string, mixed> $args
      */
     public function update(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        return $this->handleUpdate($request, $args, false);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function patch(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        return $this->handleUpdate($request, $args, true);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    private function handleUpdate(ServerRequestInterface $request, array $args, bool $isPatch): ResponseInterface
     {
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
@@ -201,6 +234,29 @@ class EntriesController extends BaseController
         $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('collection', $handle), $existing);
         if ($permError !== null) {
             return $permError;
+        }
+
+        // Concurrency: require If-Match header (428 Precondition Required if missing)
+        $ifMatch = trim($request->getHeaderLine('If-Match'));
+        if ($ifMatch === '') {
+            return $this->problem(428, 'Precondition Required', "An 'If-Match' header containing the entity's current version or ETag is required to prevent lost updates.");
+        }
+
+        $expectedVersion = trim($ifMatch, '"');
+        if (!is_numeric($expectedVersion)) {
+            return $this->problem(428, 'Precondition Required', "Invalid 'If-Match' header format.");
+        }
+
+        $expectedVersionInt = (int) $expectedVersion;
+        if ((int) $existing['version'] !== $expectedVersionInt) {
+            $conflictProblem = new \BsCms\Http\ProblemDetails(
+                409,
+                'Conflict',
+                "Entry '{$id}' was modified by another request. Expected version {$expectedVersionInt}, current version is {$existing['version']}.",
+                'about:blank'
+            );
+            $response = $conflictProblem->toResponse()->withHeader('ETag', '"' . $existing['version'] . '"');
+            return $response;
         }
 
         $actor = $this->getActor($request);
@@ -225,7 +281,7 @@ class EntriesController extends BaseController
                 $id,
                 $body,
                 $changeSummary,
-                null,
+                $expectedVersionInt,
                 $actor->type,
                 $actor->label,
                 $userId,
@@ -234,7 +290,7 @@ class EntriesController extends BaseController
 
             $this->auditLogger->record(
                 actor: $actor,
-                action: 'entry.update',
+                action: $isPatch ? 'entry.patch' : 'entry.update',
                 subject: new Subject('collection', $handle),
                 summary: "Updated entry {$id} in {$handle}",
                 diff: ['before' => $existing, 'after' => $updated],
@@ -267,14 +323,23 @@ class EntriesController extends BaseController
                 ]));
             }
 
-            $filtered = $this->authorizer->filterFields($actor, new Subject('collection', $handle), $updated, 'read');
-            return $this->json($filtered);
+            $collection = $this->registry->get($handle);
+            $presented = EntryPresenter::forAuthenticated($updated, $collection, $actor, $this->authorizer);
+            return $this->json($presented)->withHeader('ETag', '"' . $updated['version'] . '"');
         } catch (OptimisticConcurrencyException $e) {
             return $this->problem(409, 'Conflict', $e->getMessage());
+        } catch (ValidationException $e) {
+            /** @var array<string, list<string>> $errs */
+            $errs = [];
+            foreach ($e->errors as $field => $messages) {
+                $errs[$field] = is_array($messages) ? $messages : [(string) $messages];
+            }
+            return $this->problem(422, 'Validation Error', $e->getMessage(), null, $errs);
         } catch (\InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Error', $e->getMessage());
         } catch (\Throwable $e) {
-            return $this->problem(500, 'Update Error', $e->getMessage());
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while updating entry.' : $e->getMessage();
+            return $this->problem(500, 'Update Error', $msg);
         }
     }
 
@@ -402,12 +467,49 @@ class EntriesController extends BaseController
             return $this->problem(404, 'Not Found', "Entry '{$id}' not found.");
         }
 
-        $permError = $this->requirePermission($this->authorizer, $request, 'delete', new Subject('collection', $handle), $existing);
-        if ($permError !== null) {
-            return $permError;
+        $actor = $this->getActor($request);
+
+        // Editors must not be allowed to purge (only owner, admin, or developer with purge permission)
+        $isEditor = in_array(SeedSystemRoles::ROLE_EDITOR, $actor->roleIds, true);
+        $isPrivileged = in_array(SeedSystemRoles::ROLE_OWNER, $actor->roleIds, true)
+            || in_array(SeedSystemRoles::ROLE_ADMIN, $actor->roleIds, true)
+            || in_array(SeedSystemRoles::ROLE_DEVELOPER, $actor->roleIds, true);
+
+        if ($isEditor && !$isPrivileged) {
+            return $this->problem(403, 'Forbidden', "Role 'editor' is not permitted to permanently purge entries.");
         }
 
-        $actor = $this->getActor($request);
+        $permCheck = $this->authorizer->can($actor, 'purge', new Subject('collection', $handle), $existing);
+        if (!$permCheck->allowed) {
+            $permCheckDelete = $this->authorizer->can($actor, 'delete', new Subject('collection', $handle), $existing);
+            if (!$permCheckDelete->allowed) {
+                return $this->problem(403, 'Forbidden', $permCheck->reason);
+            }
+        }
+
+        // Two-step confirmation for entry.purge
+        $body = $this->getBody($request);
+        $confirmToken = (string) ($body['confirm_token'] ?? $request->getHeaderLine('X-Confirm-Token'));
+        $canonicalInput = ['handle' => $handle, 'id' => $id, 'action' => 'purge'];
+
+        if ($confirmToken === '') {
+            $token = $this->confirmTokenService->generate($actor->id, 'entry.purge', $canonicalInput);
+            return $this->json([
+                'type' => 'https://errors.bscms.org/confirmation-required',
+                'title' => 'Confirmation Required',
+                'status' => 409,
+                'detail' => "Purging entry '{$id}' from '{$handle}' permanently requires confirmation.",
+                'confirm_token' => $token,
+                'handle' => $handle,
+                'id' => $id,
+            ], 409);
+        }
+
+        try {
+            $this->confirmTokenService->validateAndConsume($confirmToken, $actor->id, 'entry.purge', $canonicalInput);
+        } catch (\Throwable $e) {
+            return $this->problem(409, 'Confirmation Failed', $e->getMessage());
+        }
 
         try {
             $this->repository->delete($handle, $id, true);
@@ -653,6 +755,48 @@ class EntriesController extends BaseController
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
         $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'archived']));
+        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function schedule(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $body = $this->getBody($request);
+
+        $scheduledAt = (string) ($body['scheduled_at'] ?? '');
+        if ($scheduledAt === '' || strtotime($scheduledAt) === false) {
+            return $this->problem(422, 'Invalid Date', 'Field scheduled_at must be a valid future ISO-8601 date-time string.', null, [
+                'scheduled_at' => ['A valid scheduled_at timestamp is required.'],
+            ]);
+        }
+
+        if (strtotime($scheduledAt) <= time()) {
+            return $this->problem(422, 'Invalid Date', 'Field scheduled_at must be in the future.', null, [
+                'scheduled_at' => ['Scheduled date must be in the future.'],
+            ]);
+        }
+
+        $requestWithStatus = $request->withParsedBody(array_merge($body, [
+            'status' => 'scheduled',
+            'scheduled_at' => date('Y-m-d H:i:s', (int) strtotime($scheduledAt)),
+        ]));
+        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function submitReview(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $body = $this->getBody($request);
+
+        $requestWithStatus = $request->withParsedBody(array_merge($body, ['status' => 'in_review']));
         return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
     }
 

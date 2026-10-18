@@ -9,6 +9,7 @@ use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Database\Connection;
 use BsCms\Security\Crypto;
+use BsCms\Security\HttpClient;
 use BsCms\Security\Ulid;
 use BsCms\Webhooks\WebhookDispatcher;
 use Psr\Http\Message\ResponseInterface;
@@ -82,6 +83,11 @@ class WebhooksController extends BaseController
         }
         if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
             $errors['url'] = ['A valid webhook URL is required.'];
+        } else {
+            $ssrfError = self::validateWebhookUrlSsrf($url);
+            if ($ssrfError !== null) {
+                $errors['url'] = [$ssrfError];
+            }
         }
         if (!empty($errors)) {
             return $this->problem(422, 'Validation Error', 'Invalid webhook payload.', null, $errors);
@@ -185,10 +191,18 @@ class WebhooksController extends BaseController
 
         $name = isset($body['name']) ? trim((string) $body['name']) : null;
         $url = isset($body['url']) ? trim((string) $body['url']) : null;
-        if ($url !== null && ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false)) {
-            return $this->problem(422, 'Validation Error', 'Invalid webhook URL.', null, [
-                'url' => ['A valid webhook URL is required.'],
-            ]);
+        if ($url !== null) {
+            if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+                return $this->problem(422, 'Validation Error', 'Invalid webhook URL.', null, [
+                    'url' => ['A valid webhook URL is required.'],
+                ]);
+            }
+            $ssrfError = self::validateWebhookUrlSsrf($url);
+            if ($ssrfError !== null) {
+                return $this->problem(422, 'Validation Error', 'Invalid webhook URL.', null, [
+                    'url' => [$ssrfError],
+                ]);
+            }
         }
 
         $secretEnc = isset($body['secret']) && (string) $body['secret'] !== ''
@@ -406,5 +420,41 @@ class WebhooksController extends BaseController
         $row['has_secret'] = true;
 
         return $row;
+    }
+
+    /**
+     * Validate webhook URL against SSRF attacks (scheme, private/loopback/link-local/metadata IP).
+     *
+     * @return string|null Error message if unsafe, or null if valid
+     */
+    private static function validateWebhookUrlSsrf(string $url): ?string
+    {
+        $parsed = parse_url($url);
+        if ($parsed === false || !isset($parsed['scheme'])) {
+            return 'Invalid URL format.';
+        }
+
+        $scheme = strtolower($parsed['scheme']);
+        if ($scheme !== 'https' && $scheme !== 'http') {
+            return "URL scheme '{$scheme}' is not allowed (must be http or https).";
+        }
+
+        if (!isset($parsed['host']) || trim($parsed['host']) === '') {
+            return 'URL is missing host.';
+        }
+
+        $host = trim($parsed['host']);
+        if (strtolower($host) === 'localhost') {
+            return "SSRF security violation: Host '{$host}' is restricted.";
+        }
+
+        $client = new HttpClient();
+        try {
+            $client->resolveAndValidateHost($host);
+        } catch (\Throwable $e) {
+            return 'SSRF security violation: ' . $e->getMessage();
+        }
+
+        return null;
     }
 }
