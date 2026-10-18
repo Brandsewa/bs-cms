@@ -242,9 +242,9 @@ class EntriesController extends BaseController
         $body = $this->getBody($request);
 
         // Concurrency: require If-Match header (or version/expected_version in body) for content updates (428 Precondition Required if missing).
-        // For state-change endpoints (publish, unpublish, archive, schedule, submit-review), If-Match is optional.
+        // For state-change endpoints (publish, unpublish, archive, schedule, submit-review), If-Match is optional (header only).
         $ifMatch = trim($request->getHeaderLine('If-Match'));
-        if ($ifMatch === '') {
+        if ($ifMatch === '' && !$isStateChange) {
             $bodyVersion = $body['expected_version'] ?? ($body['version'] ?? null);
             if ($bodyVersion !== null) {
                 $ifMatch = (string) $bodyVersion;

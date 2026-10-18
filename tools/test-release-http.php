@@ -199,6 +199,27 @@ if ($existing === null) {
 }
 passTest("3. Test admin user seeded ({$testEmail})");
 
+// Ensure built-in collections (e.g. site_settings, pages, posts) are seeded
+$collRegistry = new \BsCms\Schema\CollectionRegistry($connection);
+if (!$collRegistry->has('site_settings')) {
+    $schemaDir = $corePath . '/resources/schema';
+    if (is_dir($schemaDir)) {
+        $ftRegistry = new \BsCms\Schema\FieldTypeRegistry();
+        $schemaPlanner = new \BsCms\Schema\SchemaPlanner($connection, $collRegistry, $ftRegistry);
+        $schemaLock = new \BsCms\Schema\SchemaLock($connection);
+        $schemaApplier = new \BsCms\Schema\SchemaApplier($connection, $collRegistry, $schemaLock);
+        $files = glob($schemaDir . '/*.json') ?: [];
+        foreach ($files as $file) {
+            $sData = json_decode((string) file_get_contents($file), true);
+            if (is_array($sData) && !empty($sData['handle']) && !$collRegistry->has($sData['handle'])) {
+                $plan = $schemaPlanner->plan($sData);
+                $schemaApplier->apply($plan, $sData, null, 'installer');
+            }
+        }
+        $collRegistry->invalidate();
+    }
+}
+
 // 4. Login flow with IPv6 address & Audit Logger check
 echo "Testing 4: Login with IPv6 address and audit log storage...\n";
 $ipv6Addr = '2001:0db8:85a3:0000:0000:8a2e:0370:7334';

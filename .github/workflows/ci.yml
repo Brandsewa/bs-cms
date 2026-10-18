@@ -148,6 +148,7 @@ jobs:
           echo "<?php return ['name' => 'CI Test', 'env' => 'production', 'url' => 'http://127.0.0.1:8888', 'key' => 'base64:$(openssl rand -base64 32)'];" > config/app.php
           echo "<?php return ['host' => '127.0.0.1', 'port' => 3306, 'database' => 'bscms_release', 'username' => 'root', 'password' => 'root', 'prefix' => 'bs_'];" > config/database.php
           php bin/bs migrate
+          php bin/bs schema:seed
           touch storage/installed.lock
 
           # Unauthenticated protected API route returns 401 Problem Details (proves ApiRoutes and AuthenticateMiddleware are active in front controller)
