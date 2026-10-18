@@ -70,7 +70,10 @@ final class AuthenticateMiddleware implements MiddlewareInterface
                     $tokenData = $this->tokenService->authenticate($plainToken, $clientIp);
                     if ($tokenData !== null) {
                         $userId = (string) $tokenData['user_id'];
-                        $roleIds = !empty($tokenData['role_id']) ? [(string) $tokenData['role_id']] : [];
+                        /** @var list<string> $roleIds */
+                        $roleIds = !empty($tokenData['effective_role_ids']) ? (array) $tokenData['effective_role_ids'] : (!empty($tokenData['role_id']) ? [(string) $tokenData['role_id']] : []);
+                        /** @var list<string> $scopes */
+                        $scopes = !empty($tokenData['scopes']) && is_array($tokenData['scopes']) ? array_values($tokenData['scopes']) : ['*'];
                         $aiMode = (string) ($tokenData['ai_mode'] ?? Actor::AI_MODE_DRAFT_ONLY);
 
                         $tokenActor = Actor::apiToken(
@@ -78,7 +81,8 @@ final class AuthenticateMiddleware implements MiddlewareInterface
                             (string) $tokenData['name'],
                             $userId,
                             $roleIds,
-                            $aiMode
+                            $aiMode,
+                            $scopes
                         );
 
                         $request = $request

@@ -141,24 +141,25 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
             $container->get(NotificationsController::class)
         );
 
+        $fileLogger = new \BsCms\Log\FileLogger($this->tempDir . '/storage/logs/app.log');
         $kernel = new Kernel($router);
-        $kernel->addMiddleware(new ErrorHandlerMiddleware(new Environment(Environment::PRODUCTION)));
         $kernel->addMiddleware(new RequestIdMiddleware());
+        $kernel->addMiddleware(new ErrorHandlerMiddleware(new Environment(Environment::PRODUCTION), $fileLogger));
         $kernel->addMiddleware(new SecurityHeadersMiddleware());
         $kernel->addMiddleware(new HttpsEnforcerMiddleware(new Environment(Environment::PRODUCTION)));
         $kernel->addMiddleware(new MaintenanceModeMiddleware($this->tempDir . '/storage'));
         $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024));
         $kernel->addMiddleware(new JsonBodyMiddleware());
 
-        $limiter = new RateLimiter(60, 60, [], fn () => $this->connection);
-        $kernel->addMiddleware(new RateLimitMiddleware($limiter));
-
         $sessionManager = $container->get(SessionManager::class);
         $apiTokenService = $container->get(ApiTokenService::class);
 
-        // Session -> Authenticate -> CSRF
+        // Session -> Authenticate -> RateLimit -> CSRF
         $kernel->addMiddleware(new SessionMiddleware($sessionManager, $this->connection));
         $kernel->addMiddleware(new AuthenticateMiddleware($apiTokenService));
+
+        $limiter = new RateLimiter(60, 60, [], fn () => $this->connection);
+        $kernel->addMiddleware(new RateLimitMiddleware($limiter));
         $kernel->addMiddleware(new CsrfMiddleware('https://test.bscms.local'));
 
         $this->kernel = $kernel;
@@ -172,7 +173,7 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
             } catch (\Throwable $e) {
             }
         }
-        if (is_dir($this->tempDir)) {
+        if (isset($this->tempDir) && is_dir($this->tempDir)) {
             $this->removeDir($this->tempDir);
         }
         parent::tearDown();
@@ -376,5 +377,427 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $this->assertTrue($tokenService->revoke((string) $createdToken['id'], $userId));
         $resRevoked = $this->dispatch($reqMe);
         $this->assertSame(401, $resRevoked->getStatusCode());
+    }
+
+    public function testUserPresenterSanitizesListAndGetResponsesAndContainsNoSecrets(): void
+    {
+        $userRepo = new UserRepository($this->connection);
+        $hasher = new PasswordHasher();
+        $roleRepo = new RoleRepository($this->connection);
+        $ownerRole = $roleRepo->findByHandle('owner');
+        $this->assertNotNull($ownerRole);
+
+        $userId = $userRepo->create([
+            'email' => 'presenter_test@example.com',
+            'name' => 'Presenter Test',
+            'password_hash' => $hasher->hash('PasswordSecret123!'),
+            'totp_secret_enc' => 'base64:encryptedSecretTotp1234567890',
+            'recovery_codes_hash' => ['hash1', 'hash2'],
+            'role_id' => $ownerRole['id'],
+            'status' => 'active',
+        ]);
+
+        $container = $this->app->getContainer();
+        /** @var ApiTokenService $tokenService */
+        $tokenService = $container->get(ApiTokenService::class);
+        $tokenData = $tokenService->create($userId, 'Presenter Token', roleId: (string) $ownerRole['id'], scopes: ['*']);
+
+        // 1. GET /api/v1/users
+        $reqList = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/users'))
+            ->withHeader('Authorization', 'Bearer ' . $tokenData['token']);
+        $resList = $this->dispatch($reqList);
+        $this->assertSame(200, $resList->getStatusCode());
+        $this->assertNoSecretsInResponse($resList);
+
+        $listData = json_decode((string) $resList->getBody(), true);
+        $this->assertArrayHasKey('items', $listData);
+        $found = false;
+        foreach ($listData['items'] as $item) {
+            if ($item['email'] === 'presenter_test@example.com') {
+                $found = true;
+                $this->assertArrayNotHasKey('password_hash', $item);
+                $this->assertArrayNotHasKey('totp_secret_enc', $item);
+                $this->assertArrayNotHasKey('recovery_codes_hash', $item);
+                $this->assertArrayNotHasKey('failed_logins', $item);
+                $this->assertArrayNotHasKey('locked_until', $item);
+                $this->assertArrayHasKey('id', $item);
+                $this->assertArrayHasKey('name', $item);
+                $this->assertArrayHasKey('email', $item);
+                $this->assertArrayHasKey('status', $item);
+                $this->assertArrayHasKey('two_factor_enabled', $item);
+            }
+        }
+        $this->assertTrue($found);
+
+        // 2. GET /api/v1/users/{id}
+        $reqGet = (new ServerRequest('GET', "https://test.bscms.local/api/v1/users/{$userId}"))
+            ->withHeader('Authorization', 'Bearer ' . $tokenData['token']);
+        $resGet = $this->dispatch($reqGet);
+        $this->assertSame(200, $resGet->getStatusCode());
+        $this->assertNoSecretsInResponse($resGet);
+        $getData = json_decode((string) $resGet->getBody(), true);
+        $this->assertSame('presenter_test@example.com', $getData['email']);
+        $this->assertArrayNotHasKey('password_hash', $getData);
+        $this->assertArrayNotHasKey('totp_secret_enc', $getData);
+        $this->assertArrayNotHasKey('recovery_codes_hash', $getData);
+    }
+
+    public function testLoginAndAuditLogSupportIpv6AndNamedArgumentsWithoutSqlError(): void
+    {
+        $userRepo = new UserRepository($this->connection);
+        $hasher = new PasswordHasher();
+        $roleRepo = new RoleRepository($this->connection);
+        $ownerRole = $roleRepo->findByHandle('owner');
+        $this->assertNotNull($ownerRole);
+
+        $userRepo->create([
+            'email' => 'ipv6_user@example.com',
+            'name' => 'IPv6 User',
+            'password_hash' => $hasher->hash('IPv6UserSecure2026!'),
+            'role_id' => $ownerRole['id'],
+            'status' => 'active',
+        ]);
+
+        $ipv6 = '2001:0db8:85a3:0000:0000:8a2e:0370:7334';
+        $customUa = 'Custom-IPv6-Agent/2.5.0 (Platform; Arch) ComplianceTest/99';
+        $customReqId = 'custom-ipv6-trace-id-123456';
+
+        $loginReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login', [], null, '1.1', ['REMOTE_ADDR' => $ipv6]))
+            ->withHeader('User-Agent', $customUa)
+            ->withHeader('X-Request-ID', $customReqId)
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'email' => 'ipv6_user@example.com',
+                'password' => 'IPv6UserSecure2026!',
+            ]);
+
+        $loginRes = $this->dispatch($loginReq);
+        $this->assertSame(200, $loginRes->getStatusCode(), 'Login must return 200 with IPv6 without SQLSTATE 22001');
+        $this->assertNoSecretsInResponse($loginRes);
+
+        // Verify exact audit log storage in database
+        $auditTable = $this->connection->prefixTable('audit_log');
+        $stmt = $this->connection->getPdo()->prepare(
+            "SELECT `ip`, `user_agent`, `request_id`, `action`, `result` FROM `{$auditTable}`
+             WHERE `action` = 'auth.login' AND `summary` LIKE '%ipv6_user@example.com%' OR `ip` = ?
+             ORDER BY `id` DESC LIMIT 1"
+        );
+        $stmt->execute([$ipv6]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $this->assertNotFalse($row, 'Audit row must be recorded');
+        $this->assertSame($ipv6, $row['ip'], 'Audit log must store full IPv6 address in ip column');
+        $this->assertSame($customReqId, $row['request_id'], 'Audit log must store request_id in request_id column');
+        $this->assertSame($customUa, $row['user_agent'], 'Audit log must store user_agent in user_agent column');
+        $this->assertSame('success', $row['result']);
+    }
+
+    public function testFullTwoFactorAuthenticationLifecycleOverHttp(): void
+    {
+        $userRepo = new UserRepository($this->connection);
+        $hasher = new PasswordHasher();
+        $roleRepo = new RoleRepository($this->connection);
+        $twoFactor = new \BsCms\Auth\TwoFactorService();
+        $ownerRole = $roleRepo->findByHandle('owner');
+        $this->assertNotNull($ownerRole);
+
+        $userId = $userRepo->create([
+            'email' => 'mfa_user@example.com',
+            'name' => 'MFA Lifecycle User',
+            'password_hash' => $hasher->hash('MfaUserSecure2026!'),
+            'role_id' => $ownerRole['id'],
+            'status' => 'active',
+        ]);
+
+        // Step 1: Initial Login to start 2FA setup
+        $loginReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $loginRes = $this->dispatch($loginReq);
+        $this->assertSame(200, $loginRes->getStatusCode());
+        $this->assertNoSecretsInResponse($loginRes);
+
+        $cookieHeader = $loginRes->getHeaderLine('Set-Cookie');
+        preg_match('/__Host-bs_session=([^;]+)/', $cookieHeader, $matches);
+        $sessionCookie = isset($matches[1]) ? (string) $matches[1] : '';
+        $this->assertNotEmpty($sessionCookie);
+
+        $sessionReq = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/auth/session'))
+            ->withCookieParams(['__Host-bs_session' => $sessionCookie]);
+        $sessionRes = $this->dispatch($sessionReq);
+        $csrfToken = json_decode((string) $sessionRes->getBody(), true)['csrf_token'];
+
+        // Step 2: Setup 2FA (GET or POST /api/v1/me/2fa/setup)
+        $setupReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/me/2fa/setup'))
+            ->withCookieParams(['__Host-bs_session' => $sessionCookie])
+            ->withHeader('Origin', 'https://test.bscms.local')
+            ->withHeader('X-CSRF-Token', $csrfToken);
+        $setupRes = $this->dispatch($setupReq);
+        $this->assertSame(200, $setupRes->getStatusCode());
+        $setupData = json_decode((string) $setupRes->getBody(), true);
+        $this->assertArrayHasKey('secret', $setupData);
+        $this->assertArrayHasKey('otpauth_uri', $setupData);
+        $secret = (string) $setupData['secret'];
+
+        // Step 3: Confirm 2FA sending code ONLY (no secret sent by client!)
+        $validCode = $twoFactor->getCode($secret);
+        $confirmReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/me/2fa/confirm'))
+            ->withCookieParams(['__Host-bs_session' => $sessionCookie])
+            ->withHeader('Origin', 'https://test.bscms.local')
+            ->withHeader('X-CSRF-Token', $csrfToken)
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['code' => $validCode]);
+        $confirmRes = $this->dispatch($confirmReq);
+        $this->assertSame(200, $confirmRes->getStatusCode());
+        $confirmData = json_decode((string) $confirmRes->getBody(), true);
+        $this->assertSame('2fa_enabled', $confirmData['status']);
+        $this->assertArrayHasKey('recovery_codes', $confirmData);
+        $this->assertCount(10, $confirmData['recovery_codes']);
+        $recoveryCodes = $confirmData['recovery_codes'];
+
+        // Step 4: Logout
+        $logoutReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/logout'))
+            ->withCookieParams(['__Host-bs_session' => $sessionCookie])
+            ->withHeader('Origin', 'https://test.bscms.local')
+            ->withHeader('X-CSRF-Token', $csrfToken);
+        $logoutRes = $this->dispatch($logoutReq);
+        $this->assertSame(200, $logoutRes->getStatusCode());
+
+        // Step 5: Login again -> must return status: requires_2fa and challenge_token
+        $mfaLoginReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $mfaLoginRes = $this->dispatch($mfaLoginReq);
+        $this->assertSame(200, $mfaLoginRes->getStatusCode());
+        $this->assertNoSecretsInResponse($mfaLoginRes);
+        $mfaLoginData = json_decode((string) $mfaLoginRes->getBody(), true);
+        $this->assertSame('requires_2fa', $mfaLoginData['status']);
+        $this->assertNotEmpty($mfaLoginData['challenge_token']);
+        $challengeToken = (string) $mfaLoginData['challenge_token'];
+
+        // Step 6: Challenge with wrong code -> 401
+        $wrongReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $challengeToken,
+                'code' => '000000',
+            ]);
+        $wrongRes = $this->dispatch($wrongReq);
+        $this->assertSame(401, $wrongRes->getStatusCode());
+
+        // Step 7: Challenge with valid TOTP code
+        $validTotpCode = $twoFactor->getCode($secret);
+        $validChallengeReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $challengeToken,
+                'code' => $validTotpCode,
+            ]);
+        $validChallengeRes = $this->dispatch($validChallengeReq);
+        $this->assertSame(200, $validChallengeRes->getStatusCode());
+        $this->assertNoSecretsInResponse($validChallengeRes);
+        $this->assertStringContainsString('__Host-bs_session=', $validChallengeRes->getHeaderLine('Set-Cookie'));
+
+        // Step 8: Replay same challenge token -> must be rejected (single use!)
+        $replayReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $challengeToken,
+                'code' => $validTotpCode,
+            ]);
+        $replayRes = $this->dispatch($replayReq);
+        $this->assertSame(401, $replayRes->getStatusCode(), 'Replayed challenge token must be rejected');
+
+        // Step 9: Login again and challenge with a Recovery Code
+        $loginAgain = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $loginAgainRes = $this->dispatch($loginAgain);
+        $token2 = json_decode((string) $loginAgainRes->getBody(), true)['challenge_token'];
+
+        $recoveryReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $token2,
+                'code' => $recoveryCodes[0],
+            ]);
+        $recoveryRes = $this->dispatch($recoveryReq);
+        $this->assertSame(200, $recoveryRes->getStatusCode());
+
+        // Step 10: Replay same recovery code on a new login -> must be rejected
+        $loginAgain3 = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
+        $token3 = json_decode((string) $loginAgain3->getBody(), true)['challenge_token'];
+
+        $replayRecoveryReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody([
+                'challenge_token' => $token3,
+                'code' => $recoveryCodes[0],
+            ]);
+        $replayRecoveryRes = $this->dispatch($replayRecoveryReq);
+        $this->assertSame(401, $replayRecoveryRes->getStatusCode(), 'Used recovery code cannot be replayed');
+    }
+
+    public function testApiTokenRoleInheritanceScopeRestrictionsAndAiDraftOnlyMode(): void
+    {
+        $userRepo = new UserRepository($this->connection);
+        $roleRepo = new RoleRepository($this->connection);
+        $ownerRole = $roleRepo->findByHandle('owner');
+        $this->assertNotNull($ownerRole);
+
+        $userId = $userRepo->create([
+            'email' => 'owner_token@example.com',
+            'name' => 'Owner Token Tester',
+            'role_id' => $ownerRole['id'],
+            'status' => 'active',
+        ]);
+
+        $container = $this->app->getContainer();
+        /** @var ApiTokenService $tokenService */
+        $tokenService = $container->get(ApiTokenService::class);
+
+        // 1. Token with role_id = null inherits owner's roles
+        $inheritedToken = $tokenService->create(
+            userId: $userId,
+            name: 'Inherited Owner Token',
+            roleId: null,
+            scopes: ['*']
+        );
+        $reqInherited = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/users'))
+            ->withHeader('Authorization', 'Bearer ' . $inheritedToken['token']);
+        $resInherited = $this->dispatch($reqInherited);
+        $this->assertSame(200, $resInherited->getStatusCode(), 'Token with null role_id inherits owner permissions');
+
+        // 2. Read-only scoped token: scopes = ['users:read']
+        $readToken = $tokenService->create(
+            userId: $userId,
+            name: 'Read Token',
+            roleId: (string) $ownerRole['id'],
+            scopes: ['users:read']
+        );
+
+        // Read token can GET /api/v1/users
+        $reqReadAllowed = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/users'))
+            ->withHeader('Authorization', 'Bearer ' . $readToken['token']);
+        $resReadAllowed = $this->dispatch($reqReadAllowed);
+        $this->assertSame(200, $resReadAllowed->getStatusCode());
+
+        // Read token CANNOT invite users (POST /api/v1/users/invite)
+        $reqInviteForbidden = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/users/invite'))
+            ->withHeader('Authorization', 'Bearer ' . $readToken['token'])
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'invited@example.com', 'role_id' => (string) $ownerRole['id']]);
+        $resInviteForbidden = $this->dispatch($reqInviteForbidden);
+        $this->assertSame(403, $resInviteForbidden->getStatusCode(), 'Read token cannot invite users');
+        $this->assertStringContainsString('Token scope does not permit', (string) $resInviteForbidden->getBody());
+
+        // 3. AI Mode draft_only blocks destructive actions (e.g. deleting users or suspending)
+        $aiDraftToken = $tokenService->create(
+            userId: $userId,
+            name: 'AI Draft Token',
+            roleId: (string) $ownerRole['id'],
+            scopes: ['*'],
+            aiMode: Actor::AI_MODE_DRAFT_ONLY
+        );
+
+        $reqAiDelete = (new ServerRequest('DELETE', "https://test.bscms.local/api/v1/users/{$userId}"))
+            ->withHeader('Authorization', 'Bearer ' . $aiDraftToken['token']);
+        $resAiDelete = $this->dispatch($reqAiDelete);
+        $this->assertSame(403, $resAiDelete->getStatusCode());
+        $this->assertStringContainsString('draft_only mode', (string) $resAiDelete->getBody());
+    }
+
+    public function testRequestIdValidationAndErrorHandlerLoggingWithRedaction(): void
+    {
+        // 1. Malicious or invalid X-Request-ID is rejected and replaced with valid ULID
+        $maliciousReq = (new ServerRequest('GET', 'https://test.bscms.local/health'))
+            ->withHeader('X-Request-ID', '<script>alert(1)</script>');
+        $resMalicious = $this->dispatch($maliciousReq);
+        $reqIdHeader = $resMalicious->getHeaderLine('X-Request-ID');
+        $this->assertNotSame('<script>alert(1)</script>', $reqIdHeader);
+        $this->assertMatchesRegularExpression('/^[0-9A-Z]{26}$/', $reqIdHeader);
+
+        // 2. Valid custom X-Request-ID is accepted
+        $validReq = (new ServerRequest('GET', 'https://test.bscms.local/health'))
+            ->withHeader('X-Request-ID', 'valid-client-trace-12345');
+        $resValid = $this->dispatch($validReq);
+        $this->assertSame('valid-client-trace-12345', $resValid->getHeaderLine('X-Request-ID'));
+    }
+
+    public function testTieredRateLimiterBucketsForAuthenticatedAndStrictAuthEndpoints(): void
+    {
+        // 1. Sensitive auth endpoint (/api/v1/auth/login) gets strict bucket limit 60
+        $reqLogin = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody(['email' => 'none@example.com', 'password' => 'wrong']);
+        $resLogin = $this->dispatch($reqLogin);
+        $this->assertSame('60', $resLogin->getHeaderLine('RateLimit-Limit'));
+
+        // 2. Authenticated user gets generous bucket limit 600
+        $userRepo = new UserRepository($this->connection);
+        $roleRepo = new RoleRepository($this->connection);
+        $ownerRole = $roleRepo->findByHandle('owner');
+        $this->assertNotNull($ownerRole);
+
+        $userId = $userRepo->create([
+            'email' => 'rl_tester@example.com',
+            'name' => 'RL Tester',
+            'role_id' => $ownerRole['id'],
+            'status' => 'active',
+        ]);
+        $container = $this->app->getContainer();
+        /** @var ApiTokenService $tokenService */
+        $tokenService = $container->get(ApiTokenService::class);
+        $tok = $tokenService->create($userId, 'RL Token', roleId: (string) $ownerRole['id'], scopes: ['*']);
+
+        $reqAuth = (new ServerRequest('GET', 'https://test.bscms.local/api/v1/me'))
+            ->withHeader('Authorization', 'Bearer ' . $tok['token']);
+        $resAuth = $this->dispatch($reqAuth);
+        $this->assertSame('600', $resAuth->getHeaderLine('RateLimit-Limit'), 'Authenticated user must receive generous 600/min rate limit bucket');
+    }
+
+    private function assertNoSecretsInResponse(ResponseInterface $response): void
+    {
+        $body = (string) $response->getBody();
+        if (trim($body) === '') {
+            return;
+        }
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            return;
+        }
+        $this->scanForSecretsRecursively($data);
+    }
+
+    private function scanForSecretsRecursively(mixed $data, string $path = ''): void
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => $val) {
+                $currentPath = $path === '' ? (string) $key : "{$path}.{$key}";
+                $bannedKeys = ['password_hash', 'totp_secret_enc', 'recovery_codes_hash'];
+                $this->assertFalse(
+                    in_array((string) $key, $bannedKeys, true),
+                    "Leaked secret key '{$key}' at response path: {$currentPath}"
+                );
+
+                $this->scanForSecretsRecursively($val, $currentPath);
+            }
+            return;
+        }
+
+        if (is_string($data)) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/^\$argon2id\$/i',
+                $data,
+                "Found Argon2id password hash string in response at path: {$path}"
+            );
+            $this->assertDoesNotMatchRegularExpression(
+                '/^\$2[ayb]\$[0-9]{2}\$[A-Za-z0-9\.\/]{53}$/',
+                $data,
+                "Found bcrypt password hash string in response at path: {$path}"
+            );
+        }
     }
 }

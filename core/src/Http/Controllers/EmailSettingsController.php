@@ -83,13 +83,22 @@ class EmailSettingsController extends BaseController
             'password' => !empty($body['password']) ? (string) $body['password'] : ($current['password'] ?? ''),
         ];
 
-        $this->saveEmailConfig($updated, $this->getActor($request)->id);
+        $actor = $this->getActor($request);
+        $this->saveEmailConfig($updated, $actor->id);
+
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
 
         $this->auditLogger->record(
-            $this->getActor($request),
-            'settings.email_updated',
-            new Subject('settings', 'email'),
-            "Updated email configuration (provider: {$updated['provider']})"
+            actor: $actor,
+            action: 'settings.email_updated',
+            subject: new Subject('settings', 'email'),
+            summary: "Updated email configuration (provider: {$updated['provider']})",
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent
         );
 
         return $this->json(['status' => 'settings_updated']);

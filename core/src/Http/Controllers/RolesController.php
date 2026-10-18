@@ -66,11 +66,20 @@ class RolesController extends BaseController
                 'is_ai' => isset($body['is_ai']) ? (int) $body['is_ai'] : 0,
             ], $permissions);
 
+            $serverParams = $request->getServerParams();
+            $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+            $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+            $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
             $this->auditLogger->record(
-                $this->getActor($request),
-                'role.created',
-                new Subject('role', $id),
-                "Created role '{$name}' ({$handle})"
+                actor: $this->getActor($request),
+                action: 'role.created',
+                subject: new Subject('role', $id),
+                summary: "Created role '{$name}' ({$handle})",
+                requestId: $requestId,
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $id
             );
 
             return $this->json(['status' => 'created', 'id' => $id], 201);
@@ -112,12 +121,21 @@ class RolesController extends BaseController
         try {
             $this->roles->update($id, $body);
 
+            $serverParams = $request->getServerParams();
+            $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+            $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+            $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
             $this->auditLogger->record(
-                $this->getActor($request),
-                'role.updated',
-                new Subject('role', $id),
-                "Updated role '{$id}'",
-                $body
+                actor: $this->getActor($request),
+                action: 'role.updated',
+                subject: new Subject('role', $id),
+                summary: "Updated role '{$id}'",
+                diff: $body,
+                requestId: $requestId,
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $id
             );
 
             return $this->json(['status' => 'updated']);
@@ -142,11 +160,20 @@ class RolesController extends BaseController
         try {
             $this->roles->delete($id);
 
+            $serverParams = $request->getServerParams();
+            $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+            $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+            $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
             $this->auditLogger->record(
-                $this->getActor($request),
-                'role.deleted',
-                new Subject('role', $id),
-                "Deleted role '{$id}'"
+                actor: $this->getActor($request),
+                action: 'role.deleted',
+                subject: new Subject('role', $id),
+                summary: "Deleted role '{$id}'",
+                requestId: $requestId,
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $id
             );
 
             return $this->json(['status' => 'deleted']);
@@ -175,11 +202,20 @@ class RolesController extends BaseController
         try {
             $this->roles->setPermissions($id, $permissions);
 
+            $serverParams = $request->getServerParams();
+            $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+            $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+            $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
             $this->auditLogger->record(
-                $this->getActor($request),
-                'role.permissions_updated',
-                new Subject('role', $id),
-                "Updated permissions for role '{$id}'"
+                actor: $this->getActor($request),
+                action: 'role.permissions_updated',
+                subject: new Subject('role', $id),
+                summary: "Updated permissions for role '{$id}'",
+                requestId: $requestId,
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $id
             );
 
             return $this->json(['status' => 'permissions_updated']);
@@ -213,11 +249,20 @@ class RolesController extends BaseController
         try {
             $newId = $this->roles->clone($sourceId, $handle, $name, $description);
 
+            $serverParams = $request->getServerParams();
+            $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+            $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+            $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
             $this->auditLogger->record(
-                $this->getActor($request),
-                'role.cloned',
-                new Subject('role', $newId),
-                "Cloned role '{$sourceId}' to '{$newId}' ({$handle})"
+                actor: $this->getActor($request),
+                action: 'role.cloned',
+                subject: new Subject('role', $newId),
+                summary: "Cloned role '{$sourceId}' to '{$newId}' ({$handle})",
+                requestId: $requestId,
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $newId
             );
 
             return $this->json(['status' => 'cloned', 'id' => $newId], 201);

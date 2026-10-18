@@ -53,14 +53,13 @@ final class LoginService
             $this->hasher->dummyVerify();
 
             $this->auditLogger->record(
-                Actor::system(),
-                'auth.login_failed',
-                new Subject('auth', 'login'),
-                "Login attempt for non-existent email '{$email}'",
-                null,
-                'failure',
-                $ip,
-                $userAgent
+                actor: Actor::system(),
+                action: 'auth.login_failed',
+                subject: new Subject('auth', 'login'),
+                summary: "Login attempt for non-existent email '{$email}'",
+                result: 'failure',
+                ip: $ip,
+                userAgent: $userAgent
             );
 
             return [
@@ -113,14 +112,14 @@ final class LoginService
             ]);
 
             $this->auditLogger->record(
-                Actor::system(),
-                'auth.login_failed',
-                new Subject('user', (string) $user['id']),
-                "Failed password verification for user '{$user['email']}' (attempt {$failedLogins})",
-                null,
-                'failure',
-                $ip,
-                $userAgent
+                actor: Actor::system(),
+                action: 'auth.login_failed',
+                subject: new Subject('user', (string) $user['id']),
+                summary: "Failed password verification for user '{$user['email']}' (attempt {$failedLogins})",
+                result: 'failure',
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: (string) $user['id']
             );
 
             return [
@@ -209,14 +208,14 @@ final class LoginService
 
         if (!$totpPassed && !$recoveryUsed) {
             $this->auditLogger->record(
-                Actor::system(),
-                'auth.2fa_failed',
-                new Subject('user', (string) $user['id']),
-                "Failed 2FA code verification for user '{$user['email']}'",
-                null,
-                'failure',
-                $ip,
-                $userAgent
+                actor: Actor::system(),
+                action: 'auth.2fa_failed',
+                subject: new Subject('user', (string) $user['id']),
+                summary: "Failed 2FA code verification for user '{$user['email']}'",
+                result: 'failure',
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: (string) $user['id']
             );
 
             return [
@@ -258,14 +257,14 @@ final class LoginService
 
         // Audit log
         $this->auditLogger->record(
-            Actor::user($userId, (string) $user['email']),
-            'auth.login',
-            new Subject('user', $userId),
-            "User signed in" . ($mfaPassed ? ' with 2FA' : ''),
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId, (string) $user['email']),
+            action: 'auth.login',
+            subject: new Subject('user', $userId),
+            summary: "User signed in" . ($mfaPassed ? ' with 2FA' : ''),
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
 
         // If login is from a new IP and mailer is available, send new login notification
@@ -306,16 +305,16 @@ final class LoginService
     {
         $token = bin2hex(random_bytes(32));
         $hash = hash('sha256', $token);
-        $expires = Clock::sql(Clock::now()->modify('+5 minutes'));
+        $bucket = "2fa:{$hash}:{$userId}";
         $now = Clock::sql(Clock::now());
 
         $rateTable = $this->connection->prefixTable('rate_limits');
         $stmt = $this->connection->getPdo()->prepare(
-            "INSERT INTO `{$rateTable}` (`rate_key`, `hits`, `window_start`, `expires_at`)
-             VALUES (?, 1, UNIX_TIMESTAMP(), ?)
-             ON DUPLICATE KEY UPDATE `rate_key` = VALUES(`rate_key`)"
+            "INSERT INTO `{$rateTable}` (`bucket`, `window_start`, `hits`)
+             VALUES (?, ?, 1)
+             ON DUPLICATE KEY UPDATE `hits` = 1"
         );
-        $stmt->execute(["2fa:{$hash}:{$userId}", $expires]);
+        $stmt->execute([$bucket, $now]);
 
         return $token . '.' . $userId;
     }
@@ -332,13 +331,14 @@ final class LoginService
 
         [$token, $userId] = $parts;
         $hash = hash('sha256', $token);
-        $key = "2fa:{$hash}:{$userId}";
+        $bucket = "2fa:{$hash}:{$userId}";
 
         $rateTable = $this->connection->prefixTable('rate_limits');
         $pdo = $this->connection->getPdo();
+        $cutoff = Clock::sql(Clock::now()->modify('-5 minutes'));
 
-        $stmt = $pdo->prepare("SELECT * FROM `{$rateTable}` WHERE `rate_key` = ? AND `expires_at` > ?");
-        $stmt->execute([$key, Clock::sql(Clock::now())]);
+        $stmt = $pdo->prepare("SELECT `bucket` FROM `{$rateTable}` WHERE `bucket` = ? AND `window_start` >= ?");
+        $stmt->execute([$bucket, $cutoff]);
         $row = $stmt->fetch();
 
         if ($row === false) {
@@ -346,8 +346,8 @@ final class LoginService
         }
 
         // Consume single-use challenge
-        $del = $pdo->prepare("DELETE FROM `{$rateTable}` WHERE `rate_key` = ?");
-        $del->execute([$key]);
+        $del = $pdo->prepare("DELETE FROM `{$rateTable}` WHERE `bucket` = ?");
+        $del->execute([$bucket]);
 
         return $userId;
     }

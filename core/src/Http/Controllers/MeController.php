@@ -17,6 +17,7 @@ use BsCms\Database\Connection;
 use BsCms\Security\Crypto;
 use BsCms\Support\Clock;
 use BsCms\Support\Json;
+use BsCms\Users\UserPresenter;
 use BsCms\Users\UserRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -55,18 +56,7 @@ class MeController extends BaseController
             return $this->problem(404, 'Not Found', 'User profile not found.');
         }
 
-        return $this->json([
-            'id' => $user['id'],
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'avatar_media_id' => $user['avatar_media_id'],
-            'locale' => $user['locale'],
-            'timezone' => $user['timezone'],
-            'status' => $user['status'],
-            'two_factor_enabled' => !empty($user['totp_enabled_at']),
-            'roles' => $user['roles'] ?? [],
-            'created_at' => $user['created_at'],
-        ]);
+        return $this->json(UserPresenter::present($user));
     }
 
     public function updateProfile(ServerRequestInterface $request): ResponseInterface
@@ -94,12 +84,21 @@ class MeController extends BaseController
 
         $this->users->update($actor->id, $updates);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'user.updated',
-            new Subject('user', $actor->id),
-            'Updated profile details',
-            $updates
+            actor: $actor,
+            action: 'user.updated',
+            subject: new Subject('user', $actor->id),
+            summary: 'Updated profile details',
+            diff: $updates,
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $actor->id
         );
 
         return $this->json(['status' => 'profile_updated']);
@@ -145,11 +144,20 @@ class MeController extends BaseController
         $currentSessionId = $session !== null && isset($session['id']) ? (string) $session['id'] : null;
         $this->sessions->revokeAllForUser($actor->id, $currentSessionId);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'auth.password_changed',
-            new Subject('user', $actor->id),
-            'Changed account password'
+            actor: $actor,
+            action: 'auth.password_changed',
+            subject: new Subject('user', $actor->id),
+            summary: 'Changed account password',
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $actor->id
         );
 
         return $this->json(['status' => 'password_changed']);
@@ -201,6 +209,13 @@ class MeController extends BaseController
         $secret = $this->twoFactor->generateSecret();
         $uri = $this->twoFactor->getTotpUri($secret, (string) $user['email']);
 
+        // Store pending secret server-side (encrypted) with totp_enabled_at = null
+        $storedSecret = $this->crypto !== null ? $this->twoFactor->encryptSecret($secret, $this->crypto) : $secret;
+        $this->users->update($actor->id, [
+            'totp_secret_enc' => $storedSecret,
+            'totp_enabled_at' => null,
+        ]);
+
         return $this->json([
             'secret' => $secret,
             'otpauth_uri' => $uri,
@@ -215,12 +230,32 @@ class MeController extends BaseController
         }
 
         $actor = $this->getActor($request);
+        $user = $this->users->findById($actor->id);
+        if ($user === null) {
+            return $this->problem(404, 'Not Found', 'User not found.');
+        }
+
         $body = $this->getBody($request);
-        $secret = (string) ($body['secret'] ?? '');
         $code = (string) ($body['code'] ?? '');
 
-        if ($secret === '' || $code === '') {
-            return $this->problem(422, 'Unprocessable Content', 'Secret and verification code are required.');
+        if ($code === '') {
+            return $this->problem(422, 'Unprocessable Content', 'Verification code is required.');
+        }
+
+        // Retrieve pending secret from server-side storage (or fallback to body['secret'] if sent)
+        $rawSecret = (string) ($user['totp_secret_enc'] ?? '');
+        if ($rawSecret === '' && isset($body['secret']) && is_string($body['secret'])) {
+            $rawSecret = $body['secret'];
+        }
+
+        if ($rawSecret === '') {
+            return $this->problem(400, 'Bad Request', 'No pending 2FA setup found. Please initiate 2FA setup first.');
+        }
+
+        try {
+            $secret = $this->crypto !== null ? $this->twoFactor->decryptSecret($rawSecret, $this->crypto) : $rawSecret;
+        } catch (\Throwable) {
+            $secret = $rawSecret;
         }
 
         $step = $this->twoFactor->verifyCode($secret, $code);
@@ -231,22 +266,28 @@ class MeController extends BaseController
         // Generate 10 recovery codes
         $rec = new RecoveryCodes();
         $recovery = $rec->generate(10);
-
-        // Encrypt secret for storage
-        $storedSecret = $this->crypto !== null ? $this->twoFactor->encryptSecret($secret, $this->crypto) : $secret;
         $now = Clock::sql(Clock::now());
 
         $this->users->update($actor->id, [
-            'totp_secret_enc' => $storedSecret,
+            'totp_secret_enc' => $rawSecret,
             'totp_enabled_at' => $now,
             'recovery_codes_hash' => $recovery['hashes'],
         ]);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'auth.2fa_enabled',
-            new Subject('user', $actor->id),
-            'Enabled two-factor authentication'
+            actor: $actor,
+            action: 'auth.2fa_enabled',
+            subject: new Subject('user', $actor->id),
+            summary: 'Enabled two-factor authentication',
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $actor->id
         );
 
         return $this->json([
@@ -275,11 +316,20 @@ class MeController extends BaseController
             'recovery_codes_hash' => null,
         ]);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'auth.2fa_disabled',
-            new Subject('user', $actor->id),
-            'Disabled two-factor authentication'
+            actor: $actor,
+            action: 'auth.2fa_disabled',
+            subject: new Subject('user', $actor->id),
+            summary: 'Disabled two-factor authentication',
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $actor->id
         );
 
         return $this->json(['status' => '2fa_disabled']);
@@ -311,11 +361,20 @@ class MeController extends BaseController
             'recovery_codes_hash' => $generated['hashes'],
         ]);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'auth.recovery_codes_regenerated',
-            new Subject('user', $actor->id),
-            'Regenerated 2FA recovery codes'
+            actor: $actor,
+            action: 'auth.recovery_codes_regenerated',
+            subject: new Subject('user', $actor->id),
+            summary: 'Regenerated 2FA recovery codes',
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $actor->id
         );
 
         return $this->json([

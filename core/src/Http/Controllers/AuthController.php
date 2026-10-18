@@ -15,6 +15,7 @@ use BsCms\Auth\TwoFactorService;
 use BsCms\Database\Connection;
 use BsCms\Support\Clock;
 use BsCms\Support\Json;
+use BsCms\Users\UserPresenter;
 use BsCms\Users\UserRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -81,12 +82,7 @@ class AuthController extends BaseController
 
         return $this->json([
             'status' => 'success',
-            'user' => [
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'name' => $user['name'],
-                'roles' => $user['roles'] ?? [],
-            ],
+            'user' => UserPresenter::present($user),
             'csrf_token' => $session['csrf_token'],
         ], 200, ['Set-Cookie' => $cookieHeader]);
     }
@@ -118,12 +114,7 @@ class AuthController extends BaseController
 
         return $this->json([
             'status' => 'success',
-            'user' => [
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'name' => $user['name'],
-                'roles' => $user['roles'] ?? [],
-            ],
+            'user' => UserPresenter::present($user),
             'csrf_token' => $session['csrf_token'],
         ], 200, ['Set-Cookie' => $cookieHeader]);
     }
@@ -176,13 +167,7 @@ class AuthController extends BaseController
 
         return $this->json([
             'status' => 'authenticated',
-            'user' => [
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'name' => $user['name'],
-                'roles' => $user['roles'] ?? [],
-                'two_factor_enabled' => !empty($user['totp_enabled_at']),
-            ],
+            'user' => UserPresenter::present($user),
             'csrf_token' => $session['csrf_secret'] ?? '',
         ]);
     }

@@ -78,65 +78,71 @@ final class RateLimiter
     /**
      * Attempt an action for a key.
      *
+    /**
+     * Attempt an action for a key.
+     *
      * @return array{allowed: bool, remaining: int, limit: int, reset: int, retry_after: int}
      */
-    public function hit(string $key): array
+    public function hit(string $key, ?int $maxAttempts = null, ?int $windowSeconds = null): array
     {
+        $limit = $maxAttempts !== null ? max(1, $maxAttempts) : $this->maxAttempts;
+        $window = $windowSeconds !== null ? max(1, $windowSeconds) : $this->windowSeconds;
+
         // 1. APCu driver if available
         if (extension_loaded('apcu') && (php_sapi_name() !== 'cli' || (bool) ini_get('apc.enable_cli'))) {
-            return $this->hitApcu($key);
+            return $this->hitApcu($key, $limit, $window);
         }
 
         // 2. Database driver if connection provided
         if ($this->connection !== null) {
             try {
-                return $this->hitDatabase($key);
+                return $this->hitDatabase($key, $limit, $window);
             } catch (Throwable $e) {
                 // Fall back to memory store on DB error
             }
         }
 
         // 3. Fallback to in-memory store
-        return $this->hitMemory($key);
+        return $this->hitMemory($key, $limit, $window);
     }
 
     /**
      * @return array{allowed: bool, remaining: int, limit: int, reset: int, retry_after: int}
      */
-    private function hitApcu(string $key): array
+    private function hitApcu(string $key, int $limit, int $window): array
     {
         $now = Clock::timestamp();
         $apcuKey = "bs_rl:{$key}";
         $resetKey = "bs_rl_reset:{$key}";
 
         $success = false;
-        $currentHits = (int) apcu_inc($apcuKey, 1, $success, $this->windowSeconds);
+        $currentHits = (int) apcu_inc($apcuKey, 1, $success, $window);
 
         if (!$success || $currentHits === 1) {
-            $resetAt = $now + $this->windowSeconds;
-            apcu_store($resetKey, $resetAt, $this->windowSeconds);
+            $resetAt = $now + $window;
+            apcu_store($resetKey, $resetAt, $window);
         } else {
             /** @var int $storedReset */
             $storedReset = apcu_fetch($resetKey);
-            $resetAt = $storedReset > 0 ? $storedReset : ($now + $this->windowSeconds);
+            $resetAt = $storedReset > 0 ? $storedReset : ($now + $window);
         }
 
-        if ($currentHits > $this->maxAttempts) {
+        if ($currentHits > $limit) {
             $retryAfter = max(1, $resetAt - $now);
             return [
                 'allowed' => false,
                 'remaining' => 0,
-                'limit' => $this->maxAttempts,
+                'limit' => $limit,
                 'reset' => $resetAt,
                 'retry_after' => $retryAfter,
             ];
         }
 
-        $remaining = max(0, $this->maxAttempts - $currentHits);
+        $remaining = max(0, $limit - $currentHits);
         return [
             'allowed' => true,
             'remaining' => $remaining,
-            'limit' => $this->maxAttempts,
+            'limit' => $limit,
             'reset' => $resetAt,
             'retry_after' => 0,
         ];
@@ -145,7 +151,7 @@ final class RateLimiter
     /**
      * @return array{allowed: bool, remaining: int, limit: int, reset: int, retry_after: int}
      */
-    private function hitDatabase(string $key): array
+    private function hitDatabase(string $key, int $limit, int $window): array
     {
         if ($this->connection instanceof \Closure) {
             try {
@@ -159,13 +165,13 @@ final class RateLimiter
         $table = $this->connection?->prefixTable('rate_limits') ?? 'bs_rate_limits';
         $pdo = $this->connection?->getPdo();
         if ($pdo === null) {
-            return $this->hitMemory($key);
+            return $this->hitMemory($key, $limit, $window);
         }
 
         // Align window to nearest window boundary
-        $windowStartTs = $now - ($now % $this->windowSeconds);
+        $windowStartTs = $now - ($now % $window);
         $windowStart = date('Y-m-d H:i:s', $windowStartTs);
-        $resetAt = $windowStartTs + $this->windowSeconds;
+        $resetAt = $windowStartTs + $window;
 
         // Upsert hits atomically
         $sql = "INSERT INTO `{$table}` (`bucket`, `window_start`, `hits`)
@@ -179,22 +185,22 @@ final class RateLimiter
         $fetchStmt->execute([$key, $windowStart]);
         $currentHits = (int) $fetchStmt->fetchColumn();
 
-        if ($currentHits > $this->maxAttempts) {
+        if ($currentHits > $limit) {
             $retryAfter = max(1, $resetAt - $now);
             return [
                 'allowed' => false,
                 'remaining' => 0,
-                'limit' => $this->maxAttempts,
+                'limit' => $limit,
                 'reset' => $resetAt,
                 'retry_after' => $retryAfter,
             ];
         }
 
-        $remaining = max(0, $this->maxAttempts - $currentHits);
+        $remaining = max(0, $limit - $currentHits);
         return [
             'allowed' => true,
             'remaining' => $remaining,
-            'limit' => $this->maxAttempts,
+            'limit' => $limit,
             'reset' => $resetAt,
             'retry_after' => 0,
         ];
@@ -203,13 +209,13 @@ final class RateLimiter
     /**
      * @return array{allowed: bool, remaining: int, limit: int, reset: int, retry_after: int}
      */
-    private function hitMemory(string $key): array
+    private function hitMemory(string $key, int $limit, int $window): array
     {
         $now = Clock::timestamp();
         $record = self::$memoryStore[$key] ?? null;
 
         if ($record === null || $record['reset_at'] <= $now) {
-            $resetAt = $now + $this->windowSeconds;
+            $resetAt = $now + $window;
             self::$memoryStore[$key] = [
                 'count' => 1,
                 'reset_at' => $resetAt,
@@ -217,31 +223,31 @@ final class RateLimiter
 
             return [
                 'allowed' => true,
-                'remaining' => $this->maxAttempts - 1,
-                'limit' => $this->maxAttempts,
+                'remaining' => $limit - 1,
+                'limit' => $limit,
                 'reset' => $resetAt,
                 'retry_after' => 0,
             ];
         }
 
-        if ($record['count'] >= $this->maxAttempts) {
+        if ($record['count'] >= $limit) {
             $retryAfter = max(1, $record['reset_at'] - $now);
             return [
                 'allowed' => false,
                 'remaining' => 0,
-                'limit' => $this->maxAttempts,
+                'limit' => $limit,
                 'reset' => $record['reset_at'],
                 'retry_after' => $retryAfter,
             ];
         }
 
         ++self::$memoryStore[$key]['count'];
-        $remaining = max(0, $this->maxAttempts - self::$memoryStore[$key]['count']);
+        $remaining = max(0, $limit - self::$memoryStore[$key]['count']);
 
         return [
             'allowed' => true,
             'remaining' => $remaining,
-            'limit' => $this->maxAttempts,
+            'limit' => $limit,
             'reset' => $record['reset_at'],
             'retry_after' => 0,
         ];

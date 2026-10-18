@@ -156,7 +156,8 @@ jobs:
           LOGIN_RESP=$(curl -s -i -X POST http://127.0.0.1:8888/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"bad"}')
           echo "$LOGIN_RESP"
           echo "$LOGIN_RESP" | grep -q "401 Unauthorized"
-          echo "$LOGIN_RESP" | grep -q "Email or password is incorrect"
+          # 6. Execute full live HTTP test suite covering all Phase 2 defects
+          php "$GITHUB_WORKSPACE/tools/test-release-http.php" http://127.0.0.1:8888 /tmp/bs-cms-test/core
 
           kill $SERVER_PID
 

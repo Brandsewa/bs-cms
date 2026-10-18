@@ -99,14 +99,14 @@ final class EmailVerificationService
         $this->mailer->send($message, true);
 
         $this->auditLogger->record(
-            Actor::user($userId, (string) $user['email']),
-            'auth.verification_sent',
-            new Subject('user', $userId),
-            "Sent verification token to '{$targetEmail}'",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId, (string) $user['email']),
+            action: 'auth.verification_sent',
+            subject: new Subject('user', $userId),
+            summary: "Sent verification token to '{$targetEmail}'",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
 
         return $rawToken;
@@ -182,14 +182,14 @@ final class EmailVerificationService
         $upStmt->execute([$now, $row['id']]);
 
         $this->auditLogger->record(
-            Actor::user($userId, $newEmail ?? $oldEmail),
-            'auth.email_verified',
-            new Subject('user', $userId),
-            "Email verified for user '{$userId}'",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId, $newEmail ?? $oldEmail),
+            action: 'auth.email_verified',
+            subject: new Subject('user', $userId),
+            summary: "Email verified for user '{$userId}'",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
 
         return true;

@@ -88,14 +88,14 @@ final class PasswordResetService
         $this->mailer->send($message, true);
 
         $this->auditLogger->record(
-            Actor::system(),
-            'auth.password_reset_requested',
-            new Subject('user', $userId),
-            "Password reset link requested for '{$user['email']}'",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::system(),
+            action: 'auth.password_reset_requested',
+            subject: new Subject('user', $userId),
+            summary: "Password reset link requested for '{$user['email']}'",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
     }
 
@@ -162,14 +162,14 @@ final class PasswordResetService
         $this->sessions->revokeAllForUser($userId);
 
         $this->auditLogger->record(
-            Actor::user($userId, (string) $user['email']),
-            'auth.password_reset',
-            new Subject('user', $userId),
-            "Password successfully reset via token",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId, (string) $user['email']),
+            action: 'auth.password_reset',
+            subject: new Subject('user', $userId),
+            summary: "Password successfully reset via token",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
 
         return true;

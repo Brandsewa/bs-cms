@@ -33,7 +33,23 @@ final class RateLimitMiddleware implements MiddlewareInterface
         }
 
         $clientIp = $this->limiter->resolveClientIp($request->getServerParams(), $headers);
-        $result = $this->limiter->hit("req:{$clientIp}");
+        $actor = $request->getAttribute('actor');
+        $isAuthenticated = ($actor instanceof \BsCms\Auth\Actor) && $actor->type !== \BsCms\Auth\Actor::TYPE_ANONYMOUS;
+
+        if ($isAuthenticated) {
+            // Generous authenticated bucket: 600 requests / 60 seconds
+            $bucketKey = "auth:{$actor->id}";
+            $result = $this->limiter->hit($bucketKey, 600, 60);
+        } else {
+            // Unauthenticated routes: strict bucket for sensitive auth/oauth endpoints, standard for others
+            if (preg_match('#^/api/v1/auth/(login|password/forgot|password/reset|invitations|2fa/challenge)#', $path) || preg_match('#^/oauth/#', $path)) {
+                $bucketKey = "strict:{$clientIp}";
+                $result = $this->limiter->hit($bucketKey, 60, 60);
+            } else {
+                $bucketKey = "req:{$clientIp}";
+                $result = $this->limiter->hit($bucketKey, 60, 60);
+            }
+        }
 
         if (!$result['allowed']) {
             $problem = ProblemDetails::tooManyRequests($result['retry_after'], $path);

@@ -370,16 +370,11 @@ final class InstallerController
         // Record audit entry for installation
         $auditLogger = new \BsCms\Audit\AuditLogger($conn);
         $auditLogger->record(
-            \BsCms\Auth\Actor::system(),
-            'user.created',
-            'user',
-            "Initial owner account created during installation: {$ownerEmail}",
-            null,
-            'success',
-            null,
-            null,
-            null,
-            $ownerId
+            actor: \BsCms\Auth\Actor::system(),
+            action: 'user.created',
+            subject: 'user',
+            summary: "Initial owner account created during installation: {$ownerEmail}",
+            subjectId: $ownerId
         );
 
         // 7. Write installed.lock

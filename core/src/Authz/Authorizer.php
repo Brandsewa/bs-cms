@@ -59,7 +59,24 @@ final class Authorizer
             }
         }
 
-        // 3. Compile permissions for actor's roles
+        // 3. Token Scope restrictions (if actor is an API token or has explicit scopes)
+        if ($actor->type === Actor::TYPE_API_TOKEN) {
+            $scopes = $actor->scopes;
+            if (!in_array('*', $scopes, true)) {
+                $scopeAllowed = false;
+                foreach ($scopes as $scope) {
+                    if ($this->matchesScope($scope, $action, $subject)) {
+                        $scopeAllowed = true;
+                        break;
+                    }
+                }
+                if (!$scopeAllowed) {
+                    return Decision::deny("Token scope does not permit action '{$action}' on '{$subject->type}'.");
+                }
+            }
+        }
+
+        // 4. Compile permissions for actor's roles
         if ($actor->roleIds === []) {
             return Decision::deny('Actor has no assigned roles (default deny).');
         }
@@ -261,5 +278,26 @@ final class Authorizer
         }
 
         return true;
+    }
+
+    private function matchesScope(string $scope, string $action, Subject $subject): bool
+    {
+        $scope = trim($scope);
+        if ($scope === '*' || $scope === '*:*') {
+            return true;
+        }
+
+        if (str_contains($scope, ':')) {
+            [$scopeSubject, $scopeAction] = explode(':', $scope, 2);
+            $subjectMatches = ($scopeSubject === '*' || $scopeSubject === $subject->type);
+            $actionMatches = ($scopeAction === '*' || $scopeAction === $action);
+            return $subjectMatches && $actionMatches;
+        }
+
+        if ($scope === $action || $scope === $subject->type) {
+            return true;
+        }
+
+        return false;
     }
 }

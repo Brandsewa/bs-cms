@@ -72,14 +72,14 @@ final class ApiTokenService
         ]);
 
         $this->auditLogger->record(
-            Actor::user($userId),
-            'token.created',
-            new Subject('api_token', $id),
-            "Created API token '{$name}' (prefix: {$prefix})",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId),
+            action: 'token.created',
+            subject: new Subject('api_token', $id),
+            summary: "Created API token '{$name}' (prefix: {$prefix})",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $id
         );
 
         return [
@@ -135,6 +135,40 @@ final class ApiTokenService
                     $row['scopes'] = Json::decode($row['scopes']) ?? [];
                 }
 
+                // Resolve owner's roles to determine effective permissions
+                $userRolesTable = $this->connection->prefixTable('user_roles');
+                $rolesTable = $this->connection->prefixTable('roles');
+                $urStmt = $this->connection->getPdo()->prepare(
+                    "SELECT ur.role_id, r.handle FROM `{$userRolesTable}` ur
+                     INNER JOIN `{$rolesTable}` r ON r.id = ur.role_id
+                     WHERE ur.user_id = ?"
+                );
+                $urStmt->execute([$row['user_id']]);
+                /** @var array<int, array{role_id: string, handle: string}> $userRoles */
+                $userRoles = $urStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                $userRoleIds = array_column($userRoles, 'role_id');
+                $isOwner = false;
+                foreach ($userRoles as $ur) {
+                    if ($ur['handle'] === 'owner') {
+                        $isOwner = true;
+                        break;
+                    }
+                }
+
+                if (!empty($row['role_id'])) {
+                    $tokenRoleId = (string) $row['role_id'];
+                    // Intersection: token role is effective if user possesses it or user is system owner
+                    if ($isOwner || in_array($tokenRoleId, $userRoleIds, true)) {
+                        $row['effective_role_ids'] = [$tokenRoleId];
+                    } else {
+                        $row['effective_role_ids'] = [];
+                    }
+                } else {
+                    // If token has no specific role assigned, fallback to owner's roles
+                    $row['effective_role_ids'] = $userRoleIds;
+                }
+
                 unset($row['token_hash']);
                 return $row;
             }
@@ -159,14 +193,14 @@ final class ApiTokenService
         $affected = $stmt->rowCount() > 0;
         if ($affected) {
             $this->auditLogger->record(
-                Actor::user($actorUserId),
-                'token.revoked',
-                new Subject('api_token', $tokenId),
-                "Revoked API token '{$tokenId}'",
-                null,
-                'success',
-                $ip,
-                $userAgent
+                actor: Actor::user($actorUserId),
+                action: 'token.revoked',
+                subject: new Subject('api_token', $tokenId),
+                summary: "Revoked API token '{$tokenId}'",
+                result: 'success',
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $tokenId
             );
         }
 

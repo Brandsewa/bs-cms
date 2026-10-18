@@ -115,14 +115,14 @@ final class InvitationService
         $this->mailer->send($message, true);
 
         $this->auditLogger->record(
-            Actor::user($invitedByUserId, $inviter !== null ? (string) $inviter['email'] : ''),
-            'user.invited',
-            new Subject('invitation', $id),
-            "Invited '{$cleanEmail}' with role '{$role['name']}'",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($invitedByUserId, $inviter !== null ? (string) $inviter['email'] : ''),
+            action: 'user.invited',
+            subject: new Subject('invitation', $id),
+            summary: "Invited '{$cleanEmail}' with role '{$role['name']}'",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $id
         );
 
         return $rawToken;
@@ -207,14 +207,14 @@ final class InvitationService
         $upStmt->execute([$now, $invite['id']]);
 
         $this->auditLogger->record(
-            Actor::user($userId, $email),
-            'invitation.accepted',
-            new Subject('user', $userId),
-            "User '{$email}' accepted invitation and created account",
-            null,
-            'success',
-            $ip,
-            $userAgent
+            actor: Actor::user($userId, $email),
+            action: 'invitation.accepted',
+            subject: new Subject('user', $userId),
+            summary: "User '{$email}' accepted invitation and created account",
+            result: 'success',
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $userId
         );
 
         return $userId;
@@ -236,14 +236,14 @@ final class InvitationService
         $affected = $stmt->rowCount() > 0;
         if ($affected) {
             $this->auditLogger->record(
-                Actor::user($actorUserId),
-                'invitation.revoked',
-                new Subject('invitation', $invitationId),
-                "Revoked invitation '{$invitationId}'",
-                null,
-                'success',
-                $ip,
-                $userAgent
+                actor: Actor::user($actorUserId),
+                action: 'invitation.revoked',
+                subject: new Subject('invitation', $invitationId),
+                summary: "Revoked invitation '{$invitationId}'",
+                result: 'success',
+                ip: $ip,
+                userAgent: $userAgent,
+                subjectId: $invitationId
             );
         }
 

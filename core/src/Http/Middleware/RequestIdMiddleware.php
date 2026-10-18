@@ -18,7 +18,11 @@ final class RequestIdMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $incomingId = $request->getHeaderLine('X-Request-ID');
-        $requestId = $incomingId !== '' ? $incomingId : Ulid::generate();
+        if ($incomingId !== '' && preg_match('/^[A-Za-z0-9-]{8,64}$/', $incomingId)) {
+            $requestId = $incomingId;
+        } else {
+            $requestId = Ulid::generate();
+        }
 
         $request = $request->withAttribute('request_id', $requestId);
         $response = $handler->handle($request);

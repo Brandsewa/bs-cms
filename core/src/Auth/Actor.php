@@ -23,6 +23,7 @@ final class Actor
 
     /**
      * @param list<string> $roleIds
+     * @param list<string> $scopes
      */
     public function __construct(
         public readonly string $type,
@@ -30,7 +31,8 @@ final class Actor
         public readonly string $label,
         public readonly ?string $onBehalfOf = null,
         public readonly array $roleIds = [],
-        public readonly ?string $aiMode = null
+        public readonly ?string $aiMode = null,
+        public readonly array $scopes = ['*']
     ) {
     }
 
@@ -42,7 +44,8 @@ final class Actor
             label: 'System Kernel',
             onBehalfOf: null,
             roleIds: [],
-            aiMode: null
+            aiMode: null,
+            scopes: ['*']
         );
     }
 
@@ -54,7 +57,8 @@ final class Actor
             label: 'Anonymous Visitor',
             onBehalfOf: null,
             roleIds: [],
-            aiMode: null
+            aiMode: null,
+            scopes: []
         );
     }
 
@@ -69,22 +73,31 @@ final class Actor
             label: $name !== '' ? $name : $id,
             onBehalfOf: $id,
             roleIds: $roleIds,
-            aiMode: null
+            aiMode: null,
+            scopes: ['*']
         );
     }
 
     /**
      * @param list<string> $roleIds
+     * @param list<string> $scopes
      */
-    public static function apiToken(string $id, string $name, string $userId, array $roleIds, string $aiMode = self::AI_MODE_DRAFT_ONLY): self
-    {
+    public static function apiToken(
+        string $id,
+        string $name,
+        string $userId,
+        array $roleIds,
+        string $aiMode = self::AI_MODE_DRAFT_ONLY,
+        array $scopes = ['*']
+    ): self {
         return new self(
             type: self::TYPE_API_TOKEN,
             id: $id,
             label: $name,
             onBehalfOf: $userId,
             roleIds: $roleIds,
-            aiMode: $aiMode
+            aiMode: $aiMode,
+            scopes: $scopes
         );
     }
 

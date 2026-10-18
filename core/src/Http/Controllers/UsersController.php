@@ -10,6 +10,7 @@ use BsCms\Auth\SessionManager;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Users\RoleRepository;
+use BsCms\Users\UserPresenter;
 use BsCms\Users\UserRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -53,6 +54,7 @@ class UsersController extends BaseController
         $cursor = isset($params['cursor']) && is_string($params['cursor']) ? $params['cursor'] : null;
 
         $result = $this->users->list($filters, $sort, $direction, $limit, $cursor);
+        $result['items'] = UserPresenter::presentCollection($result['items']);
 
         return $this->json($result);
     }
@@ -94,18 +96,7 @@ class UsersController extends BaseController
             return $this->problem(404, 'Not Found', 'User not found.');
         }
 
-        return $this->json([
-            'id' => $user['id'],
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'status' => $user['status'],
-            'avatar_media_id' => $user['avatar_media_id'],
-            'locale' => $user['locale'],
-            'timezone' => $user['timezone'],
-            'two_factor_enabled' => !empty($user['totp_enabled_at']),
-            'roles' => $user['roles'] ?? [],
-            'created_at' => $user['created_at'],
-        ]);
+        return $this->json(UserPresenter::present($user));
     }
 
     public function update(ServerRequestInterface $request): ResponseInterface
@@ -155,12 +146,21 @@ class UsersController extends BaseController
             $this->users->update($id, $updates);
         }
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $actor,
-            'user.updated',
-            new Subject('user', $id),
-            "Updated user {$user['email']}",
-            $body
+            actor: $actor,
+            action: 'user.updated',
+            subject: new Subject('user', $id),
+            summary: "Updated user {$user['email']}",
+            diff: $updates,
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $id
         );
 
         return $this->json(['status' => 'user_updated']);
@@ -186,11 +186,20 @@ class UsersController extends BaseController
         $this->users->suspend($id);
         $this->sessions->revokeAllForUser($id);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $this->getActor($request),
-            'user.suspended',
-            new Subject('user', $id),
-            "Suspended user {$user['email']}"
+            actor: $this->getActor($request),
+            action: 'user.suspended',
+            subject: new Subject('user', $id),
+            summary: "Suspended user {$user['email']}",
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $id
         );
 
         return $this->json(['status' => 'user_suspended']);
@@ -247,11 +256,20 @@ class UsersController extends BaseController
         $this->users->delete($id);
         $this->sessions->revokeAllForUser($id);
 
+        $serverParams = $request->getServerParams();
+        $ip = isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) ? $serverParams['REMOTE_ADDR'] : null;
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $requestId = (string) ($request->getAttribute('request_id') ?? '');
+
         $this->auditLogger->record(
-            $this->getActor($request),
-            'user.deleted',
-            new Subject('user', $id),
-            "Deleted user {$user['email']}"
+            actor: $this->getActor($request),
+            action: 'user.deleted',
+            subject: new Subject('user', $id),
+            summary: "Deleted user {$user['email']}",
+            requestId: $requestId,
+            ip: $ip,
+            userAgent: $userAgent,
+            subjectId: $id
         );
 
         return $this->json(['status' => 'user_deleted']);

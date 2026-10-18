@@ -106,24 +106,18 @@ $router = new Router($routes);
 
 // Build middleware pipeline
 $kernel = new Kernel($router, __DIR__ . '/admin/index.html');
-$kernel->addMiddleware(new ErrorHandlerMiddleware($env));
+$fileLogger = new \BsCms\Log\FileLogger($storageDir . '/logs/app.log');
+
+// 1. Request ID first so all subsequent middlewares and handlers have request_id
 $kernel->addMiddleware(new RequestIdMiddleware());
+$kernel->addMiddleware(new ErrorHandlerMiddleware($env, $fileLogger));
 $kernel->addMiddleware(new SecurityHeadersMiddleware());
 $kernel->addMiddleware(new HttpsEnforcerMiddleware($env));
 $kernel->addMiddleware(new MaintenanceModeMiddleware($storageDir));
 $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024));
 $kernel->addMiddleware(new JsonBodyMiddleware());
 
-$limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
-    try {
-        return $container->get(Connection::class);
-    } catch (\Throwable $e) {
-        return null;
-    }
-});
-$kernel->addMiddleware(new RateLimitMiddleware($limiter));
-
-// Phase 2 Auth Middleware pipeline: Session -> Authenticate -> CSRF
+// Phase 2 Auth Middleware pipeline: Session -> Authenticate -> RateLimit -> CSRF
 /** @var Connection $db */
 $db = $container->get(Connection::class);
 /** @var \BsCms\Auth\SessionManager $sessionManager */
@@ -133,6 +127,15 @@ $apiTokenService = $container->get(\BsCms\Auth\ApiTokenService::class);
 
 $kernel->addMiddleware(new \BsCms\Http\Middleware\SessionMiddleware($sessionManager, $db));
 $kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware($apiTokenService));
+
+$limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
+    try {
+        return $container->get(Connection::class);
+    } catch (\Throwable $e) {
+        return null;
+    }
+});
+$kernel->addMiddleware(new RateLimitMiddleware($limiter));
 
 $adminOrigin = (string) $config->get('app.url', '');
 $kernel->addMiddleware(new \BsCms\Http\Middleware\CsrfMiddleware($adminOrigin !== '' ? $adminOrigin : null));

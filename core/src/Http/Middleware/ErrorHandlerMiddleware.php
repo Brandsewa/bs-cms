@@ -33,12 +33,18 @@ final class ErrorHandlerMiddleware implements MiddlewareInterface
         try {
             return $handler->handle($request);
         } catch (Throwable $e) {
-            $requestId = (string) $request->getAttribute('request_id', 'unknown');
-            $this->logger?->error("Uncaught exception [{$requestId}]: {$e->getMessage()}", [
+            $requestId = (string) $request->getAttribute('request_id', '');
+            if ($requestId === '' || $requestId === 'unknown') {
+                $incoming = $request->getHeaderLine('X-Request-ID');
+                $requestId = ($incoming !== '' && preg_match('/^[A-Za-z0-9-]{8,64}$/', $incoming)) ? $incoming : \BsCms\Security\Ulid::generate();
+            }
+
+            $this->logger?->error("Uncaught exception [{$requestId}]: " . (string) \BsCms\Log\Redactor::redact($e->getMessage()), [
+                'request_id' => $requestId,
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
+                'trace' => \BsCms\Log\Redactor::redact($e->getTraceAsString()),
             ]);
 
             $debug = $this->env->isDebug();

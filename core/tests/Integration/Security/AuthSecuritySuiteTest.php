@@ -500,11 +500,11 @@ final class AuthSecuritySuiteTest extends TestCase
         ];
 
         $this->auditLogger->record(
-            \BsCms\Auth\Actor::system(),
-            'user.updated',
-            'user',
-            'Updated sensitive fields',
-            $sensitiveDiff
+            actor: \BsCms\Auth\Actor::system(),
+            action: 'user.updated',
+            subject: 'user',
+            summary: 'Updated sensitive fields',
+            diff: $sensitiveDiff
         );
 
         $stmt = $pdo->query("SELECT diff FROM `{$table}` ORDER BY id DESC LIMIT 1");
