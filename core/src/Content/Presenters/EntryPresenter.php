@@ -41,10 +41,14 @@ final class EntryPresenter
         $data = (array) ($entry['data'] ?? []);
         $fields = (array) ($collection['fields'] ?? []);
 
+        $converter = new \BsCms\Document\DocumentConverter();
         foreach ($fields as $handle => $def) {
             $h = (string) $handle;
             if (array_key_exists($h, $data)) {
                 $presented[$h] = $data[$h];
+                if (($def['type'] ?? '') === 'richtext' && is_array($data[$h])) {
+                    $presented[$h . '_markdown'] = $converter->documentToMarkdown($data[$h]);
+                }
             }
         }
 
@@ -83,10 +87,15 @@ final class EntryPresenter
         if (isset($sanitized['data']) && is_array($sanitized['data'])) {
             $data = $sanitized['data'];
             unset($sanitized['data']);
+            $converter = new \BsCms\Document\DocumentConverter();
+            $fields = (array) ($collection['fields'] ?? []);
             foreach ($data as $k => $v) {
                 // Do not overwrite core system metadata if colliding
                 if (!in_array($k, ['id', 'collection_id', 'locale', 'slug', 'title', 'status', 'parent_id', 'position', 'author_id', 'published_at', 'scheduled_at', 'seo', 'version', 'created_at', 'updated_at', 'deleted_at'], true)) {
                     $sanitized[$k] = $v;
+                    if (isset($fields[$k]) && ($fields[$k]['type'] ?? '') === 'richtext' && is_array($v)) {
+                        $sanitized[$k . '_markdown'] = $converter->documentToMarkdown($v);
+                    }
                 }
             }
         }

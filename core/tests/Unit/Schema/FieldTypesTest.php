@@ -51,7 +51,7 @@ final class FieldTypesTest extends TestCase
 
     public function testPhase4FieldTypesRefuseUsageWithExplicitError(): void
     {
-        $phase4Types = ['richtext', 'media', 'blocks'];
+        $phase4Types = ['blocks'];
         foreach ($phase4Types as $typeName) {
             $this->assertTrue($this->registry->has($typeName), "Registry must know {$typeName}");
             $type = $this->registry->get($typeName);
@@ -63,6 +63,60 @@ final class FieldTypesTest extends TestCase
                 "Field type {$typeName} must refuse with exact Phase 4 message"
             );
         }
+    }
+
+    public function testRichtextTypeValidationAndStorage(): void
+    {
+        $rich = new \BsCms\Schema\FieldTypes\RichtextType();
+        $this->assertSame('richtext', $rich->name());
+        $this->assertSame([], $rich->validateConfig(['profile' => 'article']));
+        $this->assertSame([], $rich->validateConfig(['profile' => 'minimal']));
+        $this->assertArrayHasKey('profile', $rich->validateConfig(['profile' => 'invalid_profile']));
+
+        // Accepts markdown
+        $this->assertSame([], $rich->validate("## Hello\n\nWorld", [], $this->dummyContext));
+        $normalized = $rich->normalize("## Hello\n\nWorld", []);
+        $this->assertIsArray($normalized);
+        $this->assertSame('doc', $normalized['type']);
+        $this->assertSame(1, $normalized['schema_version']);
+
+        // Accepts JSON string or document array
+        $doc = [
+            'type' => 'doc',
+            'content' => [
+                [
+                    'type' => 'paragraph',
+                    'content' => [
+                        ['type' => 'text', 'text' => 'Test paragraph'],
+                    ],
+                ],
+            ],
+        ];
+        $this->assertSame([], $rich->validate($doc, [], $this->dummyContext));
+        $this->assertSame([], $rich->validate(json_encode($doc), [], $this->dummyContext));
+    }
+
+    public function testMediaTypeValidationAndStorage(): void
+    {
+        $media = new \BsCms\Schema\FieldTypes\MediaType();
+        $this->assertSame('media', $media->name());
+        $this->assertSame([], $media->validateConfig(['allowed_types' => ['image', 'video'], 'multiple' => true]));
+        $this->assertArrayHasKey('multiple', $media->validateConfig(['multiple' => 'not-bool']));
+
+        $validUlid = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+        $invalidUlid = 'not-a-valid-ulid!';
+
+        // Single media
+        $this->assertSame([], $media->validate($validUlid, ['multiple' => false], $this->dummyContext));
+        $errs = $media->validate($invalidUlid, ['multiple' => false], $this->dummyContext);
+        $this->assertNotEmpty($errs);
+        $this->assertSame($validUlid, $media->normalize(strtolower($validUlid), ['multiple' => false]));
+
+        // Multiple media
+        $this->assertSame([], $media->validate([$validUlid], ['multiple' => true], $this->dummyContext));
+        $errsMult = $media->validate([$validUlid, $invalidUlid], ['multiple' => true], $this->dummyContext);
+        $this->assertNotEmpty($errsMult);
+        $this->assertSame([$validUlid], $media->normalize([strtolower($validUlid)], ['multiple' => true]));
     }
 
     public function testTaxonomyTypeValidationAndStorage(): void

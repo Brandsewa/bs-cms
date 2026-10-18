@@ -971,6 +971,12 @@ final class EntryRepository
             if (in_array($keyStr, $systemAllowed, true)) {
                 continue;
             }
+            if (str_ends_with($keyStr, '_markdown')) {
+                $baseKey = substr($keyStr, 0, -9);
+                if (isset($fields[$baseKey]) && ($fields[$baseKey]['type'] ?? '') === 'richtext') {
+                    continue;
+                }
+            }
             if (!isset($fields[$keyStr])) {
                 $validationErrors[$keyStr] = ["Unknown field '{$keyStr}' is not defined in collection '{$collection['handle']}'."];
             }
@@ -985,15 +991,24 @@ final class EntryRepository
             $isRequired = !empty($def['required']) || !empty($def['is_required']);
 
             $hasInput = array_key_exists($fHandle, $input);
+            $rawVal = $hasInput ? $input[$fHandle] : null;
+
+            if ($fTypeStr === 'richtext') {
+                $mdKey = $fHandle . '_markdown';
+                if (!$hasInput && array_key_exists($mdKey, $input)) {
+                    $hasInput = true;
+                    $rawVal = $input[$mdKey];
+                }
+            }
 
             // On create or full update (PUT): missing or empty required field is an error
-            if ((!$isUpdate || !$isPatch) && $isRequired && (!$hasInput || $input[$fHandle] === null || $input[$fHandle] === '')) {
+            if ((!$isUpdate || !$isPatch) && $isRequired && (!$hasInput || $rawVal === null || $rawVal === '')) {
                 $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
                 continue;
             }
 
             // On PATCH: if field is explicitly sent and set to null/empty when required, it is an error
-            if ($isUpdate && $isPatch && $isRequired && $hasInput && ($input[$fHandle] === null || $input[$fHandle] === '')) {
+            if ($isUpdate && $isPatch && $isRequired && $hasInput && ($rawVal === null || $rawVal === '')) {
                 $validationErrors[$fHandle] = ["Field '{$fHandle}' is required."];
                 continue;
             }
@@ -1001,8 +1016,6 @@ final class EntryRepository
             if (!$hasInput) {
                 continue;
             }
-
-            $rawVal = $input[$fHandle];
 
             // Field-type validation
             $vContext = new ValidationContext($input, $def, $collection, $entryId, $isUpdate);
@@ -1030,7 +1043,12 @@ final class EntryRepository
             } else {
                 $dataValues[$fHandle] = $normalizedVal;
 
-                if (!empty($def['is_searchable']) && is_scalar($normalizedVal)) {
+                if ($fTypeStr === 'richtext' && is_array($normalizedVal)) {
+                    $derived = \BsCms\Document\DerivedFields::extract($normalizedVal);
+                    if (!empty($derived['search_text'])) {
+                        $searchTerms[] = $derived['search_text'];
+                    }
+                } elseif (!empty($def['is_searchable']) && is_scalar($normalizedVal)) {
                     $searchTerms[] = (string) $normalizedVal;
                 }
             }
