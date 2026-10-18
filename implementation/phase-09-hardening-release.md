@@ -41,9 +41,9 @@
 
 ## 9.7 Release checklist (v1.0)
 - [ ] ASVS review complete with no open fails; threat model written.
-- [ ] Performance baseline meets every budget on both shared hosts.
-- [ ] Update from the last release candidate to v1.0 via the updater succeeds on both hosts; forced failure triggers rollback correctly.
+- [ ] Performance baseline meets every budget on Host A (Hostinger) (Host B test deferred by owner, 2026-10-18).
+- [ ] Update from the last release candidate to v1.0 via the updater succeeds on test host; forced failure triggers rollback correctly.
 - [ ] Backup and restore tested end to end.
-- [ ] Fresh install, full content flow, AI flow (Claude.ai + Claude Code; ChatGPT only if access exists by then), publish pipeline, preview and crawler policy verified on both hosts by following only the user docs.
+- [ ] Fresh install, full content flow, AI flow (Claude.ai + Claude Code; ChatGPT only if access exists by then), publish pipeline, preview and crawler policy verified on Host A by following only the user docs.
 - [ ] Signed artifacts published to the private distribution location; checksums verified.
 - [ ] `CHANGELOG.md`, `DEPENDENCIES.md` (with licences) and `NOTES.md` up to date.

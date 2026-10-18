@@ -105,21 +105,20 @@ Shows client name and redirect host, the site, what the agent may do, and lets t
 Basic SMTP integration, configured in **Settings > Email**, used for: password reset, invitation, email verification and change, new-device login notice, 2FA recovery notice, AI pending-approval notification, publish/review notifications to editors, system alerts (cron failing, disk, backup), webhook failure digest (optional), test email.
 
 ### 5.2 Settings screen requirements
-- [ ] Provider preset selector with prefilled host/port/security: **Resend**, **ZeptoMail (Zoho)**, **Zoho Mail**, **Generic SMTP**.
-- [ ] Fields: host, port, encryption (implicit TLS / STARTTLS / none with warning), username, password/API key (stored encrypted with the app key, never shown again, "replace" button), From name, From address, Reply-To, optional BCC for audit.
-- [ ] **Send test email** button with success/failure details (SMTP response), and a connection test that does not send.
+- [ ] Provider preset selector with prefilled host/port/security: **Zoho CPaaS (ZeptoMail)** (first-class, tested), **Resend** (untested preset), **Generic SMTP**.
+- [ ] Fields: provider/preset, data center region (US, EU, IN, AU, JP, CA, SA for Zoho CPaaS), transport (`smtp` or `api`), host, port, encryption (implicit TLS / STARTTLS / none with warning), username, password/API key / Send Mail token (stored encrypted with the app key, never returned by API: returns `has_password: true`, "replace" button), From name, From address (must belong to a verified sending domain in Zoho), Reply-To, optional BCC for audit.
+- [ ] **Send test email** button with success/failure details (SMTP/API response), and a connection test that does not send.
 - [ ] Status indicator: configured / verified / last sent / last error.
 - [ ] Domain deliverability checklist card: SPF, DKIM, DMARC reminders with provider links; From address must be on a verified domain.
 - [ ] Email log table (DataTable) with status, template, recipient, error, resend action.
 - [ ] Mail driver `log` for local development (writes to the log instead of sending), and `disabled`.
 
 ### 5.3 Provider presets (from provider docs; confirm before release)
-| Provider | Host | Ports | Username | Password |
-|---|---|---|---|---|
-| [Resend](https://resend.com/docs/send-with-smtp) | `smtp.resend.com` | 465 / 2465 implicit TLS, 587 / 2587 / 25 STARTTLS (465 recommended by Resend) | `resend` | Resend API key |
-| [ZeptoMail](https://www.zoho.com/zeptomail/help/smtp-api.html) | `smtp.zeptomail.com` | 465 (SSL), 587 (TLS) | `emailapikey` | Mail Agent send-mail token |
-| Zoho Mail | `smtp.zoho.com` (region-specific hosts exist, e.g. .eu, .in) **(verify)** | 465 SSL, 587 TLS **(verify)** | the mailbox address | mailbox or app password |
-| Generic | user supplied | user supplied | user supplied | user supplied |
+| Provider | Host / API Base | Ports / Protocol | Username | Password / Token | Notes |
+|---|---|---|---|---|---|
+| [Zoho CPaaS (ZeptoMail)](https://www.zoho.com/cpaas/) | `smtp.zeptomail.com` (US), `.eu`, `.in`, `.com.au`, `.jp`, `.ca`, `.sa` (or API `https://api.zeptomail.<region>/v1.1/email`) | 465 implicit TLS / 587 STARTTLS (SMTP); HTTPS POST (API) | `emailapikey` (SMTP) | Mail Agent Send Mail token | First-class tested transactional email provider. From address must belong to a verified sending domain. |
+| [Resend](https://resend.com/docs/send-with-smtp) | `smtp.resend.com` | 465 / 2465 implicit TLS, 587 / 2587 / 25 STARTTLS (465 recommended by Resend) | `resend` | Resend API key | Untested in v1 core |
+| Generic | user supplied | user supplied | user supplied | user supplied | User supplied SMTP server |
 
 ### 5.4 Templates
 - Plain-text + HTML pair per template, responsive, with product name, site name and logo from settings; English only in v1 but text from the message catalog.

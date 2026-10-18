@@ -20,6 +20,25 @@ This document is the authoritative log for Phase 0 technical verifications, arch
    - **ChatGPT Live Testing:** Deferred until access exists; compatibility is built strictly to the MCP specification with OAuth 2.1 + PKCE.
    - **Active Test Clients:** Claude.ai custom connectors, Claude Code, MCP Inspector (protocol conformance).
    - **Antigravity Remote MCP Support:** **Deferred, unverified** (not yet executed against a live remote HTTP endpoint).
+5. **Email Provider — Zoho CPaaS (ZeptoMail):**
+   - **Channel Scope:** Transactional EMAIL channel only. SMS, WhatsApp, and voice are out of scope for v1.
+   - **Preset Label:** Relabeled existing "ZeptoMail" preset to "Zoho CPaaS (ZeptoMail)".
+   - **Data Center Regions & Hostnames (Verified 2026-10-18 via official Zoho CPaaS / ZeptoMail documentation):**
+     - `us` (Global / United States): SMTP `smtp.zeptomail.com`, API `https://api.zeptomail.com/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `eu` (Europe): SMTP `smtp.zeptomail.eu`, API `https://api.zeptomail.eu/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `in` (India): SMTP `smtp.zeptomail.in`, API `https://api.zeptomail.in/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `au` (Australia): SMTP `smtp.zeptomail.com.au`, API `https://api.zeptomail.com.au/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `jp` (Japan): SMTP `smtp.zeptomail.jp`, API `https://api.zeptomail.jp/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `ca` (Canada): SMTP `smtp.zeptomail.ca`, API `https://api.zeptomail.ca/v1.1/email` [Verified: 2026-10-18, Source: Zoho Docs]
+     - `sa` (Saudi Arabia): SMTP `smtp.zeptomail.sa` (**unverified** in public documentation; Zoho recommends `smtp.zeptomail.com` fallback or dashboard-provided host for `zoho.sa` accounts), API `https://api.zeptomail.sa/v1.1/email` [Verified regional domain base: 2026-10-18]
+   - **SMTP Credentials:** Port 465 (implicit TLS / SMTPS) or 587 (STARTTLS). Username: `emailapikey`. Password: Mail Agent "Send Mail token". The From address must belong to a verified domain in Zoho CPaaS.
+   - **HTTPS API Transport:** Implemented as alternative `transport: api` (default `smtp`) via SSRF-safe `HttpClient` calling `POST /v1.1/email` with header `Authorization: Zoho-enczapikey <token>`.
+   - **Settings & API:** `GET/PUT /api/v1/settings/email`, `POST /settings/email/test`, `POST /settings/email/send-test`, `GET /api/v1/email-log`. Secrets encrypted at rest with libsodium app key; never exposed (returns `has_password: true`).
+   - **CLI Management:** `bs mail:configure`, `bs mail:test`, `bs mail:send-test <address>`, `bs mail:status`. Secrets passed via prompt or `BS_MAIL_PASSWORD`, never CLI arguments.
+   - **Other Presets:** Resend and generic SMTP kept in code (untested); generic Zoho Mail row removed.
+   - **Testing Deferral:** Email delivery testing is deferred by the owner (2026-10-18). Phase 3 acceptance and sign-off does not depend on live email delivery.
+6. **Host B Shared Hosting Test Deferral:**
+   - Second hosting account testing is **deferred by owner, 2026-10-18** (marked in NOTES.md, Phase 0, and Phase 9 checklists). Production validation continues against Host A (Hostinger).
 
 ---
 

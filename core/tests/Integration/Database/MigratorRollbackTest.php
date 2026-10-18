@@ -108,8 +108,12 @@ final class MigratorRollbackTest extends TestCase
         $expected = [
             'rb_api_tokens',
             'rb_audit_log',
+            'rb_collections',
             'rb_email_log',
             'rb_email_verifications',
+            'rb_entry_relations',
+            'rb_entry_versions',
+            'rb_fields',
             'rb_invitations',
             'rb_jobs',
             'rb_migrations',
@@ -118,15 +122,20 @@ final class MigratorRollbackTest extends TestCase
             'rb_rate_limits',
             'rb_role_permissions',
             'rb_roles',
+            'rb_saved_views',
+            'rb_schema_changes',
             'rb_sessions',
             'rb_settings',
             'rb_user_roles',
             'rb_users',
+            'rb_webhook_deliveries',
+            'rb_webhooks',
         ];
         $this->assertSame($expected, $this->tables());
 
         $rolledBack = $migrator->rollback();
         $this->assertSame([
+            'core:202610180005_create_content_engine_tables',
             'core:202610180004_add_totp_last_step_to_users',
             'core:202610170003_seed_system_roles',
             'core:202610170002_create_auth_and_user_tables',
@@ -141,6 +150,7 @@ final class MigratorRollbackTest extends TestCase
             'core:202610170002_create_auth_and_user_tables',
             'core:202610170003_seed_system_roles',
             'core:202610180004_add_totp_last_step_to_users',
+            'core:202610180005_create_content_engine_tables',
         ], $again);
         $this->assertSame($expected, $this->tables());
     }
@@ -152,13 +162,14 @@ final class MigratorRollbackTest extends TestCase
 
         $preview = $migrator->rollback(1, true);
         $this->assertSame([
+            '[DRY-RUN] rollback core:202610180005_create_content_engine_tables',
             '[DRY-RUN] rollback core:202610180004_add_totp_last_step_to_users',
             '[DRY-RUN] rollback core:202610170003_seed_system_roles',
             '[DRY-RUN] rollback core:202610170002_create_auth_and_user_tables',
             '[DRY-RUN] rollback core:202610170001_create_core_tables',
         ], $preview);
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(4, $migrator->getAppliedMigrations());
+        $this->assertCount(5, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackWithNothingAppliedReturnsEmptyList(): void
@@ -194,6 +205,7 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
+            'core:202610180005_create_content_engine_tables',
             'core:202610180004_add_totp_last_step_to_users',
             'core:202610170003_seed_system_roles',
             'core:202610170002_create_auth_and_user_tables',
@@ -218,7 +230,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(4, $migrator->getAppliedMigrations());
+        $this->assertCount(5, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackRejectsInvalidStepCount(): void

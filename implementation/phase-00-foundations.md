@@ -66,7 +66,7 @@ Build three static screens with shadcn/ui + Tailwind using Supabase design-syste
 
 ## 0.9 Acceptance checklist
 - [x] Repository skeleton, CI green on an empty test in every matrix cell (done: GitHub remote `Brandsewa/bs-cms`, 17/17 matrix jobs green in CI run 39046426430).
-- [ ] Hosting matrix recorded for at least two shared hosts. **Partial:** Host A (Hostinger) measured 2026-10-17; Host B pending a second test account (accepted deferral, to be done before Phase 9).
+- [ ] Hosting matrix recorded for at least two shared hosts. **Partial:** Host A (Hostinger) measured 2026-10-17; Host B test deferred by owner, 2026-10-18 (to be done before Phase 9).
 - [x] Spike A numbers recorded and pass criteria met (or a documented mitigation) (done: Host A benchmark accepted at 7–10 ms with denormalised sort columns; local reference benchmarks documented; schema updated with `is_published`/`sort_at` and `ix_termrel_sorted`).
 - [x] ~~Spike B~~ deferred to Phase 8 step 8.0 (deferred: protocol conformance and stateless HTTP transport not required for Phases 1–7).
 - [ ] Spike C: publish-to-live pipeline works end to end; markdown negotiation verified. **Deferred to Phase 7 step 7.0:** only the design is recorded (GitHub Actions + SFTP via `lftp mirror -R`); nothing has been deployed to a host and the `.htaccess` negotiation has not been tested.

@@ -162,6 +162,56 @@ final class SchemaDiffTest extends TestCase
             'id', 'user_id', 'type', 'title', 'body', 'link', 'read_at', 'created_at'
         ]);
 
+        // 17. Verify collections table columns
+        $this->assertTableColumns($pdo, 'bs_collections', [
+            'id', 'handle', 'kind', 'label_singular', 'label_plural', 'description', 'icon',
+            'table_name', 'is_system', 'has_public_pages', 'route_pattern', 'list_route_pattern',
+            'features', 'title_field', 'slug_source', 'default_sort', 'schema_org',
+            'list_columns', 'plugin_key', 'schema_version', 'created_at', 'updated_at'
+        ]);
+
+        // 18. Verify fields table columns
+        $this->assertTableColumns($pdo, 'bs_fields', [
+            'id', 'collection_id', 'handle', 'label', 'type', 'config', 'required', 'is_unique',
+            'is_filterable', 'is_sortable', 'is_searchable', 'show_in_list', 'default_value',
+            'help_text', 'placeholder', 'group_key', 'position', 'width', 'validation',
+            'conditional', 'storage', 'column_name', 'created_at', 'updated_at'
+        ]);
+
+        // 19. Verify schema_changes table columns
+        $this->assertTableColumns($pdo, 'bs_schema_changes', [
+            'id', 'collection_id', 'change_type', 'before_state', 'after_state', 'sql_statements',
+            'applied_by', 'applied_via', 'dry_run', 'status', 'created_at'
+        ]);
+
+        // 20. Verify entry_versions table columns
+        $this->assertTableColumns($pdo, 'bs_entry_versions', [
+            'id', 'collection_id', 'entry_id', 'version_no', 'status', 'snapshot',
+            'change_summary', 'actor_type', 'actor_label', 'created_by', 'is_autosave', 'created_at'
+        ]);
+
+        // 21. Verify saved_views table columns
+        $this->assertTableColumns($pdo, 'bs_saved_views', [
+            'id', 'user_id', 'collection_key', 'name', 'filters', 'sort', 'columns',
+            'density', 'is_shared', 'position', 'created_at'
+        ]);
+
+        // 22. Verify webhooks table columns
+        $this->assertTableColumns($pdo, 'bs_webhooks', [
+            'id', 'name', 'url', 'secret_enc', 'events', 'collections', 'is_active', 'created_at'
+        ]);
+
+        // 23. Verify webhook_deliveries table columns
+        $this->assertTableColumns($pdo, 'bs_webhook_deliveries', [
+            'id', 'webhook_id', 'event', 'payload', 'status', 'attempts', 'response_code',
+            'response_excerpt', 'next_attempt_at', 'created_at'
+        ]);
+
+        // 24. Verify entry_relations table columns
+        $this->assertTableColumns($pdo, 'bs_entry_relations', [
+            'from_collection_id', 'from_entry_id', 'field_key', 'to_collection_id', 'to_entry_id', 'position'
+        ]);
+
         // Verify ULID columns are ascii_bin
         $colStmt = $pdo->prepare("SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db AND TABLE_NAME = 'bs_users' AND COLUMN_NAME = 'id'");
         $colStmt->execute(['db' => $this->dbName]);
