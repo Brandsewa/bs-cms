@@ -112,8 +112,8 @@ jobs:
           mkdir -p /tmp/bs-cms-test
           unzip -q build/bs-cms-1.0.0-dev.zip -d /tmp/bs-cms-test
           cd /tmp/bs-cms-test/core
-          # Start background built-in PHP web server serving from core/public
-          php -S 127.0.0.1:8888 -t public > /tmp/php-server.log 2>&1 &
+          # Start background built-in PHP web server serving on [::]:8888
+          php -S [::]:8888 -t public > /tmp/php-server.log 2>&1 &
           SERVER_PID=$!
           sleep 2
 
@@ -123,6 +123,10 @@ jobs:
           echo "$HEALTH_RESP" | grep -q "200 OK"
           echo "$HEALTH_RESP" | grep -q '{"status":"ok"}'
           echo "$HEALTH_RESP" | grep -i "cache-control" | grep -q "no-store"
+
+          # 1b. Test live IPv6 connection via curl -g -6 to [::1]:8888
+          IPV6_HEALTH=$(curl -g -6 -s -i http://[::1]:8888/health)
+          echo "$IPV6_HEALTH" | grep -q "200 OK"
 
           # 2. Test /health with POST returns 405 Method Not Allowed
           POST_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://127.0.0.1:8888/health)

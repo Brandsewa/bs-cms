@@ -527,7 +527,174 @@ if ($instance === '' || $instance === 'unknown') {
 }
 passTest("9. Problem Details instance populated with request_id");
 
+// 10. Phase 3: OpenAPI Spec endpoint
+echo "Testing 10: GET /api/v1/openapi.json...\n";
+$resOpenApi = httpRequest('GET', "{$baseUrl}/api/v1/openapi.json");
+if ($resOpenApi['status'] !== 200) {
+    failTest("GET /api/v1/openapi.json expected 200, got {$resOpenApi['status']}");
+}
+if (!str_contains($resOpenApi['headers']['cache-control'] ?? '', 'public')) {
+    failTest("OpenAPI response missing public Cache-Control");
+}
+if (($resOpenApi['json']['openapi'] ?? '') !== '3.1.0') {
+    failTest("OpenAPI version != 3.1.0: got " . ($resOpenApi['json']['openapi'] ?? ''));
+}
+scanNoSecrets($resOpenApi['json']);
+passTest("10. OpenAPI 3.1 endpoint verified");
+
+// 10b. Create full-access admin API token for Phase 3 endpoints
+$adminTokenId = Ulid::generate();
+$adminTokenPrefix = bin2hex(random_bytes(4));
+$adminTokenSecret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+$adminToken = "bstok_{$adminTokenPrefix}_{$adminTokenSecret}";
+$adminTokenHash = hash('sha256', $adminToken);
+
+$stmt = $connection->getPdo()->prepare(
+    "INSERT INTO `{$tokensTable}`
+     (`id`, `user_id`, `role_id`, `name`, `token_prefix`, `token_hash`, `scopes`, `ai_mode`, `created_at`, `expires_at`)
+     VALUES (?, ?, NULL, 'Admin Full Access Token', ?, ?, ?, 'full', ?, NULL)"
+);
+$stmt->execute([
+    $adminTokenId,
+    $userId,
+    $adminTokenPrefix,
+    $adminTokenHash,
+    json_encode(['*']),
+    $now,
+]);
+
+// 11. Phase 3: Collections & Schema Lifecycle over HTTP
+echo "Testing 11: Schema and Collections API...\n";
+$resListCols = httpRequest('GET', "{$baseUrl}/api/v1/collections", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resListCols['status'] !== 200) {
+    failTest("GET /api/v1/collections failed with status {$resListCols['status']}");
+}
+scanNoSecrets($resListCols['json']);
+
+// Create test 'campaigns' collection
+$resCreateCol = httpRequest('POST', "{$baseUrl}/api/v1/collections", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'handle' => 'campaigns',
+    'kind' => 'collection',
+    'label_singular' => 'Campaign',
+    'label_plural' => 'Campaigns',
+    'fields' => [
+        'budget' => ['handle' => 'budget', 'type' => 'number', 'is_filterable' => true, 'is_sortable' => true],
+        'notes' => ['handle' => 'notes', 'type' => 'textarea'],
+    ],
+]);
+if ($resCreateCol['status'] !== 201) {
+    failTest("POST /api/v1/collections (campaigns) expected 201, got {$resCreateCol['status']}: {$resCreateCol['body']}");
+}
+scanNoSecrets($resCreateCol['json']);
+passTest("11. Collections created and listed successfully");
+
+// 12. Phase 3: Content Entries CRUD & Versioning
+echo "Testing 12: Content Entries CRUD and Versioning...\n";
+$resCreateEntry = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Black Friday Sale',
+    'budget' => 5000,
+    'notes' => 'Early launch',
+    'status' => 'draft',
+]);
+if ($resCreateEntry['status'] !== 201) {
+    failTest("POST /api/v1/collections/campaigns/entries expected 201, got {$resCreateEntry['status']}: {$resCreateEntry['body']}");
+}
+$campaignId = (string) $resCreateEntry['json']['id'];
+$version = (int) $resCreateEntry['json']['version'];
+scanNoSecrets($resCreateEntry['json']);
+
+// Publish entry
+$resPublish = httpRequest('POST', "{$baseUrl}/api/v1/collections/campaigns/entries/{$campaignId}/publish", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'version' => $version,
+]);
+if ($resPublish['status'] !== 200) {
+    failTest("POST publish entry expected 200, got {$resPublish['status']}: {$resPublish['body']}");
+}
+if ($resPublish['json']['status'] !== 'published') {
+    failTest("Entry status was not updated to published");
+}
+scanNoSecrets($resPublish['json']);
+passTest("12. Content Entry created and published successfully");
+
+// 13. Phase 3: Public Content API with ETag and 304 Not Modified
+echo "Testing 13: Public Content API with ETag and 304...\n";
+$resPublicList = httpRequest('GET', "{$baseUrl}/api/v1/public/collections/campaigns/entries");
+if ($resPublicList['status'] !== 200) {
+    failTest("GET /public/collections/campaigns/entries expected 200, got {$resPublicList['status']}");
+}
+$etag = $resPublicList['headers']['etag'] ?? '';
+if ($etag === '') {
+    failTest("Public entries response missing ETag header");
+}
+scanNoSecrets($resPublicList['json']);
+
+// Request with If-None-Match -> 304 Not Modified
+$res304 = httpRequest('GET', "{$baseUrl}/api/v1/public/collections/campaigns/entries", [
+    'If-None-Match' => $etag,
+]);
+if ($res304['status'] !== 304) {
+    failTest("Expected 304 Not Modified when submitting matching ETag, got {$res304['status']}");
+}
+passTest("13. Public Content API cache, ETag, and 304 Not Modified verified");
+
+// 14. Phase 3: Webhooks & Signature Verification
+echo "Testing 14: Webhooks API & Test Ping...\n";
+$resCreateWh = httpRequest('POST', "{$baseUrl}/api/v1/webhooks", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'name' => 'Release HTTP Webhook',
+    'url' => 'https://example.com/webhook-sink',
+    'secret' => 'super_secret_webhook_key_12345',
+    'events' => ['*'],
+]);
+if ($resCreateWh['status'] !== 201) {
+    failTest("POST /api/v1/webhooks expected 201, got {$resCreateWh['status']}: {$resCreateWh['body']}");
+}
+$whId = (string) $resCreateWh['json']['id'];
+scanNoSecrets($resCreateWh['json']);
+
+$resWhPing = httpRequest('POST', "{$baseUrl}/api/v1/webhooks/{$whId}/test", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resWhPing['status'] !== 200) {
+    failTest("POST /webhooks/{$whId}/test expected 200, got {$resWhPing['status']}");
+}
+scanNoSecrets($resWhPing['json']);
+passTest("14. Webhooks API and test ping verified");
+
+// Clean up created collection
+$resDelCol = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resDelCol['status'] !== 409) {
+    failTest("DELETE collection without confirm token expected 409, got {$resDelCol['status']}");
+}
+$confirmToken = (string) ($resDelCol['json']['confirm_token'] ?? '');
+$resDelColConfirmed = httpRequest('DELETE', "{$baseUrl}/api/v1/collections/campaigns", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'confirm_token' => $confirmToken,
+]);
+if ($resDelColConfirmed['status'] !== 200) {
+    failTest("DELETE collection with confirmation token expected 200, got {$resDelColConfirmed['status']}");
+}
+passTest("15. Two-step confirmation for destructive collection drop verified");
+
 echo "\n======================================================\n";
-echo "[ALL TESTS PASSED] Phase 2 release build verified over HTTP!\n";
+echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";
 echo "======================================================\n";
 exit(0);
+

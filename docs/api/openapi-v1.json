@@ -1,0 +1,2119 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "BS CMS REST API",
+        "version": "1.0.0",
+        "description": "Autonomous, ultra-fast content and schema REST API for BS CMS."
+    },
+    "servers": [
+        {
+            "url": "/api/v1",
+            "description": "Current API Base Path"
+        }
+    ],
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "summary": "Log in with credentials",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful or 2FA challenge required"
+                    },
+                    "401": {
+                        "description": "Invalid credentials or locked account"
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "summary": "Log out current session",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully"
+                    }
+                }
+            }
+        },
+        "/auth/session": {
+            "get": {
+                "summary": "Get current authenticated session information",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Active session details"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    }
+                }
+            }
+        },
+        "/auth/2fa/challenge": {
+            "post": {
+                "summary": "Complete 2FA challenge using TOTP or recovery code",
+                "description": "Takes code for either a 6-digit TOTP code or a single-use recovery code. Submitting recovery_code field is rejected.",
+                "tags": [
+                    "Authentication"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "challenge_token",
+                                    "code"
+                                ],
+                                "properties": {
+                                    "challenge_token": {
+                                        "type": "string"
+                                    },
+                                    "code": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "2FA verified, session activated"
+                    },
+                    "401": {
+                        "description": "Invalid or replayed 2FA code"
+                    },
+                    "422": {
+                        "description": "Validation error (e.g. recovery_code field provided)"
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "summary": "Get current authenticated user profile",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile details"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update user profile",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile updated"
+                    }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "summary": "List all users",
+                "tags": [
+                    "Users"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of sanitized users without secrets"
+                    }
+                }
+            }
+        },
+        "/roles": {
+            "get": {
+                "summary": "List all roles",
+                "tags": [
+                    "Roles"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of roles"
+                    }
+                }
+            }
+        },
+        "/tokens": {
+            "get": {
+                "summary": "List active API tokens",
+                "tags": [
+                    "Tokens"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of API tokens"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a new API token",
+                "tags": [
+                    "Tokens"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Token created"
+                    }
+                }
+            }
+        },
+        "/collections": {
+            "get": {
+                "summary": "List registered collections",
+                "tags": [
+                    "Schema"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection definitions list"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a new collection schema",
+                "tags": [
+                    "Schema"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Collection created"
+                    }
+                }
+            }
+        },
+        "/collections/{handle}": {
+            "get": {
+                "summary": "Get collection schema definition",
+                "tags": [
+                    "Schema"
+                ],
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection schema"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Alter collection schema definition",
+                "tags": [
+                    "Schema"
+                ],
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection schema altered"
+                    },
+                    "409": {
+                        "description": "Confirmation required for destructive alteration"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete collection (drop table and remove from registry)",
+                "tags": [
+                    "Schema"
+                ],
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection deleted"
+                    },
+                    "409": {
+                        "description": "Confirmation required"
+                    }
+                }
+            }
+        },
+        "/schema/plan": {
+            "post": {
+                "summary": "Plan collection changes and produce migration proposal",
+                "tags": [
+                    "Schema"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Proposed plan details and change_id"
+                    }
+                }
+            }
+        },
+        "/schema/apply/{change_id}": {
+            "post": {
+                "summary": "Apply proposed schema change",
+                "tags": [
+                    "Schema"
+                ],
+                "parameters": [
+                    {
+                        "name": "change_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Schema change applied successfully"
+                    },
+                    "409": {
+                        "description": "Confirmation required for data loss or already applied"
+                    }
+                }
+            }
+        },
+        "/schema/changes": {
+            "get": {
+                "summary": "List schema change history",
+                "tags": [
+                    "Schema"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Schema changes history"
+                    }
+                }
+            }
+        },
+        "/saved-views": {
+            "get": {
+                "summary": "List saved views for current user",
+                "tags": [
+                    "Views"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User saved views"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a saved view",
+                "tags": [
+                    "Views"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Saved view created"
+                    }
+                }
+            }
+        },
+        "/jobs/{id}": {
+            "get": {
+                "summary": "Check background job progress and status",
+                "tags": [
+                    "Jobs"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job status payload"
+                    }
+                }
+            }
+        },
+        "/webhooks": {
+            "get": {
+                "summary": "List configured webhooks",
+                "tags": [
+                    "Webhooks"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook configurations"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a webhook",
+                "tags": [
+                    "Webhooks"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Webhook created"
+                    }
+                }
+            }
+        },
+        "/webhooks/{id}": {
+            "get": {
+                "summary": "Get webhook details",
+                "tags": [
+                    "Webhooks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook details"
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Update webhook details",
+                "tags": [
+                    "Webhooks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook updated"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete webhook",
+                "tags": [
+                    "Webhooks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook deleted"
+                    }
+                }
+            }
+        },
+        "/webhooks/{id}/test": {
+            "post": {
+                "summary": "Send test ping delivery for webhook",
+                "tags": [
+                    "Webhooks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Test delivery executed"
+                    }
+                }
+            }
+        },
+        "/webhooks/{id}/deliveries": {
+            "get": {
+                "summary": "List recent deliveries for webhook",
+                "tags": [
+                    "Webhooks"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Delivery history list"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries": {
+            "get": {
+                "summary": "List entries for authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page[after]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of entries with pagination metadata"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/authors_Entry"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Entry created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/bulk": {
+            "post": {
+                "summary": "Bulk operation on entries in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bulk operation completed"
+                    },
+                    "409": {
+                        "description": "Confirmation required if bulk action count > 10"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}": {
+            "get": {
+                "summary": "Get single entry from authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry details"
+                    },
+                    "404": {
+                        "description": "Entry not found"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Move entry to trash in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry moved to trash"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/restore": {
+            "post": {
+                "summary": "Restore trashed entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry restored from trash"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/purge": {
+            "delete": {
+                "summary": "Permanently purge entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry permanently purged"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/duplicate": {
+            "post": {
+                "summary": "Duplicate entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Entry duplicated as new draft"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/publish": {
+            "post": {
+                "summary": "Publish entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry published"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/unpublish": {
+            "post": {
+                "summary": "Unpublish entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry reverted to draft"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/archive": {
+            "post": {
+                "summary": "Archive entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry archived"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/compare": {
+            "get": {
+                "summary": "Compare two versions of entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version difference diff"
+                    }
+                }
+            }
+        },
+        "/collections/authors/entries/{id}/versions": {
+            "get": {
+                "summary": "List versions for entry in authors",
+                "tags": [
+                    "Collection: Authors"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version history list"
+                    }
+                }
+            }
+        },
+        "/public/collections/authors/entries": {
+            "get": {
+                "summary": "Public read API for published entries in authors",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published content entries with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified if If-None-Match header matches current ETag"
+                    }
+                }
+            }
+        },
+        "/public/collections/authors/entries/by-slug/{slug}": {
+            "get": {
+                "summary": "Public read entry by slug in authors",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published entry with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified"
+                    },
+                    "404": {
+                        "description": "Entry not found or not published"
+                    }
+                }
+            }
+        },
+        "/singletons/navigation": {
+            "get": {
+                "summary": "Get singleton navigation",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton navigation content"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update singleton navigation",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton navigation updated"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries": {
+            "get": {
+                "summary": "List entries for pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page[after]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of entries with pagination metadata"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/pages_Entry"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Entry created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/bulk": {
+            "post": {
+                "summary": "Bulk operation on entries in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bulk operation completed"
+                    },
+                    "409": {
+                        "description": "Confirmation required if bulk action count > 10"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}": {
+            "get": {
+                "summary": "Get single entry from pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry details"
+                    },
+                    "404": {
+                        "description": "Entry not found"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Move entry to trash in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry moved to trash"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/restore": {
+            "post": {
+                "summary": "Restore trashed entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry restored from trash"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/purge": {
+            "delete": {
+                "summary": "Permanently purge entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry permanently purged"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/duplicate": {
+            "post": {
+                "summary": "Duplicate entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Entry duplicated as new draft"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/publish": {
+            "post": {
+                "summary": "Publish entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry published"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/unpublish": {
+            "post": {
+                "summary": "Unpublish entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry reverted to draft"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/archive": {
+            "post": {
+                "summary": "Archive entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry archived"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/compare": {
+            "get": {
+                "summary": "Compare two versions of entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version difference diff"
+                    }
+                }
+            }
+        },
+        "/collections/pages/entries/{id}/versions": {
+            "get": {
+                "summary": "List versions for entry in pages",
+                "tags": [
+                    "Collection: Pages"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version history list"
+                    }
+                }
+            }
+        },
+        "/public/collections/pages/entries": {
+            "get": {
+                "summary": "Public read API for published entries in pages",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published content entries with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified if If-None-Match header matches current ETag"
+                    }
+                }
+            }
+        },
+        "/public/collections/pages/entries/by-slug/{slug}": {
+            "get": {
+                "summary": "Public read entry by slug in pages",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published entry with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified"
+                    },
+                    "404": {
+                        "description": "Entry not found or not published"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries": {
+            "get": {
+                "summary": "List entries for posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    },
+                    {
+                        "name": "page[after]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of entries with pagination metadata"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/posts_Entry"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Entry created successfully"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/bulk": {
+            "post": {
+                "summary": "Bulk operation on entries in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Bulk operation completed"
+                    },
+                    "409": {
+                        "description": "Confirmation required if bulk action count > 10"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}": {
+            "get": {
+                "summary": "Get single entry from posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry details"
+                    },
+                    "404": {
+                        "description": "Entry not found"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry updated"
+                    },
+                    "409": {
+                        "description": "Optimistic concurrency version conflict"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Move entry to trash in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry moved to trash"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/restore": {
+            "post": {
+                "summary": "Restore trashed entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry restored from trash"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/purge": {
+            "delete": {
+                "summary": "Permanently purge entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry permanently purged"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/duplicate": {
+            "post": {
+                "summary": "Duplicate entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Entry duplicated as new draft"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/publish": {
+            "post": {
+                "summary": "Publish entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry published"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/unpublish": {
+            "post": {
+                "summary": "Unpublish entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry reverted to draft"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/archive": {
+            "post": {
+                "summary": "Archive entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entry archived"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/compare": {
+            "get": {
+                "summary": "Compare two versions of entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version difference diff"
+                    }
+                }
+            }
+        },
+        "/collections/posts/entries/{id}/versions": {
+            "get": {
+                "summary": "List versions for entry in posts",
+                "tags": [
+                    "Collection: Posts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version history list"
+                    }
+                }
+            }
+        },
+        "/public/collections/posts/entries": {
+            "get": {
+                "summary": "Public read API for published entries in posts",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page[size]",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published content entries with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified if If-None-Match header matches current ETag"
+                    }
+                }
+            }
+        },
+        "/public/collections/posts/entries/by-slug/{slug}": {
+            "get": {
+                "summary": "Public read entry by slug in posts",
+                "tags": [
+                    "Public Content API"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Published entry with Cache-Control and ETag"
+                    },
+                    "304": {
+                        "description": "Not Modified"
+                    },
+                    "404": {
+                        "description": "Entry not found or not published"
+                    }
+                }
+            }
+        },
+        "/singletons/site_settings": {
+            "get": {
+                "summary": "Get singleton site_settings",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton site_settings content"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update singleton site_settings",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton site_settings updated"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "authors_Entry": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "draft",
+                            "in_review",
+                            "scheduled",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 190
+                    },
+                    "bio": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "job_title": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "same_as": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "user": {
+                        "type": "string",
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                    }
+                }
+            },
+            "navigation_Entry": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "draft",
+                            "in_review",
+                            "scheduled",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "pages_Entry": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "draft",
+                            "in_review",
+                            "scheduled",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "template": {
+                        "type": "string",
+                        "enum": [
+                            "default",
+                            "landing",
+                            "full_width"
+                        ]
+                    },
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "show_in_nav": {
+                        "type": "boolean"
+                    },
+                    "nav_label": {
+                        "type": "string",
+                        "maxLength": 64
+                    }
+                }
+            },
+            "posts_Entry": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "draft",
+                            "in_review",
+                            "scheduled",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "excerpt": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "authors": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                        }
+                    },
+                    "related_posts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                        }
+                    },
+                    "faq": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "question",
+                                "answer"
+                            ],
+                            "properties": {
+                                "question": {
+                                    "type": "string"
+                                },
+                                "answer": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "key_facts": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "reviewed_by": {
+                        "type": "string",
+                        "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                    },
+                    "last_reviewed_at": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "reading_time": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "is_featured": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "site_settings_Entry": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "draft",
+                            "in_review",
+                            "scheduled",
+                            "published",
+                            "archived"
+                        ]
+                    },
+                    "site_name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "tagline": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "default_language": {
+                        "type": "string",
+                        "enum": [
+                            "en"
+                        ]
+                    },
+                    "canonical_base_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "maxLength": 2048
+                    },
+                    "environment": {
+                        "type": "string",
+                        "enum": [
+                            "production",
+                            "staging"
+                        ]
+                    },
+                    "social_links": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "contact_details": {
+                        "type": "object"
+                    },
+                    "organization_details": {
+                        "type": "object"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "bstok_*"
+            },
+            "cookieAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "__Host-bs_session"
+            }
+        }
+    }
+}

@@ -13,6 +13,7 @@ use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
 use BsCms\Http\Controllers\NotificationsController;
+use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
@@ -152,6 +153,7 @@ final class RouteListTest extends TestCase
         $jobs = $this->createMock(JobsController::class);
         $webhooks = $this->createMock(WebhooksController::class);
         $publicEntries = $this->createMock(PublicEntriesController::class);
+        $openApi = $this->createMock(OpenApiController::class);
 
         ApiRoutes::register(
             $routes,
@@ -170,7 +172,8 @@ final class RouteListTest extends TestCase
             $views,
             $jobs,
             $webhooks,
-            $publicEntries
+            $publicEntries,
+            $openApi
         );
 
         $registered = [];
@@ -184,6 +187,9 @@ final class RouteListTest extends TestCase
             'GET /api/v1/collections/{handle}',
             'PUT /api/v1/collections/{handle}',
             'DELETE /api/v1/collections/{handle}',
+            'POST /api/v1/schema/plan',
+            'POST /api/v1/schema/apply/{change_id}',
+            'GET /api/v1/schema/changes',
             'GET /api/v1/collections/{handle}/entries',
             'POST /api/v1/collections/{handle}/entries',
             'POST /api/v1/collections/{handle}/entries/bulk',
@@ -193,6 +199,10 @@ final class RouteListTest extends TestCase
             'POST /api/v1/collections/{handle}/entries/{id}/restore',
             'DELETE /api/v1/collections/{handle}/entries/{id}/purge',
             'POST /api/v1/collections/{handle}/entries/{id}/duplicate',
+            'POST /api/v1/collections/{handle}/entries/{id}/publish',
+            'POST /api/v1/collections/{handle}/entries/{id}/unpublish',
+            'POST /api/v1/collections/{handle}/entries/{id}/archive',
+            'GET /api/v1/collections/{handle}/entries/{id}/compare',
             'GET /api/v1/collections/{handle}/entries/{id}/versions',
             'GET /api/v1/collections/{handle}/entries/{id}/versions/{version_id}',
             'POST /api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore',
@@ -215,6 +225,7 @@ final class RouteListTest extends TestCase
             'POST /api/v1/deliveries/{id:\d+}/retry',
             'GET /api/v1/public/collections/{handle}/entries',
             'GET /api/v1/public/collections/{handle}/entries/by-slug/{slug}',
+            'GET /api/v1/openapi.json',
         ];
 
         foreach ($expectedPhase3Endpoints as $endpoint) {

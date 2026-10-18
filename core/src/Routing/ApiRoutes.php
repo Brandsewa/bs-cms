@@ -13,6 +13,7 @@ use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
 use BsCms\Http\Controllers\NotificationsController;
+use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
@@ -43,7 +44,8 @@ final class ApiRoutes
         ?SavedViewsController $savedViews = null,
         ?JobsController $jobs = null,
         ?WebhooksController $webhooks = null,
-        ?PublicEntriesController $publicEntries = null
+        ?PublicEntriesController $publicEntries = null,
+        ?OpenApiController $openApi = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -124,6 +126,9 @@ final class ApiRoutes
             $routes->get('/api/v1/collections/{handle}', [$collections, 'get']);
             $routes->put('/api/v1/collections/{handle}', [$collections, 'update']);
             $routes->delete('/api/v1/collections/{handle}', [$collections, 'delete']);
+            $routes->post('/api/v1/schema/plan', [$collections, 'plan']);
+            $routes->post('/api/v1/schema/apply/{change_id}', [$collections, 'applyChange']);
+            $routes->get('/api/v1/schema/changes', [$collections, 'changes']);
         }
 
         // 10. Entries & Bulk endpoints
@@ -139,6 +144,10 @@ final class ApiRoutes
             $routes->post('/api/v1/collections/{handle}/entries/{id}/restore', [$entries, 'restore']);
             $routes->delete('/api/v1/collections/{handle}/entries/{id}/purge', [$entries, 'purge']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/duplicate', [$entries, 'duplicate']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/publish', [$entries, 'publish']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/unpublish', [$entries, 'unpublish']);
+            $routes->post('/api/v1/collections/{handle}/entries/{id}/archive', [$entries, 'archive']);
+            $routes->get('/api/v1/collections/{handle}/entries/{id}/compare', [$entries, 'compare']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions', [$entries, 'listVersions']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore', [$entries, 'restoreVersion']);
@@ -181,6 +190,11 @@ final class ApiRoutes
         if ($publicEntries !== null) {
             $routes->get('/api/v1/public/collections/{handle}/entries', [$publicEntries, 'list']);
             $routes->get('/api/v1/public/collections/{handle}/entries/by-slug/{slug}', [$publicEntries, 'bySlug']);
+        }
+
+        // 16. OpenAPI Specification
+        if ($openApi !== null) {
+            $routes->get('/api/v1/openapi.json', [$openApi, 'spec']);
         }
     }
 }

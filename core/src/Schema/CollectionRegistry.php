@@ -7,7 +7,7 @@ namespace BsCms\Schema;
 use BsCms\Database\Connection;
 use RuntimeException;
 
-final class CollectionRegistry
+class CollectionRegistry
 {
     /** @var array<string, array<string, mixed>>|null */
     private ?array $collections = null;

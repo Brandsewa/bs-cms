@@ -381,6 +381,68 @@ final class ContentRestApiIntegrationTest extends TestCase
         $restoreReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/restore", $this->ownerActor);
         $restoreRes = $this->entriesController->restore($restoreReq, ['handle' => 'articles', 'id' => $id]);
         $this->assertSame(200, $restoreRes->getStatusCode());
+
+        // 8. Status transitions: unpublish, publish, archive
+        $unpubReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/unpublish", $this->ownerActor, ['version' => 3]);
+        $unpubRes = $this->entriesController->unpublish($unpubReq, ['handle' => 'articles', 'id' => $id]);
+        $this->assertSame(200, $unpubRes->getStatusCode());
+        $unpub = json_decode((string) $unpubRes->getBody(), true);
+        $this->assertSame('draft', $unpub['status']);
+
+        $pubReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/publish", $this->ownerActor, ['version' => 4]);
+        $pubRes = $this->entriesController->publish($pubReq, ['handle' => 'articles', 'id' => $id]);
+        $this->assertSame(200, $pubRes->getStatusCode());
+        $pub = json_decode((string) $pubRes->getBody(), true);
+        $this->assertSame('published', $pub['status']);
+
+        $archReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/archive", $this->ownerActor, ['version' => 5]);
+        $archRes = $this->entriesController->archive($archReq, ['handle' => 'articles', 'id' => $id]);
+        $this->assertSame(200, $archRes->getStatusCode());
+        $arch = json_decode((string) $archRes->getBody(), true);
+        $this->assertSame('archived', $arch['status']);
+
+        // 9. Compare versions
+        $compReq = $this->makeRequest('GET', "/api/v1/collections/articles/entries/{$id}/compare", $this->ownerActor, [], [
+            'from' => 1,
+            'to' => 2,
+        ]);
+        $compRes = $this->entriesController->compare($compReq, ['handle' => 'articles', 'id' => $id]);
+        $this->assertSame(200, $compRes->getStatusCode());
+        $comp = json_decode((string) $compRes->getBody(), true);
+        $this->assertArrayHasKey('diff', $comp);
+    }
+
+    public function testSchemaPlanAndApplyEndpoints(): void
+    {
+        // 1. Plan new collection
+        $planReq = $this->makeRequest('POST', '/api/v1/schema/plan', $this->ownerActor, [
+            'handle' => 'products',
+            'kind' => 'collection',
+            'label_singular' => 'Product',
+            'label_plural' => 'Products',
+            'fields' => [
+                'sku' => ['handle' => 'sku', 'type' => 'text', 'is_filterable' => true],
+            ],
+        ]);
+        $planRes = $this->collectionsController->plan($planReq);
+        $this->assertSame(200, $planRes->getStatusCode());
+        $planData = json_decode((string) $planRes->getBody(), true);
+        $this->assertSame('proposed', $planData['status']);
+        $changeId = $planData['change_id'];
+
+        // 2. Changes list
+        $changesReq = $this->makeRequest('GET', '/api/v1/schema/changes', $this->ownerActor);
+        $changesRes = $this->collectionsController->changes($changesReq);
+        $this->assertSame(200, $changesRes->getStatusCode());
+        $changes = json_decode((string) $changesRes->getBody(), true);
+        $this->assertNotEmpty($changes);
+
+        // 3. Apply change
+        $applyReq = $this->makeRequest('POST', "/api/v1/schema/apply/{$changeId}", $this->ownerActor);
+        $applyRes = $this->collectionsController->applyChange($applyReq, ['change_id' => $changeId]);
+        $this->assertSame(200, $applyRes->getStatusCode());
+        $applyData = json_decode((string) $applyRes->getBody(), true);
+        $this->assertTrue($applyData['success']);
     }
 
     public function testBulkOperationsAndTwoStepConfirmationForLargeSets(): void

@@ -442,6 +442,20 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\Cache\PublicResponseCache::class)
             );
         });
+
+        $container->singleton(\BsCms\OpenApi\OpenApiGenerator::class, function (Container $c): \BsCms\OpenApi\OpenApiGenerator {
+            return new \BsCms\OpenApi\OpenApiGenerator(
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Schema\FieldTypeRegistry::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\OpenApiController::class, function (Container $c): \BsCms\Http\Controllers\OpenApiController {
+            return new \BsCms\Http\Controllers\OpenApiController(
+                $c->get(\BsCms\OpenApi\OpenApiGenerator::class)
+            );
+        });
     }
 
     public function boot(Container $container): void

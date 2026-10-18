@@ -622,4 +622,84 @@ class EntriesController extends BaseController
             return $this->problem(500, 'Restore Version Error', $e->getMessage());
         }
     }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function publish(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? '');
+        $id = (string) ($args['id'] ?? '');
+        $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'published']));
+        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function unpublish(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? '');
+        $id = (string) ($args['id'] ?? '');
+        $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'draft']));
+        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function archive(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? '');
+        $id = (string) ($args['id'] ?? '');
+        $requestWithStatus = $request->withParsedBody(array_merge($this->getBody($request), ['status' => 'archived']));
+        return $this->update($requestWithStatus, ['handle' => $handle, 'id' => $id]);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function compare(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? '');
+        $id = (string) ($args['id'] ?? '');
+        $queryParams = $request->getQueryParams();
+        $from = isset($queryParams['from']) ? (int) $queryParams['from'] : 0;
+        $to = isset($queryParams['to']) ? (int) $queryParams['to'] : 0;
+
+        if (!$this->registry->has($handle)) {
+            return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
+        }
+
+        $collection = $this->registry->get($handle);
+        $collectionId = (string) $collection['id'];
+
+        $fromVersion = $this->versionManager->getVersion($collectionId, $id, $from);
+        $toVersion = $this->versionManager->getVersion($collectionId, $id, $to);
+
+        if (!$fromVersion || !$toVersion) {
+            return $this->problem(404, 'Not Found', 'Specified versions for comparison were not found.');
+        }
+
+        $diff = [];
+        $fromData = is_array($fromVersion['snapshot']) ? $fromVersion['snapshot'] : [];
+        $toData = is_array($toVersion['snapshot']) ? $toVersion['snapshot'] : [];
+
+        $allKeys = array_unique(array_merge(array_keys($fromData), array_keys($toData)));
+        foreach ($allKeys as $key) {
+            $valFrom = $fromData[$key] ?? null;
+            $valTo = $toData[$key] ?? null;
+            if ($valFrom !== $valTo) {
+                $diff[$key] = ['from' => $valFrom, 'to' => $valTo];
+            }
+        }
+
+        return $this->json([
+            'collection' => $handle,
+            'entry_id' => $id,
+            'from_version' => $from,
+            'to_version' => $to,
+            'diff' => $diff,
+        ]);
+    }
 }

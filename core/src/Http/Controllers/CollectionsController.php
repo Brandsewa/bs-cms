@@ -14,6 +14,7 @@ use BsCms\Schema\FieldTypeRegistry;
 use BsCms\Schema\SchemaApplier;
 use BsCms\Schema\SchemaLock;
 use BsCms\Schema\SchemaPlanner;
+use BsCms\Security\Ulid;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -246,5 +247,154 @@ class CollectionsController extends BaseController
         } catch (Throwable $e) {
             return $this->problem(500, 'Delete Error', $e->getMessage());
         }
+    }
+
+    public function plan(ServerRequestInterface $request): ResponseInterface
+    {
+        $permError = $this->requirePermission($this->authorizer, $request, 'create', new Subject('schema', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $body = $this->getBody($request);
+        if (empty($body['handle'])) {
+            return $this->problem(422, 'Unprocessable Content', 'Collection handle is required.');
+        }
+
+        try {
+            $plan = $this->planner->plan($body);
+            $prefix = $this->connection->getPrefix();
+            $changeId = Ulid::generate();
+            $now = date('Y-m-d H:i:s.v');
+            $actor = $this->getActor($request);
+
+            $collectionId = null;
+            if ($this->registry->has((string) $body['handle'])) {
+                $existing = $this->registry->get((string) $body['handle']);
+                $collectionId = $existing['id'] ?? null;
+            }
+
+            $this->connection->execute(
+                "INSERT INTO `{$prefix}schema_changes` (
+                    `id`, `collection_id`, `source`, `status`, `plan`, `sql_up`, `risk_flags`,
+                    `estimated_rows`, `created_by`, `created_at`
+                ) VALUES (?, ?, 'api', 'proposed', ?, ?, ?, ?, ?, ?)",
+                [
+                    $changeId,
+                    $collectionId,
+                    json_encode($plan->changes, JSON_THROW_ON_ERROR),
+                    json_encode($plan->sqlStatements, JSON_THROW_ON_ERROR),
+                    json_encode($plan->riskFlags, JSON_THROW_ON_ERROR),
+                    $plan->estimatedRows,
+                    $actor->id,
+                    $now,
+                ]
+            );
+
+            return $this->json([
+                'change_id' => $changeId,
+                'status' => 'proposed',
+                'plan' => $plan->changes,
+                'sql_up' => $plan->sqlStatements,
+                'risk_flags' => $plan->riskFlags,
+                'estimated_rows' => $plan->estimatedRows,
+                'created_at' => $now,
+            ]);
+        } catch (Throwable $e) {
+            return $this->problem(422, 'Plan Error', $e->getMessage());
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    public function applyChange(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $changeId = (string) ($args['change_id'] ?? '');
+        $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('schema', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $prefix = $this->connection->getPrefix();
+        $stmt = $this->connection->execute(
+            "SELECT * FROM `{$prefix}schema_changes` WHERE `id` = ?",
+            [$changeId]
+        );
+        $change = $stmt->fetch();
+        if (!$change) {
+            return $this->problem(404, 'Not Found', "Schema change '{$changeId}' not found.");
+        }
+
+        if ($change['status'] === 'applied') {
+            return $this->problem(409, 'Conflict', "Schema change '{$changeId}' has already been applied.");
+        }
+
+        $riskFlags = json_decode((string) $change['risk_flags'], true) ?? [];
+        $actor = $this->getActor($request);
+        $body = $this->getBody($request);
+
+        if (!empty($riskFlags['data_loss'])) {
+            $confirmToken = (string) ($body['confirm_token'] ?? $request->getHeaderLine('X-Confirm-Token'));
+            $canonicalInput = ['change_id' => $changeId];
+            if ($confirmToken === '') {
+                $token = $this->confirmTokenService->generate($actor->id, 'schema.apply', $canonicalInput);
+                return $this->json([
+                    'type' => 'https://errors.bscms.org/confirmation-required',
+                    'title' => 'Confirmation Required',
+                    'status' => 409,
+                    'detail' => 'Applying this schema change contains destructive modifications.',
+                    'confirm_token' => $token,
+                ], 409);
+            }
+
+            try {
+                $this->confirmTokenService->validateAndConsume($confirmToken, $actor->id, 'schema.apply', $canonicalInput);
+            } catch (Throwable $e) {
+                return $this->problem(400, 'Confirmation Failed', $e->getMessage());
+            }
+        }
+
+        try {
+            $sqlUp = json_decode((string) $change['sql_up'], true) ?? [];
+            foreach ($sqlUp as $sql) {
+                $this->connection->execute($sql);
+            }
+
+            $now = date('Y-m-d H:i:s.v');
+            $this->connection->execute(
+                "UPDATE `{$prefix}schema_changes` SET `status` = 'applied', `applied_at` = ? WHERE `id` = ?",
+                [$now, $changeId]
+            );
+
+            $this->registry->invalidate();
+
+            return $this->json(['success' => true, 'change_id' => $changeId, 'applied_at' => $now]);
+        } catch (Throwable $e) {
+            return $this->problem(500, 'Apply Error', $e->getMessage());
+        }
+    }
+
+    public function changes(ServerRequestInterface $request): ResponseInterface
+    {
+        $permError = $this->requirePermission($this->authorizer, $request, 'read', new Subject('schema', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $prefix = $this->connection->getPrefix();
+        $stmt = $this->connection->execute(
+            "SELECT `id`, `collection_id`, `source`, `status`, `risk_flags`, `estimated_rows`, `created_by`, `created_at`, `applied_at`
+             FROM `{$prefix}schema_changes`
+             ORDER BY `created_at` DESC LIMIT 100"
+        );
+        $rows = $stmt->fetchAll();
+        foreach ($rows as &$r) {
+            if (isset($r['risk_flags']) && is_string($r['risk_flags'])) {
+                $r['risk_flags'] = json_decode($r['risk_flags'], true);
+            }
+        }
+
+        return $this->json($rows);
     }
 }
