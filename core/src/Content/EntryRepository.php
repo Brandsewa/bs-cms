@@ -144,6 +144,9 @@ final class EntryRepository
         // Sync taxonomy term relationships
         $this->syncTaxonomyTerms($collection, $id, $dataValues, $status, $publishedAt, $now);
 
+        // Sync media usage
+        $this->syncMediaUsage($collection, $id, $dataValues);
+
         // Record initial version
         $snapshot = array_merge($input, [
             'id' => $id,
@@ -291,6 +294,9 @@ final class EntryRepository
         // Sync taxonomy term relationships
         $this->syncTaxonomyTerms($collection, $id, $mergedData, $newStatus, $publishedAt, $now);
 
+        // Sync media usage
+        $this->syncMediaUsage($collection, $id, $mergedData);
+
         // Record version
         $snapshot = array_merge($existing, $input, [
             'id' => $id,
@@ -341,6 +347,8 @@ final class EntryRepository
             $this->relationManager->purgeEntry($collectionId, $id);
             // Delete taxonomy relationships
             $this->purgeTaxonomyTerms($id);
+            // Delete media usage
+            $this->purgeMediaUsage($id);
             // Delete versions
             $this->connection->execute(
                 "DELETE FROM `{$prefix}entry_versions` WHERE `collection_id` = ? AND `entry_id` = ?",
@@ -1212,5 +1220,112 @@ final class EntryRepository
                 )
                 WHERE t.id IN ({$placeholders})";
         $this->connection->execute($sql, $termIds);
+    }
+
+    /**
+     * Synchronize media usage tracking for an entry.
+     *
+     * @param array<string, mixed> $collection
+     * @param array<string, mixed> $dataValues
+     */
+    private function syncMediaUsage(array $collection, string $entryId, array $dataValues): void
+    {
+        $fields = (array) ($collection['fields'] ?? []);
+        $collectionId = (string) $collection['id'];
+        $usageTable = $this->connection->prefixTable('media_usage');
+        $mediaTable = $this->connection->prefixTable('media');
+
+        // Extract media IDs from media fields and richtext fields
+        /** @var list<array{field_key: string, media_id: string}> $newUsages */
+        $newUsages = [];
+        foreach ($fields as $fKey => $fDef) {
+            if (!is_array($fDef) || !array_key_exists($fKey, $dataValues)) {
+                continue;
+            }
+
+            $type = (string) ($fDef['type'] ?? '');
+            $val = $dataValues[$fKey];
+
+            if ($type === 'media') {
+                if (is_string($val) && preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/i', trim($val))) {
+                    $newUsages[] = ['field_key' => $fKey, 'media_id' => strtoupper(trim($val))];
+                } elseif (is_array($val)) {
+                    foreach ($val as $mId) {
+                        if (is_string($mId) && preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/i', trim($mId))) {
+                            $newUsages[] = ['field_key' => $fKey, 'media_id' => strtoupper(trim($mId))];
+                        }
+                    }
+                }
+            } elseif ($type === 'richtext') {
+                $doc = $val;
+                if (is_string($val)) {
+                    $decoded = json_decode($val, true);
+                    if (is_array($decoded)) {
+                        $doc = $decoded;
+                    }
+                }
+                if (is_array($doc)) {
+                    $mediaIds = \BsCms\Document\DerivedFields::extractMediaIds($doc);
+                    foreach ($mediaIds as $mId) {
+                        $newUsages[] = ['field_key' => $fKey, 'media_id' => strtoupper(trim($mId))];
+                    }
+                }
+            }
+        }
+
+        // Fetch previous usages to find affected media IDs
+        $prevStmt = $this->connection->execute(
+            "SELECT `media_id` FROM `{$usageTable}` WHERE `entry_id` = ?",
+            [$entryId]
+        );
+        /** @var list<string> $prevMediaIds */
+        $prevMediaIds = $prevStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        // Delete existing usage for this entry
+        $this->connection->execute("DELETE FROM `{$usageTable}` WHERE `entry_id` = ?", [$entryId]);
+
+        $affectedMediaIds = $prevMediaIds;
+
+        // Insert new usages
+        foreach ($newUsages as $usage) {
+            $this->connection->execute(
+                "INSERT IGNORE INTO `{$usageTable}` (`media_id`, `collection_id`, `entry_id`, `field_key`)
+                 VALUES (?, ?, ?, ?)",
+                [$usage['media_id'], $collectionId, $entryId, $usage['field_key']]
+            );
+            $affectedMediaIds[] = $usage['media_id'];
+        }
+
+        // Recompute usage_count on media table
+        $uniqueMediaIds = array_values(array_unique($affectedMediaIds));
+        foreach ($uniqueMediaIds as $mId) {
+            $this->connection->execute(
+                "UPDATE `{$mediaTable}` SET `usage_count` = (SELECT COUNT(*) FROM `{$usageTable}` WHERE `media_id` = ?) WHERE `id` = ?",
+                [$mId, $mId]
+            );
+        }
+    }
+
+    private function purgeMediaUsage(string $entryId): void
+    {
+        $usageTable = $this->connection->prefixTable('media_usage');
+        $mediaTable = $this->connection->prefixTable('media');
+
+        $prevStmt = $this->connection->execute(
+            "SELECT `media_id` FROM `{$usageTable}` WHERE `entry_id` = ?",
+            [$entryId]
+        );
+        /** @var list<string> $prevMediaIds */
+        $prevMediaIds = $prevStmt->fetchAll(\PDO::FETCH_COLUMN);
+
+        $this->connection->execute("DELETE FROM `{$usageTable}` WHERE `entry_id` = ?", [$entryId]);
+
+        $uniqueMediaIds = array_values(array_unique($prevMediaIds));
+        foreach ($uniqueMediaIds as $mId) {
+            $this->connection->execute(
+                "UPDATE `{$mediaTable}` SET `usage_count` = (SELECT COUNT(*) FROM `{$usageTable}` WHERE `media_id` = ?) WHERE `id` = ?",
+                [$mId, $mId]
+            );
+        }
     }
 }

@@ -111,7 +111,9 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\WebhooksController::class),
     $container->get(\BsCms\Http\Controllers\PublicEntriesController::class),
     $container->get(\BsCms\Http\Controllers\OpenApiController::class),
-    $container->get(\BsCms\Http\Controllers\TaxonomiesController::class)
+    $container->get(\BsCms\Http\Controllers\TaxonomiesController::class),
+    $container->get(\BsCms\Http\Controllers\MediaController::class),
+    $container->get(\BsCms\Http\Controllers\MediaFoldersController::class)
 );
 
 // Build middleware pipeline

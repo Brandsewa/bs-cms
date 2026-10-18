@@ -12,6 +12,8 @@ use BsCms\Http\Controllers\EmailSettingsController;
 use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
 use BsCms\Http\Controllers\MeController;
+use BsCms\Http\Controllers\MediaController;
+use BsCms\Http\Controllers\MediaFoldersController;
 use BsCms\Http\Controllers\NotificationsController;
 use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PublicEntriesController;
@@ -24,7 +26,7 @@ use BsCms\Http\Controllers\UsersController;
 use BsCms\Http\Controllers\WebhooksController;
 
 /**
- * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, and taxonomies.
+ * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, taxonomies, and media.
  */
 final class ApiRoutes
 {
@@ -47,7 +49,9 @@ final class ApiRoutes
         ?WebhooksController $webhooks = null,
         ?PublicEntriesController $publicEntries = null,
         ?OpenApiController $openApi = null,
-        ?TaxonomiesController $taxonomies = null
+        ?TaxonomiesController $taxonomies = null,
+        ?MediaController $media = null,
+        ?MediaFoldersController $mediaFolders = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -222,6 +226,27 @@ final class ApiRoutes
             $routes->post('/api/v1/taxonomies/{handle}/terms/{id}/merge', [$taxonomies, 'mergeTerm']);
 
             $routes->get('/api/v1/public/taxonomies/{handle}/terms', [$taxonomies, 'publicListTerms']);
+        }
+
+        // 18. Media and Folders endpoints
+        if ($mediaFolders !== null) {
+            $routes->get('/api/v1/media/folders', [$mediaFolders, 'list']);
+            $routes->post('/api/v1/media/folders', [$mediaFolders, 'create']);
+            $routes->patch('/api/v1/media/folders/{id}', [$mediaFolders, 'update']);
+            $routes->delete('/api/v1/media/folders/{id}', [$mediaFolders, 'delete']);
+        }
+
+        if ($media !== null) {
+            $routes->get('/api/v1/media', [$media, 'list']);
+            $routes->post('/api/v1/media', [$media, 'upload']);
+            $routes->post('/api/v1/media/chunks/init', [$media, 'initChunk']);
+            $routes->post('/api/v1/media/chunks/{id}', [$media, 'uploadChunk']);
+            $routes->get('/api/v1/media/chunks/{id}', [$media, 'chunkStatus']);
+            $routes->post('/api/v1/media/chunks/{id}/assemble', [$media, 'assembleChunk']);
+            $routes->get('/api/v1/media/{id}', [$media, 'get']);
+            $routes->patch('/api/v1/media/{id}', [$media, 'update']);
+            $routes->delete('/api/v1/media/{id}', [$media, 'delete']);
+            $routes->get('/api/v1/media/{id}/usage', [$media, 'getUsage']);
         }
     }
 }

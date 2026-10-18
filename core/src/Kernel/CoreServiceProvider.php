@@ -479,6 +479,48 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(Authorizer::class)
             );
         });
+
+        // 12. Media Services & Controllers
+        $container->singleton(\BsCms\Media\MediaFolderRepository::class, function (Container $c): \BsCms\Media\MediaFolderRepository {
+            return new \BsCms\Media\MediaFolderRepository($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Media\MediaProcessor::class, function (Container $c) use ($app): \BsCms\Media\MediaProcessor {
+            return new \BsCms\Media\MediaProcessor(
+                $c->get(Connection::class),
+                $app->basePath('public/media')
+            );
+        });
+
+        $container->singleton(\BsCms\Media\MediaRepository::class, function (Container $c) use ($app): \BsCms\Media\MediaRepository {
+            return new \BsCms\Media\MediaRepository(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Media\MediaProcessor::class),
+                $app->basePath('public/media')
+            );
+        });
+
+        $container->singleton(\BsCms\Media\ChunkUploadManager::class, function (Container $c) use ($app): \BsCms\Media\ChunkUploadManager {
+            return new \BsCms\Media\ChunkUploadManager(
+                $app->basePath('storage/tmp')
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MediaFoldersController::class, function (Container $c): \BsCms\Http\Controllers\MediaFoldersController {
+            return new \BsCms\Http\Controllers\MediaFoldersController(
+                $c->get(\BsCms\Media\MediaFolderRepository::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MediaController::class, function (Container $c) use ($app): \BsCms\Http\Controllers\MediaController {
+            return new \BsCms\Http\Controllers\MediaController(
+                $c->get(\BsCms\Media\MediaRepository::class),
+                $c->get(\BsCms\Media\ChunkUploadManager::class),
+                $c->get(Authorizer::class),
+                $app->basePath('storage/tmp')
+            );
+        });
     }
 
     public function boot(Container $container): void

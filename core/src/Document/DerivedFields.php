@@ -63,6 +63,15 @@ final class DerivedFields
     }
 
     /**
+     * @param array<string, mixed> $document
+     * @return list<string>
+     */
+    public static function extractMediaIds(array $document): array
+    {
+        return self::extract($document)['media_ids'];
+    }
+
+    /**
      * @param list<array<string, mixed>> $nodes
      * @param list<string> $allText
      * @param list<array{level: int, text: string, slug: string}> $outline

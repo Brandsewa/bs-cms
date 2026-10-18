@@ -1,7 +1,5 @@
-# BS CMS Media Upload Directory Hardening
-# Strictly prevents any PHP / CGI script execution and sets safe download headers.
-
-Options -Indexes -ExecCGI
+# Apache & LiteSpeed Security Rules for Media Uploads
+# Disable PHP execution completely across all versions
 <IfModule mod_php.c>
     php_flag engine off
 </IfModule>
@@ -12,16 +10,41 @@ Options -Indexes -ExecCGI
     php_flag engine off
 </IfModule>
 
-# Remove any PHP / script handlers in LiteSpeed / Apache
-RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
-RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
+# Remove script handlers so files are never interpreted as CGI/PHP
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .asp .sh .bash .phar .inc
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .asp .sh .bash .phar .inc
+SetHandler none
+SetHandler default-handler
 
-# Deny any direct request to executable script extensions
-<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|py|sh|phar|inc)$">
-    Order allow,deny
+# Force safe MIME content types
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType image/webp .webp
+    AddType image/gif .gif
+    AddType image/avif .avif
+    AddType application/pdf .pdf
+    AddType text/plain .txt
+    AddType text/csv .csv
+    AddType audio/mpeg .mp3
+    AddType audio/wav .wav
+    AddType audio/ogg .ogg
+    AddType video/mp4 .mp4
+    AddType video/webm .webm
+</IfModule>
+
+# Explicitly deny direct execution of executable extensions
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|py|asp|sh|bash|phar|inc)$">
+    Order Allow,Deny
     Deny from all
 </FilesMatch>
 
+Options -ExecCGI -Indexes
+
+# Security headers
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
+    <FilesMatch "\.(pdf|txt|csv|doc|docx|xls|xlsx|zip|tar|gz)$">
+        Header set Content-Disposition "attachment"
+    </FilesMatch>
 </IfModule>

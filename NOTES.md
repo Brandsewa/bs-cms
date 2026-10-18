@@ -474,3 +474,35 @@ lazy chunks from M2/M3 onward.
 - Sonner keeps dismissed toasts until its exit animation completes; jsdom
   fires no animation events, so tests assert `data-removed` instead of
   unmount (`feedback.test.tsx`).
+
+---
+
+## 8. Phase 4: Media Pipeline & LiteSpeed / Apache Hardening
+
+### 8.1 Multi-Layered Defense-in-Depth for File Uploads
+Hostinger runs LiteSpeed Web Server, which may bypass Apache-style per-directory PHP engine flags under certain configurations. The media pipeline implements a 4-layer defense ensuring zero executable script execution:
+
+1. **Magic-Byte MIME Inspection:** Validation strictly uses `finfo_file` (libmagic) rather than the client-provided `Content-Type` or file extension. Only an explicit allow-list (JPEG, PNG, WebP, GIF, AVIF, PDF, TXT, CSV, MP3, WAV, OGG, MP4, WEBM) is permitted. SVG is disabled by default due to XML/script XSS risks. Plain text and CSV files are additionally inspected for script tags (`<?php`, `<?=`, `<script`, `<%`) and rejected.
+2. **Deterministic Storage Naming:** Stored filenames on disk are strictly `<ulid>.<allowed_ext>` derived entirely from verified magic bytes. Client-supplied filenames (such as `evil.php`, `evil.jpg.php`, `evil.php.jpg`) are never used as filesystem filenames; original names are stored solely in the `media.original_name` database column.
+3. **Polyglot & Payload Neutralization (GD Re-encoding):** All uploaded raster images are fully re-encoded through PHP's GD library (`imagecreatefromjpeg`, `imagepng`, etc.). GD parsesDCT/pixels and writes a fresh, canonical image stream, cleanly discarding any trailing PHP code, injected EXIF comments, or polyglot payloads.
+4. **Dual Web Server Configuration (`.htaccess`):** The `public/media/.htaccess` file configures directives for both LiteSpeed and Apache:
+   - `php_flag engine off` (across PHP 5, 7, and 8 modules).
+   - `RemoveHandler` and `RemoveType` for `.php`, `.phtml`, `.cgi`, `.pl`, `.py`, `.sh`, `.phar`, `.inc`.
+   - `SetHandler none` and `SetHandler default-handler` to prevent script execution.
+   - `Options -ExecCGI -Indexes`.
+   - `<FilesMatch>` explicit denial for executable extensions.
+   - `X-Content-Type-Options: nosniff` header.
+   - `Content-Disposition: attachment` header for non-image files (`.pdf`, `.txt`, `.csv`).
+
+### 8.2 Chunked Uploads & Resumability
+- Chunk storage under `storage/tmp/chunks/{upload_id}/`.
+- Per-chunk size cap: 10 MB. Total file size cap: 100 MB. Max chunks: 1,000.
+- Resumability: `GET /api/v1/media/chunks/{id}` returns completed chunk indices.
+- Assembly: verifies continuous chunks 0 to $N-1$, confirms total file size matches metadata, passes assembled file through magic byte validation and re-encoding, and removes temporary chunk folders.
+- Automatic cleanup of abandoned upload sessions older than 24 hours.
+
+### 8.3 Media Usage Tracking & Deletion Guardrails
+- Refcounts are recorded in `media.usage_count` and detailed reference tuples in `media_usage` (`media_id`, `collection_id`, `entry_id`, `field_key`).
+- Integrated with `EntryRepository`: automatically extracts media references from both `media` field types and embedded image nodes in `richtext` documents upon entry create, update, and purge.
+- `DELETE /api/v1/media/{id}` returns HTTP 409 Conflict if `usage_count > 0` with Problem Details listing all referencing entries, unless `?force=true` is explicitly provided.
+

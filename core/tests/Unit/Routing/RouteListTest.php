@@ -242,4 +242,91 @@ final class RouteListTest extends TestCase
             );
         }
     }
+
+    public function testAllPhase4TaxonomyAndMediaEndpointsAreRegistered(): void
+    {
+        $routes = new RouteCollection();
+
+        $auth = $this->createMock(AuthController::class);
+        $me = $this->createMock(MeController::class);
+        $users = $this->createMock(UsersController::class);
+        $roles = $this->createMock(RolesController::class);
+        $tokens = $this->createMock(TokensController::class);
+        $audit = $this->createMock(AuditController::class);
+        $email = $this->createMock(EmailSettingsController::class);
+        $notifications = $this->createMock(NotificationsController::class);
+        $taxonomies = $this->createMock(\BsCms\Http\Controllers\TaxonomiesController::class);
+        $media = $this->createMock(\BsCms\Http\Controllers\MediaController::class);
+        $mediaFolders = $this->createMock(\BsCms\Http\Controllers\MediaFoldersController::class);
+
+        ApiRoutes::register(
+            $routes,
+            $auth,
+            $me,
+            $users,
+            $roles,
+            $tokens,
+            $audit,
+            $email,
+            $notifications,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $taxonomies,
+            $media,
+            $mediaFolders
+        );
+
+        $registered = [];
+        foreach ($routes->getRoutes() as $r) {
+            $registered[$r->getMethod() . ' ' . $r->getPattern()] = true;
+        }
+
+        $expectedEndpoints = [
+            // Taxonomies
+            'GET /api/v1/taxonomies',
+            'POST /api/v1/taxonomies',
+            'GET /api/v1/taxonomies/{handle}',
+            'PATCH /api/v1/taxonomies/{handle}',
+            'DELETE /api/v1/taxonomies/{handle}',
+            'GET /api/v1/taxonomies/{handle}/terms',
+            'POST /api/v1/taxonomies/{handle}/terms',
+            'GET /api/v1/taxonomies/{handle}/terms/{id}',
+            'PATCH /api/v1/taxonomies/{handle}/terms/{id}',
+            'DELETE /api/v1/taxonomies/{handle}/terms/{id}',
+            'POST /api/v1/taxonomies/{handle}/terms/{id}/move',
+            'POST /api/v1/taxonomies/{handle}/terms/{id}/merge',
+            'GET /api/v1/public/taxonomies/{handle}/terms',
+
+            // Media & Folders
+            'GET /api/v1/media/folders',
+            'POST /api/v1/media/folders',
+            'PATCH /api/v1/media/folders/{id}',
+            'DELETE /api/v1/media/folders/{id}',
+            'GET /api/v1/media',
+            'POST /api/v1/media',
+            'POST /api/v1/media/chunks/init',
+            'POST /api/v1/media/chunks/{id}',
+            'GET /api/v1/media/chunks/{id}',
+            'POST /api/v1/media/chunks/{id}/assemble',
+            'GET /api/v1/media/{id}',
+            'PATCH /api/v1/media/{id}',
+            'DELETE /api/v1/media/{id}',
+            'GET /api/v1/media/{id}/usage',
+        ];
+
+        foreach ($expectedEndpoints as $endpoint) {
+            $this->assertArrayHasKey(
+                $endpoint,
+                $registered,
+                "Expected Phase 4 route '{$endpoint}' was not registered in ApiRoutes."
+            );
+        }
+    }
 }

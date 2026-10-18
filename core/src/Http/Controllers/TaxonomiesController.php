@@ -13,7 +13,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
-final class TaxonomiesController extends BaseController
+class TaxonomiesController extends BaseController
 {
     public function __construct(
         private readonly TaxonomyRepository $taxonomies,
