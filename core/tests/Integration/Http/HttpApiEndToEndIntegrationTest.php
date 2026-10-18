@@ -628,7 +628,9 @@ final class HttpApiEndToEndIntegrationTest extends TestCase
         $loginAgain3 = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/login'))
             ->withHeader('Content-Type', 'application/json')
             ->withParsedBody(['email' => 'mfa_user@example.com', 'password' => 'MfaUserSecure2026!']);
-        $token3 = json_decode((string) $loginAgain3->getBody(), true)['challenge_token'];
+        $loginAgain3Res = $this->dispatch($loginAgain3);
+        $this->assertSame(200, $loginAgain3Res->getStatusCode());
+        $token3 = json_decode((string) $loginAgain3Res->getBody(), true)['challenge_token'];
 
         $replayRecoveryReq = (new ServerRequest('POST', 'https://test.bscms.local/api/v1/auth/2fa/challenge'))
             ->withHeader('Content-Type', 'application/json')

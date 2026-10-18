@@ -18,7 +18,6 @@ require_once $corePath . '/vendor/autoload.php';
 use BsCms\Auth\PasswordHasher;
 use BsCms\Auth\TwoFactorService;
 use BsCms\Database\Connection;
-use BsCms\Security\Crypto;
 use BsCms\Support\Clock;
 use BsCms\Users\RoleRepository;
 use BsCms\Users\UserRepository;
@@ -396,10 +395,6 @@ passTest("7. Full 2FA lifecycle (code-only confirm, challenge, replay protection
 
 // 8. API Tokens: Scope enforcement & AI Draft-Only mode
 echo "Testing 8: API Token permissions, role inheritance, and scopes...\n";
-$appConfigFile = "{$corePath}/config/app.php";
-$appConfig = require $appConfigFile;
-$appKey = (string) ($appConfig['key'] ?? '');
-$crypto = Crypto::fromAppKey($appKey);
 
 $tokensTable = $connection->prefixTable('api_tokens');
 $rawToken = bin2hex(random_bytes(32));
