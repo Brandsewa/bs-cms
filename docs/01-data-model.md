@@ -433,7 +433,7 @@ CREATE TABLE terms (
   entry_count INT NOT NULL DEFAULT 0,     -- cached count of published entries, maintained on change
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
-  parent_key CHAR(26) GENERATED ALWAYS AS (IFNULL(parent_id, '')) STORED, -- needed because NULLs never collide in a unique key
+  parent_key CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '', -- parent id or '' for roots (needed because NULLs never collide in a unique key; maintained by app)
   UNIQUE KEY uq_terms_slug (taxonomy_id, parent_key, slug),
   KEY ix_terms_path (taxonomy_id, path(191)),
   KEY ix_terms_parent (taxonomy_id, parent_id, position),
@@ -506,7 +506,8 @@ CREATE TABLE media_folders (
   name VARCHAR(190) NOT NULL,
   path VARCHAR(512) NOT NULL,
   created_at DATETIME(3) NOT NULL,
-  UNIQUE KEY uq_mediafolder (parent_id, name)
+  parent_key CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
+  UNIQUE KEY uq_mediafolder (parent_key, name)
 );
 
 CREATE TABLE media (

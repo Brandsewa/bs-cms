@@ -273,6 +273,14 @@ final class SchemaDiffTest extends TestCase
         $this->assertIsArray($idCol);
         $this->assertSame('ascii', strtolower((string) ($idCol['CHARACTER_SET_NAME'] ?? $idCol['character_set_name'])));
         $this->assertSame('ascii_bin', strtolower((string) ($idCol['COLLATION_NAME'] ?? $idCol['collation_name'])));
+
+        // Verify terms indexes and parent_key definition
+        $this->assertTableIndexes($pdo, 'bs_terms', [
+            'PRIMARY', 'uq_terms_slug', 'ix_terms_path', 'ix_terms_parent'
+        ]);
+        $this->assertTableIndexes($pdo, 'bs_media_folders', [
+            'PRIMARY', 'uq_mediafolder', 'ix_mediafolder_parent'
+        ]);
     }
 
     /**
@@ -286,6 +294,26 @@ final class SchemaDiffTest extends TestCase
         $cols = $stmt->fetchAll(PDO::FETCH_COLUMN);
         foreach ($expectedColumns as $expected) {
             $this->assertContains($expected, $cols, "Table {$table} must contain column {$expected}");
+        }
+    }
+
+    /**
+     * @param list<string> $expectedIndexes
+     */
+    private function assertTableIndexes(PDO $pdo, string $table, array $expectedIndexes): void
+    {
+        $stmt = $pdo->query("SHOW INDEX FROM `{$table}`");
+        $this->assertInstanceOf(\PDOStatement::class, $stmt);
+        /** @var list<string> $idxNames */
+        $idxNames = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $keyName = (string) ($row['Key_name'] ?? $row['key_name'] ?? '');
+            if ($keyName !== '' && !in_array($keyName, $idxNames, true)) {
+                $idxNames[] = $keyName;
+            }
+        }
+        foreach ($expectedIndexes as $expected) {
+            $this->assertContains($expected, $idxNames, "Table {$table} must contain index {$expected}");
         }
     }
 }

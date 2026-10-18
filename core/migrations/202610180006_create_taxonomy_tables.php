@@ -74,7 +74,7 @@ final class CreateTaxonomyTables extends Migration
             `entry_count` INT NOT NULL DEFAULT 0,
             `created_at` DATETIME(3) NOT NULL,
             `updated_at` DATETIME(3) NOT NULL,
-            `parent_key` CHAR(26) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS (COALESCE(RTRIM(`parent_id`), '')) VIRTUAL,
+            `parent_key` CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT '',
             UNIQUE KEY `uq_terms_slug` (`taxonomy_id`, `parent_key`, `slug`),
             KEY `ix_terms_path` (`taxonomy_id`, `path`(191)),
             KEY `ix_terms_parent` (`taxonomy_id`, `parent_id`, `position`),

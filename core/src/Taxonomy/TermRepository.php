@@ -180,16 +180,19 @@ final class TermRepository
         $now = Clock::sql(Clock::now());
         $table = $this->connection->prefixTable('terms');
 
+        $parentKey = $parentId ?? '';
+
         $this->connection->execute(
             "INSERT INTO `{$table}` (
-                `id`, `taxonomy_id`, `parent_id`, `name`, `slug`, `description`,
+                `id`, `taxonomy_id`, `parent_id`, `parent_key`, `name`, `slug`, `description`,
                 `path`, `slug_path`, `depth`, `position`, `image_media_id`, `color`,
                 `icon`, `data`, `seo`, `entry_count`, `created_at`, `updated_at`
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
             [
                 $id,
                 $taxonomyId,
                 $parentId,
+                $parentKey,
                 $name,
                 $slug,
                 $data['description'] ?? null,
@@ -252,6 +255,21 @@ final class TermRepository
         $icon = array_key_exists('icon', $data) ? $data['icon'] : $term['icon'];
         $termData = array_key_exists('data', $data) ? (is_array($data['data']) ? json_encode($data['data']) : $data['data']) : (isset($term['data']) ? json_encode($term['data']) : null);
         $seo = array_key_exists('seo', $data) ? (is_array($data['seo']) ? json_encode($data['seo']) : $data['seo']) : (isset($term['seo']) ? json_encode($term['seo']) : null);
+
+        $parentChanged = false;
+        $newParentId = $term['parent_id'];
+        if (array_key_exists('parent_id', $data)) {
+            $candidateParentId = isset($data['parent_id']) && $data['parent_id'] !== '' ? (string) $data['parent_id'] : null;
+            if ($candidateParentId !== $term['parent_id']) {
+                $newParentId = $candidateParentId;
+                $parentChanged = true;
+            }
+        }
+
+        if ($parentChanged) {
+            // Re-parent using move() which properly updates path, depth, slug_path, and parent_key under lock
+            $this->move($termId, $newParentId, $position);
+        }
 
         if (!$slugChanged) {
             $this->connection->execute(
@@ -395,18 +413,21 @@ final class TermRepository
             $position = $newPosition ?? (int) $term['position'];
             $table = $this->connection->prefixTable('terms');
 
-            $this->connection->transaction(function () use ($table, $newParentId, $newDepth, $newPath, $newSlugPath, $position, $now, $termId, $term, $oldPath, $oldSlugPath, $taxonomyId) {
+            $parentKey = $newParentId ?? '';
+
+            $this->connection->transaction(function () use ($table, $newParentId, $parentKey, $newDepth, $newPath, $newSlugPath, $position, $now, $termId, $term, $oldPath, $oldSlugPath, $taxonomyId) {
                 // Update moved root node
                 $this->connection->execute(
                     "UPDATE `{$table}` SET
                         `parent_id` = ?,
+                        `parent_key` = ?,
                         `depth` = ?,
                         `path` = ?,
                         `slug_path` = ?,
                         `position` = ?,
                         `updated_at` = ?
                      WHERE `id` = ?",
-                    [$newParentId, $newDepth, $newPath, $newSlugPath, $position, $now, $termId]
+                    [$newParentId, $parentKey, $newDepth, $newPath, $newSlugPath, $position, $now, $termId]
                 );
 
                 // Update all descendants in subtree

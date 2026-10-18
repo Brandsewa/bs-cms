@@ -750,4 +750,86 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
             "Subtree listing query must use ix_termrel_sorted index. Actual key: '{$keyUsed}', possible_keys: '{$possibleKeys}'"
         );
     }
+
+    public function testParentKeyAndSlugUniquenessConstraints(): void
+    {
+        $tax1 = $this->taxonomies->create(['handle' => 'categories', 'hierarchical' => true]);
+        $tax2 = $this->taxonomies->create(['handle' => 'topics', 'hierarchical' => true]);
+        $tax1Id = (string) $tax1['id'];
+        $tax2Id = (string) $tax2['id'];
+
+        $termsTable = $this->connection->prefixTable('terms');
+
+        // 1. Root term created: parent_id IS NULL and parent_key is ''
+        $root1 = $this->terms->create($tax1Id, ['name' => 'News', 'slug' => 'news']);
+        $this->assertNull($root1['parent_id']);
+
+        $stmt = $this->connection->execute("SELECT `parent_id`, `parent_key` FROM `{$termsTable}` WHERE `id` = ?", [$root1['id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($row);
+        $this->assertNull($row['parent_id']);
+        $this->assertSame('', $row['parent_key']);
+
+        // 2. Duplicate slug among root terms in same taxonomy is rejected
+        $this->expectException(\Throwable::class);
+        $this->terms->create($tax1Id, ['name' => 'News Duplicate', 'slug' => 'news']);
+    }
+
+    public function testSlugUniquenessAcrossParentsAndTaxonomiesAndMove(): void
+    {
+        $tax1 = $this->taxonomies->create(['handle' => 'sections', 'hierarchical' => true]);
+        $tax2 = $this->taxonomies->create(['handle' => 'tags', 'hierarchical' => true]);
+        $tax1Id = (string) $tax1['id'];
+        $tax2Id = (string) $tax2['id'];
+
+        $termsTable = $this->connection->prefixTable('terms');
+
+        // Create root term in tax1
+        $root = $this->terms->create($tax1Id, ['name' => 'Tech', 'slug' => 'tech']);
+
+        // 1. Same slug in DIFFERENT taxonomy allowed
+        $otherTaxTerm = $this->terms->create($tax2Id, ['name' => 'Tech in Tags', 'slug' => 'tech']);
+        $this->assertSame('tech', $otherTaxTerm['slug']);
+
+        // Create parent A and parent B under root
+        $parentA = $this->terms->create($tax1Id, ['name' => 'Parent A', 'slug' => 'parent-a', 'parent_id' => $root['id']]);
+        $parentB = $this->terms->create($tax1Id, ['name' => 'Parent B', 'slug' => 'parent-b', 'parent_id' => $root['id']]);
+
+        // 2. Same slug under DIFFERENT parents allowed
+        $childA = $this->terms->create($tax1Id, ['name' => 'Gadgets in A', 'slug' => 'gadgets', 'parent_id' => $parentA['id']]);
+        $childB = $this->terms->create($tax1Id, ['name' => 'Gadgets in B', 'slug' => 'gadgets', 'parent_id' => $parentB['id']]);
+
+        $this->assertSame('gadgets', $childA['slug']);
+        $this->assertSame('gadgets', $childB['slug']);
+
+        $stmtA = $this->connection->execute("SELECT `parent_id`, `parent_key` FROM `{$termsTable}` WHERE `id` = ?", [$childA['id']]);
+        $rowA = $stmtA->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($rowA);
+        $this->assertSame($parentA['id'], $rowA['parent_id']);
+        $this->assertSame($parentA['id'], $rowA['parent_key']);
+
+        $stmtB = $this->connection->execute("SELECT `parent_id`, `parent_key` FROM `{$termsTable}` WHERE `id` = ?", [$childB['id']]);
+        $rowB = $stmtB->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($rowB);
+        $this->assertSame($parentB['id'], $rowB['parent_id']);
+        $this->assertSame($parentB['id'], $rowB['parent_key']);
+
+        // 3. Moving a term updates parent_id and parent_key in the same statement
+        // Move childA to root
+        $this->terms->move((string) $childA['id'], null);
+        $stmtMoved = $this->connection->execute("SELECT `parent_id`, `parent_key` FROM `{$termsTable}` WHERE `id` = ?", [$childA['id']]);
+        $rowMoved = $stmtMoved->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($rowMoved);
+        $this->assertNull($rowMoved['parent_id']);
+        $this->assertSame('', $rowMoved['parent_key']);
+
+        // Move childA to parentB: collision with existing childB ('gadgets') -> should fail!
+        $collisionCaught = false;
+        try {
+            $this->terms->move((string) $childA['id'], (string) $parentB['id']);
+        } catch (\Throwable $e) {
+            $collisionCaught = true;
+        }
+        $this->assertTrue($collisionCaught, "Moving a term to a parent with an identical slug must collide on uq_terms_slug");
+    }
 }

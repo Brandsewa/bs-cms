@@ -40,9 +40,11 @@ final class MediaFolderRepository
             $path = (string) $parent['path'] . $name . '/';
         }
 
+        $parentKey = $parentId ?? '';
+
         $this->connection->execute(
-            "INSERT INTO `{$table}` (`id`, `parent_id`, `name`, `path`, `created_at`) VALUES (?, ?, ?, ?, ?)",
-            [$id, $parentId, $name, $path, $now]
+            "INSERT INTO `{$table}` (`id`, `parent_id`, `parent_key`, `name`, `path`, `created_at`) VALUES (?, ?, ?, ?, ?, ?)",
+            [$id, $parentId, $parentKey, $name, $path, $now]
         );
 
         return $this->findById($id) ?? [];
@@ -91,12 +93,13 @@ final class MediaFolderRepository
             $newPath = $parentPath . $newName . '/';
         }
 
+        $parentKey = $newParentId ?? '';
         $table = $this->connection->prefixTable('media_folders');
 
-        $this->connection->transaction(function () use ($table, $id, $newParentId, $newName, $newPath, $oldPath) {
+        $this->connection->transaction(function () use ($table, $id, $newParentId, $parentKey, $newName, $newPath, $oldPath) {
             $this->connection->execute(
-                "UPDATE `{$table}` SET `name` = ?, `parent_id` = ?, `path` = ? WHERE `id` = ?",
-                [$newName, $newParentId, $newPath, $id]
+                "UPDATE `{$table}` SET `name` = ?, `parent_id` = ?, `parent_key` = ?, `path` = ? WHERE `id` = ?",
+                [$newName, $newParentId, $parentKey, $newPath, $id]
             );
 
             // Update all descendant folder paths
