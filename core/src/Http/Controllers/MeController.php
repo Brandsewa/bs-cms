@@ -538,15 +538,23 @@ class MeController extends BaseController
         }
 
         $bodyRaw = (string) $request->getBody();
-        if (strlen($bodyRaw) > 16384) {
-            return $this->problem(413, 'Payload Too Large', 'User preferences payload must not exceed 16 KB.');
+        if (strlen($bodyRaw) > 4096) {
+            return $this->problem(413, 'Payload Too Large', 'User preferences payload must not exceed 4 KB.');
         }
 
         $actor = $this->getActor($request);
         $body = $this->getBody($request);
 
-        // Validate specific well-known keys if provided
+        // Strict allow-list of preference keys
+        $allowedKeys = ['theme', 'density', 'locale'];
         $errors = [];
+        foreach (array_keys($body) as $key) {
+            if (!in_array($key, $allowedKeys, true)) {
+                $errors["/{$key}"] = ["Unknown preference '{$key}'. Allowed preferences are: " . implode(', ', $allowedKeys) . "."];
+            }
+        }
+
+        // Validate specific well-known keys if provided
         if (array_key_exists('theme', $body)) {
             $allowedThemes = ['light', 'dark', 'system'];
             if (!is_string($body['theme']) || !in_array($body['theme'], $allowedThemes, true)) {

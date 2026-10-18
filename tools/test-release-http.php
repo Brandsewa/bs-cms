@@ -1063,23 +1063,23 @@ if (($resGetSiteSettings['json']['site_name'] ?? null) !== 'BS CMS') {
 }
 passTest("16b. GET singleton site_settings returns seeded defaults");
 
-// 16c. Partial singleton update (PATCH/merge semantics)
-$resPatchSiteSettings = httpRequest('PUT', "{$baseUrl}/api/v1/singletons/site_settings", [
+// 16c. Partial singleton update (PATCH & PUT merge semantics)
+$resPatchSiteSettings = httpRequest('PATCH', "{$baseUrl}/api/v1/singletons/site_settings", [
     'Authorization' => "Bearer {$adminToken}",
     'Content-Type' => 'application/json',
 ], [
     'site_name' => 'Brand Sewa CMS',
 ]);
 if ($resPatchSiteSettings['status'] !== 200) {
-    failTest("PUT singleton site_settings partial update expected 200, got {$resPatchSiteSettings['status']}: {$resPatchSiteSettings['body']}");
+    failTest("PATCH singleton site_settings partial update expected 200, got {$resPatchSiteSettings['status']}: {$resPatchSiteSettings['body']}");
 }
 if (($resPatchSiteSettings['json']['site_name'] ?? null) !== 'Brand Sewa CMS') {
-    failTest("PUT singleton site_settings did not update site_name: " . json_encode($resPatchSiteSettings['json']));
+    failTest("PATCH singleton site_settings did not update site_name: " . json_encode($resPatchSiteSettings['json']));
 }
 if (($resPatchSiteSettings['json']['environment'] ?? null) !== 'production') {
-    failTest("PUT singleton site_settings partial update did not preserve environment='production'");
+    failTest("PATCH singleton site_settings partial update did not preserve environment='production'");
 }
-passTest("16c. Partial singleton update merges data and preserves omitted fields");
+passTest("16c. Partial singleton update (PATCH/PUT) merges data and preserves omitted fields");
 
 // 16d. Environment change on site_settings requires step-up + confirm token
 // Create a session without step-up (mfa_passed_at = null)
@@ -1168,16 +1168,27 @@ if ($resInvalidTheme['status'] !== 422) {
     failTest("PATCH /api/v1/me/preferences with invalid theme expected 422, got {$resInvalidTheme['status']}");
 }
 
-// Oversized payload (>16KB) -> 413
-$oversized = ['notes' => str_repeat('X', 17000)];
+// Unknown preference key rejected -> 422
+$resUnknownKey = httpRequest('PATCH', "{$baseUrl}/api/v1/me/preferences", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'custom_unregistered_key' => 'arbitrary_value',
+]);
+if ($resUnknownKey['status'] !== 422) {
+    failTest("PATCH /api/v1/me/preferences with unknown key expected 422, got {$resUnknownKey['status']}");
+}
+
+// Oversized payload (>4KB) -> 413
+$oversized = ['notes' => str_repeat('X', 4500)];
 $resOversized = httpRequest('PATCH', "{$baseUrl}/api/v1/me/preferences", [
     'Authorization' => "Bearer {$adminToken}",
     'Content-Type' => 'application/json',
 ], $oversized);
 if ($resOversized['status'] !== 413) {
-    failTest("PATCH /api/v1/me/preferences with >16KB payload expected 413, got {$resOversized['status']}");
+    failTest("PATCH /api/v1/me/preferences with >4KB payload expected 413, got {$resOversized['status']}");
 }
-passTest("16e. User preferences GET/PATCH validated with size limits and schema validation");
+passTest("16e. User preferences GET/PATCH validated with 4KB cap and strict allow-list");
 
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";

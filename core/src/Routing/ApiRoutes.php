@@ -162,6 +162,7 @@ final class ApiRoutes
         if ($singletons !== null) {
             $routes->get('/api/v1/singletons/{handle}', [$singletons, 'get']);
             $routes->put('/api/v1/singletons/{handle}', [$singletons, 'update']);
+            $routes->patch('/api/v1/singletons/{handle}', [$singletons, 'update']);
         }
 
         // 12. Saved Views endpoints

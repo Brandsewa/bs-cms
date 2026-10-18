@@ -213,6 +213,7 @@ final class RouteListTest extends TestCase
             'POST /api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore',
             'GET /api/v1/singletons/{handle}',
             'PUT /api/v1/singletons/{handle}',
+            'PATCH /api/v1/singletons/{handle}',
             'GET /api/v1/saved-views',
             'POST /api/v1/saved-views',
             'GET /api/v1/saved-views/{id}',

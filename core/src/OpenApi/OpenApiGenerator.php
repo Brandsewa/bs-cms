@@ -246,7 +246,7 @@ final class OpenApiGenerator
                                 ],
                             ],
                         ],
-                        '413' => ['description' => 'Payload exceeds maximum allowed preferences size of 16KB'],
+                        '413' => ['description' => 'Payload exceeds maximum allowed preferences size of 4KB'],
                         '422' => ['description' => 'Validation error (invalid preference values)'],
                     ],
                 ],
@@ -826,6 +826,20 @@ final class OpenApiGenerator
                             ],
                         ],
                     ],
+                    'patch' => [
+                        'summary' => "Partially update singleton {$handle}",
+                        'tags' => ['Singletons'],
+                        'responses' => [
+                            '200' => [
+                                'description' => "Singleton {$handle} updated",
+                                'content' => [
+                                    'application/json' => [
+                                        'schema' => ['$ref' => $entrySchemaRef],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
                 ],
             ];
         }
@@ -1390,7 +1404,7 @@ final class OpenApiGenerator
                     'density' => ['type' => 'string', 'enum' => ['compact', 'comfortable', 'spacious']],
                     'locale' => ['type' => 'string'],
                 ],
-                'additionalProperties' => true,
+                'additionalProperties' => false,
             ],
             'UserListResponse' => [
                 'type' => 'object',

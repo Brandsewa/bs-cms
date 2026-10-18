@@ -241,7 +241,7 @@
                         }
                     },
                     "413": {
-                        "description": "Payload exceeds maximum allowed preferences size of 16KB"
+                        "description": "Payload exceeds maximum allowed preferences size of 4KB"
                     },
                     "422": {
                         "description": "Validation error (invalid preference values)"
@@ -1913,6 +1913,24 @@
             },
             "put": {
                 "summary": "Update singleton navigation",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton navigation updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/navigation_Entry"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Partially update singleton navigation",
                 "tags": [
                     "Singletons"
                 ],
@@ -3628,6 +3646,24 @@
                         }
                     }
                 }
+            },
+            "patch": {
+                "summary": "Partially update singleton site_settings",
+                "tags": [
+                    "Singletons"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Singleton site_settings updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/site_settings_Entry"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     },
@@ -3787,7 +3823,7 @@
                         "type": "string"
                     }
                 },
-                "additionalProperties": true
+                "additionalProperties": false
             },
             "UserListResponse": {
                 "type": "object",
