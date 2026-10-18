@@ -424,19 +424,24 @@ contrast, so the axe runs exclude `color-contrast` (rule documented in
 
 ### 7.2 Theme persistence
 
-`ThemeProvider` persists `bs-theme` in localStorage only. There is no general
-user-preferences endpoint (only notification preferences); request written in
-`docs/ui/BACKEND-REQUESTS.md` §1. No-flash bootstrap ships as an external
-file (`admin/public/theme-init.js`) because the admin CSP is
-`script-src 'self'` (no inline scripts) — owner decision, 2026-10-18.
+M1 persists `bs-theme` in localStorage only (owner instruction at M1 kickoff;
+at that time no general preferences endpoint existed). During the pre-PR
+rebase, main @ 7498e28 added `GET/PATCH /api/v1/me/preferences`, so API
+persistence is unblocked: `ThemeProvider` gets read-on-bootstrap /
+PATCH-on-change wired through `@bs/client` in M2/M3, keeping localStorage as
+the cache and the pre-paint fallback (owner updated via PR #1).
+No-flash bootstrap ships as an external file (`admin/public/theme-init.js`)
+because the admin CSP is `script-src 'self'` (no inline scripts) — owner
+decision, 2026-10-18.
 
-### 7.3 Hand-written Phase 2 response types
+### 7.3 Phase 2 response types
 
-`docs/api/openapi-v1.json` documents no response bodies for the Phase 2
-auth/session/users endpoints. Shapes were taken from the committed
-controllers (`AuthController`, `MeController`) and hand-typed in
-`packages/client`. Swap to generated types once the document is backfilled
-(request: `docs/ui/BACKEND-REQUESTS.md` §2).
+At M1 kickoff `docs/api/openapi-v1.json` documented no Phase 2 response
+bodies; shapes were taken from the committed controllers. During the pre-PR
+rebase the backend agent backfilled full response schemas (main @ 7498e28),
+so the M2 client generates types from the document and the interim
+hand-written shapes serve only as documentation of the login
+success/requires_2fa split.
 
 ### 7.4 Accessibility test strategy
 

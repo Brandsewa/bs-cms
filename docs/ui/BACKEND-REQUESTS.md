@@ -4,32 +4,24 @@ Written by the Phase 5 (design system & admin shell) agent. Each item names
 the endpoint/behaviour wanted and why; nothing here is worked around
 silently in `packages/` or `admin/`.
 
-## 1. General user-preferences endpoint (theme persistence)
+## 1. General user-preferences endpoint (theme persistence) — RESOLVED
 
-**Wanted:** `GET /api/v1/me/preferences` and `PUT /api/v1/me/preferences`
-accepting a free-form JSON object (at least `{ "theme": "light" | "dark" | "system" }`),
-or a dedicated `PUT /api/v1/me/theme`.
+`GET /api/v1/me/preferences` and `PATCH /api/v1/me/preferences` exist as of
+main @ 7498e28 (commit 8cc0af5 added them, documented in the OpenAPI file).
+The theme is stored under `preferences.theme` (`light` | `dark` | `system`).
 
-**Why:** docs/02-ui-spec.md section 2 and implementation/phase-05 section 5.2
-require the theme to be stored **per user (API)** with a localStorage cache.
-Today only `GET/PATCH /api/v1/me/notification-preferences` exists, which is a
-different concern. `ThemeProvider` (`packages/ui/src/theming/theme-provider.tsx`)
-currently persists to localStorage only, with a code comment marking the
-integration point. When the endpoint exists: read on session bootstrap,
-write on change, keep localStorage as the cache and no-flash fallback.
+**Remaining UI work (not a backend request):** wire `ThemeProvider`
+(`packages/ui/src/theming/theme-provider.tsx`) to read on session bootstrap
+and PATCH on change, keeping localStorage as the cache and the pre-CSP-paint
+fallback. This lands with the `@bs/client` session work in M2/M3.
 
-## 2. OpenAPI response schemas for the Phase 2 endpoints
+## 2. OpenAPI response schemas for the Phase 2 endpoints — RESOLVED
 
-**Wanted:** `docs/api/openapi-v1.json` response schemas for `POST /auth/login`
-(success vs `requires_2fa`), `POST /auth/2fa/challenge`, `GET /auth/session`,
-`GET /me`, `GET /users`, `GET /roles`, token and audit endpoints.
-
-**Why:** the typed client is generated from the OpenAPI document; the Phase 2
-shapes are currently hand-written in `packages/client` from the committed
-controllers (e.g. login → `{status:'success', user, csrf_token}` or
-`{status:'requires_2fa', user_id, challenge_token}`). Once the document is
-backfilled, the hand-written types are swapped for generated ones
-(tracked in NOTES.md, Phase 5).
+Backfilled on main @ 7498e28 (`docs/api/openapi-v1.json` now documents
+responses for `POST /auth/login` (success and `requires_2fa`),
+`GET /auth/session`, `GET/PUT /me`, `GET /users`, and more). The M2 client
+generates its types from this document instead of the hand-written ones
+recorded in NOTES.md §7.3.
 
 ## 3. eslint-plugin-react-hooks approval (process, not backend)
 
