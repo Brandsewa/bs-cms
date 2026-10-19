@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderUI, screen, waitFor } from './test-utils';
 import { userEvent } from './test-utils';
 import { DataTable } from '../src/data-table';
-import { COLUMNS, POSTS, type Post } from './data-table-selection.test';
+import { COLUMNS, POSTS, type Post } from './fixtures/posts-table';
 
 class FakeResizeObserver {
   static instances: Array<{ ro: FakeResizeObserver; el: Element }> = [];
@@ -91,8 +91,12 @@ describe('DataTable — virtualisation and responsive cards (docs/02-ui-spec.md 
   });
 
   it('responsive card mode: checkbox selection, row menu, no table at narrow width', async () => {
-    const onRowOpen = vi.fn();
     // Replace on window directly: useMediaQuery reads window.matchMedia.
+    // Captured before the try so the finally block can restore the default
+    // (desktop) matcher for the tests that follow.
+    const originalMatchMedia = Object.getOwnPropertyDescriptor(window, 'matchMedia');
+    try {
+    const onRowOpen = vi.fn();
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       configurable: true,
@@ -139,6 +143,11 @@ describe('DataTable — virtualisation and responsive cards (docs/02-ui-spec.md 
 
     // Row menu renders on cards.
     expect(screen.getAllByRole('button', { name: /row actions/i }).length).toBe(5);
+    } finally {
+      if (originalMatchMedia) {
+        Object.defineProperty(window, 'matchMedia', originalMatchMedia);
+      }
+    }
   });
 
   it('manual order: drag events reorder through onReorder', async () => {

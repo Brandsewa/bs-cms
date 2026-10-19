@@ -4,7 +4,7 @@ import { renderUI, screen, waitFor, within } from './test-utils';
 import { userEvent } from './test-utils';
 import { runAxe } from './axe';
 import { DataTable, type ActiveFilter } from '../src/data-table';
-import { POSTS, COLUMNS, renderPostsTable, type Post } from './data-table-selection.test';
+import { POSTS, COLUMNS, renderPostsTable, type Post } from './fixtures/posts-table';
 
 describe('DataTable — columns (docs/02-ui-spec.md 3.1)', () => {
   it('column visibility menu with reset, persisted per storageKey', async () => {
