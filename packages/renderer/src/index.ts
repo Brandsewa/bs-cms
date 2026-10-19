@@ -31,7 +31,35 @@ export interface RenderOptions {
   resolveUrl?: UrlResolver;
 }
 
+const MAX_RENDER_DEPTH = 32;
+
 const SAFE_URL_SCHEMES = ['http', 'https', 'mailto', 'tel'];
+
+const ALLOWED_CALLOUT_VARIANTS = new Set([
+  'info',
+  'warning',
+  'tip',
+  'note',
+  'success',
+  'error',
+  'danger',
+]);
+
+const ALLOWED_EMBED_HOSTS = [
+  'youtube.com',
+  'www.youtube.com',
+  'youtube-nocookie.com',
+  'www.youtube-nocookie.com',
+  'youtu.be',
+  'vimeo.com',
+  'player.vimeo.com',
+  'twitter.com',
+  'x.com',
+  'open.spotify.com',
+  'soundcloud.com',
+  'w.soundcloud.com',
+  'codepen.io',
+];
 
 /**
  * Validates whether a URL is safe against javascript:, vbscript:, data: XSS attacks.
@@ -43,12 +71,36 @@ export function isSafeUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') {
     return false;
   }
-  const trimmed = url.trim();
-  if (trimmed === '') {
+
+  // Remove leading/trailing and inner ASCII control characters (null, newline, tab, etc.)
+  // and decode numeric entities for scheme detection
+  let normalized = url.replace(/[\u0000-\u001F\u007F-\u009F\s]/g, '');
+
+  // Check for HTML entity obfuscation like &#106;avascript: or &#x6a;avascript:
+  normalized = normalized.replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(Number(dec)));
+  normalized = normalized.replace(/&#x([0-9a-fA-F]+);?/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // Re-clean control chars that may have been decoded
+  normalized = normalized.replace(/[\u0000-\u001F\u007F-\u009F\s]/g, '');
+
+  if (normalized === '') {
     return false;
   }
 
-  // Reject protocol-relative URLs (//evil.com)
+  // Explicitly check for dangerous protocols anywhere or after obfuscation
+  const lower = normalized.toLowerCase();
+  if (
+    lower.startsWith('javascript:') ||
+    lower.startsWith('vbscript:') ||
+    lower.startsWith('data:') ||
+    lower.startsWith('file:') ||
+    lower.startsWith('//')
+  ) {
+    return false;
+  }
+
+  const trimmed = url.trim();
+
+  // Reject protocol-relative URLs (//evil.example)
   if (trimmed.startsWith('//')) {
     return false;
   }
@@ -95,6 +147,31 @@ export function sanitizeUrl(url: string | null | undefined, resolveUrl?: UrlReso
 }
 
 /**
+ * Validates whether an embed URL is safe (https only, no credentials, in allow-list).
+ */
+export function isAllowedEmbedUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+  const trimmed = url.trim();
+  if (!trimmed.startsWith('https://')) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    return ALLOWED_EMBED_HOSTS.some(
+      (allowed) => hostname === allowed || hostname.endsWith(`.${allowed}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * HTML attribute and text escaping.
  */
 export function escapeHtml(text: string): string {
@@ -108,6 +185,33 @@ export function escapeHtml(text: string): string {
 }
 
 /**
+ * Escapes text for Markdown representation:
+ * - Escapes raw HTML tags & entities (<, >, &)
+ * - Escapes Markdown syntax characters ([ ] ( ) * _ ~ ` # \) to prevent formatting/link injection.
+ */
+export function escapeMarkdownText(text: string): string {
+  if (typeof text !== 'string') return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+}
+
+/**
+ * Sanitizes a destination URL for Markdown links/images.
+ */
+export function sanitizeMarkdownUrl(url: string | null | undefined, resolveUrl?: UrlResolver): string {
+  const safe = sanitizeUrl(url, resolveUrl);
+  if (safe === '#') return '#';
+  // Percent-encode parens and spaces to prevent Markdown link breakout
+  return safe.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
+}
+
+/**
  * Renders a Tiptap document to clean, semantic, accessible HTML.
  */
 export function renderToHtml(doc: TiptapDoc | null | undefined, options: RenderOptions = {}): string {
@@ -115,7 +219,7 @@ export function renderToHtml(doc: TiptapDoc | null | undefined, options: RenderO
     return '';
   }
   return doc.content
-    .map((node) => renderNodeToHtml(node, options))
+    .map((node) => renderNodeToHtml(node, options, 0))
     .filter((chunk) => chunk.trim() !== '')
     .join('\n');
 }
@@ -128,7 +232,7 @@ export function renderToMarkdown(doc: TiptapDoc | null | undefined, options: Ren
     return '';
   }
   return doc.content
-    .map((node) => renderNodeToMarkdown(node, options))
+    .map((node) => renderNodeToMarkdown(node, options, 0))
     .filter((chunk) => chunk.trim() !== '')
     .join('\n\n');
 }
@@ -141,7 +245,7 @@ export function renderToPlainText(doc: TiptapDoc | null | undefined): string {
     return '';
   }
   return doc.content
-    .map(renderNodeToPlainText)
+    .map((node) => renderNodeToPlainText(node, 0))
     .filter((text) => text.trim() !== '')
     .join('\n\n')
     .trim();
@@ -187,8 +291,8 @@ function renderMarksToHtml(text: string, marks?: TiptapMark[], options: RenderOp
   return result;
 }
 
-function renderInlineToHtml(content?: TiptapNode[], options: RenderOptions = {}): string {
-  if (!content || !Array.isArray(content)) return '';
+function renderInlineToHtml(content?: TiptapNode[], options: RenderOptions = {}, depth = 0): string {
+  if (!content || !Array.isArray(content) || depth > MAX_RENDER_DEPTH) return '';
   return content
     .map((node) => {
       if (node.type === 'text') {
@@ -211,28 +315,63 @@ function renderImageToHtml(node: TiptapNode, options: RenderOptions = {}): strin
   const src = escapeHtml(sanitizeUrl(rawSrc, options.resolveUrl));
   const alt = escapeHtml(attrs.alt || '');
   const title = attrs.title ? ` title="${escapeHtml(attrs.title)}"` : '';
-  const width = attrs.width ? ` width="${escapeHtml(String(attrs.width))}"` : '';
-  const height = attrs.height ? ` height="${escapeHtml(String(attrs.height))}"` : '';
-  const srcset = attrs.srcset ? ` srcset="${escapeHtml(String(attrs.srcset))}"` : '';
+
+  // Width & height must be numeric digits only
+  const widthVal = attrs.width ? String(attrs.width).replace(/[^\d]/g, '') : '';
+  const heightVal = attrs.height ? String(attrs.height).replace(/[^\d]/g, '') : '';
+  const width = widthVal ? ` width="${widthVal}"` : '';
+  const height = heightVal ? ` height="${heightVal}"` : '';
+
+  // Sanitized srcset: ensure every URL part is safe
+  let safeSrcset = '';
+  if (typeof attrs.srcset === 'string' && attrs.srcset.trim() !== '') {
+    const candidateParts = attrs.srcset.split(',').map((p: string) => p.trim());
+    const validCandidates: string[] = [];
+    for (const cand of candidateParts) {
+      const [u, descriptor] = cand.split(/\s+/, 2);
+      if (u && isSafeUrl(u)) {
+        const desc = descriptor ? ` ${escapeHtml(descriptor)}` : '';
+        validCandidates.push(`${escapeHtml(u)}${desc}`);
+      }
+    }
+    if (validCandidates.length > 0) {
+      safeSrcset = ` srcset="${validCandidates.join(', ')}"`;
+    }
+  }
+
   const sizes = attrs.sizes ? ` sizes="${escapeHtml(String(attrs.sizes))}"` : '';
   const blurhash = attrs.blurhash ? ` data-blurhash="${escapeHtml(String(attrs.blurhash))}"` : '';
   const mediaId = attrs.media_id || attrs.mediaId ? ` data-media-id="${escapeHtml(String(attrs.media_id || attrs.mediaId))}"` : '';
 
-  return `<img src="${src}" alt="${alt}"${title}${width}${height}${srcset}${sizes}${blurhash}${mediaId} loading="lazy" decoding="async" />`;
+  return `<img src="${src}" alt="${alt}"${title}${width}${height}${safeSrcset}${sizes}${blurhash}${mediaId} loading="lazy" decoding="async" />`;
 }
 
-function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}): string {
+function normalizeCalloutVariant(variantRaw: unknown): string {
+  if (typeof variantRaw === 'string') {
+    const v = variantRaw.trim().toLowerCase();
+    if (ALLOWED_CALLOUT_VARIANTS.has(v)) {
+      return v;
+    }
+  }
+  return 'info';
+}
+
+function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}, depth = 0): string {
+  if (depth > MAX_RENDER_DEPTH) {
+    return '';
+  }
+
   switch (node.type) {
     case 'paragraph':
-      return `<p>${renderInlineToHtml(node.content, options)}</p>`;
+      return `<p>${renderInlineToHtml(node.content, options, depth + 1)}</p>`;
 
     case 'heading': {
-      const level = Math.min(6, Math.max(1, node.attrs?.level || 2));
-      return `<h${level}>${renderInlineToHtml(node.content, options)}</h${level}>`;
+      const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 2));
+      return `<h${level}>${renderInlineToHtml(node.content, options, depth + 1)}</h${level}>`;
     }
 
     case 'blockquote': {
-      const children = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const children = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<blockquote>${children}</blockquote>`;
     }
 
@@ -244,32 +383,32 @@ function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}): string
     }
 
     case 'bulletList': {
-      const items = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const items = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<ul>\n${items}\n</ul>`;
     }
 
     case 'orderedList': {
-      const items = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const items = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       const start = node.attrs?.start && node.attrs.start !== 1 ? ` start="${Number(node.attrs.start)}"` : '';
       return `<ol${start}>\n${items}\n</ol>`;
     }
 
     case 'listItem': {
       const inner = (node.content || [])
-        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options) : renderNodeToHtml(n, options)))
+        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options, depth + 1) : renderNodeToHtml(n, options, depth + 1)))
         .join('');
       return `<li>${inner}</li>`;
     }
 
     case 'taskList': {
-      const items = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const items = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<ul class="task-list">\n${items}\n</ul>`;
     }
 
     case 'taskItem': {
       const checked = Boolean(node.attrs?.checked);
       const inner = (node.content || [])
-        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options) : renderNodeToHtml(n, options)))
+        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options, depth + 1) : renderNodeToHtml(n, options, depth + 1)))
         .join('');
       const checkbox = `<input type="checkbox" disabled${checked ? ' checked' : ''} /> `;
       return `<li class="task-list-item">${checkbox}${inner}</li>`;
@@ -282,9 +421,9 @@ function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}): string
       return renderImageToHtml(node, options);
 
     case 'callout': {
-      const variant = escapeHtml(node.attrs?.type || node.attrs?.variant || 'info');
+      const variant = normalizeCalloutVariant(node.attrs?.variant || node.attrs?.type);
       const title = node.attrs?.title ? `<p class="callout-title"><strong>${escapeHtml(node.attrs.title)}</strong></p>\n` : '';
-      const body = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const body = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<div class="callout callout-${variant}" role="note">\n${title}${body}\n</div>`;
     }
 
@@ -332,52 +471,63 @@ function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}): string
     }
 
     case 'embed': {
-      const rawSrc = node.attrs?.src || '';
-      const src = escapeHtml(sanitizeUrl(rawSrc, options.resolveUrl));
-      // Privacy-friendly click-to-load placeholder
-      return `<div class="embed-placeholder" data-embed-src="${src}">\n  <button type="button" class="embed-load-button" onclick="this.parentElement.innerHTML='<iframe src=\\'${src}\\' frameborder=\\'0\\' allowfullscreen></iframe>'">Load interactive embed (${src})</button>\n</div>`;
+      const rawSrc = node.attrs?.url || node.attrs?.src || '';
+      const provider = escapeHtml(node.attrs?.provider || '');
+      // Validate allow-list and https
+      if (!isAllowedEmbedUrl(rawSrc)) {
+        // Safe fallback when unallowed or invalid
+        const safeLink = sanitizeUrl(rawSrc, options.resolveUrl);
+        if (safeLink !== '#') {
+          return `<div class="embed-fallback"><a href="${escapeHtml(safeLink)}" rel="noopener noreferrer" target="_blank">View embedded content (${escapeHtml(safeLink)})</a></div>`;
+        }
+        return '';
+      }
+      const safeSrc = escapeHtml(rawSrc);
+      const providerAttr = provider ? ` data-embed-provider="${provider}"` : '';
+      // Pure semantic placeholder with data attributes, zero inline event handlers or scripts
+      return `<div class="embed-placeholder" data-embed-src="${safeSrc}"${providerAttr}>\n  <button type="button" class="embed-load-button">Load interactive embed (${safeSrc})</button>\n</div>`;
     }
 
     case 'button': {
-      const text = escapeHtml(node.attrs?.text || 'Click Here');
+      const label = escapeHtml(node.attrs?.label || node.attrs?.text || 'Click Here');
       const rawUrl = node.attrs?.url || '#';
       const url = escapeHtml(sanitizeUrl(rawUrl, options.resolveUrl));
-      return `<a href="${url}" class="button btn-primary" role="button">${text}</a>`;
+      return `<a href="${url}" class="button btn-primary" role="button">${label}</a>`;
     }
 
     case 'details': {
-      const body = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const body = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<details>\n${body}\n</details>`;
     }
 
     case 'detailsSummary': {
-      return `<summary>${renderInlineToHtml(node.content, options)}</summary>`;
+      return `<summary>${renderInlineToHtml(node.content, options, depth + 1)}</summary>`;
     }
 
     case 'detailsContent': {
-      return `<div class="details-content">\n${(node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n')}\n</div>`;
+      return `<div class="details-content">\n${(node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n')}\n</div>`;
     }
 
     case 'table': {
-      const rows = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('\n');
+      const rows = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('\n');
       return `<div class="table-container">\n<table>\n<tbody>\n${rows}\n</tbody>\n</table>\n</div>`;
     }
 
     case 'tableRow': {
-      const cells = (node.content || []).map((n) => renderNodeToHtml(n, options)).join('');
+      const cells = (node.content || []).map((n) => renderNodeToHtml(n, options, depth + 1)).join('');
       return `<tr>${cells}</tr>`;
     }
 
     case 'tableHeader': {
       const inner = (node.content || [])
-        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options) : renderNodeToHtml(n, options)))
+        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options, depth + 1) : renderNodeToHtml(n, options, depth + 1)))
         .join('');
       return `<th>${inner}</th>`;
     }
 
     case 'tableCell': {
       const inner = (node.content || [])
-        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options) : renderNodeToHtml(n, options)))
+        .map((n) => (n.type === 'paragraph' ? renderInlineToHtml(n.content, options, depth + 1) : renderNodeToHtml(n, options, depth + 1)))
         .join('');
       return `<td>${inner}</td>`;
     }
@@ -392,8 +542,8 @@ function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}): string
 /* ========================================================================= */
 
 function renderMarksToMarkdown(text: string, marks?: TiptapMark[], options: RenderOptions = {}): string {
-  if (!marks || marks.length === 0) return text;
-  let result = text;
+  if (!marks || marks.length === 0) return escapeMarkdownText(text);
+  let result = escapeMarkdownText(text);
   for (const mark of marks) {
     switch (mark.type) {
       case 'bold':
@@ -410,7 +560,7 @@ function renderMarksToMarkdown(text: string, marks?: TiptapMark[], options: Rend
         break;
       case 'link': {
         const rawHref = mark.attrs?.href || '';
-        const href = sanitizeUrl(rawHref, options.resolveUrl);
+        const href = sanitizeMarkdownUrl(rawHref, options.resolveUrl);
         result = `[${result}](${href})`;
         break;
       }
@@ -419,8 +569,8 @@ function renderMarksToMarkdown(text: string, marks?: TiptapMark[], options: Rend
   return result;
 }
 
-function renderInlineToMarkdown(content?: TiptapNode[], options: RenderOptions = {}): string {
-  if (!content || !Array.isArray(content)) return '';
+function renderInlineToMarkdown(content?: TiptapNode[], options: RenderOptions = {}, depth = 0): string {
+  if (!content || !Array.isArray(content) || depth > MAX_RENDER_DEPTH) return '';
   return content
     .map((node) => {
       if (node.type === 'text') {
@@ -430,9 +580,9 @@ function renderInlineToMarkdown(content?: TiptapNode[], options: RenderOptions =
         return '  \n';
       }
       if (node.type === 'image') {
-        const alt = node.attrs?.alt || '';
+        const alt = escapeMarkdownText(node.attrs?.alt || '');
         const rawSrc = node.attrs?.src || '';
-        const src = sanitizeUrl(rawSrc, options.resolveUrl);
+        const src = sanitizeMarkdownUrl(rawSrc, options.resolveUrl);
         return `![${alt}](${src})`;
       }
       return '';
@@ -440,19 +590,23 @@ function renderInlineToMarkdown(content?: TiptapNode[], options: RenderOptions =
     .join('');
 }
 
-function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): string {
+function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}, depth = 0): string {
+  if (depth > MAX_RENDER_DEPTH) {
+    return '';
+  }
+
   switch (node.type) {
     case 'paragraph':
-      return renderInlineToMarkdown(node.content, options);
+      return renderInlineToMarkdown(node.content, options, depth + 1);
 
     case 'heading': {
-      const level = Math.min(6, Math.max(1, node.attrs?.level || 2));
+      const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 2));
       const hashes = '#'.repeat(level);
-      return `${hashes} ${renderInlineToMarkdown(node.content, options)}`;
+      return `${hashes} ${renderInlineToMarkdown(node.content, options, depth + 1)}`;
     }
 
     case 'blockquote': {
-      const body = (node.content || []).map((n) => renderNodeToMarkdown(n, options)).join('\n\n');
+      const body = (node.content || []).map((n) => renderNodeToMarkdown(n, options, depth + 1)).join('\n\n');
       return body
         .split('\n')
         .map((l) => `> ${l}`)
@@ -468,7 +622,7 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
     case 'bulletList':
       return (node.content || [])
         .map((item) => {
-          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options)).join(' ');
+          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options, depth + 1)).join(' ');
           return `- ${inner}`;
         })
         .join('\n');
@@ -477,7 +631,7 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
       const start = Number(node.attrs?.start || 1);
       return (node.content || [])
         .map((item, idx) => {
-          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options)).join(' ');
+          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options, depth + 1)).join(' ');
           return `${start + idx}. ${inner}`;
         })
         .join('\n');
@@ -487,7 +641,7 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
       return (node.content || [])
         .map((item) => {
           const checked = item.attrs?.checked ? 'x' : ' ';
-          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options)).join(' ');
+          const inner = (item.content || []).map((c) => renderNodeToMarkdown(c, options, depth + 1)).join(' ');
           return `- [${checked}] ${inner}`;
         })
         .join('\n');
@@ -497,16 +651,16 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
 
     case 'image': {
       const rawSrc = node.attrs?.src || '';
-      const src = sanitizeUrl(rawSrc, options.resolveUrl);
-      const alt = node.attrs?.alt || '';
-      const title = node.attrs?.title ? ` "${node.attrs.title}"` : '';
+      const src = sanitizeMarkdownUrl(rawSrc, options.resolveUrl);
+      const alt = escapeMarkdownText(node.attrs?.alt || '');
+      const title = node.attrs?.title ? ` "${escapeMarkdownText(node.attrs.title)}"` : '';
       return `![${alt}](${src}${title})`;
     }
 
     case 'callout': {
-      const variant = node.attrs?.type || node.attrs?.variant || 'info';
-      const title = node.attrs?.title ? ` [${node.attrs.title}]` : '';
-      const body = (node.content || []).map((n) => renderNodeToMarkdown(n, options)).join('\n\n');
+      const variant = normalizeCalloutVariant(node.attrs?.variant || node.attrs?.type);
+      const title = node.attrs?.title ? ` [${escapeMarkdownText(node.attrs.title)}]` : '';
+      const body = (node.content || []).map((n) => renderNodeToMarkdown(n, options, depth + 1)).join('\n\n');
       return `:::callout ${variant}${title}\n${body}\n:::`;
     }
 
@@ -517,8 +671,8 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- items array schema
       for (const item of items as any[]) {
         if (item.question && item.answer) {
-          lines.push(`### ${item.question}`);
-          lines.push(item.answer);
+          lines.push(`### ${escapeMarkdownText(item.question)}`);
+          lines.push(escapeMarkdownText(item.answer));
         }
       }
       lines.push(':::');
@@ -533,8 +687,10 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- facts array schema
       for (const fact of facts as any[]) {
         if (fact.statement && fact.value) {
-          const source = fact.source_url ? ` | ${fact.source_url}` : '';
-          lines.push(`- ${fact.statement} | ${fact.value}${source}`);
+          const stmt = escapeMarkdownText(fact.statement);
+          const val = escapeMarkdownText(fact.value);
+          const source = fact.source_url ? ` | ${sanitizeMarkdownUrl(fact.source_url, options.resolveUrl)}` : '';
+          lines.push(`- ${stmt} | ${val}${source}`);
         }
       }
       lines.push(':::');
@@ -543,26 +699,29 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
 
     case 'bookmark': {
       const rawUrl = node.attrs?.url || '';
-      const url = sanitizeUrl(rawUrl, options.resolveUrl);
+      const url = sanitizeMarkdownUrl(rawUrl, options.resolveUrl);
       const lines = [`:::bookmark ${url}`];
-      if (node.attrs?.title) lines.push(`title: ${node.attrs.title}`);
-      if (node.attrs?.description) lines.push(`description: ${node.attrs.description}`);
-      if (node.attrs?.image) lines.push(`image: ${node.attrs.image}`);
+      if (node.attrs?.title) lines.push(`title: ${escapeMarkdownText(node.attrs.title)}`);
+      if (node.attrs?.description) lines.push(`description: ${escapeMarkdownText(node.attrs.description)}`);
+      if (node.attrs?.image) lines.push(`image: ${sanitizeMarkdownUrl(node.attrs.image, options.resolveUrl)}`);
       lines.push(':::');
       return lines.join('\n');
     }
 
     case 'embed': {
-      const rawSrc = node.attrs?.src || '';
-      const src = sanitizeUrl(rawSrc, options.resolveUrl);
+      const rawSrc = node.attrs?.url || node.attrs?.src || '';
+      if (!isAllowedEmbedUrl(rawSrc)) {
+        return '';
+      }
+      const src = sanitizeMarkdownUrl(rawSrc, options.resolveUrl);
       return `:::embed ${src}\n:::`;
     }
 
     case 'button': {
-      const text = node.attrs?.text || 'Click Here';
+      const label = escapeMarkdownText(node.attrs?.label || node.attrs?.text || 'Click Here');
       const rawUrl = node.attrs?.url || '#';
-      const url = sanitizeUrl(rawUrl, options.resolveUrl);
-      return `:::button [${text}] ${url}\n:::`;
+      const url = sanitizeMarkdownUrl(rawUrl, options.resolveUrl);
+      return `:::button [${label}] ${url}\n:::`;
     }
 
     case 'table': {
@@ -573,7 +732,7 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
 
       for (const row of rows) {
         const cells = (row.content || []).map((cell) => {
-          return (cell.content || []).map((c) => renderNodeToMarkdown(c, options)).join(' ');
+          return (cell.content || []).map((c) => renderNodeToMarkdown(c, options, depth + 1)).join(' ');
         });
         lines.push(`| ${cells.join(' | ')} |`);
         if (isFirst) {
@@ -593,8 +752,8 @@ function renderNodeToMarkdown(node: TiptapNode, options: RenderOptions = {}): st
 /* Plain Text Extraction                                                     */
 /* ========================================================================= */
 
-function renderInlineToPlainText(content?: TiptapNode[]): string {
-  if (!content || !Array.isArray(content)) return '';
+function renderInlineToPlainText(content?: TiptapNode[], depth = 0): string {
+  if (!content || !Array.isArray(content) || depth > MAX_RENDER_DEPTH) return '';
   return content
     .map((node) => {
       if (node.type === 'text') {
@@ -608,15 +767,19 @@ function renderInlineToPlainText(content?: TiptapNode[]): string {
     .join('');
 }
 
-function renderNodeToPlainText(node: TiptapNode): string {
+function renderNodeToPlainText(node: TiptapNode, depth = 0): string {
+  if (depth > MAX_RENDER_DEPTH) {
+    return '';
+  }
+
   switch (node.type) {
     case 'paragraph':
     case 'heading':
-      return renderInlineToPlainText(node.content);
+      return renderInlineToPlainText(node.content, depth + 1);
 
     case 'blockquote':
     case 'callout':
-      return (node.content || []).map(renderNodeToPlainText).join('\n');
+      return (node.content || []).map((n) => renderNodeToPlainText(n, depth + 1)).join('\n');
 
     case 'codeBlock':
       return (node.content || []).map((n) => n.text || '').join('');
@@ -625,7 +788,7 @@ function renderNodeToPlainText(node: TiptapNode): string {
     case 'orderedList':
     case 'taskList':
       return (node.content || [])
-        .map((item) => (item.content || []).map(renderNodeToPlainText).join(' '))
+        .map((item) => (item.content || []).map((c) => renderNodeToPlainText(c, depth + 1)).join(' '))
         .join('\n');
 
     case 'faq': {
@@ -642,7 +805,7 @@ function renderNodeToPlainText(node: TiptapNode): string {
     }
 
     case 'button':
-      return node.attrs?.text || '';
+      return node.attrs?.label || node.attrs?.text || '';
 
     case 'bookmark':
       return `${node.attrs?.title || ''} ${node.attrs?.description || ''}`.trim();
@@ -652,7 +815,7 @@ function renderNodeToPlainText(node: TiptapNode): string {
       return rows
         .map((r) =>
           (r.content || [])
-            .map((cell) => (cell.content || []).map(renderNodeToPlainText).join(' '))
+            .map((cell) => (cell.content || []).map((c) => renderNodeToPlainText(c, depth + 1)).join(' '))
             .join(' | ')
         )
         .join('\n');

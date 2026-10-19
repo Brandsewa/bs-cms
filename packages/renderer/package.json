@@ -6,6 +6,6 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "tsx test/renderer.test.ts"
+    "test": "vitest run"
   }
 }
