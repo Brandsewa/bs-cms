@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+  const posts = Array.from({ length: 200 }, (_, i) => ({
+    id: i + 1,
+    slug: `post-${i + 1}`,
+    title: `Benchmark Post Title ${i + 1}`,
+    content: `This is the body content for benchmark post ${i + 1}. It contains realistic markdown text and paragraphs to measure Astro build latency across a 200-page static site.`
+  }));
+
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post }
+  }));
+}
+
+const { post } = Astro.props;
+---
+
+<BaseLayout title={`${post.title} | BS CMS`}>
+  <article>
+    <h1>{post.title}</h1>
+    <p>{post.content}</p>
+    <a href="/">Back to Home</a>
+  </article>
+</BaseLayout>
