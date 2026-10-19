@@ -73,19 +73,22 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
+          # Note: leading slash '/' anchors the exclude to the target root, so root CMS files
+          # (/index.php, /.htaccess, /media/) are protected from deletion without excluding
+          # starter/.htaccess inside the deployed site.
           rsync -avz --delete \
-            --exclude='index.php' \
-            --exclude='core/' \
-            --exclude='media/' \
-            --exclude='.htaccess' \
-            --exclude='admin/' \
-            --exclude='storage/' \
-            --exclude='config/' \
-            --exclude='migrations/' \
-            --exclude='resources/' \
-            --exclude='bin/' \
-            --exclude='vendor/' \
-            --exclude='composer.*' \
+            --exclude='/index.php' \
+            --exclude='/core/' \
+            --exclude='/media/' \
+            --exclude='/.htaccess' \
+            --exclude='/admin/' \
+            --exclude='/storage/' \
+            --exclude='/config/' \
+            --exclude='/migrations/' \
+            --exclude='/resources/' \
+            --exclude='/bin/' \
+            --exclude='/vendor/' \
+            --exclude='/composer.*' \
             -e "ssh -i /home/runner/.ssh/id_ed25519 -p $SSH_PORT -o StrictHostKeyChecking=yes" \
             starter/dist/ \
             "$SSH_USER@$SSH_HOST:$DEPLOY_PATH"
