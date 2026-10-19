@@ -73,9 +73,9 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
-          # Note: The target directory (e.g. spike-c/ or dedicated static docroot) receives its
-          # own .htaccess for content negotiation and directory indexing. Root CMS files are excluded.
-          rsync -avz --delete \
+          # Note: -c (--checksum) skips files based on 128-bit checksum instead of mtime/size,
+          # ensuring clean zero-delta transfer for files with identical contents across fresh checkouts.
+          rsync -avzc --delete \
             --exclude='/index.php' \
             --exclude='/core/' \
             --exclude='/media/' \

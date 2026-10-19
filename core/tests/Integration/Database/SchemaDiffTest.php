@@ -266,6 +266,37 @@ final class SchemaDiffTest extends TestCase
             'hits', 'last_hit_at', 'created_by', 'created_at', 'from_hash'
         ]);
 
+        // 34. Verify deployments table columns
+        $this->assertTableColumns($pdo, 'bs_deployments', [
+            'id', 'trigger_type', 'status', 'target', 'changed_urls', 'requested_by',
+            'dispatched_at', 'finished_at', 'build_log_url', 'error', 'callback_token_hash', 'created_at'
+        ]);
+
+        // 35. Verify preview_tokens table columns
+        $this->assertTableColumns($pdo, 'bs_preview_tokens', [
+            'token_hash', 'collection_id', 'entry_id', 'created_by', 'expires_at', 'created_at'
+        ]);
+
+        // 36. Verify build_tokens table columns
+        $this->assertTableColumns($pdo, 'bs_build_tokens', [
+            'id', 'name', 'token_prefix', 'token_hash', 'last_used_at', 'revoked_at', 'created_at'
+        ]);
+
+        // 37. Verify crawler_policy_versions table columns
+        $this->assertTableColumns($pdo, 'bs_crawler_policy_versions', [
+            'id', 'preset', 'policy', 'robots_txt', 'changed_by', 'change_note', 'is_active', 'created_at'
+        ]);
+
+        // 38. Verify index_notifications table columns
+        $this->assertTableColumns($pdo, 'bs_index_notifications', [
+            'id', 'engine', 'urls', 'status', 'response_code', 'error', 'created_at'
+        ]);
+
+        // 39. Verify bot_log table columns
+        $this->assertTableColumns($pdo, 'bs_bot_log', [
+            'day', 'bot', 'verified', 'path_group', 'hits'
+        ]);
+
         // Verify ULID columns are ascii_bin
         $colStmt = $pdo->prepare("SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :db AND TABLE_NAME = 'bs_users' AND COLUMN_NAME = 'id'");
         $colStmt->execute(['db' => $this->dbName]);
