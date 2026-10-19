@@ -577,10 +577,11 @@ final class CoreServiceProvider implements ServiceProvider
         // 16. MCP and OAuth Controllers
         $container->singleton(\BsCms\OAuth\OAuthController::class, function (Container $c): \BsCms\OAuth\OAuthController {
             return new \BsCms\OAuth\OAuthController(
-                null,
                 $c->get(Connection::class),
                 $c->get(\BsCms\Auth\PasswordHasher::class),
-                $c->get(Config::class)
+                $c->get(AuditLogger::class),
+                $c->get(Authorizer::class),
+                $c->has(Config::class) ? $c->get(Config::class) : null
             );
         });
 

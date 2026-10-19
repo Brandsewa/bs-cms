@@ -61,7 +61,7 @@ final class CreateOauthAndPendingChangesTables extends Migration
             `revoked_at` DATETIME(3) NULL,
             FOREIGN KEY (`user_id`) REFERENCES `{$users}` (`id`) ON DELETE CASCADE,
             FOREIGN KEY (`client_id`) REFERENCES `{$oauthClients}` (`id`) ON DELETE CASCADE,
-            FOREIGN KEY (`role_id`) REFERENCES `{$roles}` (`id`) ON DELETE CASCADE
+            FOREIGN KEY (`role_id`) REFERENCES `{$roles}` (`id`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 
         // 3. oauth_authorization_codes

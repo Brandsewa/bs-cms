@@ -313,6 +313,10 @@ final class ApiRoutes
             $routes->post('/oauth/token', [$oauth, 'token']);
             $routes->options('/oauth/token', [$oauth, 'optionsToken']);
             $routes->post('/oauth/revoke', [$oauth, 'revoke']);
+
+            // Grants API
+            $routes->get('/api/v1/oauth/grants', [$oauth, 'listGrants']);
+            $routes->delete('/api/v1/oauth/grants/{id}', [$oauth, 'revokeGrant']);
         }
     }
 }
