@@ -64,14 +64,6 @@ final class Kernel implements RequestHandlerInterface
         $path = $request->getUri()->getPath();
         $method = $request->getMethod();
 
-        // Check reserved paths (Phase 8 reservation): /mcp, /oauth/*, /.well-known/*
-        if ($path === '/mcp' || str_starts_with($path, '/oauth/') || str_starts_with($path, '/.well-known/')) {
-            return ProblemDetails::create(
-                404,
-                'Not Found',
-                'This endpoint is reserved for AI interface protocols (Phase 8).'
-            )->toResponse();
-        }
 
         // Health check endpoint
         if ($path === '/health') {

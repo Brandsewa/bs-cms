@@ -27,9 +27,11 @@ use BsCms\Http\Controllers\TaxonomiesController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
 use BsCms\Http\Controllers\WebhooksController;
+use BsCms\Mcp\McpController;
+use BsCms\OAuth\OAuthController;
 
 /**
- * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, taxonomies, media, redirects, seo, and site health.
+ * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, taxonomies, media, redirects, seo, site health, mcp, and oauth.
  */
 final class ApiRoutes
 {
@@ -57,7 +59,9 @@ final class ApiRoutes
         ?MediaFoldersController $mediaFolders = null,
         ?RedirectsController $redirects = null,
         ?PublicSeoController $publicSeo = null,
-        ?SiteHealthController $siteHealth = null
+        ?SiteHealthController $siteHealth = null,
+        ?McpController $mcp = null,
+        ?OAuthController $oauth = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -288,6 +292,27 @@ final class ApiRoutes
         if ($siteHealth !== null) {
             $routes->get('/api/v1/site-health', [$siteHealth, 'status']);
             $routes->post('/api/v1/site-health/run', [$siteHealth, 'run']);
+        }
+
+        // 22. MCP and OAuth endpoints
+        if ($mcp !== null) {
+            $routes->get('/mcp', [$mcp, 'handleGet']);
+            $routes->post('/mcp', [$mcp, 'handlePost']);
+            $routes->options('/mcp', [$mcp, 'handleOptions']);
+        }
+
+        if ($oauth !== null) {
+            $routes->get('/.well-known/oauth-protected-resource', [$oauth, 'protectedResource']);
+            $routes->options('/.well-known/oauth-protected-resource', [$oauth, 'optionsProtectedResource']);
+            $routes->get('/.well-known/oauth-authorization-server', [$oauth, 'authorizationServer']);
+            $routes->options('/.well-known/oauth-authorization-server', [$oauth, 'optionsAuthorizationServer']);
+            $routes->post('/oauth/register', [$oauth, 'register']);
+            $routes->options('/oauth/register', [$oauth, 'optionsRegister']);
+            $routes->get('/oauth/authorize', [$oauth, 'authorizeGet']);
+            $routes->post('/oauth/authorize', [$oauth, 'authorizePost']);
+            $routes->post('/oauth/token', [$oauth, 'token']);
+            $routes->options('/oauth/token', [$oauth, 'optionsToken']);
+            $routes->post('/oauth/revoke', [$oauth, 'revoke']);
         }
     }
 }

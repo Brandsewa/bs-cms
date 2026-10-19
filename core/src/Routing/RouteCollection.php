@@ -44,6 +44,11 @@ final class RouteCollection
         return $this->add('DELETE', $pattern, $handler);
     }
 
+    public function options(string $pattern, callable|string $handler): Route
+    {
+        return $this->add('OPTIONS', $pattern, $handler);
+    }
+
     /**
      * @return list<Route>
      */

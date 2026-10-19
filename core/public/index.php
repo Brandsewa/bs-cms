@@ -116,7 +116,9 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\MediaFoldersController::class),
     $container->get(\BsCms\Http\Controllers\RedirectsController::class),
     $container->get(\BsCms\Http\Controllers\PublicSeoController::class),
-    $container->get(\BsCms\Http\Controllers\SiteHealthController::class)
+    $container->get(\BsCms\Http\Controllers\SiteHealthController::class),
+    $container->get(\BsCms\Mcp\McpController::class),
+    $container->get(\BsCms\OAuth\OAuthController::class)
 );
 
 // Build middleware pipeline
