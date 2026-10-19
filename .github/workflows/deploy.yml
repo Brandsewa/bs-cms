@@ -66,8 +66,21 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          # Reconstruct clean private key (handling literal \n or multiline paste)
+          python3 -c "
+import os
+key = os.environ.get('SSH_KEY', '').strip()
+# If key contains literal '\n', replace with real newline
+if '\\n' in key and '\n' not in key:
+    key = key.replace('\\n', '\n')
+# If base64 body was collapsed into spaces, handle standard header/footer
+lines = key.replace('\r', '').splitlines()
+out = '\n'.join([l.strip() for l in lines if l.strip()]) + '\n'
+with open(os.path.expanduser('~/.ssh/id_ed25519'), 'w') as f:
+    f.write(out)
+"
           chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 || echo "Warning: ssh-keygen could not parse key"
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
