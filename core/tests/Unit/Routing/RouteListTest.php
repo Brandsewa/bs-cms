@@ -329,4 +329,77 @@ final class RouteListTest extends TestCase
             );
         }
     }
+
+    public function testRedirectsSeoAndHealthEndpointsAreRegistered(): void
+    {
+        $routes = new RouteCollection();
+
+        $auth = $this->createMock(AuthController::class);
+        $me = $this->createMock(MeController::class);
+        $users = $this->createMock(UsersController::class);
+        $roles = $this->createMock(RolesController::class);
+        $tokens = $this->createMock(TokensController::class);
+        $audit = $this->createMock(AuditController::class);
+        $email = $this->createMock(EmailSettingsController::class);
+        $notifications = $this->createMock(NotificationsController::class);
+        $redirects = $this->createMock(\BsCms\Http\Controllers\RedirectsController::class);
+        $publicSeo = $this->createMock(\BsCms\Http\Controllers\PublicSeoController::class);
+        $siteHealth = $this->createMock(\BsCms\Http\Controllers\SiteHealthController::class);
+
+        ApiRoutes::register(
+            $routes,
+            $auth,
+            $me,
+            $users,
+            $roles,
+            $tokens,
+            $audit,
+            $email,
+            $notifications,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $redirects,
+            $publicSeo,
+            $siteHealth
+        );
+
+        $registered = [];
+        foreach ($routes->getRoutes() as $r) {
+            $registered[$r->getMethod() . ' ' . $r->getPattern()] = true;
+        }
+
+        $expectedEndpoints = [
+            'GET /api/v1/redirects',
+            'POST /api/v1/redirects',
+            'POST /api/v1/redirects/bulk',
+            'POST /api/v1/redirects/import',
+            'GET /api/v1/redirects/export',
+            'GET /api/v1/redirects/{id}',
+            'PATCH /api/v1/redirects/{id}',
+            'DELETE /api/v1/redirects/{id}',
+            'GET /api/v1/public/redirects',
+            'GET /api/v1/public/redirects/match',
+            'GET /api/v1/public/seo/resolve',
+            'GET /api/v1/site-health',
+            'POST /api/v1/site-health/run',
+        ];
+
+        foreach ($expectedEndpoints as $endpoint) {
+            $this->assertArrayHasKey(
+                $endpoint,
+                $registered,
+                "Expected route '{$endpoint}' was not registered in ApiRoutes."
+            );
+        }
+    }
 }

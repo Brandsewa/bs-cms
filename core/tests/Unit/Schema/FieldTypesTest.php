@@ -49,20 +49,25 @@ final class FieldTypesTest extends TestCase
         $this->dummyContext = new ValidationContext([], ['handle' => 'test'], ['handle' => 'posts']);
     }
 
-    public function testPhase4FieldTypesRefuseUsageWithExplicitError(): void
+    public function testBlocksTypeValidationAndStorage(): void
     {
-        $phase4Types = ['blocks'];
-        foreach ($phase4Types as $typeName) {
-            $this->assertTrue($this->registry->has($typeName), "Registry must know {$typeName}");
-            $type = $this->registry->get($typeName);
-            $errors = $type->validateConfig([]);
-            $this->assertArrayHasKey('type', $errors);
-            $this->assertSame(
-                "The '{$typeName}' field type is available in Phase 4.",
-                $errors['type'],
-                "Field type {$typeName} must refuse with exact Phase 4 message"
-            );
-        }
+        $this->assertTrue($this->registry->has('blocks'), "Registry must know blocks");
+        $type = $this->registry->get('blocks');
+        $this->assertInstanceOf(BlocksType::class, $type);
+        $this->assertSame([], $type->validateConfig([]));
+
+        $validBlocks = [
+            ['type' => 'hero', 'data' => ['headline' => 'Welcome']],
+            ['type' => 'features', 'data' => ['items' => ['A', 'B']]],
+        ];
+        $this->assertSame([], $type->validate($validBlocks, [], $this->dummyContext));
+        $this->assertSame([], $type->validate(json_encode($validBlocks), [], $this->dummyContext));
+
+        $normalized = $type->normalize(json_encode($validBlocks), []);
+        $this->assertSame($validBlocks, $normalized);
+
+        $storage = $type->storage([]);
+        $this->assertSame(StorageDescriptor::MODE_JSON, $storage->mode);
     }
 
     public function testRichtextTypeValidationAndStorage(): void

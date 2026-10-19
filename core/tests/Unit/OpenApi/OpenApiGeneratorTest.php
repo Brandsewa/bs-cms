@@ -107,9 +107,10 @@ final class OpenApiGeneratorTest extends TestCase
                 $responses = $op['responses'];
                 $successCode = isset($responses['200']) ? '200' : (isset($responses['201']) ? '201' : null);
                 $this->assertNotNull($successCode, "Route {$method} {$path} must have a 200 or 201 response defined.");
-                $this->assertArrayHasKey('content', $responses[$successCode], "Route {$method} {$path} {$successCode} must have content defined.");
-                $this->assertArrayHasKey('application/json', $responses[$successCode]['content'], "Route {$method} {$path} {$successCode} must have application/json content.");
-                $this->assertArrayHasKey('schema', $responses[$successCode]['content']['application/json'], "Route {$method} {$path} {$successCode} must have a response schema.");
+                $contentMap = $responses[$successCode]['content'];
+                $firstContentType = array_key_first($contentMap);
+                $this->assertNotNull($firstContentType, "Route {$method} {$path} {$successCode} must have at least one content type defined.");
+                $this->assertArrayHasKey('schema', $contentMap[$firstContentType], "Route {$method} {$path} {$successCode} must have a response schema.");
             }
         }
     }

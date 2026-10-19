@@ -566,6 +566,46 @@ final class MediaRepository
     }
 
     /**
+     * Get absolute path on disk for media file or specific variant.
+     */
+    public function getFilePath(string $id, ?string $variant = null): ?string
+    {
+        $table = $this->connection->prefixTable('media');
+        $stmt = $this->connection->execute(
+            "SELECT `storage_path` FROM `{$table}` WHERE `id` = ? AND `deleted_at` IS NULL",
+            [$id]
+        );
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            return null;
+        }
+
+        if ($variant !== null && trim($variant) !== '') {
+            $variantsTable = $this->connection->prefixTable('media_variants');
+            $vStmt = $this->connection->execute(
+                "SELECT `storage_path` FROM `{$variantsTable}` WHERE `media_id` = ? AND `name` = ?",
+                [$id, $variant]
+            );
+            $vRow = $vStmt->fetch(PDO::FETCH_ASSOC);
+            if ($vRow !== false && !empty($vRow['storage_path'])) {
+                $varFilename = basename((string) $vRow['storage_path']);
+                $vPath = rtrim($this->mediaBaseDir, '/\\') . '/variants/' . $varFilename;
+                if (file_exists($vPath) && is_readable($vPath)) {
+                    return $vPath;
+                }
+            }
+        }
+
+        $filename = basename((string) $row['storage_path']);
+        $path = rtrim($this->mediaBaseDir, '/\\') . '/' . $filename;
+        if (file_exists($path) && is_readable($path)) {
+            return $path;
+        }
+
+        return null;
+    }
+
+    /**
      * Decorate media row with full URL and responsive variants.
      *
      * @param array<string, mixed> $row

@@ -11,6 +11,8 @@ use BsCms\Media\MediaInUseException;
 use BsCms\Media\MediaRepository;
 use BsCms\Operations\Exceptions\ValidationException;
 use InvalidArgumentException;
+use Nyholm\Psr7\Response;
+use Nyholm\Psr7\Stream;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
@@ -530,5 +532,68 @@ class MediaController extends BaseController
             $this->logServerError($request, $e, 'media_bulk');
             return $this->problem(500, 'Internal Server Error', 'Failed to process bulk media action.');
         }
+    }
+
+    /**
+     * GET /api/v1/public/media/{id}/file
+     * GET /api/v1/media/{id}/file
+     * Stream media file with full security headers (X-Content-Type-Options: nosniff, X-Frame-Options: DENY, etc.)
+     *
+     * @param array<string, mixed> $args
+     */
+    public function streamFile(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $media = $this->mediaRepository->findById($id);
+        if ($media === null) {
+            return $this->problem(404, 'Not Found', "Media item '{$id}' not found.");
+        }
+
+        $params = $request->getQueryParams();
+        $variant = isset($params['variant']) ? (string) $params['variant'] : null;
+        $path = $this->mediaRepository->getFilePath($id, $variant);
+
+        if ($path === null || !file_exists($path)) {
+            return $this->problem(404, 'Not Found', "Media file for item '{$id}' not found on disk.");
+        }
+
+        $mime = (string) ($media['mime'] ?? 'application/octet-stream');
+        $size = (int) filesize($path);
+        $contentHash = (string) ($media['content_hash'] ?? hash_file('sha256', $path));
+        $etag = '"' . $contentHash . '"';
+
+        $ifNoneMatch = $request->getHeaderLine('If-None-Match');
+        if ($ifNoneMatch !== '' && ($ifNoneMatch === $etag || $ifNoneMatch === '*')) {
+            return new Response(304, [
+                'ETag' => $etag,
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        }
+
+        $disposition = in_array($mime, ['application/pdf', 'text/plain', 'text/csv', 'application/zip'], true)
+            ? 'attachment'
+            : 'inline';
+        $filename = (string) ($media['original_name'] ?? basename($path));
+        $cleanFilename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+
+        $stream = fopen($path, 'rb');
+        if ($stream === false) {
+            return $this->problem(500, 'Internal Server Error', 'Unable to open media file stream.');
+        }
+
+        return new Response(
+            200,
+            [
+                'Content-Type' => $mime,
+                'Content-Length' => (string) $size,
+                'ETag' => $etag,
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+                'X-Content-Type-Options' => 'nosniff',
+                'X-Frame-Options' => 'DENY',
+                'Content-Security-Policy' => "default-src 'none'; sandbox",
+                'Content-Disposition' => "{$disposition}; filename=\"{$cleanFilename}\"",
+            ],
+            new Stream($stream)
+        );
     }
 }

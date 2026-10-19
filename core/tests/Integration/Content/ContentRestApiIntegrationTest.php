@@ -480,6 +480,26 @@ final class ContentRestApiIntegrationTest extends TestCase
         $body200 = json_decode((string) $res200->getBody(), true);
         $this->assertSame(12, $body200['processed']);
         $this->assertSame(0, $body200['failed']);
+        $this->assertSame(12, $body200['total']);
+        $this->assertCount(12, $body200['items']);
+
+        // Test partial failure shape (valid ID + non-existent ID)
+        $partialReq = $this->makeRequest('POST', '/api/v1/collections/articles/entries/bulk', $this->ownerActor, [
+            'operation' => 'publish',
+            'ids' => [$ids[0], '01NONEXISTENT00000000000000'],
+        ]);
+        $partialRes = $this->bulkController->bulk($partialReq, ['handle' => 'articles']);
+        $this->assertSame(200, $partialRes->getStatusCode());
+        $partialBody = json_decode((string) $partialRes->getBody(), true);
+        $this->assertTrue($partialBody['success']);
+        $this->assertSame('publish', $partialBody['operation']);
+        $this->assertSame(1, $partialBody['processed']);
+        $this->assertSame(1, $partialBody['failed']);
+        $this->assertSame(2, $partialBody['total']);
+        $this->assertCount(2, $partialBody['items']);
+        $this->assertSame('success', $partialBody['items'][0]['status']);
+        $this->assertSame('failed', $partialBody['items'][1]['status']);
+        $this->assertSame('Entry not found', $partialBody['items'][1]['error']);
     }
 
     public function testSingletonsControllerGetAndUpdate(): void

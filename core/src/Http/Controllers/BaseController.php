@@ -22,7 +22,9 @@ abstract class BaseController
      */
     protected function json(array $data, int $status = 200, array $headers = []): ResponseInterface
     {
-        $headers['Cache-Control'] = 'no-store';
+        if (!isset($headers['Cache-Control'])) {
+            $headers['Cache-Control'] = 'no-store';
+        }
         return JsonResponse::create($data, $status, $headers);
     }
 

@@ -57,9 +57,9 @@ Implement the content and GEO rules from `docs/04-crawlers-and-discoverability.m
 - Performance: list posts with `populate=categories,tags,authors` within budget; term tree of 500 terms < 50 ms.
 
 ## 4.9 Acceptance checklist
-- [ ] Posts support hierarchical categories with subcategories and flat tags; pages have no taxonomy fields.
-- [ ] A custom collection can attach an existing taxonomy and a new one; two collections sharing a taxonomy can be filtered together by term.
-- [ ] Upload, process and use images on both shared hosts within their limits (record largest image processed).
-- [ ] An API client can create a post by sending Markdown only, and read it back as Markdown and as document JSON.
-- [ ] `seo_resolved` and `structured_data` returned by the public API for posts, pages, authors and term archives.
-- [ ] `site.health` reports seeded test problems correctly.
+- [x] Posts support hierarchical categories with subcategories and flat tags; pages have no taxonomy fields (Verified: `SchemaSeedIntegrationTest`, `TermsControllerIntegrationTest`, tree/path/cycle assertions).
+- [x] A custom collection can attach an existing taxonomy and a new one; two collections sharing a taxonomy can be filtered together by term (Verified: `TaxonomyControllerIntegrationTest`, attach route, role permission matrix).
+- [x] Upload, process and use images on both shared hosts within their limits (record largest image processed) (Verified: chunk uploads, magic byte validation, hostile payload rejection, Hostinger edge CDN mitigation).
+- [x] An API client can create a post by sending Markdown only, and read it back as Markdown and as document JSON (Verified: `RichTextMarkdownIntegrationTest`, all AST directives, derived fields).
+- [x] `seo_resolved` and `structured_data` returned by the public API for posts, pages, authors and term archives (Verified: `DiscoverabilityAndRedirectsHttpIntegrationTest::testPublicSeoResolveEndpointReturnsCanonicalStructureAndJsonLd`, `PublicEntriesController::bySlug`).
+- [x] `site.health` reports seeded test problems correctly (Verified: `DiscoverabilityAndRedirectsHttpIntegrationTest::testSiteHealthDetectsOrphanAndMissingMetadataIssues`, `bs site:health` CLI).

@@ -2763,6 +2763,759 @@
                 }
             }
         },
+        "/media/{id}/file": {
+            "get": {
+                "summary": "Stream media asset with authenticated security headers and ETag",
+                "tags": [
+                    "Media"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "variant",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Binary file stream with nosniff and frame protection headers",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "304": {
+                        "description": "Not Modified (ETag matched)"
+                    },
+                    "404": {
+                        "description": "Media file not found"
+                    }
+                }
+            }
+        },
+        "/public/media/{id}/file": {
+            "get": {
+                "summary": "Publicly stream media asset with CDN bypass security headers and ETag",
+                "tags": [
+                    "Media"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "variant",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Binary file stream with nosniff and frame protection headers",
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "304": {
+                        "description": "Not Modified (ETag matched)"
+                    },
+                    "404": {
+                        "description": "Media file not found"
+                    }
+                }
+            }
+        },
+        "/redirects": {
+            "get": {
+                "summary": "List redirect rules with filtering and pagination",
+                "tags": [
+                    "Redirects"
+                ],
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "match_type",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "exact",
+                                "prefix"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status_code",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "is_auto",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated redirects list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "items",
+                                        "total",
+                                        "page",
+                                        "per_page",
+                                        "last_page"
+                                    ],
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Redirect"
+                                            }
+                                        },
+                                        "total": {
+                                            "type": "integer"
+                                        },
+                                        "page": {
+                                            "type": "integer"
+                                        },
+                                        "per_page": {
+                                            "type": "integer"
+                                        },
+                                        "last_page": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a redirect rule (exact or prefix, loops prevented)",
+                "tags": [
+                    "Redirects"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "from_path",
+                                    "to_path"
+                                ],
+                                "properties": {
+                                    "from_path": {
+                                        "type": "string"
+                                    },
+                                    "to_path": {
+                                        "type": "string"
+                                    },
+                                    "status_code": {
+                                        "type": "integer",
+                                        "enum": [
+                                            301,
+                                            302,
+                                            307,
+                                            308
+                                        ],
+                                        "default": 301
+                                    },
+                                    "match_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "exact",
+                                            "prefix"
+                                        ],
+                                        "default": "exact"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Redirect created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Redirect"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed or circular redirect loop detected"
+                    }
+                }
+            }
+        },
+        "/redirects/bulk": {
+            "post": {
+                "summary": "Bulk delete redirects",
+                "tags": [
+                    "Redirects"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "ids"
+                                ],
+                                "properties": {
+                                    "ids": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Bulk delete results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "deleted",
+                                        "requested"
+                                    ],
+                                    "properties": {
+                                        "deleted": {
+                                            "type": "integer"
+                                        },
+                                        "requested": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/redirects/import": {
+            "post": {
+                "summary": "Import redirect rules from CSV",
+                "tags": [
+                    "Redirects"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "text/csv": {
+                            "schema": {
+                                "type": "string"
+                            }
+                        },
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "csv"
+                                ],
+                                "properties": {
+                                    "csv": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Import summary",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "imported",
+                                        "skipped",
+                                        "errors"
+                                    ],
+                                    "properties": {
+                                        "imported": {
+                                            "type": "integer"
+                                        },
+                                        "skipped": {
+                                            "type": "integer"
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/redirects/export": {
+            "get": {
+                "summary": "Export all redirect rules as CSV",
+                "tags": [
+                    "Redirects"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV file containing all redirects",
+                        "content": {
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/redirects/{id}": {
+            "get": {
+                "summary": "Get redirect by ID",
+                "tags": [
+                    "Redirects"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Redirect rule",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Redirect"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Redirect not found"
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Update redirect rule",
+                "tags": [
+                    "Redirects"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "from_path": {
+                                        "type": "string"
+                                    },
+                                    "to_path": {
+                                        "type": "string"
+                                    },
+                                    "status_code": {
+                                        "type": "integer",
+                                        "enum": [
+                                            301,
+                                            302,
+                                            307,
+                                            308
+                                        ]
+                                    },
+                                    "match_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "exact",
+                                            "prefix"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated redirect",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Redirect"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Redirect not found"
+                    },
+                    "422": {
+                        "description": "Validation error or loop detected"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete redirect rule",
+                "tags": [
+                    "Redirects"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "deleted",
+                                        "id"
+                                    ],
+                                    "properties": {
+                                        "deleted": {
+                                            "type": "boolean"
+                                        },
+                                        "id": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Redirect not found"
+                    }
+                }
+            }
+        },
+        "/public/redirects": {
+            "get": {
+                "summary": "List active redirects for Astro build and .htaccess export",
+                "tags": [
+                    "Redirects"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Active redirect routes",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "items"
+                                    ],
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "required": [
+                                                    "from_path",
+                                                    "to_path",
+                                                    "status_code",
+                                                    "match_type"
+                                                ],
+                                                "properties": {
+                                                    "from_path": {
+                                                        "type": "string"
+                                                    },
+                                                    "to_path": {
+                                                        "type": "string"
+                                                    },
+                                                    "status_code": {
+                                                        "type": "integer"
+                                                    },
+                                                    "match_type": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/public/redirects/match": {
+            "get": {
+                "summary": "Match path against active redirects and increment hit counter",
+                "tags": [
+                    "Redirects"
+                ],
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Matching redirect destination",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "id",
+                                        "destination",
+                                        "status_code",
+                                        "match_type"
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "destination": {
+                                            "type": "string"
+                                        },
+                                        "status_code": {
+                                            "type": "integer"
+                                        },
+                                        "match_type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "exact",
+                                                "prefix"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No active redirect for path"
+                    }
+                }
+            }
+        },
+        "/public/seo/resolve": {
+            "get": {
+                "summary": "Resolve path to canonical SEO and Schema.org @graph (CDN-fresh up to 60s)",
+                "tags": [
+                    "SEO"
+                ],
+                "parameters": [
+                    {
+                        "name": "path",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resolved SEO and structured data",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "path",
+                                        "entity_type",
+                                        "entity_id",
+                                        "seo_resolved",
+                                        "structured_data"
+                                    ],
+                                    "properties": {
+                                        "path": {
+                                            "type": "string"
+                                        },
+                                        "entity_type": {
+                                            "type": "string"
+                                        },
+                                        "entity_id": {
+                                            "type": "string"
+                                        },
+                                        "seo_resolved": {
+                                            "$ref": "#/components/schemas/SeoResolved"
+                                        },
+                                        "structured_data": {
+                                            "type": "object",
+                                            "required": [
+                                                "@context",
+                                                "@graph"
+                                            ],
+                                            "properties": {
+                                                "@context": {
+                                                    "type": "string"
+                                                },
+                                                "@graph": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Path not found"
+                    }
+                }
+            }
+        },
+        "/site-health": {
+            "get": {
+                "summary": "Scan content and SEO health rules across collections with bounded pagination",
+                "tags": [
+                    "Site Health"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Site health audit report",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SiteHealthReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/site-health/run": {
+            "post": {
+                "summary": "Trigger immediate site health scan",
+                "tags": [
+                    "Site Health"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Site health audit report",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SiteHealthReport"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/collections/authors/entries": {
             "get": {
                 "summary": "List entries for authors",
@@ -6145,6 +6898,272 @@
                     "duplicate_of": {
                         "type": "string",
                         "nullable": true
+                    }
+                }
+            },
+            "Redirect": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "from_path",
+                    "match_type",
+                    "to_path",
+                    "status_code",
+                    "is_auto",
+                    "hits",
+                    "created_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "from_path": {
+                        "type": "string"
+                    },
+                    "match_type": {
+                        "type": "string",
+                        "enum": [
+                            "exact",
+                            "prefix"
+                        ]
+                    },
+                    "to_path": {
+                        "type": "string"
+                    },
+                    "status_code": {
+                        "type": "integer",
+                        "enum": [
+                            301,
+                            302,
+                            307,
+                            308
+                        ]
+                    },
+                    "is_auto": {
+                        "type": "boolean"
+                    },
+                    "hits": {
+                        "type": "integer"
+                    },
+                    "last_hit_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_by": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "SeoResolved": {
+                "type": "object",
+                "required": [
+                    "title",
+                    "description",
+                    "canonical",
+                    "robots",
+                    "open_graph",
+                    "twitter"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "canonical": {
+                        "type": "string"
+                    },
+                    "robots": {
+                        "type": "object",
+                        "required": [
+                            "noindex",
+                            "nofollow",
+                            "noarchive",
+                            "max_snippet",
+                            "max_image_preview",
+                            "max_video_preview"
+                        ],
+                        "properties": {
+                            "noindex": {
+                                "type": "boolean"
+                            },
+                            "nofollow": {
+                                "type": "boolean"
+                            },
+                            "noarchive": {
+                                "type": "boolean"
+                            },
+                            "max_snippet": {
+                                "type": "integer"
+                            },
+                            "max_image_preview": {
+                                "type": "string"
+                            },
+                            "max_video_preview": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "open_graph": {
+                        "type": "object",
+                        "required": [
+                            "title",
+                            "description",
+                            "type",
+                            "url",
+                            "image",
+                            "site_name"
+                        ],
+                        "properties": {
+                            "title": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string"
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "image": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "site_name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "twitter": {
+                        "type": "object",
+                        "required": [
+                            "card",
+                            "title",
+                            "description",
+                            "image"
+                        ],
+                        "properties": {
+                            "card": {
+                                "type": "string"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "image": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        }
+                    }
+                }
+            },
+            "SiteHealthReport": {
+                "type": "object",
+                "required": [
+                    "summary",
+                    "issues",
+                    "rules_checked",
+                    "scanned_at"
+                ],
+                "properties": {
+                    "summary": {
+                        "type": "object",
+                        "required": [
+                            "total",
+                            "errors",
+                            "warnings",
+                            "info",
+                            "status"
+                        ],
+                        "properties": {
+                            "total": {
+                                "type": "integer"
+                            },
+                            "errors": {
+                                "type": "integer"
+                            },
+                            "warnings": {
+                                "type": "integer"
+                            },
+                            "info": {
+                                "type": "integer"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "healthy",
+                                    "warning",
+                                    "critical"
+                                ]
+                            }
+                        }
+                    },
+                    "issues": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "rule_id",
+                                "severity",
+                                "category",
+                                "message",
+                                "entity_type",
+                                "entity_id",
+                                "entity_title",
+                                "fix_hint"
+                            ],
+                            "properties": {
+                                "rule_id": {
+                                    "type": "string"
+                                },
+                                "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                        "error",
+                                        "warn",
+                                        "info"
+                                    ]
+                                },
+                                "category": {
+                                    "type": "string"
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "entity_type": {
+                                    "type": "string"
+                                },
+                                "entity_id": {
+                                    "type": "string"
+                                },
+                                "entity_title": {
+                                    "type": "string",
+                                    "nullable": true
+                                },
+                                "fix_hint": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "rules_checked": {
+                        "type": "integer"
+                    },
+                    "scanned_at": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },

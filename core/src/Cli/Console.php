@@ -42,6 +42,7 @@ final class Console
         try {
             return match ($command) {
                 'health' => $this->health(),
+                'site:health' => $this->siteHealth($args),
                 'migrate' => $this->migrate($args),
                 'migrate:status' => $this->migrateStatus(),
                 'migrate:rollback' => $this->migrateRollback($args),
@@ -75,6 +76,52 @@ final class Console
         echo "Environment: " . $this->app->getEnvironment()->name() . "\n";
         echo "Installed: " . ($this->app->isInstalled() ? 'Yes' : 'No') . "\n";
         return 0;
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    private function siteHealth(array $args): int
+    {
+        $conn = $this->getConnection();
+        $service = new \BsCms\Health\SiteHealthService($conn);
+        $report = $service->scan();
+
+        $summary = $report['summary'];
+        $issues = $report['issues'];
+
+        if (in_array('--json', $args, true)) {
+            echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+            return $summary['errors'] > 0 ? 1 : 0;
+        }
+
+        echo "=== BS CMS Site Health Scan ===\n";
+        echo "Rules checked: {$report['rules_checked']}\n";
+        echo "Total issues:  {$summary['total']} (Errors: {$summary['errors']}, Warnings: {$summary['warnings']}, Info: {$summary['info']})\n";
+        echo "Overall state: " . strtoupper($summary['status']) . "\n\n";
+
+        if (empty($issues)) {
+            echo "No site health issues found. Everything is in order!\n";
+            return 0;
+        }
+
+        echo str_pad("SEV", 8) . str_pad("RULE ID", 28) . str_pad("ENTITY", 24) . "MESSAGE\n";
+        echo str_repeat('-', 90) . "\n";
+
+        foreach ($issues as $issue) {
+            $sev = strtoupper($issue['severity']);
+            $rule = $issue['rule_id'];
+            $entity = "{$issue['entity_type']}:" . substr($issue['entity_id'], 0, 16);
+            $msg = $issue['message'];
+
+            echo str_pad($sev, 8) . str_pad($rule, 28) . str_pad($entity, 24) . "{$msg}\n";
+            if (!empty($issue['fix_hint'])) {
+                echo str_pad("", 8) . "  -> Fix: {$issue['fix_hint']}\n";
+            }
+        }
+        echo "\n";
+
+        return $summary['errors'] > 0 ? 1 : 0;
     }
 
     /**
@@ -674,6 +721,26 @@ final class Console
     private function getConnection(): Connection
     {
         $dbConfig = (array) $this->app->getConfig()->get('database', []);
-        return new Connection($dbConfig);
+        if (!empty($dbConfig['database'])) {
+            $connConfig = $dbConfig;
+        } elseif (isset($dbConfig['connections'])) {
+            $default = (string) ($dbConfig['default'] ?? 'mysql');
+            $connConfig = (array) ($dbConfig['connections'][$default] ?? []);
+        } else {
+            $connConfig = $dbConfig;
+        }
+
+        // Environment overrides for CLI convenience
+        if (getenv('DB_PASS') !== false && (!isset($connConfig['password']) || $connConfig['password'] === '')) {
+            $connConfig['password'] = (string) getenv('DB_PASS');
+        }
+        if (getenv('DB_USER') !== false && (!isset($connConfig['username']) || $connConfig['username'] === '')) {
+            $connConfig['username'] = (string) getenv('DB_USER');
+        }
+        if (getenv('DB_NAME') !== false && (!isset($connConfig['database']) || $connConfig['database'] === '')) {
+            $connConfig['database'] = (string) getenv('DB_NAME');
+        }
+
+        return new Connection($connConfig);
     }
 }

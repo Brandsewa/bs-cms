@@ -441,7 +441,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Schema\CollectionRegistry::class),
                 $c->get(\BsCms\Content\EntryRepository::class),
                 $c->get(\BsCms\Content\Query\QueryParser::class),
-                $c->get(\BsCms\Content\Cache\PublicResponseCache::class)
+                $c->get(\BsCms\Content\Cache\PublicResponseCache::class),
+                $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
 
@@ -520,6 +521,51 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Media\ChunkUploadManager::class),
                 $c->get(Authorizer::class),
                 $app->basePath('storage/tmp')
+            );
+        });
+
+        // 13. Redirects Services & Controllers
+        $container->singleton(\BsCms\Redirects\RedirectRepository::class, function (Container $c): \BsCms\Redirects\RedirectRepository {
+            return new \BsCms\Redirects\RedirectRepository($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\RedirectsController::class, function (Container $c): \BsCms\Http\Controllers\RedirectsController {
+            return new \BsCms\Http\Controllers\RedirectsController(
+                $c->get(\BsCms\Redirects\RedirectRepository::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        // 14. SEO Resolver & Controller
+        $container->singleton(\BsCms\Seo\SeoResolver::class, function (Container $c): \BsCms\Seo\SeoResolver {
+            /** @var Config $config */
+            $config = $c->get(Config::class);
+            $siteUrl = (string) $config->get('app.url', 'http://localhost');
+            return new \BsCms\Seo\SeoResolver(
+                $c->get(Connection::class),
+                $c->has(\BsCms\Media\MediaRepository::class) ? $c->get(\BsCms\Media\MediaRepository::class) : null,
+                $c->has(\BsCms\Taxonomy\TaxonomyRepository::class) ? $c->get(\BsCms\Taxonomy\TaxonomyRepository::class) : null,
+                $c->has(\BsCms\Taxonomy\TermRepository::class) ? $c->get(\BsCms\Taxonomy\TermRepository::class) : null,
+                $siteUrl
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PublicSeoController::class, function (Container $c): \BsCms\Http\Controllers\PublicSeoController {
+            return new \BsCms\Http\Controllers\PublicSeoController(
+                $c->get(\BsCms\Seo\SeoResolver::class)
+            );
+        });
+
+        // 15. Site Health Services & Controllers
+        $container->singleton(\BsCms\Health\SiteHealthService::class, function (Container $c): \BsCms\Health\SiteHealthService {
+            return new \BsCms\Health\SiteHealthService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SiteHealthController::class, function (Container $c): \BsCms\Http\Controllers\SiteHealthController {
+            return new \BsCms\Http\Controllers\SiteHealthController(
+                $c->get(\BsCms\Health\SiteHealthService::class),
+                $c->get(Authorizer::class)
             );
         });
     }

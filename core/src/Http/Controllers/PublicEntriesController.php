@@ -20,7 +20,8 @@ class PublicEntriesController extends BaseController
         private readonly CollectionRegistry $registry,
         private readonly EntryRepository $repository,
         private readonly QueryParser $queryParser,
-        private readonly PublicResponseCache $cache
+        private readonly PublicResponseCache $cache,
+        private readonly ?\BsCms\Seo\SeoResolver $seoResolver = null
     ) {
     }
 
@@ -148,6 +149,12 @@ class PublicEntriesController extends BaseController
 
         $collection = $this->registry->get($handle);
         $publicEntry = \BsCms\Content\Presenters\EntryPresenter::forPublic($entry, $collection);
+
+        if ($this->seoResolver !== null) {
+            $seoRes = $this->seoResolver->resolveForEntity($entry, $handle === 'posts' ? 'post' : 'page');
+            $publicEntry['seo_resolved'] = $seoRes['seo_resolved'];
+            $publicEntry['structured_data'] = $seoRes['structured_data'];
+        }
 
         $body = json_encode(['data' => $publicEntry], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $etag = '"' . hash('sha256', $body) . '"';

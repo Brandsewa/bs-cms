@@ -17,16 +17,19 @@ use BsCms\Http\Controllers\MediaFoldersController;
 use BsCms\Http\Controllers\NotificationsController;
 use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PublicEntriesController;
+use BsCms\Http\Controllers\PublicSeoController;
+use BsCms\Http\Controllers\RedirectsController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
 use BsCms\Http\Controllers\SingletonsController;
+use BsCms\Http\Controllers\SiteHealthController;
 use BsCms\Http\Controllers\TaxonomiesController;
 use BsCms\Http\Controllers\TokensController;
 use BsCms\Http\Controllers\UsersController;
 use BsCms\Http\Controllers\WebhooksController;
 
 /**
- * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, taxonomies, and media.
+ * Registers all REST API v1 endpoints for authentication, authorization, users, roles, audit, email, notifications, collections, entries, singletons, saved views, jobs, taxonomies, media, redirects, seo, and site health.
  */
 final class ApiRoutes
 {
@@ -51,7 +54,10 @@ final class ApiRoutes
         ?OpenApiController $openApi = null,
         ?TaxonomiesController $taxonomies = null,
         ?MediaController $media = null,
-        ?MediaFoldersController $mediaFolders = null
+        ?MediaFoldersController $mediaFolders = null,
+        ?RedirectsController $redirects = null,
+        ?PublicSeoController $publicSeo = null,
+        ?SiteHealthController $siteHealth = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -254,6 +260,34 @@ final class ApiRoutes
             $routes->post('/api/v1/media/{id}/replace', [$media, 'replace']);
             $routes->delete('/api/v1/media/{id}', [$media, 'delete']);
             $routes->get('/api/v1/media/{id}/usage', [$media, 'getUsage']);
+            $routes->get('/api/v1/media/{id}/file', [$media, 'streamFile']);
+            $routes->get('/api/v1/public/media/{id}/file', [$media, 'streamFile']);
+        }
+
+        // 19. Redirects endpoints
+        if ($redirects !== null) {
+            $routes->get('/api/v1/redirects', [$redirects, 'list']);
+            $routes->post('/api/v1/redirects', [$redirects, 'create']);
+            $routes->post('/api/v1/redirects/bulk', [$redirects, 'bulk']);
+            $routes->post('/api/v1/redirects/import', [$redirects, 'import']);
+            $routes->get('/api/v1/redirects/export', [$redirects, 'export']);
+            $routes->get('/api/v1/redirects/{id}', [$redirects, 'get']);
+            $routes->patch('/api/v1/redirects/{id}', [$redirects, 'update']);
+            $routes->delete('/api/v1/redirects/{id}', [$redirects, 'delete']);
+
+            $routes->get('/api/v1/public/redirects', [$redirects, 'publicList']);
+            $routes->get('/api/v1/public/redirects/match', [$redirects, 'match']);
+        }
+
+        // 20. Public SEO resolver endpoint
+        if ($publicSeo !== null) {
+            $routes->get('/api/v1/public/seo/resolve', [$publicSeo, 'resolve']);
+        }
+
+        // 21. Site Health endpoints
+        if ($siteHealth !== null) {
+            $routes->get('/api/v1/site-health', [$siteHealth, 'status']);
+            $routes->post('/api/v1/site-health/run', [$siteHealth, 'run']);
         }
     }
 }
