@@ -6,7 +6,9 @@ export async function getStaticPaths() {
     id: i + 1,
     slug: `post-${i + 1}`,
     title: `Benchmark Post Title ${i + 1}`,
-    content: `This is the body content for benchmark post ${i + 1}. It contains realistic markdown text and paragraphs to measure Astro build latency across a 200-page static site.`
+    content: (i + 1 === 42)
+      ? 'This post was updated for the one-post change delta deploy verification benchmark.'
+      : `This is the body content for benchmark post ${i + 1}. It contains realistic markdown text and paragraphs to measure Astro build latency across a 200-page static site.`
   }));
 
   return posts.map((post) => ({
