@@ -424,4 +424,3 @@ final class McpSpikeTest extends TestCase
         fwrite(STDERR, sprintf("\n[Spike B Benchmark] tools/list: p50=%.3f ms, p95=%.3f ms | tools/call (list_posts): p50=%.3f ms, p95=%.3f ms\n", $p50List, $p95List, $p50Call, $p95Call));
     }
 }
-
