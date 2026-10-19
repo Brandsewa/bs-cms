@@ -7,6 +7,8 @@ namespace BsCms\Tests\Integration\Discoverability;
 use BsCms\Audit\AuditLogger;
 use BsCms\Auth\Actor;
 use BsCms\Auth\ApiTokenService;
+use BsCms\Cli\Console;
+use BsCms\Kernel\Application;
 use BsCms\Auth\SessionManager;
 use BsCms\Auth\SystemRoles;
 use BsCms\Authz\Authorizer;
@@ -995,6 +997,38 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $actualIssueKeys = array_keys($firstIssue);
         sort($actualIssueKeys);
         $this->assertSame($expectedIssueKeys, $actualIssueKeys);
+
+        // 3. CLI Command: `bs site:health` verification
+        @mkdir($this->tempDir . '/config', 0777, true);
+        file_put_contents(
+            $this->tempDir . '/config/database.php',
+            "<?php return ['database' => '{$this->dbName}', 'username' => '" . (getenv('DB_USER') ?: 'root') . "', 'password' => '" . addslashes((string) getenv('DB_PASS')) . "', 'host' => '" . (getenv('DB_HOST') ?: '127.0.0.1') . "', 'port' => " . ((int) (getenv('DB_PORT') ?: 3306)) . ", 'prefix' => 'bs_'];\n"
+        );
+        $cliApp = new Application($this->tempDir);
+        $console = new Console($cliApp);
+
+        // 3a. JSON mode (`bs site:health --json`)
+        ob_start();
+        $cliExitCodeJson = $console->run(['bs', 'site:health', '--json']);
+        $cliOutputJson = (string) ob_get_clean();
+
+        $this->assertSame(1, $cliExitCodeJson, 'Should return exit code 1 due to critical issues');
+        $cliReport = json_decode($cliOutputJson, true);
+        $this->assertIsArray($cliReport);
+        $cliReportKeys = array_keys($cliReport);
+        sort($cliReportKeys);
+        $this->assertSame($expectedReportKeys, $cliReportKeys);
+
+        // 3b. Pretty table mode (`bs site:health`)
+        ob_start();
+        $cliExitCodeText = $console->run(['bs', 'site:health']);
+        $cliOutputText = (string) ob_get_clean();
+
+        $this->assertSame(1, $cliExitCodeText);
+        $this->assertStringContainsString('=== BS CMS Site Health Scan ===', $cliOutputText);
+        $this->assertStringContainsString('Rules checked:', $cliOutputText);
+        $this->assertStringContainsString('CRITICAL', $cliOutputText);
+        $this->assertStringContainsString('seo.title.missing', $cliOutputText);
     }
 
     // =========================================================================
