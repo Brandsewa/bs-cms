@@ -10,4 +10,11 @@ return [
         'limit' => 60,
         'window' => 60, // seconds
     ],
+    'oauth' => [
+        'registration_rate_limit' => [
+            'limit' => 5,
+            'window' => 3600, // 1 hour
+        ],
+    ],
 ];
+

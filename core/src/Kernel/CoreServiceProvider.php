@@ -579,7 +579,8 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\OAuth\OAuthController(
                 null,
                 $c->get(Connection::class),
-                $c->get(\BsCms\Auth\PasswordHasher::class)
+                $c->get(\BsCms\Auth\PasswordHasher::class),
+                $c->get(Config::class)
             );
         });
 

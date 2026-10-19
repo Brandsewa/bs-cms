@@ -639,8 +639,8 @@ final class McpHttpIntegrationTest extends TestCase
     {
         $serverParams = ['REMOTE_ADDR' => '198.51.100.99'];
 
-        // Register 10 times from the same IP (within budget)
-        for ($i = 0; $i < 10; ++$i) {
+        // Register 5 times from the same IP (within configured limit of 5 per hour)
+        for ($i = 0; $i < 5; ++$i) {
             $parsedUri = new Uri('https://example.com/oauth/register');
             $stream = fopen('php://memory', 'r+');
             self::assertIsResource($stream);
@@ -654,7 +654,7 @@ final class McpHttpIntegrationTest extends TestCase
             $this->assertSame(201, $res->getStatusCode());
         }
 
-        // 11th registration from the same IP MUST return 429
+        // 6th registration from the same IP MUST return 429
         $parsedUri = new Uri('https://example.com/oauth/register');
         $stream = fopen('php://memory', 'r+');
         self::assertIsResource($stream);
@@ -670,6 +670,7 @@ final class McpHttpIntegrationTest extends TestCase
         $json = json_decode((string) $res->getBody(), true);
         $this->assertSame('rate_limit_exceeded', $json['error']);
     }
+
 
     public function testAuthorizeEnforcesExactRedirectUriMatch(): void
     {
@@ -711,5 +712,34 @@ final class McpHttpIntegrationTest extends TestCase
         $this->assertSame(400, $resMismatch->getStatusCode());
         $json = json_decode((string) $resMismatch->getBody(), true);
         $this->assertSame('invalid_redirect_uri', $json['error']);
+    }
+
+    public function testSanitizeReturnToOnlyAcceptsSameOriginAdminPaths(): void
+    {
+        // Valid /admin paths
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin'));
+        $this->assertSame('/admin/', OAuthController::sanitizeReturnTo('/admin/'));
+        $this->assertSame('/admin/dashboard', OAuthController::sanitizeReturnTo('/admin/dashboard'));
+        $this->assertSame('/admin/oauth/authorize?client_id=123', OAuthController::sanitizeReturnTo('/admin/oauth/authorize?client_id=123'));
+        $this->assertSame('/admin?page=1', OAuthController::sanitizeReturnTo('/admin?page=1'));
+
+        // External URLs -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('https://evil.example.com'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('http://evil.example.com/admin'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('//evil.example.com/admin'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('javascript:alert(1)'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('data:text/html,evil'));
+
+        // Non-admin paths -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/api/v1/posts'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/public/index.php'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/administrator'));
+
+        // Path traversal and tricky backslashes -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin/..\\evil'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('\\\\evil.com\\admin'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo(null));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo(''));
     }
 }
