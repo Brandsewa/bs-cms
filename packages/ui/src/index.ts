@@ -227,3 +227,70 @@ export {
   TooltipRoot,
   TooltipTrigger,
 } from './components/tooltip';
+
+// Layout
+export {
+  AppSidebar,
+  Banner,
+  BannerArea,
+  Breadcrumbs,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  ErrorState,
+  ForbiddenState,
+  NotFoundState,
+  PageContainer,
+  PageHeader,
+  PageNav,
+  PageSection,
+  Pagination,
+  Stepper,
+} from './layout';
+export type {
+  AppSidebarProps,
+  BannerProps,
+  BannerVariant,
+  BreadcrumbItem,
+  BreadcrumbsProps,
+  EmptyStateProps,
+  ErrorStateProps,
+  ForbiddenStateProps,
+  NotFoundStateProps,
+  PageContainerProps,
+  PageHeaderProps,
+  PageNavItem,
+  PageNavProps,
+  PageSectionProps,
+  PaginationProps,
+  SidebarGroup,
+  SidebarItem,
+  StepperProps,
+} from './layout';
+
+// DataTable (docs/02-ui-spec.md 3.1)
+export { DataTable, describeFilter, applyFilters } from './data-table';
+export type { DataTableProps, DataTableState, TableSorting } from './data-table';
+export type {
+  ActiveFilter,
+  BulkActionOutcome,
+  BulkFailure,
+  CursorInfo,
+  DataTableBulkAction,
+  DataTableColumn,
+  DataTableError,
+  DataTableFilter,
+  Density,
+  FieldType,
+  FilterType,
+  FilterValue,
+  ReferencedItem,
+  RowMenuItem,
+  SavedView,
+  StatusTab,
+  StatusValue,
+} from './data-table';

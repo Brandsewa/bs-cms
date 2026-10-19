@@ -17,3 +17,17 @@ export function isCtrlOrMeta(event: { metaKey: boolean; ctrlKey: boolean }): boo
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/**
+ * Copies text to the clipboard. Returns false when the Clipboard API is
+ * unavailable (permissions, insecure context) — callers keep the value
+ * visible so nothing is lost.
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
