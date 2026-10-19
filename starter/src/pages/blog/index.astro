@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { cmsClient } from '../../lib/bs';
+import { cmsClient, getCanonicalUrl } from '../../lib/bs';
 
 let entries: any[] = [];
 try {
@@ -19,7 +19,11 @@ if (!entries || entries.length === 0) {
 }
 ---
 
-<BaseLayout title="Blog | BS CMS" description="Latest articles and benchmarks.">
+<BaseLayout
+  title="Blog | BS CMS"
+  description="Latest articles and benchmarks."
+  canonical={getCanonicalUrl('/blog/')}
+>
   <h1>Blog</h1>
   <p>Published static articles from BS CMS.</p>
   <ul>

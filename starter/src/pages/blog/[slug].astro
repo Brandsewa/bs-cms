@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { renderToHtml, renderToMarkdown } from '@bs/renderer';
-import { cmsClient } from '../../lib/bs';
+import { cmsClient, getCanonicalUrl } from '../../lib/bs';
 export async function getStaticPaths() {
   let entries: any[] = [];
   try {
@@ -88,6 +88,7 @@ const { post } = Astro.props;
 <BaseLayout
   title={`${post.title} | BS CMS`}
   description={post.excerpt || `Read ${post.title} on BS CMS.`}
+  canonical={getCanonicalUrl(`/blog/${post.slug}/`)}
   structuredData={post.structured_data}
   robots={post.seo?.robots}
 >

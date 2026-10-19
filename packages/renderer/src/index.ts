@@ -482,7 +482,24 @@ function renderNodeToHtml(node: TiptapNode, options: RenderOptions = {}, depth =
         }
         return '';
       }
-      const safeSrc = escapeHtml(rawSrc);
+      // Prefer privacy-preserving origins for YouTube and Vimeo
+      let normalizedSrc = rawSrc;
+      try {
+        const u = new URL(rawSrc);
+        if (u.hostname === 'youtube.com' || u.hostname === 'www.youtube.com') {
+          u.hostname = 'www.youtube-nocookie.com';
+          normalizedSrc = u.toString();
+        } else if (u.hostname === 'vimeo.com' || u.hostname === 'www.vimeo.com') {
+          // If vimeo.com/12345, convert to player.vimeo.com/video/12345
+          const match = u.pathname.match(/^\/(\d+)/);
+          if (match) {
+            normalizedSrc = `https://player.vimeo.com/video/${match[1]}`;
+          }
+        }
+      } catch {
+        // Use rawSrc as fallback
+      }
+      const safeSrc = escapeHtml(normalizedSrc);
       const providerAttr = provider ? ` data-embed-provider="${provider}"` : '';
       // Pure semantic placeholder with data attributes, zero inline event handlers or scripts
       return `<div class="embed-placeholder" data-embed-src="${safeSrc}"${providerAttr}>\n  <button type="button" class="embed-load-button">Load interactive embed (${safeSrc})</button>\n</div>`;

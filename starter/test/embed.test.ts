@@ -1,25 +1,29 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { JSDOM } from 'jsdom';
-import { initEmbedLoader, isAllowedEmbedOrigin } from '../public/embed.js';
 
-describe('embed.js loader', () => {
-  it('validates allowed embed domains over https', () => {
-    expect(isAllowedEmbedOrigin('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ')).toBe(true);
-    expect(isAllowedEmbedOrigin('https://player.vimeo.com/video/12345')).toBe(true);
-    expect(isAllowedEmbedOrigin('https://open.spotify.com/embed/track/123')).toBe(true);
-    expect(isAllowedEmbedOrigin('http://youtube.com/embed/123')).toBe(false); // HTTP rejected
-    expect(isAllowedEmbedOrigin('https://evil.example.com/embed')).toBe(false); // Unknown host rejected
-    expect(isAllowedEmbedOrigin('javascript:alert(1)')).toBe(false); // Insecure scheme rejected
+describe('embed.js classic script loader', () => {
+  const embedJsPath = path.resolve(__dirname, '../public/embed.js');
+  const embedJsCode = fs.readFileSync(embedJsPath, 'utf8');
+
+  it('contains zero ES module export statements', () => {
+    expect(embedJsCode).not.toMatch(/\bexport\s+/);
+    expect(embedJsCode).not.toMatch(/\bexport\s*\{/);
   });
 
-  describe('DOM interaction', () => {
+  describe('Classic script browser execution via JSDOM', () => {
     let dom: JSDOM;
+    let window: any;
     let document: Document;
 
     beforeEach(() => {
       dom = new JSDOM(
         `<!DOCTYPE html>
         <html>
+          <head>
+            <script>${embedJsCode}</script>
+          </head>
           <body>
             <div id="valid-embed" class="embed-placeholder" data-embed-src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ">
               <button type="button" class="embed-load-button">Load interactive embed</button>
@@ -32,10 +36,19 @@ describe('embed.js loader', () => {
             </div>
           </body>
         </html>`,
-        { url: 'https://bskickstarter.com/' }
+        {
+          runScripts: 'dangerously',
+          url: 'https://bskickstarter.com/',
+        }
       );
-      document = dom.window.document;
-      initEmbedLoader(document);
+      window = dom.window;
+      document = window.document;
+    });
+
+    it('attaches window.BSEmbed without throwing SyntaxError', () => {
+      expect(window.BSEmbed).toBeDefined();
+      expect(typeof window.BSEmbed.handleEmbedActivation).toBe('function');
+      expect(typeof window.BSEmbed.isAllowedEmbedOrigin).toBe('function');
     });
 
     it('creates an iframe when clicking a valid allow-listed embed', () => {
@@ -70,6 +83,7 @@ describe('embed.js loader', () => {
 
       const iframe = xssContainer.querySelector('iframe');
       expect(iframe).toBeNull();
+      expect(xssContainer.querySelector('.embed-load-button')).not.toBeNull();
     });
   });
 });

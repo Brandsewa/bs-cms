@@ -1,6 +1,6 @@
 ---
 import '../styles/tokens.css';
-import { escapeJsonLd } from '../lib/bs';
+import { escapeJsonLd, escapeAttr, getCanonicalUrl, getSiteMetadata } from '../lib/bs';
 
 interface Props {
   title: string;
@@ -13,13 +13,26 @@ interface Props {
   };
 }
 
+const siteMeta = await getSiteMetadata();
+
 const {
   title,
-  description = 'BS CMS Static Starter Site',
-  canonical = Astro.url.href,
+  description = siteMeta.description,
+  canonical = getCanonicalUrl(Astro.url.pathname),
   structuredData,
   robots,
 } = Astro.props;
+
+// Ensure structured_data canonical IDs and URLs align with our site URL policy if present
+let resolvedStructuredData = structuredData;
+if (structuredData && typeof structuredData === 'object') {
+  const jsonStr = JSON.stringify(structuredData);
+  // Replace any http://localhost:4321 references with the canonical SITE_URL
+  const canonicalStr = jsonStr.replace(/http:\/\/localhost:4321/g, canonical.replace(/\/+$/, ''));
+  resolvedStructuredData = JSON.parse(canonicalStr);
+}
+
+const safeDescription = escapeAttr(description);
 
 const robotsContent = [
   robots?.noindex ? 'noindex' : 'index',
@@ -34,24 +47,24 @@ const robotsContent = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
-    <meta name="description" content={description} />
+    <meta name="description" content={safeDescription} />
     <meta name="robots" content={robotsContent} />
     <link rel="canonical" href={canonical} />
 
     <!-- Open Graph & Twitter -->
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:description" content={safeDescription} />
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    <meta name="twitter:description" content={safeDescription} />
 
-    {structuredData && (
+    {resolvedStructuredData && (
       <script
         type="application/ld+json"
         is:inline
-        set:html={escapeJsonLd(structuredData)}
+        set:html={escapeJsonLd(resolvedStructuredData)}
       />
     )}
   </head>
