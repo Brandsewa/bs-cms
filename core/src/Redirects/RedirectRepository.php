@@ -25,20 +25,48 @@ final class RedirectRepository
      * Create a new redirect rule.
      *
      * @param array<string, mixed> $data
+     * @param list<string> $allowedDomains
      * @return array<string, mixed>
      */
-    public function create(array $data, ?string $actorId = null): array
-    {
-        $fromPath = $this->normalizePath((string) ($data['from_path'] ?? ''));
-        $toPath = trim((string) ($data['to_path'] ?? ''));
+    public function create(
+        array $data,
+        ?string $actorId = null,
+        bool $allowExternal = false,
+        array $allowedDomains = []
+    ): array {
+        $rawFrom = (string) ($data['from_path'] ?? '');
+        $rawTo = (string) ($data['to_path'] ?? '');
+
+        // Pre-normalization length validation (prevents 500 DB column overflow)
+        if (mb_strlen($rawFrom) > 512 || mb_strlen($rawTo) > 2048) {
+            $errs = [];
+            if (mb_strlen($rawFrom) > 512) {
+                $errs['from_path'] = ["Source path cannot exceed 512 characters (received " . mb_strlen($rawFrom) . ")."];
+            }
+            if (mb_strlen($rawTo) > 2048) {
+                $errs['to_path'] = ["Destination path cannot exceed 2048 characters (received " . mb_strlen($rawTo) . ")."];
+            }
+            throw new ValidationException("Invalid redirect configuration.", $errs);
+        }
+
+        $fromPath = $this->normalizePath($rawFrom);
+        $toPath = trim($rawTo);
         $statusCode = isset($data['status_code']) ? (int) $data['status_code'] : 301;
         $matchType = isset($data['match_type']) ? strtolower(trim((string) $data['match_type'])) : 'exact';
         $isAuto = !empty($data['is_auto']);
 
-        $this->validateRedirect($fromPath, $toPath, $statusCode, $matchType);
+        $this->validateRedirect($fromPath, $toPath, $statusCode, $matchType, $allowExternal, $allowedDomains);
 
         // Check for circular redirect chains
         $this->detectLoops($fromPath, $toPath);
+
+        // Chain collapsing: follow internal redirect chains up to 5 hops
+        if (str_starts_with($toPath, '/')) {
+            $terminal = $this->resolveFinalDestination($toPath);
+            if ($terminal !== $toPath) {
+                $toPath = $terminal;
+            }
+        }
 
         $fromHash = hash('sha256', $fromPath);
         $id = Ulid::generate();
@@ -53,10 +81,13 @@ final class RedirectRepository
         $existing = $existingStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($existing !== false) {
-            // Update destination and status code of existing redirect
+            if (!$isAuto) {
+                throw new RedirectConflictException("A redirect with from_path '{$fromPath}' and match_type '{$matchType}' already exists.");
+            }
+            // Update destination and status code of existing auto redirect
             $this->connection->execute(
                 "UPDATE `{$table}` SET `to_path` = ?, `status_code` = ?, `is_auto` = ? WHERE `id` = ?",
-                [$toPath, $statusCode, $isAuto ? 1 : 0, $existing['id']]
+                [$toPath, $statusCode, 1, $existing['id']]
             );
             $id = (string) $existing['id'];
         } else {
@@ -66,6 +97,9 @@ final class RedirectRepository
                 [$id, $fromPath, $matchType, $toPath, $statusCode, $isAuto ? 1 : 0, $actorId, $now, $fromHash]
             );
         }
+
+        // Collapse downstream chains pointing to fromPath
+        $this->collapseDownstreamChains($fromPath, $toPath);
 
         return $this->findById($id) ?? [];
     }
@@ -117,22 +151,41 @@ final class RedirectRepository
      * Update an existing redirect.
      *
      * @param array<string, mixed> $data
+     * @param list<string> $allowedDomains
      * @return array<string, mixed>
      */
-    public function update(string $id, array $data): array
-    {
+    public function update(
+        string $id,
+        array $data,
+        bool $allowExternal = false,
+        array $allowedDomains = []
+    ): array {
         $existing = $this->findById($id);
         if ($existing === null) {
             throw new InvalidArgumentException("Redirect item '{$id}' not found.");
         }
 
-        $fromPath = isset($data['from_path']) ? $this->normalizePath((string) $data['from_path']) : $existing['from_path'];
-        $toPath = isset($data['to_path']) ? trim((string) $data['to_path']) : $existing['to_path'];
-        $statusCode = isset($data['status_code']) ? (int) $data['status_code'] : $existing['status_code'];
-        $matchType = isset($data['match_type']) ? strtolower(trim((string) $data['match_type'])) : $existing['match_type'];
-        $isAuto = isset($data['is_auto']) ? (bool) $data['is_auto'] : $existing['is_auto'];
+        $rawFrom = isset($data['from_path']) ? (string) $data['from_path'] : (string) $existing['from_path'];
+        $rawTo = isset($data['to_path']) ? (string) $data['to_path'] : (string) $existing['to_path'];
 
-        $this->validateRedirect($fromPath, $toPath, $statusCode, $matchType);
+        if (mb_strlen($rawFrom) > 512 || mb_strlen($rawTo) > 2048) {
+            $errs = [];
+            if (mb_strlen($rawFrom) > 512) {
+                $errs['from_path'] = ["Source path cannot exceed 512 characters (received " . mb_strlen($rawFrom) . ")."];
+            }
+            if (mb_strlen($rawTo) > 2048) {
+                $errs['to_path'] = ["Destination path cannot exceed 2048 characters (received " . mb_strlen($rawTo) . ")."];
+            }
+            throw new ValidationException("Invalid redirect configuration.", $errs);
+        }
+
+        $fromPath = $this->normalizePath($rawFrom);
+        $toPath = trim($rawTo);
+        $statusCode = isset($data['status_code']) ? (int) $data['status_code'] : (int) $existing['status_code'];
+        $matchType = isset($data['match_type']) ? strtolower(trim((string) $data['match_type'])) : (string) $existing['match_type'];
+        $isAuto = isset($data['is_auto']) ? (bool) $data['is_auto'] : (bool) $existing['is_auto'];
+
+        $this->validateRedirect($fromPath, $toPath, $statusCode, $matchType, $allowExternal, $allowedDomains);
         $this->detectLoops($fromPath, $toPath, $id);
 
         $fromHash = hash('sha256', $fromPath);
@@ -144,9 +197,7 @@ final class RedirectRepository
             [$fromHash, $matchType, $id]
         );
         if ($dupStmt->fetch() !== false) {
-            throw new ValidationException("A redirect with from_path '{$fromPath}' and match_type '{$matchType}' already exists.", [
-                'from_path' => ["Redirect for path '{$fromPath}' ({$matchType}) already exists."],
-            ]);
+            throw new RedirectConflictException("A redirect with from_path '{$fromPath}' and match_type '{$matchType}' already exists.");
         }
 
         $this->connection->execute(
@@ -243,13 +294,60 @@ final class RedirectRepository
     }
 
     /**
-     * Match a requested path against active redirects.
+     * Match a requested path against active redirects, collapsing multi-hop redirect chains up to 5 hops.
      *
      * @return array{id: string, destination: string, status_code: int, match_type: string}|null
      */
     public function match(string $rawPath): ?array
     {
         $path = $this->normalizePath($rawPath);
+        $hops = 0;
+        $maxHops = 5;
+        $visited = [];
+        $firstMatch = null;
+        $currentPath = $path;
+
+        while ($hops < $maxHops) {
+            $hops++;
+            $step = $this->findSingleMatch($currentPath);
+            if ($step === null) {
+                break;
+            }
+
+            if ($firstMatch === null) {
+                $firstMatch = $step;
+            }
+
+            $this->recordHit($step['id']);
+            $nextDest = $step['destination'];
+
+            // Loop guard: break if visiting a path already seen
+            if (isset($visited[$nextDest]) || $nextDest === $currentPath) {
+                break;
+            }
+            $visited[$currentPath] = true;
+
+            // Update terminal destination on first match
+            $firstMatch['destination'] = $nextDest;
+
+            // If destination is an external URL, cannot resolve further internally
+            if (preg_match('#^https?://#i', $nextDest)) {
+                break;
+            }
+
+            $currentPath = $this->normalizePath($nextDest);
+        }
+
+        return $firstMatch;
+    }
+
+    /**
+     * Find a single redirect matching the path (exact first, then prefix on segment boundary).
+     *
+     * @return array{id: string, destination: string, status_code: int, match_type: string}|null
+     */
+    private function findSingleMatch(string $path): ?array
+    {
         $hash = hash('sha256', $path);
         $table = $this->connection->prefixTable('redirects');
 
@@ -260,7 +358,6 @@ final class RedirectRepository
         );
         $exact = $exactStmt->fetch(PDO::FETCH_ASSOC);
         if ($exact !== false) {
-            $this->recordHit((string) $exact['id']);
             return [
                 'id' => (string) $exact['id'],
                 'destination' => (string) $exact['to_path'],
@@ -269,7 +366,7 @@ final class RedirectRepository
             ];
         }
 
-        // 2. Prefix match check (longest prefix first)
+        // 2. Prefix match check (longest prefix first, strictly on path-segment boundary)
         $prefixStmt = $this->connection->execute(
             "SELECT * FROM `{$table}` WHERE `match_type` = 'prefix' ORDER BY LENGTH(`from_path`) DESC"
         );
@@ -278,15 +375,22 @@ final class RedirectRepository
 
         foreach ($prefixes as $p) {
             $prefixPath = (string) $p['from_path'];
-            if (str_starts_with($path, $prefixPath)) {
-                $suffix = substr($path, strlen($prefixPath));
+            $normalizedPrefix = rtrim($prefixPath, '/');
+
+            // Strictly match on path-segment boundary:
+            // e.g. /docs matches /docs or /docs/..., but NOT /docsx/a
+            $isBoundaryMatch = ($path === $normalizedPrefix)
+                || ($normalizedPrefix === '')
+                || str_starts_with($path, $normalizedPrefix . '/');
+
+            if ($isBoundaryMatch) {
+                $suffix = substr($path, strlen($normalizedPrefix));
                 $toPath = rtrim((string) $p['to_path'], '/') . '/' . ltrim($suffix, '/');
                 $toPath = rtrim($toPath, '/');
                 if ($toPath === '') {
                     $toPath = '/';
                 }
 
-                $this->recordHit((string) $p['id']);
                 return [
                     'id' => (string) $p['id'],
                     'destination' => $toPath,
@@ -297,6 +401,86 @@ final class RedirectRepository
         }
 
         return null;
+    }
+
+    /**
+     * Resolve final destination by following exact and prefix redirect chains up to $maxHops.
+     */
+    public function resolveFinalDestination(string $targetPath, int $maxHops = 5): string
+    {
+        // Only internal paths can be chained
+        if (preg_match('#^https?://#i', $targetPath)) {
+            return $targetPath;
+        }
+
+        $table = $this->connection->prefixTable('redirects');
+        $current = $this->normalizePath($targetPath);
+        $visited = [$current => true];
+        $hops = 0;
+
+        while ($hops < $maxHops) {
+            $hops++;
+            $hash = hash('sha256', $current);
+
+            // 1. Exact match check
+            $stmt = $this->connection->execute(
+                "SELECT `to_path` FROM `{$table}` WHERE `from_hash` = ? AND `match_type` = 'exact' LIMIT 1",
+                [$hash]
+            );
+            $next = $stmt->fetchColumn();
+
+            if ($next === false) {
+                // 2. Prefix match check on boundary
+                $prefixStmt = $this->connection->execute(
+                    "SELECT `from_path`, `to_path` FROM `{$table}` WHERE `match_type` = 'prefix' ORDER BY LENGTH(`from_path`) DESC"
+                );
+                /** @var list<array{from_path: string, to_path: string}> $prefixes */
+                $prefixes = $prefixStmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($prefixes as $p) {
+                    $prefix = rtrim((string) $p['from_path'], '/');
+                    if ($current === $prefix || ($prefix === '') || str_starts_with($current, $prefix . '/')) {
+                        $suffix = substr($current, strlen($prefix));
+                        $next = rtrim((string) $p['to_path'], '/') . '/' . ltrim($suffix, '/');
+                        break;
+                    }
+                }
+            }
+
+            if ($next === false || $next === null) {
+                break;
+            }
+
+            $nextDest = (string) $next;
+            if (isset($visited[$nextDest])) {
+                break;
+            }
+
+            $visited[$nextDest] = true;
+            $current = $nextDest;
+
+            if (preg_match('#^https?://#i', $current)) {
+                break;
+            }
+            $current = $this->normalizePath($current);
+        }
+
+        return $current;
+    }
+
+    /**
+     * Collapse existing redirects pointing to $fromPath so they point directly to $toPath.
+     */
+    private function collapseDownstreamChains(string $fromPath, string $toPath): void
+    {
+        if ($fromPath === $toPath) {
+            return;
+        }
+
+        $table = $this->connection->prefixTable('redirects');
+        $this->connection->execute(
+            "UPDATE `{$table}` SET `to_path` = ? WHERE `to_path` = ?",
+            [$toPath, $fromPath]
+        );
     }
 
     /**
@@ -349,33 +533,71 @@ final class RedirectRepository
     }
 
     /**
-     * Import redirects from CSV content.
+     * Import redirects from CSV content with strict per-row validation.
      *
-     * @return array{imported: int, skipped: int, errors: list<string>}
+     * @param list<string> $allowedDomains
+     * @return array{
+     *     imported: int,
+     *     skipped: int,
+     *     errors_count: int,
+     *     total: int,
+     *     results: list<array{
+     *         row: int,
+     *         status: string,
+     *         from_path: string,
+     *         to_path: string,
+     *         status_code: int,
+     *         match_type: string,
+     *         errors: list<string>
+     *     }>
+     * }
      */
-    public function importCsv(string $csvContent, ?string $actorId = null): array
-    {
+    public function importCsv(
+        string $csvContent,
+        ?string $actorId = null,
+        bool $allowExternal = false,
+        array $allowedDomains = []
+    ): array {
         $lines = preg_split('/\r\n|\r|\n/', trim($csvContent));
         if ($lines === false || empty($lines)) {
-            return ['imported' => 0, 'skipped' => 0, 'errors' => ['CSV content is empty.']];
+            return [
+                'imported' => 0,
+                'skipped' => 0,
+                'errors_count' => 1,
+                'total' => 0,
+                'results' => [
+                    [
+                        'row' => 0,
+                        'status' => 'failed',
+                        'from_path' => '',
+                        'to_path' => '',
+                        'status_code' => 301,
+                        'match_type' => 'exact',
+                        'errors' => ['CSV content is empty.'],
+                    ],
+                ],
+            ];
         }
 
         $imported = 0;
         $skipped = 0;
-        $errors = [];
+        $errorsCount = 0;
+        $results = [];
         $header = null;
+        $rowNumber = 0;
 
-        foreach ($lines as $lineIdx => $line) {
+        foreach ($lines as $line) {
             if (trim($line) === '') {
                 continue;
             }
 
             $row = str_getcsv($line);
             if ($header === null) {
-                $header = array_map(fn ($h) => strtolower(trim((string) $h)), $row);
+                $header = array_map(fn (?string $h): string => strtolower(trim((string) $h)), $row);
                 continue;
             }
 
+            $rowNumber++;
             $mapped = [];
             foreach ($header as $idx => $key) {
                 $mapped[$key] = $row[$idx] ?? '';
@@ -386,31 +608,84 @@ final class RedirectRepository
             $code = (int) ($mapped['status_code'] ?? $mapped['status'] ?? 301);
             $type = (string) ($mapped['match_type'] ?? $mapped['type'] ?? 'exact');
 
-            if ($from === '' || $to === '') {
-                $skipped++;
-                $errors[] = "Line " . ($lineIdx + 1) . ": Missing from_path or to_path";
-                continue;
-            }
-
             try {
-                $this->create([
+                $created = $this->create(
+                    [
+                        'from_path' => $from,
+                        'to_path' => $to,
+                        'status_code' => $code,
+                        'match_type' => $type,
+                        'is_auto' => false,
+                    ],
+                    $actorId,
+                    $allowExternal,
+                    $allowedDomains
+                );
+                $imported++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'imported',
+                    'from_path' => (string) $created['from_path'],
+                    'to_path' => (string) $created['to_path'],
+                    'status_code' => (int) $created['status_code'],
+                    'match_type' => (string) $created['match_type'],
+                    'errors' => [],
+                ];
+            } catch (ValidationException $e) {
+                $skipped++;
+                $errorsCount++;
+                $flatErrs = [];
+                foreach ($e->errors as $msgs) {
+                    if (is_array($msgs)) {
+                        foreach ($msgs as $m) {
+                            $flatErrs[] = (string) $m;
+                        }
+                    } else {
+                        $flatErrs[] = (string) $msgs;
+                    }
+                }
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'failed',
                     'from_path' => $from,
                     'to_path' => $to,
                     'status_code' => $code,
                     'match_type' => $type,
-                    'is_auto' => false,
-                ], $actorId);
-                $imported++;
-            } catch (ValidationException $e) {
+                    'errors' => $flatErrs,
+                ];
+            } catch (RedirectConflictException $e) {
                 $skipped++;
-                $errors[] = "Line " . ($lineIdx + 1) . ": " . $e->getMessage();
+                $errorsCount++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'failed',
+                    'from_path' => $from,
+                    'to_path' => $to,
+                    'status_code' => $code,
+                    'match_type' => $type,
+                    'errors' => [$e->getMessage()],
+                ];
+            } catch (\Throwable $e) {
+                $skipped++;
+                $errorsCount++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'failed',
+                    'from_path' => $from,
+                    'to_path' => $to,
+                    'status_code' => $code,
+                    'match_type' => $type,
+                    'errors' => [$e->getMessage()],
+                ];
             }
         }
 
         return [
             'imported' => $imported,
             'skipped' => $skipped,
-            'errors' => $errors,
+            'errors_count' => $errorsCount,
+            'total' => $rowNumber,
+            'results' => $results,
         ];
     }
 
@@ -454,17 +729,76 @@ final class RedirectRepository
 
     /**
      * Validate redirect attributes.
+     *
+     * @param list<string> $allowedDomains
      */
-    private function validateRedirect(string $fromPath, string $toPath, int $statusCode, string $matchType): void
-    {
+    private function validateRedirect(
+        string $fromPath,
+        string $toPath,
+        int $statusCode,
+        string $matchType,
+        bool $allowExternal = false,
+        array $allowedDomains = []
+    ): void {
         $errors = [];
 
-        if ($fromPath === '' || $fromPath === '/') {
-            $errors['from_path'][] = "Source path cannot be empty or root '/'";
+        // 1. Length validation (prevent 500 DB column overflow)
+        if (mb_strlen($fromPath) > 512) {
+            $errors['from_path'][] = "Source path cannot exceed 512 characters (received " . mb_strlen($fromPath) . ").";
+        }
+        if (mb_strlen($toPath) > 2048) {
+            $errors['to_path'][] = "Destination path cannot exceed 2048 characters (received " . mb_strlen($toPath) . ").";
         }
 
+        // 2. Source path checks
+        if ($fromPath === '' || $fromPath === '/') {
+            $errors['from_path'][] = "Source path cannot be empty or root '/'";
+        } elseif (!str_starts_with($fromPath, '/')) {
+            $errors['from_path'][] = "Source path must start with a single '/'.";
+        }
+
+        // 3. Destination path checks: hostile schemes and protocol-relative
         if ($toPath === '') {
             $errors['to_path'][] = "Destination path cannot be empty.";
+        } elseif (str_starts_with($toPath, '//')) {
+            $errors['to_path'][] = "Protocol-relative targets starting with '//' are not permitted.";
+        } elseif (preg_match('#^(javascript|data|vbscript|file):#i', $toPath)) {
+            $errors['to_path'][] = "Unsafe redirect target URL scheme.";
+        } elseif (preg_match('#^https?://#i', $toPath)) {
+            // External target
+            if (!$allowExternal) {
+                $errors['to_path'][] = "External redirect targets require administrator permission. Only same-site paths starting with '/' are permitted by default.";
+            } else {
+                $host = parse_url($toPath, PHP_URL_HOST);
+                if (!is_string($host) || $host === '') {
+                    $errors['to_path'][] = "Invalid external redirect URL.";
+                } else {
+                    $hostLower = strtolower($host);
+                    $domainAllowed = false;
+                    foreach ($allowedDomains as $pattern) {
+                        $p = strtolower(trim($pattern));
+                        if ($p === '') {
+                            continue;
+                        }
+                        if ($p === '*' || $p === $hostLower) {
+                            $domainAllowed = true;
+                            break;
+                        }
+                        if (str_starts_with($p, '*.') && (str_ends_with($hostLower, substr($p, 1)) || $hostLower === substr($p, 2))) {
+                            $domainAllowed = true;
+                            break;
+                        }
+                    }
+
+                    if (!$domainAllowed) {
+                        $errors['to_path'][] = empty($allowedDomains)
+                            ? "External redirect targets are not permitted. No external domains are configured in the allow-list setting."
+                            : "External domain '{$host}' is not in the allowed external domains setting.";
+                    }
+                }
+            }
+        } elseif (!str_starts_with($toPath, '/')) {
+            $errors['to_path'][] = "Redirect destination must be a same-site path starting with a single '/' or an allowed external URL.";
         }
 
         if (!in_array($statusCode, self::ALLOWED_STATUS_CODES, true)) {

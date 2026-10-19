@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BsCms\Taxonomy;
 
 use BsCms\Database\Connection;
+use BsCms\Redirects\RedirectRepository;
 use BsCms\Security\Ulid;
 use BsCms\Support\Clock;
 use InvalidArgumentException;
@@ -13,8 +14,10 @@ use RuntimeException;
 
 final class TermRepository
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly ?RedirectRepository $redirectRepository = null
+    ) {
     }
 
     /**
@@ -304,7 +307,8 @@ final class TermRepository
                 $newSlugPath = $newSlug;
             }
 
-            $this->connection->transaction(function () use ($table, $name, $newSlug, $newSlugPath, $description, $position, $imageMediaId, $color, $icon, $termData, $seo, $now, $termId, $taxonomyId, $oldSlugPath, $term) {
+            $redirectsToCreate = [];
+            $this->connection->transaction(function () use ($table, $name, $newSlug, $newSlugPath, $description, $position, $imageMediaId, $color, $icon, $termData, $seo, $now, $termId, $taxonomyId, $oldSlugPath, $term, &$redirectsToCreate) {
                 $this->connection->execute(
                     "UPDATE `{$table}` SET
                         `name` = ?,
@@ -321,6 +325,10 @@ final class TermRepository
                      WHERE `id` = ?",
                     [$name, $newSlug, $newSlugPath, $description, $position, $imageMediaId, $color, $icon, $termData, $seo, $now, $termId]
                 );
+
+                if ($newSlugPath !== $oldSlugPath) {
+                    $redirectsToCreate[] = [$oldSlugPath, $newSlugPath];
+                }
 
                 // Update descendant slug paths
                 $escapedPath = self::escapeLike((string) $term['path']);
@@ -340,8 +348,16 @@ final class TermRepository
                         "UPDATE `{$table}` SET `slug_path` = ?, `updated_at` = ? WHERE `id` = ?",
                         [$updatedSubSlugPath, $now, $desc['id']]
                     );
+
+                    if ($updatedSubSlugPath !== $subOldSlugPath) {
+                        $redirectsToCreate[] = [$subOldSlugPath, $updatedSubSlugPath];
+                    }
                 }
             });
+
+            foreach ($redirectsToCreate as [$fromSlugPath, $toSlugPath]) {
+                $this->createArchiveRedirect($taxonomyId, $fromSlugPath, $toSlugPath);
+            }
 
             return $this->findById($termId) ?? [];
         } finally {
@@ -415,7 +431,8 @@ final class TermRepository
 
             $parentKey = $newParentId ?? '';
 
-            $this->connection->transaction(function () use ($table, $newParentId, $parentKey, $newDepth, $newPath, $newSlugPath, $position, $now, $termId, $term, $oldPath, $oldSlugPath, $taxonomyId) {
+            $redirectsToCreate = [];
+            $this->connection->transaction(function () use ($table, $newParentId, $parentKey, $newDepth, $newPath, $newSlugPath, $position, $now, $termId, $term, $oldPath, $oldSlugPath, $taxonomyId, &$redirectsToCreate) {
                 // Update moved root node
                 $this->connection->execute(
                     "UPDATE `{$table}` SET
@@ -429,6 +446,10 @@ final class TermRepository
                      WHERE `id` = ?",
                     [$newParentId, $parentKey, $newDepth, $newPath, $newSlugPath, $position, $now, $termId]
                 );
+
+                if ($newSlugPath !== $oldSlugPath) {
+                    $redirectsToCreate[] = [$oldSlugPath, $newSlugPath];
+                }
 
                 // Update all descendants in subtree
                 $depthDiff = $newDepth - ((int) $term['depth']);
@@ -456,8 +477,16 @@ final class TermRepository
                         "UPDATE `{$table}` SET `depth` = ?, `path` = ?, `slug_path` = ?, `updated_at` = ? WHERE `id` = ?",
                         [$updatedDepth, $updatedSubPath, $updatedSubSlugPath, $now, $desc['id']]
                     );
+
+                    if ($updatedSubSlugPath !== $subOldSlugPath) {
+                        $redirectsToCreate[] = [$subOldSlugPath, $updatedSubSlugPath];
+                    }
                 }
             });
+
+            foreach ($redirectsToCreate as [$fromSlugPath, $toSlugPath]) {
+                $this->createArchiveRedirect($taxonomyId, $fromSlugPath, $toSlugPath);
+            }
 
             return $this->findById($termId) ?? [];
         } finally {
@@ -822,15 +851,16 @@ final class TermRepository
     }
 
     /**
-     * Create an automatic 301 redirect from source archive URL to target archive URL on merge.
-     *
-     * @param array<string, mixed> $source
-     * @param array<string, mixed> $target
+     * Create an automatic 301 redirect from old archive URL to new archive URL on slug_path change.
      */
-    private function createArchiveRedirectOnMerge(array $source, array $target): void
+    private function createArchiveRedirect(string $taxonomyId, string $oldSlugPath, string $newSlugPath): void
     {
+        if ($oldSlugPath === $newSlugPath || $oldSlugPath === '') {
+            return;
+        }
+
         $taxTable = $this->connection->prefixTable('taxonomies');
-        $taxStmt = $this->connection->execute("SELECT * FROM `{$taxTable}` WHERE `id` = ?", [$source['taxonomy_id']]);
+        $taxStmt = $this->connection->execute("SELECT * FROM `{$taxTable}` WHERE `id` = ?", [$taxonomyId]);
         $taxonomy = $taxStmt->fetch(PDO::FETCH_ASSOC);
         if (!$taxonomy || empty($taxonomy['has_public_archive'])) {
             return;
@@ -840,25 +870,29 @@ final class TermRepository
             ? (string) $taxonomy['archive_route_pattern']
             : ('/' . (string) $taxonomy['handle'] . '/{slug}');
 
-        $fromPath = str_replace('{slug}', (string) $source['slug_path'], $routePattern);
-        $toPath = str_replace('{slug}', (string) $target['slug_path'], $routePattern);
+        $fromPath = str_replace('{slug}', $oldSlugPath, $routePattern);
+        $toPath = str_replace('{slug}', $newSlugPath, $routePattern);
 
         if ($fromPath === $toPath) {
             return;
         }
 
-        $redirectsTable = $this->connection->prefixTable('redirects');
-        $id = Ulid::generate();
-        $now = Clock::sql(Clock::now());
-        $fromHash = hash('sha256', $fromPath);
+        $repo = $this->redirectRepository ?? new RedirectRepository($this->connection);
+        $repo->createAutoRedirect($fromPath, $toPath);
+    }
 
-        $this->connection->execute(
-            "INSERT INTO `{$redirectsTable}` (
-                `id`, `from_path`, `match_type`, `to_path`, `status_code`,
-                `is_auto`, `hits`, `last_hit_at`, `created_by`, `created_at`, `from_hash`
-            ) VALUES (?, ?, 'exact', ?, 301, 1, 0, NULL, NULL, ?, ?)
-            ON DUPLICATE KEY UPDATE `to_path` = VALUES(`to_path`)",
-            [$id, $fromPath, $toPath, $now, $fromHash]
+    /**
+     * Create an automatic 301 redirect from source archive URL to target archive URL on merge.
+     *
+     * @param array<string, mixed> $source
+     * @param array<string, mixed> $target
+     */
+    private function createArchiveRedirectOnMerge(array $source, array $target): void
+    {
+        $this->createArchiveRedirect(
+            (string) $source['taxonomy_id'],
+            (string) $source['slug_path'],
+            (string) $target['slug_path']
         );
     }
 

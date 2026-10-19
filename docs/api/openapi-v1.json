@@ -3011,6 +3011,9 @@
                             }
                         }
                     },
+                    "409": {
+                        "description": "Redirect conflict - rule with from_path and match_type already exists"
+                    },
                     "422": {
                         "description": "Validation failed or circular redirect loop detected"
                     }
@@ -3246,6 +3249,9 @@
                     },
                     "404": {
                         "description": "Redirect not found"
+                    },
+                    "409": {
+                        "description": "Redirect conflict - rule with from_path and match_type already exists"
                     },
                     "422": {
                         "description": "Validation error or loop detected"

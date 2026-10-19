@@ -7,6 +7,7 @@ namespace BsCms\Content;
 use BsCms\Database\Connection;
 use BsCms\Database\QueryBuilder;
 use BsCms\Operations\Exceptions\ValidationException;
+use BsCms\Redirects\RedirectRepository;
 use BsCms\Schema\CollectionRegistry;
 use BsCms\Schema\FieldTypeRegistry;
 use BsCms\Schema\FieldTypes\ValidationContext;
@@ -31,7 +32,8 @@ final class EntryRepository
         private readonly HierarchyValidator $hierarchyValidator,
         private readonly VersionManager $versionManager,
         private readonly RelationManager $relationManager,
-        private readonly ?Clock $clock = null
+        private readonly ?Clock $clock = null,
+        private readonly ?RedirectRepository $redirectRepository = null
     ) {
     }
 
@@ -323,7 +325,55 @@ final class EntryRepository
             $isAutosave
         );
 
+        // Auto-redirect if slug changed on a published entry
+        $oldSlug = (string) $existing['slug'];
+        if ($slug !== $oldSlug && ($oldStatus === self::STATUS_PUBLISHED || $newStatus === self::STATUS_PUBLISHED || !empty($existing['published_at']))) {
+            $this->createEntrySlugRedirect($collection, $collectionHandle, $oldSlug, $slug, $updatedBy);
+        }
+
         return $this->find($collectionHandle, $id) ?? [];
+    }
+
+    /**
+     * Create auto-redirect when a published entry slug changes.
+     *
+     * @param array<string, mixed> $collection
+     */
+    private function createEntrySlugRedirect(
+        array $collection,
+        string $collectionHandle,
+        string $oldSlug,
+        string $newSlug,
+        ?string $actorId = null
+    ): void {
+        if ($oldSlug === $newSlug || $oldSlug === '') {
+            return;
+        }
+
+        $redirectRepo = $this->redirectRepository ?? new RedirectRepository($this->connection);
+        $routePattern = !empty($collection['route_pattern']) ? (string) $collection['route_pattern'] : null;
+
+        if ($routePattern !== null && str_contains($routePattern, '{slug}')) {
+            $fromPath = str_replace('{slug}', $oldSlug, $routePattern);
+            $toPath = str_replace('{slug}', $newSlug, $routePattern);
+            $redirectRepo->createAutoRedirect($fromPath, $toPath, $actorId);
+
+            if ($collectionHandle === 'pages' && !str_starts_with($routePattern, '/pages/')) {
+                $redirectRepo->createAutoRedirect('/pages/' . $oldSlug, '/pages/' . $newSlug, $actorId);
+            }
+        } else {
+            // Default collection path: /{collectionHandle}/{slug}
+            $fromPath = '/' . trim($collectionHandle, '/') . '/' . $oldSlug;
+            $toPath = '/' . trim($collectionHandle, '/') . '/' . $newSlug;
+            $redirectRepo->createAutoRedirect($fromPath, $toPath, $actorId);
+
+            // If pages collection or public root pages
+            if ($collectionHandle === 'pages') {
+                $fromRoot = '/' . $oldSlug;
+                $toRoot = '/' . $newSlug;
+                $redirectRepo->createAutoRedirect($fromRoot, $toRoot, $actorId);
+            }
+        }
     }
 
     /**

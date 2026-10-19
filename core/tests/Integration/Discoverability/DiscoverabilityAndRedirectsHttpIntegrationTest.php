@@ -23,6 +23,8 @@ use BsCms\Database\Migrator;
 use BsCms\Health\SiteHealthPresenter;
 use BsCms\Health\SiteHealthService;
 use BsCms\Http\Controllers\SiteHealthController;
+use BsCms\Operations\ConfirmTokenService;
+use BsCms\Settings\SettingsRepository;
 use BsCms\Http\Controllers\AuthController;
 use BsCms\Http\Controllers\AuditController;
 use BsCms\Http\Controllers\CollectionsController;
@@ -80,6 +82,7 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
     private ?PDO $adminPdo = null;
 
     private RedirectRepository $redirectRepository;
+    private SettingsRepository $settingsRepository;
     private SeoResolver $seoResolver;
     private SiteHealthService $healthService;
     private EntryRepository $entryRepository;
@@ -158,6 +161,9 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $versionManager = new VersionManager($this->connection);
         $relationManager = new RelationManager($this->connection);
 
+        $this->redirectRepository = new RedirectRepository($this->connection);
+        $this->settingsRepository = new SettingsRepository($this->connection);
+
         $this->entryRepository = new EntryRepository(
             $this->connection,
             $this->collectionRegistry,
@@ -165,7 +171,9 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
             $slugService,
             $hierarchyValidator,
             $versionManager,
-            $relationManager
+            $relationManager,
+            null,
+            $this->redirectRepository
         );
 
         $mediaProcessor = new MediaProcessor($this->connection, $this->mediaDir);
@@ -174,9 +182,8 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $chunkManager = new ChunkUploadManager($this->tempDir . '/tmp');
 
         $taxonomyRepo = new TaxonomyRepository($this->connection);
-        $termRepo = new TermRepository($this->connection);
+        $termRepo = new TermRepository($this->connection, $this->redirectRepository);
 
-        $this->redirectRepository = new RedirectRepository($this->connection);
         $this->seoResolver = new SeoResolver(
             $this->connection,
             $this->mediaRepository,
@@ -230,14 +237,23 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $emailController = $this->createMock(EmailSettingsController::class);
         $notificationsController = $this->createMock(NotificationsController::class);
         $collectionsController = $this->createMock(CollectionsController::class);
-        $entriesController = $this->createMock(EntriesController::class);
+        $confirmToken = new ConfirmTokenService('01234567890123456789012345678901');
+        $entriesController = new EntriesController(
+            $this->collectionRegistry,
+            $this->entryRepository,
+            $queryParser,
+            $versionManager,
+            $authorizer,
+            $auditLogger,
+            $confirmToken
+        );
         $openApiController = $this->createMock(OpenApiController::class);
 
         $taxonomiesController = new TaxonomiesController($taxonomyRepo, $termRepo, $authorizer);
         $mediaController = new MediaController($this->mediaRepository, $chunkManager, $authorizer, $this->tempDir . '/tmp');
         $mediaFoldersController = new MediaFoldersController($mediaFolders, $authorizer);
 
-        $redirectsController = new RedirectsController($this->redirectRepository, $authorizer, $auditLogger);
+        $redirectsController = new RedirectsController($this->redirectRepository, $authorizer, $auditLogger, $this->settingsRepository);
         $publicSeoController = new PublicSeoController($this->seoResolver);
         $siteHealthController = new SiteHealthController($this->healthService, $authorizer);
         $publicEntriesController = new PublicEntriesController(
@@ -539,12 +555,295 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $importBody = json_decode((string) $resImport->getBody(), true);
         $this->assertSame(2, $importBody['imported']);
         $this->assertSame(0, $importBody['skipped']);
+        $this->assertSame(0, $importBody['errors_count']);
+        $this->assertSame(2, $importBody['total']);
+        $this->assertCount(2, $importBody['results']);
+        $this->assertSame('imported', $importBody['results'][0]['status']);
 
         // 4. Verify imported redirect works in matcher
         $resMatchedImport = $this->request('GET', '/api/v1/public/redirects/match?path=/imported-one', null, [], false);
         $this->assertSame(200, $resMatchedImport->getStatusCode());
         $matchedBody = json_decode((string) $resMatchedImport->getBody(), true);
         $this->assertSame('/target-one', $matchedBody['destination']);
+    }
+
+    public function testExternalAndUnsafeTargetsRejectedByDefault(): void
+    {
+        // 1. External HTTPS target rejected by default (422)
+        $resExt = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/out-1',
+            'to_path' => 'https://evil.example/x',
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resExt->getStatusCode());
+        $bodyExt = json_decode((string) $resExt->getBody(), true);
+        $this->assertStringContainsString('allow-list setting', (string) json_encode($bodyExt));
+
+        // 2. javascript: URI rejected (422)
+        $resJs = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/out-2',
+            'to_path' => 'javascript:alert(1)',
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resJs->getStatusCode());
+        $bodyJs = json_decode((string) $resJs->getBody(), true);
+        $this->assertStringContainsString('Unsafe redirect target', (string) json_encode($bodyJs));
+
+        // 3. Protocol-relative // rejected (422)
+        $resProto = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/out-3',
+            'to_path' => '//evil.example/x',
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resProto->getStatusCode());
+        $bodyProto = json_decode((string) $resProto->getBody(), true);
+        $this->assertStringContainsString('Protocol-relative', (string) json_encode($bodyProto));
+
+        // 4. data: URI rejected (422)
+        $resData = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/out-4',
+            'to_path' => 'data:text/html,<script>alert(1)</script>',
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resData->getStatusCode());
+
+        // 5. External domain allowed when present in allow-list setting
+        $this->settingsRepository->set('redirects.allowed_external_domains', ['trusted.example', 'partner.org']);
+
+        $resAllowed = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/trusted-partner',
+            'to_path' => 'https://trusted.example/welcome',
+            'status_code' => 302,
+        ]);
+        $this->assertSame(201, $resAllowed->getStatusCode());
+        $allowedBody = json_decode((string) $resAllowed->getBody(), true);
+        $this->assertSame('https://trusted.example/welcome', $allowedBody['to_path']);
+
+        // Match public redirect to external target
+        $resMatchExt = $this->request('GET', '/api/v1/public/redirects/match?path=/trusted-partner', null, [], false);
+        $this->assertSame(200, $resMatchExt->getStatusCode());
+        $matchExtBody = json_decode((string) $resMatchExt->getBody(), true);
+        $this->assertSame('https://trusted.example/welcome', $matchExtBody['destination']);
+    }
+
+    public function testCsvImportPerResultValidationAndSafety(): void
+    {
+        $csv = implode("\n", [
+            'from_path,to_path,status_code,match_type',
+            '/csv-valid-1,/valid-dest,301,exact',
+            '/csv-ext,https://malicious.example/steal,301,exact',
+            '/csv-js,javascript:alert(document.cookie),301,exact',
+            '/csv-proto,//cdn.evil.example/malware,302,exact',
+        ]);
+
+        $res = $this->request('POST', '/api/v1/redirects/import', ['csv' => $csv]);
+        $this->assertSame(200, $res->getStatusCode());
+        $data = json_decode((string) $res->getBody(), true);
+
+        $this->assertSame(4, $data['total']);
+        $this->assertSame(1, $data['imported']);
+        $this->assertSame(3, $data['errors_count']);
+        $this->assertCount(4, $data['results']);
+
+        // Row 1 passed
+        $this->assertSame(1, $data['results'][0]['row']);
+        $this->assertSame('imported', $data['results'][0]['status']);
+        $this->assertSame('/csv-valid-1', $data['results'][0]['from_path']);
+
+        // Row 2 rejected (external)
+        $this->assertSame(2, $data['results'][1]['row']);
+        $this->assertSame('failed', $data['results'][1]['status']);
+        $this->assertNotEmpty($data['results'][1]['errors']);
+
+        // Row 3 rejected (javascript)
+        $this->assertSame(3, $data['results'][2]['row']);
+        $this->assertSame('failed', $data['results'][2]['status']);
+        $this->assertNotEmpty($data['results'][2]['errors']);
+
+        // Row 4 rejected (protocol-relative)
+        $this->assertSame(4, $data['results'][3]['row']);
+        $this->assertSame('failed', $data['results'][3]['status']);
+        $this->assertNotEmpty($data['results'][3]['errors']);
+    }
+
+    public function testDuplicateFromPathReturns409Conflict(): void
+    {
+        // 1. Initial creation -> 201
+        $resInitial = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/conflict-source',
+            'to_path' => '/target-alpha',
+            'status_code' => 301,
+            'match_type' => 'exact',
+        ]);
+        $this->assertSame(201, $resInitial->getStatusCode());
+
+        // 2. Duplicate exact creation -> 409 Conflict (never overwrite silently!)
+        $resDuplicate = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/conflict-source',
+            'to_path' => '/target-beta',
+            'status_code' => 302,
+            'match_type' => 'exact',
+        ]);
+        $this->assertSame(409, $resDuplicate->getStatusCode());
+        $dupBody = json_decode((string) $resDuplicate->getBody(), true);
+        $this->assertSame('Conflict', $dupBody['title']);
+        $this->assertStringContainsString('already exists', $dupBody['detail']);
+
+        // Confirm original rule remains untouched
+        $resMatch = $this->request('GET', '/api/v1/public/redirects/match?path=/conflict-source', null, [], false);
+        $this->assertSame(200, $resMatch->getStatusCode());
+        $matchBody = json_decode((string) $resMatch->getBody(), true);
+        $this->assertSame('/target-alpha', $matchBody['destination']);
+    }
+
+    public function testPrefixRedirectMatchesOnlyPathSegmentBoundary(): void
+    {
+        $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/docs',
+            'to_path' => '/manual',
+            'match_type' => 'prefix',
+            'status_code' => 301,
+        ]);
+
+        // Exact prefix boundary
+        $resExact = $this->request('GET', '/api/v1/public/redirects/match?path=/docs', null, [], false);
+        $this->assertSame(200, $resExact->getStatusCode());
+        $this->assertSame('/manual', json_decode((string) $resExact->getBody(), true)['destination']);
+
+        // Subpath segment boundary
+        $resSub = $this->request('GET', '/api/v1/public/redirects/match?path=/docs/getting-started', null, [], false);
+        $this->assertSame(200, $resSub->getStatusCode());
+        $this->assertSame('/manual/getting-started', json_decode((string) $resSub->getBody(), true)['destination']);
+
+        // NON-boundary match (e.g. /docsx/a) MUST NOT MATCH (404)
+        $resNonBoundary = $this->request('GET', '/api/v1/public/redirects/match?path=/docsx/a', null, [], false);
+        $this->assertSame(404, $resNonBoundary->getStatusCode(), 'Prefix redirect for /docs must NOT match /docsx/a');
+
+        $resNonBoundary2 = $this->request('GET', '/api/v1/public/redirects/match?path=/documentation', null, [], false);
+        $this->assertSame(404, $resNonBoundary2->getStatusCode(), 'Prefix redirect for /docs must NOT match /documentation');
+    }
+
+    public function testLongPathReturns422ValidationFailedNot500(): void
+    {
+        $hugeFrom = '/' . str_repeat('a', 3000);
+        $resLongFrom = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => $hugeFrom,
+            'to_path' => '/valid-target',
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resLongFrom->getStatusCode(), 'Long path must return 422, never 500 DB error');
+        $body = json_decode((string) $resLongFrom->getBody(), true);
+        $this->assertSame('Validation Failed', $body['title']);
+        $this->assertArrayHasKey('from_path', $body['errors'] ?? []);
+
+        $hugeTo = '/' . str_repeat('b', 3000);
+        $resLongTo = $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/valid-source',
+            'to_path' => $hugeTo,
+            'status_code' => 301,
+        ]);
+        $this->assertSame(422, $resLongTo->getStatusCode(), 'Long destination must return 422, never 500 DB error');
+        $bodyTo = json_decode((string) $resLongTo->getBody(), true);
+        $this->assertSame('Validation Failed', $bodyTo['title']);
+        $this->assertArrayHasKey('to_path', $bodyTo['errors'] ?? []);
+    }
+
+    public function testAutoRedirectOnPublishedEntrySlugChangeAndTaxonomyMove(): void
+    {
+        // 1. Entry slug change on published page creates auto-redirect
+        $resCreatePage = $this->request('POST', '/api/v1/collections/pages/entries', [
+            'title' => 'Initial About Page',
+            'slug' => 'old-about-page',
+            'status' => 'published',
+            'data' => [],
+        ]);
+        $this->assertSame(201, $resCreatePage->getStatusCode(), (string) $resCreatePage->getBody());
+        $page = json_decode((string) $resCreatePage->getBody(), true);
+        $pageId = $page['id'];
+        $version = (string) ($page['version'] ?? 1);
+
+        // Change slug of the published page
+        $resUpdateSlug = $this->request('PATCH', "/api/v1/collections/pages/entries/{$pageId}", [
+            'slug' => 'new-about-page',
+        ], [
+            'If-Match' => '"' . $version . '"',
+        ]);
+        $this->assertSame(200, $resUpdateSlug->getStatusCode(), (string) $resUpdateSlug->getBody());
+
+        // Verify public match automatically redirects old slug to new slug with 301
+        $resMatchPage = $this->request('GET', '/api/v1/public/redirects/match?path=/old-about-page', null, [], false);
+        $this->assertSame(200, $resMatchPage->getStatusCode());
+        $matchPageBody = json_decode((string) $resMatchPage->getBody(), true);
+        $this->assertSame('/new-about-page', $matchPageBody['destination']);
+        $this->assertSame(301, $matchPageBody['status_code']);
+
+        // Also collection path redirect /pages/old-about-page -> /pages/new-about-page
+        $resMatchCol = $this->request('GET', '/api/v1/public/redirects/match?path=/pages/old-about-page', null, [], false);
+        $this->assertSame(200, $resMatchCol->getStatusCode());
+        $matchColBody = json_decode((string) $resMatchCol->getBody(), true);
+        $this->assertSame('/pages/new-about-page', $matchColBody['destination']);
+
+        // 2. Taxonomy term slug change creates auto-redirect
+        $resCreateTax = $this->request('POST', '/api/v1/taxonomies', [
+            'name' => 'Topics',
+            'handle' => 'topics',
+            'hierarchical' => true,
+            'has_public_archive' => true,
+        ]);
+        $this->assertSame(201, $resCreateTax->getStatusCode(), (string) $resCreateTax->getBody());
+
+        $resCreateTerm = $this->request('POST', '/api/v1/taxonomies/topics/terms', [
+            'name' => 'Original Topic',
+            'slug' => 'original-topic',
+        ]);
+        $this->assertSame(201, $resCreateTerm->getStatusCode(), (string) $resCreateTerm->getBody());
+        $term = json_decode((string) $resCreateTerm->getBody(), true);
+        $termId = $term['id'];
+
+        // Update term slug
+        $resUpdateTerm = $this->request('PATCH', "/api/v1/taxonomies/topics/terms/{$termId}", [
+            'slug' => 'renamed-topic',
+        ]);
+        $this->assertSame(200, $resUpdateTerm->getStatusCode(), (string) $resUpdateTerm->getBody());
+
+        // Verify public match for taxonomy archive
+        $resMatchTerm = $this->request('GET', '/api/v1/public/redirects/match?path=/topics/original-topic', null, [], false);
+        $this->assertSame(200, $resMatchTerm->getStatusCode());
+        $matchTermBody = json_decode((string) $resMatchTerm->getBody(), true);
+        $this->assertSame('/topics/renamed-topic', $matchTermBody['destination']);
+        $this->assertSame(301, $matchTermBody['status_code']);
+    }
+
+    public function testRedirectChainCollapsesToTerminalTarget(): void
+    {
+        // Chain: /chain-1 -> /chain-2 -> /chain-3 -> /final-landing
+        $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/chain-1',
+            'to_path' => '/chain-2',
+            'status_code' => 301,
+        ]);
+        $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/chain-2',
+            'to_path' => '/chain-3',
+            'status_code' => 301,
+        ]);
+        $this->request('POST', '/api/v1/redirects', [
+            'from_path' => '/chain-3',
+            'to_path' => '/final-landing',
+            'status_code' => 301,
+        ]);
+
+        // Matching /chain-1 MUST directly return /final-landing in 1 hop!
+        $resMatch1 = $this->request('GET', '/api/v1/public/redirects/match?path=/chain-1', null, [], false);
+        $this->assertSame(200, $resMatch1->getStatusCode());
+        $body1 = json_decode((string) $resMatch1->getBody(), true);
+        $this->assertSame('/final-landing', $body1['destination']);
+
+        // Matching /chain-2 MUST directly return /final-landing
+        $resMatch2 = $this->request('GET', '/api/v1/public/redirects/match?path=/chain-2', null, [], false);
+        $this->assertSame(200, $resMatch2->getStatusCode());
+        $body2 = json_decode((string) $resMatch2->getBody(), true);
+        $this->assertSame('/final-landing', $body2['destination']);
     }
 
     // =========================================================================

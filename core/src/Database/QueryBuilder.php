@@ -201,6 +201,9 @@ class QueryBuilder
                 if ($c === '*') {
                     return '*';
                 }
+                if (str_starts_with(strtoupper($c), 'COUNT(')) {
+                    return $c;
+                }
                 $this->validateIdentifier($c);
                 return "`{$c}`";
             }, $this->columns));

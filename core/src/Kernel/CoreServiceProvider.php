@@ -338,7 +338,9 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\SlugService::class),
                 $c->get(\BsCms\Content\HierarchyValidator::class),
                 $c->get(\BsCms\Content\VersionManager::class),
-                $c->get(\BsCms\Content\RelationManager::class)
+                $c->get(\BsCms\Content\RelationManager::class),
+                null,
+                $c->has(\BsCms\Redirects\RedirectRepository::class) ? $c->get(\BsCms\Redirects\RedirectRepository::class) : null
             );
         });
 
@@ -469,7 +471,8 @@ final class CoreServiceProvider implements ServiceProvider
 
         $container->singleton(\BsCms\Taxonomy\TermRepository::class, function (Container $c): \BsCms\Taxonomy\TermRepository {
             return new \BsCms\Taxonomy\TermRepository(
-                $c->get(Connection::class)
+                $c->get(Connection::class),
+                $c->has(\BsCms\Redirects\RedirectRepository::class) ? $c->get(\BsCms\Redirects\RedirectRepository::class) : null
             );
         });
 
@@ -533,7 +536,9 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Http\Controllers\RedirectsController(
                 $c->get(\BsCms\Redirects\RedirectRepository::class),
                 $c->get(Authorizer::class),
-                $c->get(AuditLogger::class)
+                $c->get(AuditLogger::class),
+                $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null,
+                $c->has(Config::class) ? $c->get(Config::class) : null
             );
         });
 

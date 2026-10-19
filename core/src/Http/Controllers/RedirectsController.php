@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace BsCms\Http\Controllers;
 
 use BsCms\Audit\AuditLogger;
+use BsCms\Auth\Actor;
+use BsCms\Auth\SystemRoles;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
+use BsCms\Kernel\Config;
 use BsCms\Operations\Exceptions\ValidationException;
+use BsCms\Redirects\RedirectConflictException;
 use BsCms\Redirects\RedirectRepository;
+use BsCms\Settings\SettingsRepository;
 use InvalidArgumentException;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -20,7 +25,9 @@ class RedirectsController extends BaseController
     public function __construct(
         private readonly RedirectRepository $repository,
         private readonly Authorizer $authorizer,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly ?SettingsRepository $settings = null,
+        private readonly ?Config $config = null
     ) {
     }
 
@@ -89,9 +96,11 @@ class RedirectsController extends BaseController
 
         $body = $this->getBody($request);
         $actor = $this->getActor($request);
+        $canExternal = $this->canCreateExternal($actor);
+        $allowedDomains = $this->getAllowedExternalDomains();
 
         try {
-            $redirect = $this->repository->create($body, $actor->id);
+            $redirect = $this->repository->create($body, $actor->id, $canExternal, $allowedDomains);
 
             $this->auditLogger->record(
                 actor: $actor,
@@ -112,6 +121,8 @@ class RedirectsController extends BaseController
                 $errs[$field] = is_array($messages) ? $messages : [(string) $messages];
             }
             return $this->problem(422, 'Validation Failed', $e->getMessage(), null, $errs);
+        } catch (RedirectConflictException $e) {
+            return $this->problem(409, 'Conflict', $e->getMessage());
         } catch (Throwable $e) {
             $this->logServerError($request, $e, 'redirect_create');
             return $this->problem(500, 'Internal Server Error', 'Failed to create redirect.');
@@ -133,6 +144,8 @@ class RedirectsController extends BaseController
 
         $body = $this->getBody($request);
         $actor = $this->getActor($request);
+        $canExternal = $this->canCreateExternal($actor);
+        $allowedDomains = $this->getAllowedExternalDomains();
 
         try {
             $old = $this->repository->findById($id);
@@ -140,7 +153,7 @@ class RedirectsController extends BaseController
                 return $this->problem(404, 'Not Found', "Redirect item '{$id}' not found.");
             }
 
-            $updated = $this->repository->update($id, $body);
+            $updated = $this->repository->update($id, $body, $canExternal, $allowedDomains);
 
             $this->auditLogger->record(
                 actor: $actor,
@@ -161,6 +174,8 @@ class RedirectsController extends BaseController
                 $errs[$field] = is_array($messages) ? $messages : [(string) $messages];
             }
             return $this->problem(422, 'Validation Failed', $e->getMessage(), null, $errs);
+        } catch (RedirectConflictException $e) {
+            return $this->problem(409, 'Conflict', $e->getMessage());
         } catch (InvalidArgumentException $e) {
             return $this->problem(404, 'Not Found', $e->getMessage());
         } catch (Throwable $e) {
@@ -267,7 +282,9 @@ class RedirectsController extends BaseController
         }
 
         $actor = $this->getActor($request);
-        $result = $this->repository->importCsv($csvContent, $actor->id);
+        $canExternal = $this->canCreateExternal($actor);
+        $allowedDomains = $this->getAllowedExternalDomains();
+        $result = $this->repository->importCsv($csvContent, $actor->id, $canExternal, $allowedDomains);
 
         return $this->json($result);
     }
@@ -337,5 +354,63 @@ class RedirectsController extends BaseController
         ], 200, [
             'Cache-Control' => 'public, max-age=60, stale-while-revalidate=600',
         ]);
+    }
+
+    /**
+     * Determine if an actor is allowed to create external redirects.
+     * Allowed for system, owner, admin, developer, or roles with explicit 'create_external' permission.
+     */
+    private function canCreateExternal(Actor $actor): bool
+    {
+        if ($actor->isSystem()) {
+            return true;
+        }
+
+        if (
+            $actor->hasRole(SystemRoles::ROLE_OWNER)
+            || $actor->hasRole(SystemRoles::ROLE_ADMIN)
+            || $actor->hasRole(SystemRoles::ROLE_DEVELOPER)
+        ) {
+            return true;
+        }
+
+        $decision = $this->authorizer->can($actor, 'create_external', new Subject('redirects', '*'));
+        return $decision->isAllowed();
+    }
+
+    /**
+     * Retrieve the list of allowed external domains from settings or config.
+     *
+     * @return list<string>
+     */
+    private function getAllowedExternalDomains(): array
+    {
+        $domains = [];
+
+        if ($this->settings !== null) {
+            $settingVal = $this->settings->get('redirects.allowed_external_domains', null);
+            if (is_array($settingVal)) {
+                $domains = array_merge($domains, array_values(array_filter(array_map('strval', $settingVal))));
+            } elseif (is_string($settingVal) && trim($settingVal) !== '') {
+                $parts = preg_split('/[\s,]+/', trim($settingVal));
+                if ($parts !== false) {
+                    $domains = array_merge($domains, array_values(array_filter($parts)));
+                }
+            }
+        }
+
+        if ($this->config !== null) {
+            $configVal = $this->config->get('redirects.allowed_external_domains', null);
+            if (is_array($configVal)) {
+                $domains = array_merge($domains, array_values(array_filter(array_map('strval', $configVal))));
+            } elseif (is_string($configVal) && trim($configVal) !== '') {
+                $parts = preg_split('/[\s,]+/', trim($configVal));
+                if ($parts !== false) {
+                    $domains = array_merge($domains, array_values(array_filter($parts)));
+                }
+            }
+        }
+
+        return array_values(array_unique(array_map('strtolower', array_map('trim', $domains))));
     }
 }

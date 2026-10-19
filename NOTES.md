@@ -408,3 +408,26 @@ Benchmarked on local reference environments (Docker containers configured with r
   - `body_markdown` contains raw user/agent markdown; any embedded raw HTML is preserved as literal text. Consuming renderers and excerpt processors must escape HTML when transforming to output markup to prevent XSS.
 - **Public Terms `image_media_id`:**
   - Exposing `image_media_id` in public term payloads is intentional to support term badges, icons, and hero representations on public frontends. Verified by `TermPresenterTest` exact key set.
+
+### 6.6 Phase 4 Redirects, Chain Collapsing & External Domain Security
+- **Multi-Hop Chain Collapsing:**
+  - Multi-hop redirect chains (e.g., `/ch1` -> `/ch2` -> `/ch3`) are automatically collapsed to their terminal target on save and during public matching (`GET /api/v1/public/redirects/match?path=...`).
+  - Terminal resolution traverses up to 5 hops (`MAX_CHAIN_HOPS = 5`), detecting cyclic loops (`LoopException` / 422) and following internal path transitions to return the ultimate destination in a single 301 response.
+  - When a new redirect or auto-redirect is created (e.g., on published entry slug changes or taxonomy term `slug_path` moves), all existing redirects whose destination matched the newly redirected path are updated to point directly to the new target (`collapseDownstreamChains`), preventing intermediate chain accumulation.
+- **External Targets & Protocol-Relative URL Protection:**
+  - By default, redirect destinations must be same-site paths beginning with a single `/` (`validateRedirect`).
+  - Protocol-relative URLs (`//example.com`) and unsafe URI schemes (`javascript:`, `data:`, `vbscript:`, `file:`) are strictly forbidden and rejected with HTTP 422.
+  - External HTTP/HTTPS destinations are only permitted when:
+    1. The target domain exists in the configured allow-list setting `redirects.allowed_external_domains` (configured via system settings or `config/app.php`).
+    2. The acting user possesses an administrative role (`owner`, `admin`, `developer`) or explicit `create_external` permission on subject `redirects`.
+  - Violations are rejected with HTTP 422 Validation Error.
+- **Duplicate Path Collisions (HTTP 409 Conflict):**
+  - Creating a redirect with an existing `(from_hash, match_type)` collision returns HTTP 409 Conflict (`RedirectConflictException`) instead of silently overwriting existing manual rules.
+  - Automated redirects (`is_auto: true`) safely update destination pointers and status codes without collision errors.
+- **Segment Boundary Prefix Matching:**
+  - Prefix matching evaluates strictly on path segment boundaries (`$path === $prefix || str_starts_with($path, $prefix . '/')`). A prefix redirect for `/docs` will match `/docs` and `/docs/subpage`, but will never erroneously match `/docsx/subpage`.
+- **Pre-Validation Length Bounds:**
+  - Length checks are enforced prior to SQL queries (`from_path` <= 512, `to_path` <= 2048 characters). Length violations return RFC 9457 HTTP 422 problem details, completely preventing database column truncation errors (HTTP 500).
+- **Structured CSV Import:**
+  - `POST /api/v1/redirects/import` validates every row against full safety, length, and domain rules, returning structured JSON containing overall metrics (`imported`, `skipped`, `errors_count`, `total`) and per-row execution results (`row`, `status`, `from_path`, `to_path`, `status_code`, `match_type`, `errors`).
+
