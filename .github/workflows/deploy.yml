@@ -73,14 +73,12 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
-          # Note: leading slash '/' anchors the exclude to the target root, so root CMS files
-          # (/index.php, /.htaccess, /media/) are protected from deletion without excluding
-          # starter/.htaccess inside the deployed site.
+          # Note: The target directory (e.g. spike-c/ or dedicated static docroot) receives its
+          # own .htaccess for content negotiation and directory indexing. Root CMS files are excluded.
           rsync -avz --delete \
             --exclude='/index.php' \
             --exclude='/core/' \
             --exclude='/media/' \
-            --exclude='/.htaccess' \
             --exclude='/admin/' \
             --exclude='/storage/' \
             --exclude='/config/' \

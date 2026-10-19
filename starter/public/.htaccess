@@ -11,12 +11,12 @@ DirectoryIndex index.html
 
     # Markdown Content Negotiation for AI agents
     RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
-    RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}index.md -f
-    RewriteRule ^(.*)$ %{REQUEST_URI}index.md [L]
+    RewriteCond %{REQUEST_FILENAME}/index.md -f
+    RewriteRule ^(.*)/?$ $1/index.md [L]
 
     RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
-    RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}/index.md -f
-    RewriteRule ^(.*)$ %{REQUEST_URI}/index.md [L]
+    RewriteCond %{REQUEST_FILENAME}.md -f
+    RewriteRule ^(.*)$ $1.md [L]
 </IfModule>
 
 <FilesMatch "\.md$">
