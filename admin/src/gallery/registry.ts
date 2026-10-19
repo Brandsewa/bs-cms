@@ -27,6 +27,7 @@ import { feedbackSection } from './sections/feedback';
 import { formSection } from './sections/form';
 import { foundationsSection } from './sections/foundations';
 import { overlaysSection } from './sections/overlays';
+import { pickersSection } from './sections/pickers';
 import { primitivesSection } from './sections/primitives';
 
 /** Every component must register an entry here: the gallery page and the axe
@@ -40,4 +41,5 @@ export const sections: GallerySection[] = [
   formSection,
   overlaysSection,
   feedbackSection,
+  pickersSection,
 ];

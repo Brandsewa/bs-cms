@@ -61,6 +61,9 @@ jobs:
       - name: UI Typecheck
         run: npm run typecheck
 
+      - name: Check generated client up to date
+        run: npm run check-generated -w @bs/client
+
       - name: UI Tests
         run: npm test
 

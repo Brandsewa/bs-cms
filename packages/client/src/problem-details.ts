@@ -59,7 +59,7 @@ export async function parseProblemResponse(response: Response): Promise<ProblemD
       status,
       detail: typeof body === 'string' ? body : undefined,
     };
-  } catch (error) {
+  } catch {
     return { type: 'about:blank', title: fallbackTitle, status };
   }
 }

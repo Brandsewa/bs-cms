@@ -294,3 +294,26 @@ export type {
   StatusTab,
   StatusValue,
 } from './data-table';
+
+// Pickers
+export {
+  MediaPicker,
+  RelationPicker,
+  SlugInput,
+  TermPicker,
+  UserPicker,
+  slugify,
+} from './pickers';
+export type {
+  MediaPickerProps,
+  PickerFolder,
+  PickerMediaItem,
+  PickerTermNode,
+  PickerUser,
+  RelationPickerProps,
+  SlugAvailability,
+  SlugInputProps,
+  TermPickerProps,
+  UploadHandlerResult,
+  UserPickerProps,
+} from './pickers';
