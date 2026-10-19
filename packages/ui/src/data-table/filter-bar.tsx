@@ -247,7 +247,7 @@ export function FilterBar({ filters, active, onChange, disabled = false, classNa
         );
       })}
 
-      {active.length > 1 ? (
+      {active.length > 0 ? (
         <Button size="sm" variant="ghost" onClick={() => onChange([])}>
           {t('dataTable.clearAll')}
         </Button>

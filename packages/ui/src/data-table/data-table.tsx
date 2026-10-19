@@ -591,6 +591,8 @@ export function DataTable<T>({
           role="separator"
           aria-label={`Resize ${column.header}`}
           aria-orientation="vertical"
+          aria-valuenow={columnSizes[columnId] ?? column.width ?? 160}
+          aria-valuemin={60}
           tabIndex={0}
           onPointerDown={(event) => {
             event.preventDefault();
@@ -855,7 +857,16 @@ export function DataTable<T>({
       </div>
 
       {filters ? (
-        <FilterBar filters={filters.defs} active={filters.active} onChange={filters.onChange} />
+        <FilterBar
+          filters={filterDefs}
+          active={activeFilters}
+          onChange={(next) => {
+            // The table's slice is the source of truth for client filtering;
+            // the screen callback stays informed (persistence, server mode).
+            setActiveFiltersSlice(next);
+            filters.onChange(next);
+          }}
+        />
       ) : null}
 
       <div className="ml-auto flex items-center gap-1">
@@ -1081,6 +1092,7 @@ export function DataTable<T>({
             selection={selection}
             onToggle={(rowId) => toggleRow(rowId, pageRowIds.indexOf(rowId), false)}
             rowHref={rowHref}
+            onRowOpen={onRowOpen}
             rowMenu={rowMenu}
             selectedCount={selectedCount}
           />
@@ -1239,6 +1251,7 @@ function CardMode<T>({
   selection,
   onToggle,
   rowHref,
+  onRowOpen,
   rowMenu,
   selectedCount,
 }: {
@@ -1248,6 +1261,7 @@ function CardMode<T>({
   selection: Set<string>;
   onToggle: (rowId: string) => void;
   rowHref?: (row: T) => string;
+  onRowOpen?: (row: T) => void;
   rowMenu?: (row: T) => Array<RowMenuItem<T>>;
   selectedCount: number;
 }) {
@@ -1276,7 +1290,16 @@ function CardMode<T>({
             />
             <div className="min-w-0 flex-1">
               {titleColumn && href ? (
-                <a href={href} className="block truncate text-13 font-medium text-foreground">
+                <a
+                  href={href}
+                  className="block truncate text-13 font-medium text-foreground"
+                  onClick={(event) => {
+                    // Plain left-click uses the screen's router; the real
+                    // href keeps middle-click/new-tab working.
+                    event.preventDefault();
+                    onRowOpen?.(row);
+                  }}
+                >
                   {String(titleColumn.accessor(row))}
                 </a>
               ) : titleColumn ? (
