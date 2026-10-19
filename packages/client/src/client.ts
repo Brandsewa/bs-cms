@@ -49,6 +49,24 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** ETag for conditional writes → If-Match header. */
   ifMatch?: string;
+  /**
+   * Client-generated unique UUID/token to make mutating requests idempotent.
+   * Transmitted via `Idempotency-Key` header and enables retries on 5xx/network errors.
+   */
+  idempotencyKey?: string;
+  signal?: AbortSignal;
+}
+
+export interface MultipartOptions {
+  /** ETag for conditional writes → If-Match header. */
+  ifMatch?: string;
+  /**
+   * Client-generated unique UUID/token to make mutating requests idempotent.
+   * Enables retries on 5xx/network errors.
+   */
+  idempotencyKey?: string;
+  /** Allow retrying the request (e.g. chunk uploads with fixed chunk_index). */
+  retry?: boolean;
   signal?: AbortSignal;
 }
 
@@ -56,13 +74,16 @@ export class ApiClient {
   readonly baseUrl: string;
   private csrfToken?: string;
   private readonly retries: number;
-  private readonly fetchImpl: typeof fetch;
+  private readonly fetchImpl?: typeof fetch;
+  private getFetch(): typeof fetch {
+    return this.fetchImpl ?? globalThis.fetch;
+  }
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.csrfToken = options.csrfToken;
     this.retries = options.retries ?? 2;
-    this.fetchImpl = options.fetchImpl ?? fetch.bind(globalThis);
+    this.fetchImpl = options.fetchImpl;
   }
 
   setCsrfToken(token: string | undefined): void {
@@ -87,6 +108,7 @@ export class ApiClient {
 
     const headers: Record<string, string> = { ...options.headers };
     if (options.ifMatch) headers['If-Match'] = options.ifMatch;
+    if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
     if (isMutation && this.csrfToken) headers['X-CSRF-Token'] = this.csrfToken;
 
     let body: BodyInit | undefined;
@@ -97,11 +119,17 @@ export class ApiClient {
       body = JSON.stringify(options.body);
     }
 
+    const canRetry =
+      method === 'GET' ||
+      method === 'PUT' ||
+      method === 'DELETE' ||
+      options.idempotencyKey !== undefined;
+
     let attempt = 0;
     for (;;) {
       let response: Response;
       try {
-        response = await this.fetchImpl(url, {
+        response = await this.getFetch()(url, {
           method,
           headers,
           body,
@@ -109,8 +137,8 @@ export class ApiClient {
           signal: options.signal,
         });
       } catch (error) {
-        // Network failure: retry (a 4xx case never reaches here).
-        if (attempt < this.retries && !options.signal?.aborted) {
+        // Network failure: retry only idempotent requests when not aborted.
+        if (canRetry && attempt < this.retries && !options.signal?.aborted) {
           attempt += 1;
           await backoff(attempt);
           continue;
@@ -127,7 +155,7 @@ export class ApiClient {
         };
       }
 
-      if (response.status >= 500 && attempt < this.retries) {
+      if (canRetry && response.status >= 500 && attempt < this.retries && !options.signal?.aborted) {
         attempt += 1;
         await backoff(attempt);
         continue;
@@ -153,23 +181,67 @@ export class ApiClient {
     pathTemplate: string,
     params: Record<string, string>,
     form: FormData,
-    signal?: AbortSignal
+    options?: AbortSignal | MultipartOptions
   ): Promise<ApiResult<TResponse>> {
+    const opts: MultipartOptions =
+      options instanceof AbortSignal ? { signal: options } : (options ?? {});
     const url = this.buildUrl(pathTemplate, params, undefined);
     const headers: Record<string, string> = {};
     if (this.csrfToken) headers['X-CSRF-Token'] = this.csrfToken;
-    const response = await this.fetchImpl(url, {
-      method,
-      headers,
-      body: form,
-      credentials: 'same-origin',
-      signal,
-    });
+    if (opts.ifMatch) headers['If-Match'] = opts.ifMatch;
+    if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
+
+    const canRetry =
+      method === 'PUT' ||
+      opts.retry === true ||
+      opts.idempotencyKey !== undefined;
+
+    let attempt = 0;
+    for (;;) {
+      let response: Response;
+      try {
+        response = await this.getFetch()(url, {
+          method,
+          headers,
+          body: form,
+          credentials: 'same-origin',
+          signal: opts.signal,
+        });
+      } catch (error) {
+        if (canRetry && attempt < this.retries && !opts.signal?.aborted) {
+          attempt += 1;
+          await backoff(attempt);
+          continue;
+        }
+        return {
+          ok: false,
+          status: 0,
+          problem: {
+            type: 'about:blank',
+            title: 'Network error',
+            status: 0,
+            detail: error instanceof Error ? error.message : String(error),
+          },
+        };
+      }
+
+      if (canRetry && response.status >= 500 && attempt < this.retries && !opts.signal?.aborted) {
+        attempt += 1;
+        await backoff(attempt);
+        continue;
+      }
+
       if (response.ok) {
         return { ok: true, status: response.status, data: (await response.json()) as TResponse };
       }
-      return { ok: false, status: response.status, problem: await parseProblemResponse(response) };
+
+      const problem = await parseProblemResponse(response);
+      if ((response.status === 428 || response.status === 409) && opts.ifMatch !== undefined) {
+        return { ok: false, status: response.status as 428 | 409, kind: 'precondition', problem };
+      }
+      return { ok: false, status: response.status, problem };
     }
+  }
 
   private buildUrl(
     pathTemplate: string,

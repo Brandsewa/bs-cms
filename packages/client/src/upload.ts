@@ -66,7 +66,7 @@ export async function uploadChunked(
       '/media/chunks/{id}',
       { id: sessionId },
       form,
-      options.signal
+      { signal: options.signal, retry: true }
     );
     if (!saved.ok) {
       return { ok: false, error: saved.problem.detail ?? saved.problem.title };

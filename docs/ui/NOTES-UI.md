@@ -134,9 +134,14 @@ lazy chunks from M2/M3 onward.
 - Handled with typed progress callback and `AbortSignal` in `packages/client/src/upload.ts`.
 
 ### 9.4 Preconditions & Retries
-- Preconditions (ETag / If-Match): 428 and 409 responses return typed `{ ok: false, status: 428 | 409, kind: 'precondition', problem }`.
+- Preconditions (ETag / If-Match): 428 and 409 responses return typed `{ ok: false, status: 428 | 409, kind: 'precondition', problem }` when `ifMatch` is provided. If `ifMatch` is omitted, 428 returns as a normal `ApiError` (`kind` is undefined).
 - Mutation requests automatically include `X-CSRF-Token` header.
-- Retries: only network errors and 5xx responses (linear backoff); 4xx client errors are never retried.
+- Retries:
+  - Idempotent methods (`GET`, `PUT`, `DELETE`) retry on network errors and 5xx responses with linear backoff (default 2 attempts).
+  - Mutating methods (`POST`, `PATCH`) are never retried by default to prevent duplicate resource creation, unless caller passes `idempotencyKey` (sent via `Idempotency-Key` header).
+  - `requestMultipart` converts network errors to `ApiResult` with `status: 0`, and chunk uploads opt-in to retry because re-uploading the same chunk index for a session is idempotent.
+  - Aborted requests are never retried.
+  - 4xx client errors are never retried.
 
 ---
 

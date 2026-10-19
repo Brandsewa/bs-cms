@@ -87,6 +87,29 @@ describe('ApiClient', () => {
     if (!result.ok) expect(result.kind).toBe('precondition');
   });
 
+  it('428 without ifMatch surfaces as normal ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        fetchJson(
+          { title: 'Precondition required', status: 428, detail: 'Header required' },
+          428
+        )
+      )
+    );
+    const client = new ApiClient({ baseUrl: 'https://api.example.com' });
+    const result = await client.request<{ ok: boolean }>('PUT', '/entries/{id}', {
+      params: { id: '1' },
+      body: {},
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(428);
+      expect(result.kind).toBeUndefined();
+      expect(result.problem.detail).toBe('Header required');
+    }
+  });
+
   it('never retries 4xx', async () => {
     const fetchMock = vi.fn(async () => fetchJson({ title: 'Not found' }, 404));
     vi.stubGlobal('fetch', fetchMock);
@@ -95,7 +118,39 @@ describe('ApiClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('retries 5xx then succeeds', async () => {
+  it('POST 503 is not retried by default', async () => {
+    const fetchMock = vi.fn(async () => fetchJson({ title: 'Service unavailable' }, 503));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const result = await client.request('POST', '/items', { body: { name: 'item1' } });
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('POST 503 is retried when caller supplies an idempotencyKey', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async (url: string | URL, init?: RequestInit) => {
+        requests.push({ url: String(url), init: init ?? {} });
+        return fetchJson({ title: 'Service unavailable' }, 503);
+      })
+      .mockImplementationOnce(async (url: string | URL, init?: RequestInit) => {
+        requests.push({ url: String(url), init: init ?? {} });
+        return fetchJson({ id: 'item1' });
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const result = await client.request<{ id: string }>('POST', '/items', {
+      body: { name: 'item1' },
+      idempotencyKey: 'idemp-uuid-1234',
+    });
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(requests[0]!.init.headers).toHaveProperty('Idempotency-Key', 'idemp-uuid-1234');
+    expect(requests[1]!.init.headers).toHaveProperty('Idempotency-Key', 'idemp-uuid-1234');
+  });
+
+  it('GET 503 is retried and succeeds', async () => {
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(async () => fetchJson({ title: 'Boom' }, 503))
@@ -107,7 +162,38 @@ describe('ApiClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('retries network errors', async () => {
+  it('PUT 503 is retried', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(async () => fetchJson({ title: 'Boom' }, 503))
+      .mockImplementationOnce(async () => fetchJson({ ok: true }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const result = await client.request<{ ok: boolean }>('PUT', '/entries/{id}', {
+      params: { id: '42' },
+      body: { title: 'updated' },
+    });
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('an aborted request is never retried', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchMock = vi.fn(async () => {
+      const err = new Error('The operation was aborted');
+      err.name = 'AbortError';
+      throw err;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const result = await client.request('GET', '/aborted', { signal: controller.signal });
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries network errors on idempotent methods', async () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new TypeError('failed to fetch'))
@@ -116,6 +202,41 @@ describe('ApiClient', () => {
     const client = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
     const result = await client.request('GET', '/x');
     expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('requestMultipart returns status 0 on network error and respects retry policy', async () => {
+    const form = new FormData();
+    form.append('chunk_index', '0');
+
+    // Without retry flag, does not retry POST multipart
+    const failClient = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const fetchFail = vi.fn().mockRejectedValue(new TypeError('network fail'));
+    vi.stubGlobal('fetch', fetchFail);
+    const failResult = await failClient.requestMultipart('POST', '/media/chunks/{id}', { id: 's1' }, form);
+    expect(failResult.ok).toBe(false);
+    if (!failResult.ok) {
+      expect(failResult.status).toBe(0);
+      expect(failResult.problem.detail).toBe('network fail');
+    }
+    expect(fetchFail).toHaveBeenCalledTimes(1);
+
+    // With retry flag, retries and succeeds
+    const successClient = new ApiClient({ baseUrl: 'https://api.example.com', retries: 2 });
+    const fetchSuccess = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('failed to fetch chunk'))
+      .mockImplementationOnce(async () => fetchJson({ status: 'saved', chunk_index: 0 }));
+    vi.stubGlobal('fetch', fetchSuccess);
+    const successResult = await successClient.requestMultipart(
+      'POST',
+      '/media/chunks/{id}',
+      { id: 's1' },
+      form,
+      { retry: true }
+    );
+    expect(successResult.ok).toBe(true);
+    expect(fetchSuccess).toHaveBeenCalledTimes(2);
   });
 });
 
