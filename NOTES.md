@@ -482,3 +482,142 @@ Performs automated checks on database connectivity, disk storage, upload directo
 3. **Application Logs:**
    - Check `core/storage/logs/bs-YYYY-MM-DD.log` for job processing logs or `core/storage/logs/site-health.log` for health check JSON outputs.
 
+### 6.9 Phase 7 / Step 7.0 Spike C: Astro Build & Deploy Pipeline (GATE IN PROGRESS)
+
+Empirical measurements and architecture decisions on live Hostinger shared hosting (`145.79.58.57:65002`, LiteSpeed Web Server, test site `bskickstarter.com`):
+
+1. **Hostinger SSH, SFTP & Rsync Tool Verification:**
+   - Authenticated via ed25519 key `~/.ssh/bskickstarter_hostinger` (user `u497383174`, port 65002).
+   - Remote tools check: `/usr/bin/rsync` and `/usr/bin/sftp` are installed and operational on Hostinger. `lftp` is NOT installed (`which: no lftp in ...`).
+   - Sync decision: Use **rsync over SSH** as primary sync transport; `sftp` batch script as fallback.
+
+2. **Host Layout & CMS Coexistence Architecture (DANGER MITIGATION):**
+   - **Host Structure on Hostinger:** `domains/bskickstarter.com/public_html` is a symlink pointing directly to `core/public/`. Inside `core/public/` live critical CMS files: `index.php`, `.htaccess`, and `media/`.
+   - **Supported Hosting Architectures:**
+     - **Architecture 1 (Recommended / Clean Separation):** The static site is deployed to a dedicated directory or separate subdomain document root (e.g. `domains/bskickstarter.com/static/` or a separate site domain `public_html`). The CMS lives in a subfolder or subdomain (e.g. `admin.site.com` or `site.com/api`).
+     - **Architecture 2 (Shared Docroot Coexistence):** When the static site and CMS share the exact same document root (`core/public`), `rsync --delete` will wipe `index.php`, `.htaccess`, and `media/` unless strictly defended.
+   - **Non-Negotiable Rsync Exclusion Guardrails:**
+     Every automated deploy command targeting a shared docroot MUST enforce strict exclusion flags:
+     ```bash
+     rsync -avz --delete \
+       --exclude='index.php' \
+       --exclude='core/' \
+       --exclude='media/' \
+       --exclude='.htaccess' \
+       --exclude='admin/' \
+       --exclude='storage/' \
+       --exclude='config/' \
+       --exclude='migrations/' \
+       --exclude='resources/' \
+       --exclude='bin/' \
+       --exclude='vendor/' \
+       --exclude='composer.*' \
+       starter/dist/ user@host:target/
+     ```
+   - **Empirical Coexistence Verification:**
+     Verified on a replica layout on the live host (`cms_test_env/`): deleted an old static post via `rsync --delete` while verifying that `index.php`, `.htaccess`, and `media/asset.png` remained completely intact and unmodified.
+
+3. **Front-Controller .htaccess & Content Negotiation Coexistence:**
+   When both the static Astro site and the CMS API front-controller reside in `core/public`:
+   - Static files physically exist on disk, so Apache/LiteSpeed evaluates physical rules first.
+   - If `Accept: text/markdown` is sent, the rewrite matches the existing `.md` twin and serves it directly with `text/markdown; charset=utf-8` and `Vary: Accept`.
+   - If standard HTML is requested, the physical `.html` or directory `index.html` is served directly (`RewriteCond %{REQUEST_FILENAME} -f [OR] -d -> RewriteRule ^ - [L]`).
+   - Dynamic API and admin requests (`/api/v1/*`, `/health`) do not match static physical files and seamlessly fall through to `RewriteRule ^ index.php [L,QSA]`.
+   - **Combined Unified `.htaccess` Rule Set:**
+     ```apache
+     Options -Indexes
+     Options -MultiViews
+     DirectoryIndex index.html index.php
+
+     <IfModule mod_mime.c>
+         AddType text/markdown;charset=utf-8 .md
+     </IfModule>
+
+     <IfModule mod_rewrite.c>
+         RewriteEngine On
+
+         # Deny dotfiles (.git, .env, .htaccess) except /.well-known/
+         RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
+         RewriteRule (^\.|/\.) - [F,L]
+
+         # Block direct access to PHP files except index.php
+         RewriteCond %{THE_REQUEST} \.php[/\s?] [NC]
+         RewriteCond %{REQUEST_URI} !^/index\.php$
+         RewriteRule .* - [F,L]
+
+         # Markdown Content Negotiation for AI agents (Astro static twins)
+         RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
+         RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}index.md -f
+         RewriteRule ^(.*)$ %{REQUEST_URI}index.md [L]
+
+         RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
+         RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}/index.md -f
+         RewriteRule ^(.*)$ %{REQUEST_URI}/index.md [L]
+
+         # If static file or directory physically exists, serve it
+         RewriteCond %{REQUEST_FILENAME} -f [OR]
+         RewriteCond %{REQUEST_FILENAME} -d
+         RewriteRule ^ - [L]
+
+         # Route dynamic requests to CMS front controller
+         RewriteRule ^ index.php [L,QSA]
+     </IfModule>
+
+     <FilesMatch "\.md$">
+         ForceType "text/markdown; charset=utf-8"
+         Header set Content-Type "text/markdown; charset=utf-8"
+         Header append Vary Accept
+     </FilesMatch>
+
+     <IfModule mod_headers.c>
+         Header always set X-Content-Type-Options "nosniff"
+         Header always set X-Frame-Options "DENY"
+         Header always set Referrer-Policy "strict-origin-when-cross-origin"
+         Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+     </IfModule>
+     ```
+   - **Nginx Equivalent:**
+     ```nginx
+     location / {
+         if ($http_accept ~* "text/markdown") {
+             rewrite ^(.*)/$ $1/index.md last;
+             rewrite ^(.*)$ $1/index.md last;
+         }
+         try_files $uri $uri/ /index.php$is_args$args;
+     }
+     location ~ \.md$ {
+         add_header Content-Type "text/markdown; charset=utf-8";
+         add_header Vary "Accept";
+     }
+     location ~ \.php$ {
+         fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+         include fastcgi_params;
+         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+     }
+     ```
+
+4. **Empirical Benchmarks (Baseline local measurement; pending live GitHub Actions run):**
+   - 200-Page Static Site Build Time (Astro 5.x): 1.53 s – 1.68 s.
+   - Single-post change payload: 746 bytes (421 B HTML + 325 B MD).
+   - Single-post upload latency: 1.33 s.
+   - Gate run pending execution via live GitHub Actions workflow dispatch.
+
+5. **Step 7.2 Rendering Architecture Plan:**
+   - The spike twin generator (`starter/scripts/generate-md-twins.mjs`) is an explicit placeholder for the benchmark.
+   - In Step 7.2, `@bs/renderer` will be implemented to transform canonical Tiptap document JSON into:
+     1. Semantic Astro HTML components (`renderToHtml`),
+     2. Clean GitHub-flavored Markdown (`renderToMarkdown`),
+     3. Plain text excerpts.
+   - All static pages and `.md` twins will be generated directly from `@bs/renderer` so output cannot diverge.
+
+6. **Required GitHub Actions Secrets:**
+   - `BS_CMS_URL`: `https://bskickstarter.com`
+   - `BS_BUILD_TOKEN`: Secret build token from CMS
+   - `HOSTINGER_SSH_HOST`: `145.79.58.57`
+   - `HOSTINGER_SSH_PORT`: `65002`
+   - `HOSTINGER_SSH_USER`: `u497383174`
+   - `HOSTINGER_SSH_PRIVATE_KEY`: Private SSH key (`~/.ssh/bskickstarter_hostinger`)
+   - `HOSTINGER_DEPLOY_PATH`: Remote deployment path (e.g. `domains/bskickstarter.com/core/public/spike-c`)
+
+7. **Spike C Gate Status:** **PENDING LIVE GITHUB ACTIONS RUN**.
+
