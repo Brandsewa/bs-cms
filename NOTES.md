@@ -739,4 +739,33 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
 
 7. **Spike C Gate Status:** **PASSED & VERIFIED ON LIVE HOSTINGER**. Ready to proceed to Step 7.1.
 
+---
+
+## 14. Milestone 8.1: OAuth 2.1 & Pending Changes Database Persistence
+
+- **Migration (`core/migrations/202610190009_create_oauth_and_pending_changes_tables.php`):**
+  - Strictly implements `docs/01-data-model.md` Sections 1 and 5:
+    - `oauth_clients`: Registered client credentials, redirect URIs, and metadata.
+    - `oauth_grants`: User consent authorizations bound to user and roles, with `ai_mode`.
+    - `oauth_authorization_codes`: Ephemeral authorization codes with `code_hash` PK.
+    - `oauth_access_tokens`: Bearer access tokens with `token_hash` PK.
+    - `oauth_refresh_tokens`: Refresh tokens with `token_hash` PK and rotation tracking.
+    - `pending_changes`: Proposed changes requiring approval under `approval_required` mode.
+
+- **Hashed Token Invariant:**
+  - All authorization codes, access tokens, and refresh tokens are stored exclusively as SHA-256 hashes (`code_hash`, `token_hash`).
+  - Plaintext tokens are returned once to clients in HTTP responses and are NEVER persisted in plaintext to the database.
+  - Lookup queries hash the incoming client token using `hash('sha256', $token)` before querying.
+
+- **Rate Limiting Configuration:**
+  - Configured in `core/config/security.php` under `oauth.registration_rate_limit`:
+    - Default `limit`: 5 registrations per hour per IP.
+    - Default `window`: 3600 seconds.
+
+- **Return-To Path Sanitization & UI Contract:**
+  - `OAuthController::sanitizeReturnTo()` strictly enforces that post-auth redirection targets must be same-origin paths starting with `/admin` (or `/admin/...`).
+  - External URLs, protocol-relative URLs (`//...`), and non-admin paths are rejected and safely fall back to `/admin`.
+  - **Zcode UI Contract:** The login page `/admin/login` must accept `?return_to=<url-encoded-same-origin-path>` and, upon successful authentication, redirect the user back to the verified `return_to` path to complete OAuth consent.
+
+
 
