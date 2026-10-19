@@ -56,17 +56,15 @@ jobs:
           CMS_URL: ${{ secrets.BS_CMS_URL }}
           BUILD_TOKEN: ${{ secrets.BS_BUILD_TOKEN }}
 
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
-          known_hosts: 'unnecessary'
-          if_key_exists: replace
-
       - name: Deploy to Hostinger via rsync over SSH with CMS Safeguards
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }} ${{ secrets.HOSTINGER_SSH_HOST }} >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
           rsync -avz --delete \
             --exclude='index.php' \
@@ -81,7 +79,7 @@ jobs:
             --exclude='bin/' \
             --exclude='vendor/' \
             --exclude='composer.*' \
-            -e "ssh -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}" \
+            -e "ssh -i /home/runner/.ssh/id_ed25519 -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }} -o StrictHostKeyChecking=yes" \
             starter/dist/ \
             ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}:${{ secrets.HOSTINGER_DEPLOY_PATH }}
 
