@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BsCms\Mcp;
 
 use BsCms\Auth\ApiTokenService;
+use BsCms\Auth\SystemRoles;
 use BsCms\Database\Connection;
 use BsCms\Http\Controllers\BaseController;
 use BsCms\OAuth\OAuthController;
@@ -221,6 +222,15 @@ final class McpController extends BaseController
                         'owner', 'admin', 'developer', 'editor',
                         'author', 'contributor', 'viewer',
                         'ai_draft', 'ai_publisher',
+                        SystemRoles::ROLE_OWNER,
+                        SystemRoles::ROLE_ADMIN,
+                        SystemRoles::ROLE_DEVELOPER,
+                        SystemRoles::ROLE_EDITOR,
+                        SystemRoles::ROLE_AUTHOR,
+                        SystemRoles::ROLE_CONTRIBUTOR,
+                        SystemRoles::ROLE_VIEWER,
+                        SystemRoles::ROLE_AI_DRAFT,
+                        SystemRoles::ROLE_AI_PUBLISHER,
                     ];
                     $hasPermission = false;
                     foreach ($roles as $r) {
