@@ -11,8 +11,9 @@ DirectoryIndex index.html
 
     # Markdown Content Negotiation for AI agents
     RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
+    RewriteCond %{REQUEST_FILENAME} -d
     RewriteCond %{REQUEST_FILENAME}/index.md -f
-    RewriteRule ^(.*)/?$ $1/index.md [L]
+    RewriteRule ^(.*)$ $1/index.md [L]
 
     RewriteCond %{HTTP_ACCEPT} text/markdown [NC]
     RewriteCond %{REQUEST_FILENAME}.md -f
