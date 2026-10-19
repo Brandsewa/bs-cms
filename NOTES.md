@@ -345,6 +345,7 @@ Benchmarked on local reference environments (Docker containers configured with r
 1. **Spike A:** Complete and accepted for Host A (Hostinger). Host B (Custom/Apache/MySQL) remains pending test account provisioning.
 2. **Spike B:** Stateless MCP server deferred to Phase 8 (step 8.0).
 3. **Spike C:** Astro build & deployment pipeline + `.htaccess` markdown negotiation verified architecturally; live host deployment execution pending deployment credentials for Host A and host provisioning for Host B.
+4. **Phase 4 Cron / Site Health on Hostinger:** CLI command `php bin/bs site:health` (tabular and JSON modes) and background job processing (`php bin/bs jobs:run`) verified in local integration test suites and CI release smoke tests. Actual periodic invocation via Hostinger hPanel Scheduled Tasks / crontab recorded as untested in this session pending user-side crontab configuration on Hostinger.
 
 ---
 
