@@ -313,7 +313,9 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         if ($this->adminPdo !== null) {
             $this->adminPdo->exec("DROP DATABASE IF EXISTS `{$this->dbName}`");
         }
-        $this->deleteRecursive($this->tempDir);
+        if (isset($this->tempDir)) {
+            $this->deleteRecursive($this->tempDir);
+        }
         parent::tearDown();
     }
 

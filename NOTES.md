@@ -432,3 +432,53 @@ Benchmarked on local reference environments (Docker containers configured with r
 - **Structured CSV Import:**
   - `POST /api/v1/redirects/import` validates every row against full safety, length, and domain rules, returning structured JSON containing overall metrics (`imported`, `skipped`, `errors_count`, `total`) and per-row execution results (`row`, `status`, `from_path`, `to_path`, `status_code`, `match_type`, `errors`).
 
+### 6.7 Risky Media Streaming & Media URL Resolution
+- **URL Resolution by File Type:**
+  - In `MediaPresenter::present()`, the `url` field in media responses is dynamically determined:
+    - **Safe raster images** (`image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/avif` with extensions `jpg`, `jpeg`, `png`, `webp`, `gif`, `avif`) continue to point to the direct static path (`/media/{folder_path}/{disk_name}`) for maximal CDN caching performance, since upload re-encoding guarantees safety.
+    - **Risky file types** (`pdf`, `csv`, `txt`, `zip` or MIME types `application/pdf`, `text/csv`, `text/plain`, `application/zip`) resolve to the PHP streaming route (`/api/v1/public/media/{id}/file`).
+  - **Security Guarantee:** Routing risky downloads through PHP ensures that LiteSpeed / Hostinger CDN (`hcdn.io`) header stripping is bypassed: responses carry `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'none'; sandbox`, and `Content-Disposition: attachment`.
+  - **Contract & Presentation:** Verified by `MediaPresenterTest::testMediaPresenterExactKeySet` confirming the exact 27-key schema is preserved without regression.
+
+### 6.8 Hostinger Cron Configuration & Verification
+Hostinger shared hosting provides cron automation via **hPanel -> Advanced -> Cron Jobs**. Because `crontab -e` is not available directly over SSH on shared accounts, configure jobs via hPanel.
+
+#### 1. Background Jobs Worker (`bs jobs:run`)
+The worker handles scheduled publishing, webhook delivery retries, cache clearing, and async tasks.
+
+- **hPanel Settings:**
+  - **Type:** PHP Script or Custom Command
+  - **Common Settings:** * * * * * (Once Per Minute)
+  - **Command:**
+    ```bash
+    /opt/alt/php83/usr/bin/php /home/<username>/domains/<domain>/core/bin/bs jobs:run --max-time=50 >/dev/null 2>&1
+    ```
+    *(Note: Replace `<username>` and `<domain>` with your Hostinger account username and site directory, e.g., `/home/u123456789/domains/example.com/core/bin/bs` or `/home/u123456789/public_html/core/bin/bs` if public_html is a symlink to core/public).*
+  - **`--max-time=50` Rationale:** Shared hosting cron triggers every 60 seconds; limiting run time to 50 seconds prevents overlapping job runners.
+
+#### 2. Daily Site Health Audit (`bs site:health`) (Recommended)
+Performs automated checks on database connectivity, disk storage, upload directories, schema lock status, and orphan files.
+
+- **hPanel Settings:**
+  - **Type:** Custom Command
+  - **Common Settings:** 0 3 * * * (Once a day at 03:00 AM)
+  - **Command:**
+    ```bash
+    /opt/alt/php83/usr/bin/php /home/<username>/domains/<domain>/core/bin/bs site:health --json >> /home/<username>/domains/<domain>/core/storage/logs/site-health.log 2>&1
+    ```
+
+#### 3. How to Confirm Cron Executed Successfully
+1. **hPanel Execution History:**
+   - In hPanel -> Advanced -> Cron Jobs, review the "Execution History" table. Confirm the status is `Success (exit code 0)` with recent timestamps matching the minute schedule.
+2. **Database Job State:**
+   - Check the `bs_jobs` table via phpMyAdmin or MySQL client:
+     ```sql
+     SELECT id, queue, payload, status, attempts, reserved_at, available_at, created_at
+     FROM bs_jobs
+     ORDER BY id DESC LIMIT 10;
+     ```
+   - Completed jobs transition to `status = 'completed'` or are pruned according to retention rules.
+   - Check `bs_webhook_deliveries` to confirm queued webhooks are successfully dispatched.
+3. **Application Logs:**
+   - Check `core/storage/logs/bs-YYYY-MM-DD.log` for job processing logs or `core/storage/logs/site-health.log` for health check JSON outputs.
+

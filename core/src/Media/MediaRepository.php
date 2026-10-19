@@ -613,20 +613,11 @@ final class MediaRepository
      */
     private function decorateMedia(array $row): array
     {
-        $row['url'] = '/' . ltrim((string) $row['storage_path'], '/');
-
         $variantsTable = $this->connection->prefixTable('media_variants');
         $stmt = $this->connection->execute("SELECT * FROM `{$variantsTable}` WHERE `media_id` = ?", [$row['id']]);
         /** @var list<array<string, mixed>> $variants */
         $variants = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($variants as &$var) {
-            $var['url'] = '/' . ltrim((string) $var['storage_path'], '/');
-        }
-        unset($var);
-
-        $row['variants'] = $variants;
-
-        return $row;
+        return MediaPresenter::present($row, $variants);
     }
 }
