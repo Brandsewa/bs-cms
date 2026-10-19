@@ -15,7 +15,8 @@
     "test": "npm run test -w @bs/renderer && npm run test -w @bs/ui && npm run test -w admin",
     "test:axe": "npm run test:axe -w @bs/ui && npm run test:axe -w admin",
     "build": "npm run build -w @bs/ui && npm run build -w admin",
-    "size-budget": "node admin/scripts/check-size.mjs"
+    "size-budget": "node admin/scripts/check-size.mjs",
+    "test:browser": "npm run build -w admin && playwright test -c admin/playwright.config.ts"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "7.0.1",
@@ -27,6 +28,7 @@
     "@vitejs/plugin-react": "6.1.2",
     "axe-core": "4.14.0",
     "eslint": "^9.20.1",
+    "eslint-plugin-react-hooks": "7.1.1",
     "jsdom": "26.1.0",
     "prettier": "^3.5.0",
     "tsx": "^4.19.3",

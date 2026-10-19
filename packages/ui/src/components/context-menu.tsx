@@ -75,7 +75,7 @@ const ContextMenuItem = forwardRef<
         'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-13 outline-none transition-colors',
         'focus:bg-accent focus:text-accent-foreground',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-        'data-[destructive]:text-destructive data-[destructive]:focus:bg-destructive data-[destructive]:focus:text-destructive-foreground',
+        'data-[destructive]:text-destructive-text data-[destructive]:focus:bg-destructive data-[destructive]:focus:text-destructive-foreground',
         '[&_svg]:size-4 [&_svg]:shrink-0',
         className
       )}

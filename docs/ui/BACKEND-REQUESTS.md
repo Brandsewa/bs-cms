@@ -23,9 +23,9 @@ responses for `POST /auth/login` (success and `requires_2fa`),
 generates its types from this document instead of the hand-written ones
 recorded in NOTES.md §7.3.
 
-## 3. eslint-plugin-react-hooks approval (process, not backend)
+## 3. eslint-plugin-react-hooks approval (process, not backend) — RESOLVED
 
-The dependency allow-list process requires approval for new packages. This
-dev-only linter (exhaustive-deps, rules-of-hooks) is recommended for a
-React codebase of this size; it is not installed pending approval. All other
-Phase 5 dependencies are recorded in DEPENDENCIES.md sections 4.1–4.3.
+Approved by the owner in the M1 review (defect 5). Installed at 7.1.1 with
+`rules-of-hooks` as error and `exhaustive-deps` as warn; recorded in
+DEPENDENCIES.md §4.2. The M1-fixes branch lints clean under it (verified
+with a deliberate violation that the plugin catches).

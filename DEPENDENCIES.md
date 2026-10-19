@@ -39,7 +39,10 @@ Verified by the browser installer and checked at startup:
 
 ---
 
-## 4. Admin Frontend Dependencies (Built Ahead of Time, Never Run on Server)
+## 4. UI Dependencies — `@bs/ui`, `@bs/client`, `admin` (Phase 5 owner)
+
+Everything in this section is owned and updated by the UI (Phase 5+) work;
+the PHP sections above are the backend agent's.
 
 Shipped as static assets in `core/public/admin/`:
 - `react`, `react-dom`
@@ -82,6 +85,9 @@ All licences permissive (MIT unless noted). Sizes are approximate gzipped minifi
 | `@testing-library/react` / `-user-event` / `-jest-dom` / `@testing-library/dom` | 16.3.3 / 14.6.8 / 7.0.1 / 10.4.2 | MIT | Component testing. |
 | `axe-core` | 4.14.0 | **MPL-2.0** | Accessibility checks. Dev-only: never shipped in the release zip; MPL obligations apply only if its source is modified. Flagged for the owner as the one non-MIT/Apache/BSD/ISC licence; removing it would mean losing automated a11y verification. |
 | `zod` | 4.6.7 (dev in `@bs/ui`; runtime dep lands with admin forms in M2/M3) | MIT | Validation shared with the server contract. |
+| `eslint-plugin-react-hooks` | 7.1.1 | MIT | rules-of-hooks (error) + exhaustive-deps (warn) — approved by owner in the M1 review (defect 5). |
+| `@playwright/test` | 1.64.1 | Apache-2.0 | Real-browser tests: SPA deep-link boot (defect 3) and the axe contrast sweep (defect 4). Chromium only, dev-only. |
+| `@axe-core/playwright` | 4.14.0 | **MPL-2.0** | axe runner on Playwright pages; same dev-only MPL rationale as axe-core above. |
 
 ### 4.3 Deliberately NOT added (hand-rolled in `@bs/ui`)
 

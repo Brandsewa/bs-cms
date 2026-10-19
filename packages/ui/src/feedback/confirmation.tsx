@@ -137,7 +137,7 @@ export function TypeToConfirmDialog({
           className="flex h-8 w-full rounded-md border border-input bg-transparent px-2.5 py-1 text-13 shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid=true]:border-destructive"
         />
         {attempted && !matches ? (
-          <p role="alert" className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-destructive-text">
             {t('confirm.typeToConfirmMismatch')}
           </p>
         ) : null}

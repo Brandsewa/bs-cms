@@ -117,7 +117,7 @@ export function TagInput({
         />
       </div>
       {error ? (
-        <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
+        <p id={errorId} role="alert" className="mt-1 text-xs text-destructive-text">
           {error}
         </p>
       ) : null}

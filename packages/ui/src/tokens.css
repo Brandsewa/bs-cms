@@ -42,6 +42,12 @@
   --destructive: hsl(0, 72%, 51%);
   --destructive-foreground: hsl(210, 40%, 98%);
 
+  /* Destructive as TEXT/ICON colour (error messages, kebab delete items):
+     usable on the page background. Same value as --destructive in light
+     (4.8:1 on white); brightened in dark mode — the dark solid red on the
+     dark background measured 1.99:1 (real-browser axe, M1 review defect 4). */
+  --destructive-text: hsl(0, 72%, 51%);
+
   /* Solid warning/success use dark ink: white/pale text on mid-lightness
      amber/green fails AA (~2.5:1). Dark ink measures 6.5-6.7:1. */
   --warning: hsl(38, 92%, 50%);
@@ -145,6 +151,7 @@
 
   --destructive: hsl(0, 62.8%, 30.6%);
   --destructive-foreground: hsl(210, 40%, 98%);
+  --destructive-text: hsl(0, 95%, 63%);
 
   --warning: hsl(38, 92%, 50%);
   --warning-foreground: hsl(30, 70%, 14%);

@@ -44,7 +44,7 @@ export function FormErrorSummary({ errors, onFocusField, className }: FormErrorS
         className
       )}
     >
-      <p className="font-medium text-destructive">
+      <p className="font-medium text-destructive-text">
         {errors.length === 1
           ? t('form.errorSummary', { count: errors.length })
           : t('form.errorSummaryPlural', { count: errors.length })}
@@ -55,7 +55,7 @@ export function FormErrorSummary({ errors, onFocusField, className }: FormErrorS
             <button
               type="button"
               onClick={() => focus(entry.name)}
-              className="text-destructive underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="text-destructive-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {entry.label}: {entry.message}
             </button>
