@@ -37,7 +37,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: starter
-        run: npm ci
+        run: npm install
 
       - name: Notify build started
         if: "${{ github.event.inputs.callback_url != '' || github.event.client_payload.callback_url != '' }}"
