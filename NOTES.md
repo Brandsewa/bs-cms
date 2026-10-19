@@ -54,15 +54,37 @@ This document is the authoritative log for Phase 0 technical verifications, arch
 - **PKCE & Refresh Rotation:** Full native support for RFC 7636 (PKCE) and rotating refresh tokens.
 - **Verification Status:** PASSED.
 
-### 2.2 MCP Authorization Requirements
-- **Verification Status:** PASSED (Live on Hostinger, 2026-10-19).
+### 2.2 MCP Authorization Requirements & OAuth 2.1 Server Architecture
+- **Verification Status:** PASSED (Live on Hostinger, 2026-10-19; 8.2 Database Architecture Verified).
 - **Standards Implemented & Proven Live:**
   - RFC 9728: OAuth 2.0 Protected Resource Metadata (`GET /.well-known/oauth-protected-resource`).
   - RFC 8414: OAuth 2.0 Authorization Server Metadata (`GET /.well-known/oauth-authorization-server`).
-  - RFC 7591: Dynamic Client Registration (`POST /oauth/register`).
-  - RFC 7636: Proof Key for Code Exchange (PKCE S256 enforced).
-  - RFC 6749: OAuth 2.1 Token Exchange with Refresh Token Rotation and reuse detection revoking all active tokens.
+  - RFC 7591: Dynamic Client Registration (`POST /oauth/register`) with IP rate limiting (5 registrations/hour/IP).
+  - RFC 7636: Proof Key for Code Exchange (mandatory PKCE S256 code challenge and verifier).
+  - RFC 6749 / OAuth 2.1: Authorization code grant with single-use authorization codes (5-minute TTL) and refresh token rotation.
+  - Refresh Token Reuse Detection: Any replay of an already rotated refresh token triggers instant revocation of the entire OAuth grant and all active tokens, writing an audit log entry (`oauth.refresh_token_reuse_detected`, result: `failure`).
+  - RFC 8707: Resource Indicators for OAuth 2.0 (`resource` query/body parameter validated against canonical `/mcp` protected resource URI). Mismatched resource requests return 400 `invalid_target`.
+  - RFC 7009: Token Revocation (`POST /oauth/revoke`) supporting `access_token` and `refresh_token` hint types, revoking credentials and logging `oauth.token_revoked`.
   - HTTP 401 challenge with `WWW-Authenticate: Bearer resource_metadata="..."`.
+  - Grants Management API:
+    - `GET /api/v1/oauth/grants`: Strict presenter key-set (`id`, `client_id`, `client_name`, `user_id`, `user_name`, `role_id`, `role_handle`, `scopes`, `ai_mode`, `created_at`, `last_used_at`, `revoked_at`). Non-admins isolated strictly to their own grants; admins inspect all grants.
+    - `DELETE /api/v1/oauth/grants/{id}`: Immediately revokes the grant and cascades revocation to associated access/refresh tokens; records `oauth.grant_revoked` in `audit_log`.
+  - Consent Screen Security:
+    - Displays client name, requested scopes (`mcp:read`, `mcp:write`), role delegation selector, and `ai_mode` (`draft_only`, `approval_required`, `full`).
+    - Role Delegation Hierarchy: Users may only delegate their current role or less-privileged roles (e.g., owner -> admin -> editor -> author -> contributor -> viewer). Attempted privilege escalation returns 403.
+    - `ai_mode` Protection: Default is `draft_only`. Selecting `full` autonomous mode requires an explicit confirmation checkbox acknowledgement (`full_mode_confirmed=1`), otherwise returns 400.
+    - Session CSRF tokens and password re-authentication step-up enforced.
+
+- **Asymmetric Signing Keys Rationale (Opaque Hashed Tokens vs. JWKS):**
+  - BS CMS employs opaque, cryptographically random bearer tokens (`bs_at_*` for access tokens, `bs_rt_*` for refresh tokens) with 256 bits of entropy.
+  - All token persistence in `oauth_access_tokens` and `oauth_refresh_tokens` stores exclusively irreversible SHA-256 hashes (`token_hash = hash('sha256', $raw)`), ensuring zero plaintext exposure in database dumps or query logs.
+  - Token validation is executed natively and synchronously by the BS CMS core engine against local MariaDB tables on each request to `/mcp`.
+  - **Conclusion:** Asymmetric cryptographic signing keys (RSA/ECDSA private keys, JWKS endpoints, public key distribution) are **not needed**. Asymmetric signing keys are designed for distributed topologies where independent third-party resource servers verify stateless JWT tokens without querying the authorization server database. For a monolithic CMS core where the authorization server and resource server are co-located, stateful hashed opaque tokens provide superior security: instantaneous revocation without token bloat, immunity to signature algorithm confusion exploits (alg: none / CVEs in JWT parsers), and reduced CPU overhead on shared hosting.
+
+- **Client Metadata Documents Deferral Rationale (RFC 7591 vs. HTTPS URL client_id):**
+  - Section 8.2 evaluates supporting client IDs formatted as external HTTPS URLs that serve client metadata JSON documents.
+  - **Decision:** Client metadata document fetching is **explicitly deferred**.
+  - **Rationale:** Resolving and fetching client metadata documents from arbitrary user-supplied HTTPS URLs at runtime introduces Server-Side Request Forgery (SSRF) and DNS rebinding risks, particularly in shared hosting environments where loopback filters and internal subnet reachability (e.g., cPanel/hPanel internal ports, local redis/memcached) can be fragile. Dynamic Client Registration via RFC 7591 (`POST /oauth/register`) is fully implemented, verified, and rate-limited. Major AI client tools (Claude Code, Claude Desktop, MCP Inspector, OpenRPC) natively support dynamic client registration. Should client metadata documents be required in a future phase, an egress proxy with strict DNS pinning, private IP blocklists (RFC 1918 / RFC 3927 / loopback), and cert pinning must be introduced.
 
 ### 2.3 TOTP Package Choice
 - **Candidate:** `spomky-labs/otphp`.

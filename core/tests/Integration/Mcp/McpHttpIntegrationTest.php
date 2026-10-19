@@ -26,20 +26,106 @@ use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
+use BsCms\Auth\PasswordHasher;
+use BsCms\Auth\SystemRoles;
+use BsCms\Authz\Authorizer;
+use BsCms\Authz\PermissionCompiler;
+use BsCms\Database\Migrator;
+use BsCms\Kernel\Config;
+use PDO;
 
 final class McpHttpIntegrationTest extends TestCase
 {
     private Kernel $kernel;
-    private string $stateFile;
+    private Connection $connection;
+    private PDO $adminPdo;
+    private string $dbName = '';
+    private PasswordHasher $hasher;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->stateFile = sys_get_temp_dir() . '/bs_mcp_integ_' . bin2hex(random_bytes(6)) . '.json';
+        $host = getenv('DB_HOST') ?: '127.0.0.1';
+        $port = (int) (getenv('DB_PORT') ?: 3306);
+        $user = getenv('DB_USER') ?: 'root';
+        $pass = getenv('DB_PASS') !== false ? (string) getenv('DB_PASS') : 'root';
 
-        $oauthController = new OAuthController($this->stateFile);
-        $mcpController = new McpController(null, $oauthController, null);
+        try {
+            $this->adminPdo = new PDO("mysql:host={$host};port={$port};charset=utf8mb4", $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ]);
+        } catch (\Throwable $e) {
+            if (getenv('DB_HOST') !== false) {
+                $this->fail('Database configured via DB_HOST but unreachable: ' . $e->getMessage());
+            }
+            $this->markTestSkipped('No local MySQL/MariaDB available for MCP HTTP integration test.');
+        }
+
+        $this->dbName = 'bs_mcp_integ_' . bin2hex(random_bytes(4));
+        $this->adminPdo->exec("CREATE DATABASE `{$this->dbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+        $this->connection = new Connection([
+            'host' => $host,
+            'port' => $port,
+            'database' => $this->dbName,
+            'username' => $user,
+            'password' => $pass,
+            'prefix' => 'bs_',
+        ]);
+
+        $migrator = new Migrator($this->connection);
+        $migrator->registerNamespace('core', dirname(__DIR__, 3) . '/migrations');
+        $migrator->migrate();
+
+        $this->hasher = new PasswordHasher();
+        $auditLogger = new AuditLogger($this->connection);
+        $authorizer = new Authorizer($this->connection, new PermissionCompiler($this->connection));
+        $config = new Config([
+            'security' => [
+                'oauth' => [
+                    'registration_rate_limit' => [
+                        'limit' => 5,
+                        'window' => 3600,
+                    ],
+                ],
+            ],
+        ]);
+
+        // Seed test users
+        $pdo = $this->connection->getPdo();
+        $usersTable = $this->connection->prefixTable('users');
+        $userRolesTable = $this->connection->prefixTable('user_roles');
+        $nowUtc = gmdate('Y-m-d H:i:s.v');
+
+        $usersToSeed = [
+            ['id' => 'usr_admin_flow', 'email' => 'admin_flow@example.com', 'password' => 'secret-stepup', 'name' => 'Admin Flow', 'role_id' => SystemRoles::ROLE_ADMIN],
+            ['id' => 'usr_alice', 'email' => 'alice@example.com', 'password' => 'correct-password', 'name' => 'Alice Admin', 'role_id' => SystemRoles::ROLE_ADMIN],
+            ['id' => 'usr_bob', 'email' => 'bob@example.com', 'password' => 'correct-password', 'name' => 'Bob Editor', 'role_id' => SystemRoles::ROLE_EDITOR],
+            ['id' => 'usr_admin', 'email' => 'admin@example.com', 'password' => 'secret', 'name' => 'Admin User', 'role_id' => SystemRoles::ROLE_OWNER],
+        ];
+
+        foreach ($usersToSeed as $u) {
+            $userStmt = $pdo->prepare("INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`)
+                VALUES (:id, :email, :hash, :name, 'active', :created_at, :updated_at)");
+            $userStmt->execute([
+                'id' => $u['id'],
+                'email' => $u['email'],
+                'hash' => $this->hasher->hash($u['password']),
+                'name' => $u['name'],
+                'created_at' => $nowUtc,
+                'updated_at' => $nowUtc,
+            ]);
+
+            $roleStmt = $pdo->prepare("INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (:user_id, :role_id)");
+            $roleStmt->execute([
+                'user_id' => $u['id'],
+                'role_id' => $u['role_id'],
+            ]);
+        }
+
+        $oauthController = new OAuthController($this->connection, $this->hasher, $auditLogger, $authorizer, $config);
+        $mcpController = new McpController($this->connection, $oauthController, null);
 
         $routes = new RouteCollection();
         $routes->get('/mcp', [$mcpController, 'handleGet']);
@@ -57,6 +143,8 @@ final class McpHttpIntegrationTest extends TestCase
         $routes->post('/oauth/token', [$oauthController, 'token']);
         $routes->options('/oauth/token', [$oauthController, 'optionsToken']);
         $routes->post('/oauth/revoke', [$oauthController, 'revoke']);
+        $routes->get('/api/v1/oauth/grants', [$oauthController, 'listGrants']);
+        $routes->delete('/api/v1/oauth/grants/{id}', [$oauthController, 'revokeGrant']);
 
         $router = new Router($routes);
         $this->kernel = new Kernel($router);
@@ -71,8 +159,8 @@ final class McpHttpIntegrationTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (is_file($this->stateFile)) {
-            @unlink($this->stateFile);
+        if (isset($this->adminPdo) && $this->dbName !== '') {
+            $this->adminPdo->exec("DROP DATABASE IF EXISTS `{$this->dbName}`");
         }
         parent::tearDown();
     }
