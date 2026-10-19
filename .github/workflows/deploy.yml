@@ -57,12 +57,18 @@ jobs:
           BUILD_TOKEN: ${{ secrets.BS_BUILD_TOKEN }}
 
       - name: Deploy to Hostinger via rsync over SSH with CMS Safeguards
+        env:
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.HOSTINGER_DEPLOY_PATH }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }} ${{ secrets.HOSTINGER_SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
@@ -79,9 +85,9 @@ jobs:
             --exclude='bin/' \
             --exclude='vendor/' \
             --exclude='composer.*' \
-            -e "ssh -i /home/runner/.ssh/id_ed25519 -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }} -o StrictHostKeyChecking=yes" \
+            -e "ssh -i /home/runner/.ssh/id_ed25519 -p $SSH_PORT -o StrictHostKeyChecking=yes" \
             starter/dist/ \
-            ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}:${{ secrets.HOSTINGER_DEPLOY_PATH }}
+            "$SSH_USER@$SSH_HOST:$DEPLOY_PATH"
 
       - name: Notify build succeeded
         if: "${{ success() && (github.event.inputs.callback_url != '' || github.event.client_payload.callback_url != '') }}"
