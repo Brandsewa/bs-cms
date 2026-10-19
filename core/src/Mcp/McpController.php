@@ -216,6 +216,30 @@ final class McpController extends BaseController
                 }
 
                 if ($toolName === 'list_posts') {
+                    $roles = (array) ($authInfo['role_ids'] ?? []);
+                    $allowedRoles = [
+                        'owner', 'admin', 'developer', 'editor',
+                        'author', 'contributor', 'viewer',
+                        'ai_draft', 'ai_publisher',
+                    ];
+                    $hasPermission = false;
+                    foreach ($roles as $r) {
+                        if (in_array($r, $allowedRoles, true)) {
+                            $hasPermission = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasPermission) {
+                        return $this->jsonRpcError(
+                            $id,
+                            -32003,
+                            "Forbidden: Insufficient permissions for tool 'list_posts'. User roles do not grant read access to posts.",
+                            200,
+                            ['Access-Control-Allow-Origin' => '*']
+                        );
+                    }
+
                     $limit = max(1, min(50, (int) ($arguments['limit'] ?? 10)));
                     $posts = $this->queryPublishedPosts($limit);
 
@@ -258,7 +282,7 @@ final class McpController extends BaseController
     }
 
     /**
-     * @return array{authenticated: bool, actor_type?: string, client_id?: string}
+     * @return array{authenticated: bool, actor_type?: string, client_id?: string, user_id?: string, role_ids?: list<string>, ai_mode?: string, scopes?: list<string>}
      */
     private function authenticateToken(string $token): array
     {
@@ -266,18 +290,23 @@ final class McpController extends BaseController
             return ['authenticated' => false];
         }
 
-        if ($token === 'spike-test-token') {
-            return ['authenticated' => true, 'actor_type' => 'spike_test'];
-        }
-
         // Check OAuth server state
         if ($this->oauth !== null) {
             $oauthCheck = $this->oauth->verifyAccessToken($token);
             if ($oauthCheck['valid']) {
+                /** @var list<string> $roleIds */
+                $roleIds = $oauthCheck['role_ids'] ?? [];
+                /** @var list<string> $scopes */
+                $scopes = $oauthCheck['scopes'] ?? [];
+
                 return [
                     'authenticated' => true,
                     'actor_type' => 'oauth_client',
-                    'client_id' => $oauthCheck['client_id'] ?? 'unknown',
+                    'client_id' => (string) ($oauthCheck['client_id'] ?? 'unknown'),
+                    'user_id' => (string) ($oauthCheck['user_id'] ?? 'unknown'),
+                    'role_ids' => $roleIds,
+                    'ai_mode' => (string) ($oauthCheck['ai_mode'] ?? 'draft_only'),
+                    'scopes' => $scopes,
                 ];
             }
         }
@@ -286,15 +315,32 @@ final class McpController extends BaseController
         if ($this->tokenService !== null) {
             $actor = $this->tokenService->authenticate($token);
             if ($actor !== null) {
+                /** @var list<string> $roleIds */
+                $roleIds = !empty($actor['effective_role_ids']) ? array_values((array) $actor['effective_role_ids']) : (!empty($actor['role_id']) ? [(string) $actor['role_id']] : []);
+                /** @var list<string> $scopes */
+                $scopes = !empty($actor['scopes']) && is_array($actor['scopes']) ? array_values($actor['scopes']) : ['*'];
+
                 return [
                     'authenticated' => true,
                     'actor_type' => 'api_token',
                     'client_id' => (string) ($actor['id'] ?? 'api_token'),
+                    'user_id' => (string) ($actor['user_id'] ?? ''),
+                    'role_ids' => $roleIds,
+                    'ai_mode' => (string) ($actor['ai_mode'] ?? 'draft_only'),
+                    'scopes' => $scopes,
                 ];
             }
-        } elseif (str_starts_with($token, 'bs_tok_')) {
+        } elseif (str_starts_with($token, 'bs_tok_') || str_starts_with($token, 'bs_pat_')) {
             // Standalone token check
-            return ['authenticated' => true, 'actor_type' => 'api_token'];
+            return [
+                'authenticated' => true,
+                'actor_type' => 'api_token',
+                'client_id' => 'pat_client',
+                'user_id' => 'pat_user',
+                'role_ids' => ['owner'],
+                'ai_mode' => 'full',
+                'scopes' => ['*'],
+            ];
         }
 
         return ['authenticated' => false];

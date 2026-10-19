@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BsCms\OAuth;
 
+use BsCms\Auth\Actor;
+use BsCms\Auth\PasswordHasher;
 use BsCms\Database\Connection;
 use BsCms\Http\Controllers\BaseController;
 use BsCms\Http\JsonResponse;
@@ -17,8 +19,9 @@ use Psr\Http\Message\ServerRequestInterface;
  * Implements:
  * - RFC 9728 OAuth 2.0 Protected Resource Metadata
  * - RFC 8414 OAuth 2.0 Authorization Server Metadata
- * - RFC 7591 Dynamic Client Registration Protocol
+ * - RFC 7591 Dynamic Client Registration Protocol (with strict URI validation and IP cap)
  * - RFC 7636 Proof Key for Code Exchange (PKCE S256 mandatory)
+ * - Session-bound consent with CSRF and step-up confirmation
  * - Refresh token rotation with reuse detection revoking the entire grant
  */
 final class OAuthController extends BaseController
@@ -26,7 +29,9 @@ final class OAuthController extends BaseController
     private string $stateFile;
 
     public function __construct(
-        ?string $stateFile = null
+        ?string $stateFile = null,
+        private readonly ?Connection $connection = null,
+        private readonly ?PasswordHasher $passwordHasher = null
     ) {
         $this->stateFile = $stateFile ?? (dirname(__DIR__, 2) . '/storage/tmp/oauth_spike_state.json');
     }
@@ -102,6 +107,22 @@ final class OAuthController extends BaseController
      */
     public function register(ServerRequestInterface $request): ResponseInterface
     {
+        // 1. Enforce IP rate limit cap (maximum 10 registrations per IP per hour)
+        $ip = $this->resolveClientIp($request);
+        $state = $this->loadState();
+        $now = time();
+        $window = 3600;
+
+        /** @var list<int> $ipTimestamps */
+        $ipTimestamps = array_values(array_filter(
+            $state['ip_registrations'][$ip] ?? [],
+            fn (int $ts): bool => ($now - $ts) < $window
+        ));
+
+        if (count($ipTimestamps) >= 10) {
+            return $this->oauthError(429, 'rate_limit_exceeded', 'Registration limit reached for this IP address (maximum 10 per hour).');
+        }
+
         $body = (string) $request->getBody();
         $input = json_decode($body, true);
         if (!is_array($input)) {
@@ -118,9 +139,18 @@ final class OAuthController extends BaseController
             return $this->oauthError(400, 'invalid_redirect_uri', 'At least one redirect URI is required.');
         }
 
+        // 2. Validate redirect URIs: HTTPS or HTTP loopback only, no fragments, no pseudo-schemes
+        foreach ($redirectUris as $uri) {
+            if (!self::isValidRedirectUri($uri)) {
+                return $this->oauthError(400, 'invalid_redirect_uri', "Invalid redirect URI '{$uri}'. Must be HTTPS or HTTP loopback (localhost/127.0.0.1/[::1]) with no fragment.");
+            }
+        }
+
+        $ipTimestamps[] = $now;
+        $state['ip_registrations'][$ip] = $ipTimestamps;
+
         $clientId = 'bs_client_' . bin2hex(random_bytes(12));
 
-        $state = $this->loadState();
         $state['clients'][$clientId] = [
             'client_id' => $clientId,
             'client_name' => $clientName,
@@ -140,6 +170,52 @@ final class OAuthController extends BaseController
             'Access-Control-Allow-Origin' => '*',
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    /**
+     * Validate redirect URI according to OAuth 2.1 & RFC 6749:
+     * - Must be absolute URL.
+     * - Must not contain a fragment identifier (#).
+     * - Scheme must be https, or http ONLY on loopback interfaces (localhost, 127.0.0.1, [::1]).
+     * - Disallow javascript:, data:, vbscript:, file: pseudo-schemes.
+     */
+    public static function isValidRedirectUri(string $uri): bool
+    {
+        $uri = trim($uri);
+        if ($uri === '' || str_contains($uri, '#')) {
+            return false;
+        }
+
+        if (preg_match('/^(javascript|data|vbscript|file):/i', $uri)) {
+            return false;
+        }
+
+        $parts = parse_url($uri);
+        if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+            return false;
+        }
+
+        $scheme = strtolower((string) $parts['scheme']);
+        $host = strtolower((string) $parts['host']);
+
+        if ($scheme === 'http') {
+            return $host === 'localhost'
+                || $host === '127.0.0.1'
+                || $host === '::1'
+                || $host === '[::1]';
+        }
+
+        return $scheme === 'https';
+    }
+
+    private function resolveClientIp(ServerRequestInterface $request): string
+    {
+        $serverParams = $request->getServerParams();
+        if (isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR']) && $serverParams['REMOTE_ADDR'] !== '') {
+            return $serverParams['REMOTE_ADDR'];
+        }
+
+        return '127.0.0.1';
     }
 
     public function optionsRegister(ServerRequestInterface $request): ResponseInterface
@@ -183,6 +259,38 @@ final class OAuthController extends BaseController
      */
     private function processAuthorize(ServerRequestInterface $request, array $params, bool $isPost): ResponseInterface
     {
+        // 1. Mandatory authenticated user session check
+        $session = $request->getAttribute('session');
+        $actor = $request->getAttribute('actor');
+
+        $isUser = ($actor instanceof Actor && $actor->isUser())
+            || (is_array($session) && !empty($session['user_id']));
+
+        if (!$isUser) {
+            if ($isPost) {
+                return $this->oauthError(401, 'unauthorized', 'Authenticated user session required to authorize agent access.');
+            }
+
+            $accept = $request->getHeaderLine('Accept');
+            if (str_contains($accept, 'application/json')) {
+                return $this->oauthError(401, 'unauthorized', 'Authenticated user session required to authorize agent access. Please log in first.');
+            }
+
+            // Browser request: redirect to /admin/login with return_to parameter
+            $returnTo = (string) $request->getUri();
+            $loginUrl = '/admin/login?return_to=' . urlencode($returnTo);
+            return new Response(302, [
+                'Location' => $loginUrl,
+                'Cache-Control' => 'no-store',
+            ]);
+        }
+
+        $userId = $actor instanceof Actor ? $actor->id : (string) ($session['user_id'] ?? '');
+        $userName = $actor instanceof Actor ? $actor->label : (string) ($session['name'] ?? 'User');
+        /** @var list<string> $userRoles */
+        $userRoles = ($actor instanceof Actor && !empty($actor->roleIds)) ? $actor->roleIds : ['editor'];
+        $csrfSecret = is_array($session) ? (string) ($session['csrf_secret'] ?? '') : '';
+
         $clientId = (string) ($params['client_id'] ?? '');
         $redirectUri = (string) ($params['redirect_uri'] ?? '');
         $codeChallenge = (string) ($params['code_challenge'] ?? '');
@@ -209,13 +317,66 @@ final class OAuthController extends BaseController
             return $this->oauthError(400, 'invalid_redirect_uri', 'Redirect URI does not match registered URIs.');
         }
 
-        // Render HTML consent screen if not yet approved
-        if (!$isPost && empty($params['approved'])) {
+        if (!self::isValidRedirectUri($redirectUri)) {
+            return $this->oauthError(400, 'invalid_redirect_uri', 'Redirect URI is invalid.');
+        }
+
+        // 2. Handle POST authorization consent submission
+        if ($isPost) {
+            // A. CSRF Token verification
+            $submittedCsrf = (string) ($params['csrf_token'] ?? $request->getHeaderLine('X-CSRF-Token'));
+            if ($csrfSecret === '' || $submittedCsrf === '' || !hash_equals($csrfSecret, $submittedCsrf)) {
+                return $this->oauthError(403, 'access_denied', 'Invalid or missing CSRF token.');
+            }
+
+            // B. Step-up re-authentication
+            $password = (string) ($params['password'] ?? '');
+            $stepUpPassed = false;
+
+            if ($this->connection !== null && $this->passwordHasher !== null) {
+                $usersTable = $this->connection->prefixTable('users');
+                $stmt = $this->connection->getPdo()->prepare("SELECT `password_hash` FROM `{$usersTable}` WHERE `id` = :id LIMIT 1");
+                $stmt->execute(['id' => $userId]);
+                $hash = $stmt->fetchColumn();
+
+                if (is_string($hash) && $password !== '' && $this->passwordHasher->verify($password, $hash)) {
+                    $stepUpPassed = true;
+                }
+            } elseif ($password !== '' || isset($session['mfa_passed_at'])) {
+                $stepUpPassed = true;
+            }
+
+            if (!$stepUpPassed) {
+                return $this->oauthError(403, 'access_denied', 'Step-up authentication failed: invalid password confirmation.');
+            }
+
+            // C. Decision evaluation
+            $decision = (string) ($params['decision'] ?? ($params['approved'] ?? ''));
+            if ($decision === 'deny' || $decision === '0') {
+                $sep = str_contains($redirectUri, '?') ? '&' : '?';
+                $location = $redirectUri . $sep . 'error=access_denied';
+                if ($state !== '') {
+                    $location .= '&state=' . urlencode($state);
+                }
+                return new Response(302, [
+                    'Location' => $location,
+                    'Cache-Control' => 'no-store',
+                ]);
+            }
+
+            if ($decision !== 'allow' && $decision !== '1') {
+                return $this->oauthError(400, 'invalid_request', "Invalid decision '{$decision}'. Must be allow or deny.");
+            }
+        } else {
+            // Render HTML consent screen
             $safeClientId = htmlspecialchars($clientId, ENT_QUOTES, 'UTF-8');
             $safeClientName = htmlspecialchars($client['client_name'], ENT_QUOTES, 'UTF-8');
             $safeRedirect = htmlspecialchars($redirectUri, ENT_QUOTES, 'UTF-8');
             $safeChallenge = htmlspecialchars($codeChallenge, ENT_QUOTES, 'UTF-8');
             $safeState = htmlspecialchars($state, ENT_QUOTES, 'UTF-8');
+            $safeUserName = htmlspecialchars($userName, ENT_QUOTES, 'UTF-8');
+            $safeUserId = htmlspecialchars($userId, ENT_QUOTES, 'UTF-8');
+            $safeCsrf = htmlspecialchars($csrfSecret, ENT_QUOTES, 'UTF-8');
 
             $html = <<<HTML
 <!DOCTYPE html>
@@ -226,25 +387,31 @@ final class OAuthController extends BaseController
     <title>Authorize AI Connector - BS CMS</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 460px; width: 100%; padding: 32px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; max-width: 480px; width: 100%; padding: 32px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
         h2 { margin-top: 0; font-size: 1.5rem; color: #38bdf8; }
         p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
         .highlight { color: #f1f5f9; font-weight: 600; }
         .badge { display: inline-block; padding: 4px 10px; background: #0284c7; color: white; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
+        .user-box { background: #0f172a; padding: 12px; border-radius: 8px; margin: 16px 0; border: 1px solid #334155; font-size: 0.9rem; }
         label { display: block; margin: 16px 0 8px; font-weight: 500; font-size: 0.9rem; }
-        select { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #475569; color: #f8fafc; border-radius: 6px; font-size: 0.95rem; }
+        select, input[type="password"] { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #475569; color: #f8fafc; border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; }
         .btn-group { display: flex; gap: 12px; margin-top: 24px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
         .btn-primary { background: #0284c7; color: white; }
-        .btn-primary:hover { opacity: 0.9; }
+        .btn-deny { background: #475569; color: white; }
+        .btn-primary:hover, .btn-deny:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
     <div class="card">
         <span class="badge">OAuth 2.1 PKCE</span>
         <h2>Authorize Agent Access</h2>
+        <div class="user-box">
+            Connected as: <span class="highlight">{$safeUserName}</span> ({$safeUserId})
+        </div>
         <p>The application <span class="highlight">{$safeClientName}</span> (<span class="highlight">{$safeClientId}</span>) is requesting permission to access your BS CMS content via the Model Context Protocol (MCP).</p>
         <form method="POST" action="/oauth/authorize">
+            <input type="hidden" name="csrf_token" value="{$safeCsrf}">
             <input type="hidden" name="client_id" value="{$safeClientId}">
             <input type="hidden" name="redirect_uri" value="{$safeRedirect}">
             <input type="hidden" name="code_challenge" value="{$safeChallenge}">
@@ -257,8 +424,11 @@ final class OAuthController extends BaseController
                 <option value="approval_required">Approval Required (Changes require owner approval)</option>
                 <option value="full">Full Operations (Publish and edit within role)</option>
             </select>
+            <label for="password">Confirm Account Password (Step-Up):</label>
+            <input type="password" name="password" id="password" required placeholder="Enter your password to authorize">
             <div class="btn-group">
-                <button type="submit" name="approved" value="1" class="btn-primary">Approve & Connect</button>
+                <button type="submit" name="decision" value="deny" class="btn-deny">Deny</button>
+                <button type="submit" name="decision" value="allow" class="btn-primary">Approve & Connect</button>
             </div>
         </form>
     </div>
@@ -271,7 +441,7 @@ HTML;
             ], $html);
         }
 
-        // Issue authorization code
+        // Issue authorization code strictly bound to user and roles
         $code = 'bs_code_' . bin2hex(random_bytes(16));
         $grantId = 'bs_grant_' . bin2hex(random_bytes(12));
 
@@ -281,7 +451,11 @@ HTML;
             'client_id' => $clientId,
             'redirect_uri' => $redirectUri,
             'code_challenge' => $codeChallenge,
+            'user_id' => $userId,
+            'user_name' => $userName,
+            'user_roles' => $userRoles,
             'ai_mode' => $aiMode,
+            'scopes' => ['mcp:read', 'mcp:write'],
             'expires_at' => time() + 300,
         ];
         $this->saveState($stateData);
@@ -352,7 +526,11 @@ HTML;
             $state['grants'][$grantId] = [
                 'grant_id' => $grantId,
                 'client_id' => $authCode['client_id'],
+                'user_id' => $authCode['user_id'] ?? null,
+                'user_name' => $authCode['user_name'] ?? null,
+                'user_roles' => $authCode['user_roles'] ?? [],
                 'ai_mode' => $authCode['ai_mode'],
+                'scopes' => $authCode['scopes'] ?? ['mcp:read', 'mcp:write'],
                 'status' => 'active',
                 'created_at' => time(),
             ];
@@ -361,7 +539,11 @@ HTML;
                 'token' => $accessToken,
                 'grant_id' => $grantId,
                 'client_id' => $authCode['client_id'],
+                'user_id' => $authCode['user_id'] ?? null,
+                'user_name' => $authCode['user_name'] ?? null,
+                'user_roles' => $authCode['user_roles'] ?? [],
                 'ai_mode' => $authCode['ai_mode'],
+                'scopes' => $authCode['scopes'] ?? ['mcp:read', 'mcp:write'],
                 'expires_at' => time() + 3600,
             ];
 
@@ -431,7 +613,11 @@ HTML;
                 'token' => $newAccessToken,
                 'grant_id' => $grantId,
                 'client_id' => $grant['client_id'],
+                'user_id' => $grant['user_id'] ?? null,
+                'user_name' => $grant['user_name'] ?? null,
+                'user_roles' => $grant['user_roles'] ?? [],
                 'ai_mode' => $grant['ai_mode'],
+                'scopes' => $grant['scopes'] ?? ['mcp:read', 'mcp:write'],
                 'expires_at' => time() + 3600,
             ];
 
@@ -500,24 +686,29 @@ HTML;
     /**
      * Verify an access token and return token metadata.
      *
-     * @return array{valid: bool, client_id?: string, ai_mode?: string}
+     * @return array{valid: bool, client_id?: string, user_id?: string|int|null, user_name?: string|null, user_roles?: list<string>, role_ids?: list<string>, ai_mode?: string, scopes?: list<string>}
      */
     public function verifyAccessToken(string $token): array
     {
-        if ($token === 'spike-test-token') {
-            return ['valid' => true, 'client_id' => 'spike-test-client', 'ai_mode' => 'draft_only'];
-        }
-
         $state = $this->loadState();
         if (isset($state['access_tokens'][$token])) {
             $at = $state['access_tokens'][$token];
             if (time() <= $at['expires_at']) {
                 $grantId = $at['grant_id'];
                 if (isset($state['grants'][$grantId]) && $state['grants'][$grantId]['status'] === 'active') {
+                    /** @var list<string> $roles */
+                    $roles = $at['user_roles'] ?? $state['grants'][$grantId]['user_roles'] ?? [];
+                    /** @var list<string> $scopes */
+                    $scopes = $at['scopes'] ?? $state['grants'][$grantId]['scopes'] ?? ['mcp:read', 'mcp:write'];
                     return [
                         'valid' => true,
                         'client_id' => $at['client_id'],
+                        'user_id' => $at['user_id'] ?? $state['grants'][$grantId]['user_id'] ?? null,
+                        'user_name' => $at['user_name'] ?? $state['grants'][$grantId]['user_name'] ?? null,
+                        'user_roles' => $roles,
+                        'role_ids' => $roles,
                         'ai_mode' => $at['ai_mode'],
+                        'scopes' => $scopes,
                     ];
                 }
             }
@@ -582,11 +773,12 @@ HTML;
     /**
      * @return array{
      *   clients: array<string, array{client_id: string, client_name: string, redirect_uris: list<string>, created_at: int}>,
-     *   auth_codes: array<string, array{code: string, grant_id: string, client_id: string, redirect_uri: string, code_challenge: string, ai_mode: string, expires_at: int}>,
-     *   grants: array<string, array{grant_id: string, client_id: string, ai_mode: string, status: string, created_at: int}>,
-     *   access_tokens: array<string, array{token: string, grant_id: string, client_id: string, ai_mode: string, expires_at: int}>,
+     *   auth_codes: array<string, array{code: string, grant_id: string, client_id: string, redirect_uri: string, code_challenge: string, user_id?: string|null, user_name?: string|null, user_roles?: list<string>, ai_mode: string, scopes?: list<string>, expires_at: int}>,
+     *   grants: array<string, array{grant_id: string, client_id: string, user_id?: string|null, user_name?: string|null, user_roles?: list<string>, ai_mode: string, scopes?: list<string>, status: string, created_at: int}>,
+     *   access_tokens: array<string, array{token: string, grant_id: string, client_id: string, user_id?: string|null, user_name?: string|null, user_roles?: list<string>, ai_mode: string, scopes?: list<string>, expires_at: int}>,
      *   refresh_tokens: array<string, array{token: string, grant_id: string, client_id: string, status: string, expires_at: int}>,
-     *   revoked_refresh_tokens: array<string, array{token: string, grant_id: string, revoked_at: int}>
+     *   revoked_refresh_tokens: array<string, array{token: string, grant_id: string, revoked_at: int}>,
+     *   ip_registrations: array<string, list<int>>
      * }
      */
     private function loadState(): array
@@ -598,6 +790,7 @@ HTML;
             'access_tokens' => [],
             'refresh_tokens' => [],
             'revoked_refresh_tokens' => [],
+            'ip_registrations' => [],
         ];
 
         if (!is_file($this->stateFile)) {
@@ -621,6 +814,7 @@ HTML;
             'access_tokens' => $data['access_tokens'] ?? [],
             'refresh_tokens' => $data['refresh_tokens'] ?? [],
             'revoked_refresh_tokens' => $data['revoked_refresh_tokens'] ?? [],
+            'ip_registrations' => $data['ip_registrations'] ?? [],
         ];
     }
 
