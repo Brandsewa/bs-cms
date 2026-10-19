@@ -40,8 +40,23 @@ final class CsrfMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        // 1. Verify X-CSRF-Token header
+        // 1. Verify CSRF token from X-CSRF-Token header or csrf_token parameter
         $headerToken = $request->getHeaderLine('X-CSRF-Token');
+        if ($headerToken === '') {
+            $parsedBody = $request->getParsedBody();
+            if (is_array($parsedBody) && isset($parsedBody['csrf_token']) && is_string($parsedBody['csrf_token'])) {
+                $headerToken = $parsedBody['csrf_token'];
+            } else {
+                $rawBody = (string) $request->getBody();
+                if ($rawBody !== '') {
+                    parse_str($rawBody, $parsedQuery);
+                    if (isset($parsedQuery['csrf_token']) && is_string($parsedQuery['csrf_token'])) {
+                        $headerToken = $parsedQuery['csrf_token'];
+                    }
+                }
+            }
+        }
+
         $expectedToken = (string) ($session['csrf_secret'] ?? '');
 
         if ($headerToken === '' || $expectedToken === '' || !hash_equals($expectedToken, $headerToken)) {

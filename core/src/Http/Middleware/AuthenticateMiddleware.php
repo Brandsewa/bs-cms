@@ -51,6 +51,22 @@ final class AuthenticateMiddleware implements MiddlewareInterface
         $this->addPublic('GET', '#^/api/v1/public(/.*)?$#');
         $this->addPublic('HEAD', '#^/api/v1/public(/.*)?$#');
         $this->addPublic('GET', '#^/api/v1/openapi\.json$#');
+
+        // MCP and OAuth endpoints (MCP enforces custom 401 with WWW-Authenticate header)
+        $this->addPublic('GET', '#^/\.well-known/oauth-protected-resource$#');
+        $this->addPublic('OPTIONS', '#^/\.well-known/oauth-protected-resource$#');
+        $this->addPublic('GET', '#^/\.well-known/oauth-authorization-server$#');
+        $this->addPublic('OPTIONS', '#^/\.well-known/oauth-authorization-server$#');
+        $this->addPublic('POST', '#^/oauth/register$#');
+        $this->addPublic('OPTIONS', '#^/oauth/register$#');
+        $this->addPublic('GET', '#^/oauth/authorize$#');
+        $this->addPublic('POST', '#^/oauth/authorize$#');
+        $this->addPublic('POST', '#^/oauth/token$#');
+        $this->addPublic('OPTIONS', '#^/oauth/token$#');
+        $this->addPublic('POST', '#^/oauth/revoke$#');
+        $this->addPublic('GET', '#^/mcp$#');
+        $this->addPublic('POST', '#^/mcp$#');
+        $this->addPublic('OPTIONS', '#^/mcp$#');
     }
 
     private function addPublic(string $method, string $regex): void
@@ -60,6 +76,12 @@ final class AuthenticateMiddleware implements MiddlewareInterface
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        $path = $request->getUri()->getPath();
+        $normalizedPath = rtrim($path, '/');
+        if ($normalizedPath === '') {
+            $normalizedPath = '/';
+        }
+        $method = strtoupper($request->getMethod());
         $actor = $request->getAttribute('actor');
 
         // 1. If not authenticated via session, check Authorization: Bearer <token>
@@ -94,7 +116,7 @@ final class AuthenticateMiddleware implements MiddlewareInterface
                             ->withAttribute('actor', $tokenActor)
                             ->withAttribute('api_token', $tokenData);
                         $actor = $tokenActor;
-                    } else {
+                    } elseif (str_starts_with($path, '/api/v1/') && !$this->isPublicRoute($method, $normalizedPath)) {
                         return ProblemDetails::create(
                             401,
                             'Unauthorized',
@@ -106,14 +128,7 @@ final class AuthenticateMiddleware implements MiddlewareInterface
             }
         }
 
-        $path = $request->getUri()->getPath();
-        $normalizedPath = rtrim($path, '/');
-        if ($normalizedPath === '') {
-            $normalizedPath = '/';
-        }
-        $method = strtoupper($request->getMethod());
-
-        // 2. Non-API endpoints (e.g. /admin SPA) pass through
+        // 2. Non-API endpoints (e.g. /admin SPA, /mcp, /oauth/*) pass through
         if (!str_starts_with($path, '/api/v1/')) {
             return $handler->handle($request);
         }

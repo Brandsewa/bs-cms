@@ -8,6 +8,10 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Pass Authorization header to PHP in CGI / FastCGI / LiteSpeed SAPI environments
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     # Deny dotfiles (.git, .env, .htaccess, etc.) except for /.well-known/ (required for ACME and discovery)
     RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
     RewriteRule (^\.|/\.) - [F,L]
