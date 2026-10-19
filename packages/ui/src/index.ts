@@ -271,3 +271,26 @@ export type {
   SidebarItem,
   StepperProps,
 } from './layout';
+
+// DataTable (docs/02-ui-spec.md 3.1)
+export { DataTable, describeFilter, applyFilters } from './data-table';
+export type { DataTableProps, DataTableState, TableSorting } from './data-table';
+export type {
+  ActiveFilter,
+  BulkActionOutcome,
+  BulkFailure,
+  CursorInfo,
+  DataTableBulkAction,
+  DataTableColumn,
+  DataTableError,
+  DataTableFilter,
+  Density,
+  FieldType,
+  FilterType,
+  FilterValue,
+  ReferencedItem,
+  RowMenuItem,
+  SavedView,
+  StatusTab,
+  StatusValue,
+} from './data-table';
