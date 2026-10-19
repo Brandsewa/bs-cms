@@ -1,4 +1,4 @@
-# Apache & LiteSpeed Security Rules for Media Uploads
+## Apache & LiteSpeed Security Rules for Media Uploads
 # Disable PHP execution completely across all versions
 <IfModule mod_php.c>
     php_flag engine off
@@ -41,9 +41,9 @@ SetHandler default-handler
 
 Options -ExecCGI -Indexes
 
-# Security headers
+# Security headers for all media files (including images)
 <IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
+    Header always set X-Content-Type-Options "nosniff"
     <FilesMatch "\.(pdf|txt|csv|doc|docx|xls|xlsx|zip|tar|gz)$">
         Header set Content-Disposition "attachment"
     </FilesMatch>

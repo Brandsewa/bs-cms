@@ -48,7 +48,7 @@ final class DerivedFields
 
         // Generate clean excerpt
         $excerptSource = $firstParagraphText ?? $joinedText;
-        $excerpt = self::truncateExcerpt($excerptSource, 180);
+        $excerpt = self::truncateExcerpt($excerptSource, 160);
 
         return [
             'excerpt' => $excerpt,
@@ -118,8 +118,9 @@ final class DerivedFields
 
             // 3. Images & Media IDs
             if ($type === 'image') {
-                if (!empty($attrs['media_id']) && is_string($attrs['media_id'])) {
-                    $mediaIds[] = (string) $attrs['media_id'];
+                $mId = $attrs['media_id'] ?? ($attrs['id'] ?? null);
+                if (!empty($mId) && is_string($mId)) {
+                    $mediaIds[] = (string) $mId;
                 } elseif (!empty($attrs['src']) && is_string($attrs['src'])) {
                     if (preg_match('/([0-7][0-9A-HJKMNP-TV-Z]{25})/i', $attrs['src'], $m)) {
                         $mediaIds[] = strtoupper($m[1]);
@@ -241,7 +242,7 @@ final class DerivedFields
         return !str_contains($trimmed, ':');
     }
 
-    private static function truncateExcerpt(string $text, int $maxLength): string
+    public static function truncateExcerpt(string $text, int $maxLength): string
     {
         $cleaned = trim(preg_replace('/\s+/', ' ', $text) ?? '');
         if (mb_strlen($cleaned) <= $maxLength) {

@@ -61,6 +61,7 @@ final class IdentifierValidator
         'api',
         'admin',
         'auth',
+        'system',
     ];
 
     public static function isValidHandle(string $handle): bool
@@ -78,6 +79,19 @@ final class IdentifierValidator
 
         if (in_array(strtolower($handle), self::RESERVED_COLLECTIONS, true)) {
             throw new InvalidArgumentException("Collection handle '{$handle}' is reserved and cannot be used.");
+        }
+    }
+
+    public static function validateTaxonomyHandle(string $handle): void
+    {
+        if (!self::isValidHandle($handle)) {
+            throw new InvalidArgumentException(
+                "Invalid taxonomy handle '{$handle}'. Must start with a letter and contain only lowercase letters, digits, and underscores (max 64 chars)."
+            );
+        }
+
+        if (in_array(strtolower($handle), self::RESERVED_COLLECTIONS, true)) {
+            throw new InvalidArgumentException("Taxonomy handle '{$handle}' is reserved and cannot be used.");
         }
     }
 

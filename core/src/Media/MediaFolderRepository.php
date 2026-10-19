@@ -124,6 +124,16 @@ final class MediaFolderRepository
         return $this->findById($id) ?? [];
     }
 
+    /**
+     * Move folder under a new parent (or to root if null).
+     *
+     * @return array<string, mixed>
+     */
+    public function move(string $id, ?string $newParentId): array
+    {
+        return $this->update($id, ['parent_id' => $newParentId]);
+    }
+
     public function delete(string $id): void
     {
         $folder = $this->findById($id);

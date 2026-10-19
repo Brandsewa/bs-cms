@@ -135,10 +135,10 @@ final class TermRepository
 
         $slug = trim((string) ($data['slug'] ?? ''));
         if ($slug === '') {
-            $slug = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9_-]+/', '-', $name), '-'));
+            $slug = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9]+/', '-', str_replace('_', '-', $name)), '-'));
         }
-        if ($slug === '' || !preg_match('/^[a-z0-9_-]+$/', $slug)) {
-            throw new InvalidArgumentException("Invalid term slug '{$slug}'.");
+        if ($slug === '' || !preg_match('/^[a-z0-9-]+$/', $slug)) {
+            throw new InvalidArgumentException("Invalid term slug '{$slug}'. Slugs must contain only lowercase alphanumeric characters and hyphens.");
         }
 
         $parentId = isset($data['parent_id']) && $data['parent_id'] !== '' ? (string) $data['parent_id'] : null;
@@ -240,8 +240,8 @@ final class TermRepository
         if (array_key_exists('slug', $data)) {
             $candidateSlug = trim((string) $data['slug']);
             if ($candidateSlug !== '' && $candidateSlug !== $term['slug']) {
-                if (!preg_match('/^[a-z0-9_-]+$/', $candidateSlug)) {
-                    throw new InvalidArgumentException("Invalid term slug format: '{$candidateSlug}'.");
+                if (!preg_match('/^[a-z0-9-]+$/', $candidateSlug)) {
+                    throw new InvalidArgumentException("Invalid term slug format: '{$candidateSlug}'. Slugs must contain only lowercase alphanumeric characters and hyphens.");
                 }
                 $newSlug = $candidateSlug;
                 $slugChanged = true;
@@ -478,6 +478,7 @@ final class TermRepository
 
         $taxonomyId = (string) $term['taxonomy_id'];
         $table = $this->connection->prefixTable('terms');
+        $relTable = $this->connection->prefixTable('term_relationships');
 
         // Check if children exist
         $stmt = $this->connection->execute("SELECT COUNT(*) FROM `{$table}` WHERE `parent_id` = ?", [$termId]);
@@ -486,33 +487,85 @@ final class TermRepository
             throw new InvalidArgumentException("Cannot delete term '{$termId}' because it has {$childCount} child terms. Move or delete children first.");
         }
 
-        $relTable = $this->connection->prefixTable('term_relationships');
+        // Check if published entries exist
+        $pubStmt = $this->connection->execute(
+            "SELECT COUNT(*) FROM `{$relTable}` WHERE `term_id` = ? AND `is_published` = 1",
+            [$termId]
+        );
+        $publishedCount = (int) $pubStmt->fetchColumn();
+        if ($publishedCount > 0 && ($reassignToTermId === null || trim($reassignToTermId) === '')) {
+            throw new InvalidArgumentException("Cannot delete term '{$termId}' because it has {$publishedCount} published entries. Reassign target 'reassign_to' is required.");
+        }
+
+        if ($reassignToTermId !== null && trim($reassignToTermId) !== '') {
+            if ($reassignToTermId === $termId) {
+                throw new InvalidArgumentException("Cannot reassign to the same term being deleted.");
+            }
+            $targetTerm = $this->findById($reassignToTermId);
+            if ($targetTerm === null || $targetTerm['taxonomy_id'] !== $taxonomyId) {
+                throw new InvalidArgumentException("Reassignment target term '{$reassignToTermId}' not found in the same taxonomy.");
+            }
+        } else {
+            $reassignToTermId = null;
+        }
 
         $this->connection->transaction(function () use ($relTable, $table, $reassignToTermId, $termId, $taxonomyId) {
-            if ($reassignToTermId !== null) {
-                $targetTerm = $this->findById($reassignToTermId);
-                if ($targetTerm === null || $targetTerm['taxonomy_id'] !== $taxonomyId) {
-                    throw new InvalidArgumentException("Reassignment target term '{$reassignToTermId}' not found.");
-                }
+            // Reassign or clean up term relationships
+            $entryRefsStmt = $this->connection->execute(
+                "SELECT `collection_id`, `entry_id`, `is_primary` FROM `{$relTable}` WHERE `term_id` = ?",
+                [$termId]
+            );
+            /** @var list<array{collection_id: string, entry_id: string, is_primary: int|string}> $entriesWithTerm */
+            $entriesWithTerm = $entryRefsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-                // Reassign relationships, ignoring duplicates
-                $this->connection->execute(
-                    "UPDATE IGNORE `{$relTable}` SET `term_id` = ? WHERE `term_id` = ?",
-                    [$reassignToTermId, $termId]
-                );
-                // Delete any remaining (which were duplicates)
-                $this->connection->execute("DELETE FROM `{$relTable}` WHERE `term_id` = ?", [$termId]);
+            if ($reassignToTermId !== null) {
+                foreach ($entriesWithTerm as $ref) {
+                    $cId = (string) $ref['collection_id'];
+                    $eId = (string) $ref['entry_id'];
+                    $isPrimary = (int) $ref['is_primary'];
+
+                    $checkStmt = $this->connection->execute(
+                        "SELECT `is_primary` FROM `{$relTable}` WHERE `collection_id` = ? AND `entry_id` = ? AND `term_id` = ?",
+                        [$cId, $eId, $reassignToTermId]
+                    );
+                    $existingRel = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($existingRel !== false) {
+                        if ($isPrimary === 1 && (int) $existingRel['is_primary'] === 0) {
+                            $this->connection->execute(
+                                "UPDATE `{$relTable}` SET `is_primary` = 1 WHERE `collection_id` = ? AND `entry_id` = ? AND `term_id` = ?",
+                                [$cId, $eId, $reassignToTermId]
+                            );
+                        }
+                        $this->connection->execute(
+                            "DELETE FROM `{$relTable}` WHERE `collection_id` = ? AND `entry_id` = ? AND `term_id` = ?",
+                            [$cId, $eId, $termId]
+                        );
+                    } else {
+                        $this->connection->execute(
+                            "UPDATE `{$relTable}` SET `term_id` = ? WHERE `collection_id` = ? AND `entry_id` = ? AND `term_id` = ?",
+                            [$reassignToTermId, $cId, $eId, $termId]
+                        );
+                    }
+                }
             } else {
                 $this->connection->execute("DELETE FROM `{$relTable}` WHERE `term_id` = ?", [$termId]);
             }
 
+            // Clean up / update entry data JSON in collection tables
+            $this->updateEntryTaxonomyFieldsOnTermRemoval($taxonomyId, $termId, $reassignToTermId);
+
+            // Delete term row
             $this->connection->execute("DELETE FROM `{$table}` WHERE `id` = ?", [$termId]);
         });
+
+        // Recompute entry counts
+        $this->recomputeCounts($taxonomyId);
     }
 
     /**
      * Merge source term into target term.
-     * Reassigns all entry relationships, then deletes source term.
+     * Reassigns all entry relationships, creates archive redirect, updates entry JSON, then deletes source term.
      */
     public function merge(string $sourceTermId, string $targetTermId): void
     {
@@ -530,24 +583,132 @@ final class TermRepository
             throw new InvalidArgumentException("Cannot merge terms across different taxonomies.");
         }
 
-        $table = $this->connection->prefixTable('terms');
-        // If source has children, reparent them to target
-        $this->connection->execute(
-            "UPDATE `{$table}` SET `parent_id` = ? WHERE `parent_id` = ?",
-            [$targetTermId, $sourceTermId]
-        );
+        $taxonomyId = (string) $source['taxonomy_id'];
+        $locked = $this->lockTaxonomy($taxonomyId, 10);
+        if (!$locked) {
+            throw new RuntimeException("Could not acquire taxonomy lock for merge operation.");
+        }
 
-        $this->delete($sourceTermId, $targetTermId);
+        try {
+            $table = $this->connection->prefixTable('terms');
+            // Reparent direct children of source to target
+            $childStmt = $this->connection->execute("SELECT `id` FROM `{$table}` WHERE `parent_id` = ?", [$sourceTermId]);
+            /** @var list<string> $childIds */
+            $childIds = $childStmt->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($childIds as $childId) {
+                $this->move((string) $childId, $targetTermId);
+            }
+
+            // Create auto-redirect for old term archive URL
+            $this->createArchiveRedirectOnMerge($source, $target);
+
+            // Reassign relationships, update entries, and delete source
+            $this->delete($sourceTermId, $targetTermId);
+        } finally {
+            $this->releaseTaxonomy($taxonomyId);
+        }
     }
 
     /**
-     * Recompute cached entry_count for terms in a taxonomy (or globally).
+     * Batch reorder positions and parents of terms within a taxonomy.
+     *
+     * @param list<array{id: string, position: int, parent_id?: string|null}> $items
+     */
+    public function reorder(string $taxonomyId, array $items): void
+    {
+        $locked = $this->lockTaxonomy($taxonomyId, 10);
+        if (!$locked) {
+            throw new RuntimeException("Could not acquire taxonomy lock for reorder.");
+        }
+
+        try {
+            foreach ($items as $item) {
+                $termId = (string) $item['id'];
+                if ($termId === '') {
+                    continue;
+                }
+                $pos = (int) $item['position'];
+                $newParentId = array_key_exists('parent_id', $item) ? ($item['parent_id'] !== null ? (string) $item['parent_id'] : null) : null;
+                $this->move($termId, $newParentId, $pos);
+            }
+        } finally {
+            $this->releaseTaxonomy($taxonomyId);
+        }
+    }
+
+    /**
+     * Bulk action on terms.
+     *
+     * @param list<string> $termIds
+     * @return array{affected: int, action: string}
+     */
+    public function bulk(string $taxonomyId, string $action, array $termIds, ?string $targetParentId = null, ?string $reassignTo = null): array
+    {
+        $affected = 0;
+        if ($action === 'delete') {
+            foreach ($termIds as $id) {
+                $this->delete($id, $reassignTo);
+                $affected++;
+            }
+        } elseif ($action === 'move') {
+            foreach ($termIds as $id) {
+                $this->move($id, $targetParentId);
+                $affected++;
+            }
+        } else {
+            throw new InvalidArgumentException("Unsupported bulk action: {$action}");
+        }
+
+        return ['affected' => $affected, 'action' => $action];
+    }
+
+    /**
+     * Recompute cached entry_count for terms in a taxonomy (or globally) and repair integrity.
      */
     public function recomputeCounts(?string $taxonomyId = null): void
     {
         $termsTable = $this->connection->prefixTable('terms');
         $relTable = $this->connection->prefixTable('term_relationships');
+        $colTable = $this->connection->prefixTable('collections');
 
+        // 1. Delete orphan term_relationships where term no longer exists
+        $this->connection->execute(
+            "DELETE r FROM `{$relTable}` r LEFT JOIN `{$termsTable}` t ON t.id = r.term_id WHERE t.id IS NULL"
+        );
+
+        // 1b. Full CMS integrity check: clean up relationships referencing deleted or non-existent collections
+        if ($taxonomyId === null) {
+            $this->connection->execute(
+                "DELETE r FROM `{$relTable}` r LEFT JOIN `{$colTable}` c ON c.id = r.collection_id WHERE c.id IS NULL"
+            );
+        }
+
+        // 2. Synchronize is_published and sort_at from entry tables, and remove deleted entries
+        $colStmt = $this->connection->execute("SELECT `id`, `handle` FROM `{$colTable}`");
+        /** @var list<array{id: string, handle: string}> $cols */
+        $cols = $colStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($cols as $col) {
+            $colId = (string) $col['id'];
+            $entryTable = $this->connection->prefixTable('c_' . (string) $col['handle']);
+            $tCheck = $this->connection->execute("SHOW TABLES LIKE '{$entryTable}'");
+            if ($tCheck->fetch()) {
+                $this->connection->execute(
+                    "DELETE r FROM `{$relTable}` r LEFT JOIN `{$entryTable}` e ON e.id = r.entry_id WHERE r.collection_id = ? AND e.id IS NULL",
+                    [$colId]
+                );
+                $this->connection->execute(
+                    "UPDATE `{$relTable}` r
+                     JOIN `{$entryTable}` e ON e.id = r.entry_id
+                     SET r.is_published = (CASE WHEN e.status = 'published' AND e.deleted_at IS NULL THEN 1 ELSE 0 END),
+                         r.sort_at = e.published_at
+                     WHERE r.collection_id = ?",
+                    [$colId]
+                );
+            }
+        }
+
+        // 3. Recompute entry_count for terms
         if ($taxonomyId !== null) {
             $sql = "UPDATE `{$termsTable}` t
                     SET `entry_count` = (
@@ -566,6 +727,139 @@ final class TermRepository
                     )";
             $this->connection->execute($sql);
         }
+    }
+
+    /**
+     * Update entries' stored taxonomy JSON fields when a term is deleted or merged.
+     */
+    private function updateEntryTaxonomyFieldsOnTermRemoval(string $taxonomyId, string $removedTermId, ?string $replacementTermId): void
+    {
+        $colTable = $this->connection->prefixTable('collections');
+        $taxTable = $this->connection->prefixTable('taxonomies');
+        $taxStmt = $this->connection->execute("SELECT `handle` FROM `{$taxTable}` WHERE `id` = ?", [$taxonomyId]);
+        $taxHandle = $taxStmt->fetchColumn();
+        if (!$taxHandle) {
+            return;
+        }
+
+        $fieldsTable = $this->connection->prefixTable('fields');
+        $fieldStmt = $this->connection->execute(
+            "SELECT c.`id` AS collection_id, c.`handle` AS collection_handle, f.`handle` AS field_handle, f.`config`
+             FROM `{$fieldsTable}` f
+             JOIN `{$colTable}` c ON c.`id` = f.`collection_id`
+             WHERE f.`type` = 'taxonomy'"
+        );
+        /** @var list<array{collection_id: string, collection_handle: string, field_handle: string, config: string|array<string, mixed>}> $fields */
+        $fields = $fieldStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        /** @var array<string, list<string>> $fieldsByCollection */
+        $fieldsByCollection = [];
+        foreach ($fields as $f) {
+            $config = is_string($f['config']) ? json_decode($f['config'], true) : $f['config'];
+            $targetTax = is_array($config) ? ($config['taxonomy'] ?? '') : '';
+            if ($targetTax === $taxHandle || $targetTax === $taxonomyId) {
+                $fieldsByCollection[(string) $f['collection_handle']][] = (string) $f['field_handle'];
+            }
+        }
+
+        foreach ($fieldsByCollection as $colHandle => $taxFieldHandles) {
+            $entryTable = $this->connection->prefixTable('c_' . $colHandle);
+            $tCheck = $this->connection->execute("SHOW TABLES LIKE '{$entryTable}'");
+            if (!$tCheck->fetch()) {
+                continue;
+            }
+
+            $entriesStmt = $this->connection->execute(
+                "SELECT `id`, `data` FROM `{$entryTable}` WHERE `data` LIKE ?",
+                ['%' . $removedTermId . '%']
+            );
+            /** @var list<array{id: string, data: string|null}> $entryRows */
+            $entryRows = $entriesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($entryRows as $entryRow) {
+                $eId = (string) $entryRow['id'];
+                $data = is_string($entryRow['data']) ? json_decode($entryRow['data'], true) : $entryRow['data'];
+                if (!is_array($data)) {
+                    continue;
+                }
+
+                $changed = false;
+                foreach ($taxFieldHandles as $tfHandle) {
+                    if (!isset($data[$tfHandle])) {
+                        continue;
+                    }
+
+                    $val = $data[$tfHandle];
+                    if (is_array($val)) {
+                        $newItems = [];
+                        foreach ($val as $item) {
+                            $itemStr = (string) $item;
+                            if ($itemStr === $removedTermId) {
+                                if ($replacementTermId !== null) {
+                                    $newItems[] = $replacementTermId;
+                                }
+                            } else {
+                                $newItems[] = $item;
+                            }
+                        }
+                        $data[$tfHandle] = array_values(array_unique($newItems));
+                        $changed = true;
+                    } elseif (is_string($val) && $val === $removedTermId) {
+                        $data[$tfHandle] = $replacementTermId;
+                        $changed = true;
+                    }
+                }
+
+                if ($changed) {
+                    $encodedData = json_encode((object) $data, JSON_THROW_ON_ERROR);
+                    $this->connection->execute(
+                        "UPDATE `{$entryTable}` SET `data` = ? WHERE `id` = ?",
+                        [$encodedData, $eId]
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Create an automatic 301 redirect from source archive URL to target archive URL on merge.
+     *
+     * @param array<string, mixed> $source
+     * @param array<string, mixed> $target
+     */
+    private function createArchiveRedirectOnMerge(array $source, array $target): void
+    {
+        $taxTable = $this->connection->prefixTable('taxonomies');
+        $taxStmt = $this->connection->execute("SELECT * FROM `{$taxTable}` WHERE `id` = ?", [$source['taxonomy_id']]);
+        $taxonomy = $taxStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$taxonomy || empty($taxonomy['has_public_archive'])) {
+            return;
+        }
+
+        $routePattern = !empty($taxonomy['archive_route_pattern'])
+            ? (string) $taxonomy['archive_route_pattern']
+            : ('/' . (string) $taxonomy['handle'] . '/{slug}');
+
+        $fromPath = str_replace('{slug}', (string) $source['slug_path'], $routePattern);
+        $toPath = str_replace('{slug}', (string) $target['slug_path'], $routePattern);
+
+        if ($fromPath === $toPath) {
+            return;
+        }
+
+        $redirectsTable = $this->connection->prefixTable('redirects');
+        $id = Ulid::generate();
+        $now = Clock::sql(Clock::now());
+        $fromHash = hash('sha256', $fromPath);
+
+        $this->connection->execute(
+            "INSERT INTO `{$redirectsTable}` (
+                `id`, `from_path`, `match_type`, `to_path`, `status_code`,
+                `is_auto`, `hits`, `last_hit_at`, `created_by`, `created_at`, `from_hash`
+            ) VALUES (?, ?, 'exact', ?, 301, 1, 0, NULL, NULL, ?, ?)
+            ON DUPLICATE KEY UPDATE `to_path` = VALUES(`to_path`)",
+            [$id, $fromPath, $toPath, $now, $fromHash]
+        );
     }
 
     /**

@@ -508,14 +508,15 @@ final class DocumentConverter
 
             case 'faq':
                 // Format:
-                // Q: Question?
-                // A: Answer.
+                // ### Question? or Q: Question?
+                // Answer text.
                 $items = [];
                 $currentQ = null;
                 $currentA = [];
 
                 foreach ($lines as $line) {
-                    if (preg_match('/^Q:\s*(.+)$/i', trim($line), $qMatch)) {
+                    $trimmedLine = trim($line);
+                    if (preg_match('/^(?:#{1,6}\s+|Q:\s*)(.+)$/i', $trimmedLine, $qMatch)) {
                         if ($currentQ !== null && !empty($currentA)) {
                             $items[] = [
                                 'question' => $currentQ,
@@ -524,10 +525,10 @@ final class DocumentConverter
                         }
                         $currentQ = trim($qMatch[1]);
                         $currentA = [];
-                    } elseif (preg_match('/^A:\s*(.+)$/i', trim($line), $aMatch)) {
+                    } elseif (preg_match('/^A:\s*(.+)$/i', $trimmedLine, $aMatch)) {
                         $currentA[] = trim($aMatch[1]);
-                    } elseif ($currentQ !== null && trim($line) !== '') {
-                        $currentA[] = trim($line);
+                    } elseif ($currentQ !== null && $trimmedLine !== '') {
+                        $currentA[] = $trimmedLine;
                     }
                 }
                 if ($currentQ !== null && !empty($currentA)) {
@@ -542,6 +543,7 @@ final class DocumentConverter
                 ];
 
             case 'keyfacts':
+            case 'facts':
                 // Format:
                 // - Statement | Value | [optional source url]
                 $facts = [];
@@ -599,6 +601,33 @@ final class DocumentConverter
                 return [
                     'type' => 'embed',
                     'attrs' => ['src' => $src],
+                ];
+
+            case 'button':
+                $url = '';
+                $text = '';
+                if (preg_match('/^\[(.*?)\]\((.*?)\)$/', trim($args), $m)) {
+                    $text = $m[1];
+                    $url = $m[2];
+                } elseif (preg_match('/^\[(.*?)\]\s+(\S+)$/', trim($args), $m)) {
+                    $text = $m[1];
+                    $url = $m[2];
+                } elseif (trim($args) !== '') {
+                    $url = trim($args);
+                    $text = trim(implode(' ', array_filter(array_map('trim', $lines))));
+                } else {
+                    $body = trim(implode("\n", array_filter(array_map('trim', $lines))));
+                    if (preg_match('/^\[(.*?)\]\((.*?)\)$/', $body, $m)) {
+                        $text = $m[1];
+                        $url = $m[2];
+                    }
+                }
+                if ($text === '') {
+                    $text = 'Click Here';
+                }
+                return [
+                    'type' => 'button',
+                    'attrs' => ['text' => $text, 'url' => $url],
                 ];
 
             default:
@@ -729,15 +758,15 @@ final class DocumentConverter
                 $items = (array) ($attrs['items'] ?? []);
                 foreach ($items as $item) {
                     if (is_array($item) && isset($item['question'], $item['answer'])) {
-                        $faqLines[] = "Q: {$item['question']}";
-                        $faqLines[] = "A: {$item['answer']}";
+                        $faqLines[] = "### {$item['question']}";
+                        $faqLines[] = (string) $item['answer'];
                     }
                 }
                 $faqLines[] = ":::";
                 return implode("\n", $faqLines);
 
             case 'keyFacts':
-                $kfLines = [":::keyfacts"];
+                $kfLines = [":::facts"];
                 $facts = (array) ($attrs['facts'] ?? []);
                 foreach ($facts as $fact) {
                     if (is_array($fact) && isset($fact['statement'], $fact['value'])) {
@@ -768,9 +797,9 @@ final class DocumentConverter
                 return ":::embed {$src}\n:::";
 
             case 'button':
-                $text = (string) ($attrs['text'] ?? '');
-                $url = (string) ($attrs['url'] ?? '');
-                return "[button: {$text}]({$url})";
+                $text = (string) ($attrs['text'] ?? 'Click Here');
+                $url = (string) ($attrs['url'] ?? '#');
+                return ":::button [{$text}] {$url}\n:::";
 
             default:
                 return '';

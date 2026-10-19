@@ -75,7 +75,7 @@ final class MediaSecurity
 
     /**
      * Re-encode raster images using GD to strip embedded PHP code or comment injections.
-     * If not an image or GD unavailable, performs safe binary copy.
+     * Enforces that every raster image must decode cleanly; corrupt or polyglot images are rejected.
      */
     public static function sanitizeAndStore(string $sourcePath, string $targetPath, string $mime): void
     {
@@ -84,22 +84,45 @@ final class MediaSecurity
             mkdir($dir, 0755, true);
         }
 
-        if (extension_loaded('gd') && str_starts_with($mime, 'image/') && $mime !== 'image/svg+xml') {
+        $isRasterImage = str_starts_with($mime, 'image/') && $mime !== 'image/svg+xml';
+
+        if ($isRasterImage) {
+            if (!extension_loaded('gd')) {
+                throw new RuntimeException("GD PHP extension is required for safe image processing.");
+            }
+
             $sanitized = self::reencodeImageWithGd($sourcePath, $targetPath, $mime);
-            if ($sanitized) {
-                return;
+            if (!$sanitized || !file_exists($targetPath)) {
+                if (file_exists($targetPath)) {
+                    @unlink($targetPath);
+                }
+                throw new RuntimeException("Uploaded image could not be decoded or is malformed.");
             }
+
+            // Verify re-encoded image does not contain executable script tags
+            $savedContent = (string) file_get_contents($targetPath);
+            if (preg_match('/(<\?php|<\?=|<script|<\%|__HALT_COMPILER)/i', $savedContent)) {
+                @unlink($targetPath);
+                throw new RuntimeException("Uploaded image contains forbidden executable script payloads.");
+            }
+
+            return;
         }
 
-        // For plain text / CSV files, assert no PHP or executable script tags
-        if (in_array($mime, ['text/plain', 'text/csv'], true)) {
-            $contentSample = file_get_contents($sourcePath, false, null, 0, 8192);
-            if (is_string($contentSample) && preg_match('/(<\?php|<\?=|<script|<\%)/i', $contentSample)) {
-                throw new RuntimeException("Uploaded text file contains forbidden executable script tags.");
+        // For non-images: scan content for PHP or executable script tags
+        $handle = fopen($sourcePath, 'rb');
+        if ($handle !== false) {
+            while (!feof($handle)) {
+                $chunk = fread($handle, 65536);
+                if (is_string($chunk) && preg_match('/(<\?php|<\?=|<script|<\%|__HALT_COMPILER)/i', $chunk)) {
+                    fclose($handle);
+                    throw new RuntimeException("Uploaded file contains forbidden executable script tags.");
+                }
             }
+            fclose($handle);
         }
 
-        // Fallback or non-image: copy file directly
+        // Non-image safe copy
         if (!copy($sourcePath, $targetPath)) {
             throw new RuntimeException("Failed to store media file at: {$targetPath}");
         }
@@ -117,6 +140,7 @@ final class MediaSecurity
                     $img = @imagecreatefromjpeg($sourcePath);
                     if ($img !== false) {
                         imagejpeg($img, $targetPath, 90);
+
                         return true;
                     }
                     break;
@@ -126,6 +150,7 @@ final class MediaSecurity
                         imagealphablending($img, false);
                         imagesavealpha($img, true);
                         imagepng($img, $targetPath, 8);
+
                         return true;
                     }
                     break;
@@ -134,6 +159,7 @@ final class MediaSecurity
                         $img = @imagecreatefromwebp($sourcePath);
                         if ($img !== false) {
                             imagewebp($img, $targetPath, 85);
+
                             return true;
                         }
                     }
@@ -142,12 +168,12 @@ final class MediaSecurity
                     $img = @imagecreatefromgif($sourcePath);
                     if ($img !== false) {
                         imagegif($img, $targetPath);
+
                         return true;
                     }
                     break;
             }
         } catch (\Throwable) {
-            // If GD throws, return false to trigger safe copy fallback
             return false;
         }
 
@@ -208,9 +234,9 @@ SetHandler default-handler
 
 Options -ExecCGI -Indexes
 
-# Security headers
+# Security headers for all media files (including images)
 <IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
+    Header always set X-Content-Type-Options "nosniff"
     <FilesMatch "\.(pdf|txt|csv|doc|docx|xls|xlsx|zip|tar|gz)$">
         Header set Content-Disposition "attachment"
     </FilesMatch>

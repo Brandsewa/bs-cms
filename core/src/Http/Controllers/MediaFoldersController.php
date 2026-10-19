@@ -119,4 +119,33 @@ class MediaFoldersController extends BaseController
             return $this->problem(500, 'Internal Server Error', 'Failed to delete folder.');
         }
     }
+
+    /**
+     * POST /api/v1/media/folders/{id}/move
+     *
+     * @param array<string, mixed> $args
+     */
+    public function move(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('media', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $body = (array) ($request->getParsedBody() ?? []);
+        $newParentId = array_key_exists('parent_id', $body) && $body['parent_id'] !== '' && $body['parent_id'] !== null
+            ? (string) $body['parent_id']
+            : null;
+
+        try {
+            $updated = $this->folders->move($id, $newParentId);
+            return $this->json($updated);
+        } catch (InvalidArgumentException $e) {
+            return $this->problem(422, 'Validation Failed', $e->getMessage());
+        } catch (Throwable $e) {
+            $this->logServerError($request, $e, 'media_folder_move');
+            return $this->problem(500, 'Internal Server Error', 'Failed to move folder.');
+        }
+    }
 }

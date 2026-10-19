@@ -88,6 +88,16 @@ final class MediaRepository
             $contentHash = '';
         }
 
+        // Deduplication check: if identical content already exists, return existing media item
+        if ($contentHash !== '') {
+            $existing = $this->findByContentHash($contentHash);
+            if ($existing !== null) {
+                @unlink($diskPath);
+                $existing['duplicate_of'] = $existing['id'];
+                return $existing;
+            }
+        }
+
         $now = Clock::sql(Clock::now());
         $cleanOrigName = basename(str_replace(['\\', '/', "\0"], '', $originalName));
         if ($cleanOrigName === '') {
@@ -406,7 +416,7 @@ final class MediaRepository
         $colTable = $this->connection->prefixTable('collections');
 
         $stmt = $this->connection->execute(
-            "SELECT u.`media_id`, u.`collection_id`, u.`entry_id`, u.`field_key`, c.`handle` AS `collection_handle`, c.`name` AS `collection_name`
+            "SELECT u.`media_id`, u.`collection_id`, u.`entry_id`, u.`field_key`, c.`handle` AS `collection_handle`, c.`label_singular` AS `collection_name`
              FROM `{$usageTable}` u
              LEFT JOIN `{$colTable}` c ON c.`id` = u.`collection_id`
              WHERE u.`media_id` = ?
@@ -417,6 +427,142 @@ final class MediaRepository
         /** @var list<array<string, mixed>> $rows */
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return $rows;
+    }
+
+    /**
+     * Find active media by content hash.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findByContentHash(string $hash): ?array
+    {
+        $table = $this->connection->prefixTable('media');
+        $stmt = $this->connection->execute(
+            "SELECT * FROM `{$table}` WHERE `content_hash` = ? AND `deleted_at` IS NULL LIMIT 1",
+            [$hash]
+        );
+        /** @var array<string, mixed>|false $row */
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+
+        return $this->decorateMedia($row);
+    }
+
+    /**
+     * Replace media file with a new upload, keeping the existing media ID and relations intact.
+     *
+     * @return array<string, mixed>
+     */
+    public function replace(string $id, string $tempFilePath, string $originalName, ?string $updatedBy = null): array
+    {
+        $media = $this->findById($id);
+        if ($media === null) {
+            throw new InvalidArgumentException("Media item '{$id}' not found.");
+        }
+
+        if (!file_exists($tempFilePath) || !is_readable($tempFilePath)) {
+            throw new InvalidArgumentException("Replacement file does not exist or is not readable.");
+        }
+
+        $mime = MediaSecurity::detectMimeType($tempFilePath);
+        if ($mime === null || !MediaSecurity::isAllowedMime($mime)) {
+            throw new ValidationException("Unsupported or forbidden file MIME type: " . ($mime ?? 'unknown'), [
+                'file' => "File format '{$mime}' is not permitted."
+            ]);
+        }
+
+        $extension = MediaSecurity::getExtensionForMime($mime);
+        if ($extension === null) {
+            throw new ValidationException("Cannot determine safe extension for file MIME: {$mime}", [
+                'file' => "Unsupported file extension."
+            ]);
+        }
+
+        // Delete old disk files and variant records
+        $oldStoredFilename = (string) $media['filename'];
+        $oldDiskPath = rtrim($this->mediaBaseDir, '/\\') . '/' . $oldStoredFilename;
+        if (file_exists($oldDiskPath)) {
+            @unlink($oldDiskPath);
+        }
+
+        $variantsTable = $this->connection->prefixTable('media_variants');
+        $this->connection->execute("DELETE FROM `{$variantsTable}` WHERE `media_id` = ?", [$id]);
+
+        $storedFilename = "{$id}.{$extension}";
+        $diskPath = rtrim($this->mediaBaseDir, '/\\') . '/' . $storedFilename;
+        $storagePath = "media/{$storedFilename}";
+
+        MediaSecurity::sanitizeAndStore($tempFilePath, $diskPath, $mime);
+
+        $sizeBytes = (int) filesize($diskPath);
+        $contentHash = hash_file('sha256', $diskPath);
+        if ($contentHash === false) {
+            $contentHash = '';
+        }
+
+        $cleanOrigName = basename(str_replace(['\\', '/', "\0"], '', $originalName));
+        if ($cleanOrigName === '') {
+            $cleanOrigName = $storedFilename;
+        }
+
+        $now = Clock::sql(Clock::now());
+        $table = $this->connection->prefixTable('media');
+        $this->connection->execute(
+            "UPDATE `{$table}` SET
+                `filename` = ?, `original_name` = ?, `mime` = ?, `extension` = ?,
+                `size_bytes` = ?, `content_hash` = ?, `storage_path` = ?,
+                `updated_at` = ?
+             WHERE `id` = ?",
+            [$storedFilename, $cleanOrigName, $mime, $extension, $sizeBytes, $contentHash, $storagePath, $now, $id]
+        );
+
+        // Process variants if raster image
+        $procResult = $this->processor->processImage($id, $diskPath, $mime);
+        $width = $procResult['width'];
+        $height = $procResult['height'];
+        $dominantColor = $procResult['dominant_color'];
+
+        $this->connection->execute(
+            "UPDATE `{$table}` SET `width` = ?, `height` = ?, `dominant_color` = ? WHERE `id` = ?",
+            [$width, $height, $dominantColor, $id]
+        );
+
+        return $this->findById($id) ?? [];
+    }
+
+    /**
+     * Perform bulk operations on media items.
+     *
+     * @param list<string> $ids
+     * @param array<string, mixed> $options
+     * @return array{action: string, affected: int}
+     */
+    public function bulk(string $action, array $ids, array $options = []): array
+    {
+        $affected = 0;
+        if ($action === 'delete') {
+            $force = !empty($options['force']);
+            foreach ($ids as $id) {
+                if (trim($id) !== '') {
+                    $this->delete(trim($id), $force);
+                    $affected++;
+                }
+            }
+        } elseif ($action === 'move') {
+            $folderId = array_key_exists('folder_id', $options) && $options['folder_id'] !== '' ? (string) $options['folder_id'] : null;
+            foreach ($ids as $id) {
+                if (trim($id) !== '') {
+                    $this->update(trim($id), ['folder_id' => $folderId]);
+                    $affected++;
+                }
+            }
+        } else {
+            throw new InvalidArgumentException("Unsupported bulk action '{$action}'. Supported actions: 'delete', 'move'.");
+        }
+
+        return ['action' => $action, 'affected' => $affected];
     }
 
     /**

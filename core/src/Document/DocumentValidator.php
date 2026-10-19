@@ -6,6 +6,8 @@ namespace BsCms\Document;
 
 final class DocumentValidator
 {
+    public const MAX_DEPTH = 20;
+
     /**
      * @param array<string, mixed> $document
      * @param string $profile 'article' | 'minimal'
@@ -17,6 +19,10 @@ final class DocumentValidator
         string $profile = DocumentSchema::PROFILE_ARTICLE,
         ?array $allowedNodes = null
     ): array {
+        if (self::calculateDepth($document) > self::MAX_DEPTH) {
+            return ["Document structure exceeds maximum allowed nesting depth of " . self::MAX_DEPTH . "."];
+        }
+
         $errors = [];
 
         if (($document['type'] ?? '') !== 'doc') {
@@ -239,5 +245,27 @@ final class DocumentValidator
                 $errors[] = "Link target at '{$path}' must be '_blank' or '_self'.";
             }
         }
+    }
+
+    /**
+     * Recursively calculate max array nesting depth.
+     */
+    public static function calculateDepth(mixed $value, int $currentDepth = 1): int
+    {
+        if (!is_array($value) || empty($value)) {
+            return $currentDepth;
+        }
+
+        $max = $currentDepth;
+        foreach ($value as $v) {
+            if (is_array($v)) {
+                $d = self::calculateDepth($v, $currentDepth + 1);
+                if ($d > $max) {
+                    $max = $d;
+                }
+            }
+        }
+
+        return $max;
     }
 }

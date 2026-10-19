@@ -14,6 +14,7 @@ use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
+use RuntimeException;
 use Throwable;
 
 class MediaController extends BaseController
@@ -151,7 +152,7 @@ class MediaController extends BaseController
                 $errors[$k] = is_array($v) ? array_map('strval', $v) : [(string) $v];
             }
             return $this->problem(422, 'Validation Failed', $e->getMessage(), null, $errors);
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException | RuntimeException $e) {
             return $this->problem(422, 'Validation Failed', $e->getMessage());
         } catch (Throwable $e) {
             $this->logServerError($request, $e, 'media_upload');
@@ -422,5 +423,112 @@ class MediaController extends BaseController
 
         $usages = $this->mediaRepository->getUsage($id);
         return $this->json(['usages' => $usages]);
+    }
+
+    /**
+     * POST /api/v1/media/{id}/replace
+     *
+     * @param array<string, mixed> $args
+     */
+    public function replace(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $id = (string) ($args['id'] ?? $request->getAttribute('id', ''));
+        $existing = $this->mediaRepository->findById($id);
+        if ($existing === null) {
+            return $this->problem(404, 'Not Found', "Media item '{$id}' not found.");
+        }
+
+        $permError = $this->requirePermission($this->authorizer, $request, 'update', new Subject('media', $id), $existing);
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $actor = $this->getActor($request);
+        $uploadedFiles = $request->getUploadedFiles();
+        /** @var UploadedFileInterface|null $file */
+        $file = $uploadedFiles['file'] ?? null;
+        if ($file === null && !empty($uploadedFiles)) {
+            $file = reset($uploadedFiles);
+        }
+
+        if ($file === null) {
+            return $this->problem(422, 'Validation Failed', 'No file was provided in the upload request.', null, [
+                'file' => ['File is required.']
+            ]);
+        }
+
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            return $this->problem(422, 'Upload Failed', "File upload error code: {$file->getError()}");
+        }
+
+        $clientFilename = $file->getClientFilename() ?? 'upload.bin';
+        $tempPath = tempnam($this->tmpDir, 'bs_replace_');
+        if ($tempPath === false) {
+            return $this->problem(500, 'Internal Server Error', 'Could not create temporary file for replace.');
+        }
+
+        try {
+            $stream = $file->getStream();
+            $target = fopen($tempPath, 'wb');
+            if ($target === false) {
+                throw new InvalidArgumentException("Cannot open temp file for writing.");
+            }
+            while (!$stream->eof()) {
+                fwrite($target, $stream->read(65536));
+            }
+            fclose($target);
+
+            $replaced = $this->mediaRepository->replace($id, $tempPath, $clientFilename, $actor->id);
+            return $this->json($replaced);
+        } catch (ValidationException $e) {
+            /** @var array<string, list<string>> $errors */
+            $errors = [];
+            foreach ($e->errors as $k => $v) {
+                $errors[$k] = is_array($v) ? array_map('strval', $v) : [(string) $v];
+            }
+            return $this->problem(422, 'Validation Failed', $e->getMessage(), null, $errors);
+        } catch (InvalidArgumentException | RuntimeException $e) {
+            return $this->problem(422, 'Validation Failed', $e->getMessage());
+        } catch (Throwable $e) {
+            $this->logServerError($request, $e, 'media_replace');
+            return $this->problem(500, 'Internal Server Error', 'Failed to replace media file.');
+        } finally {
+            if (file_exists($tempPath)) {
+                @unlink($tempPath);
+            }
+        }
+    }
+
+    /**
+     * POST /api/v1/media/bulk
+     */
+    public function bulk(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = (array) ($request->getParsedBody() ?? []);
+        $action = (string) ($body['action'] ?? '');
+        $permAction = ($action === 'delete') ? 'delete' : 'update';
+
+        $permError = $this->requirePermission($this->authorizer, $request, $permAction, new Subject('media', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        /** @var list<string> $ids */
+        $ids = isset($body['ids']) && is_array($body['ids']) ? array_values(array_map('strval', $body['ids'])) : [];
+        if (empty($ids)) {
+            return $this->problem(422, 'Validation Failed', 'Media IDs array is required.', null, [
+                'ids' => ['At least one media ID must be specified.']
+            ]);
+        }
+
+        try {
+            $result = $this->mediaRepository->bulk($action, $ids, $body);
+            return $this->json($result);
+        } catch (InvalidArgumentException $e) {
+            return $this->problem(422, 'Validation Failed', $e->getMessage());
+        } catch (Throwable $e) {
+            $this->logServerError($request, $e, 'media_bulk');
+            return $this->problem(500, 'Internal Server Error', 'Failed to process bulk media action.');
+        }
     }
 }

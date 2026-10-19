@@ -57,7 +57,7 @@ final class Console
                 'schema:diff' => $this->schemaDiff($args),
                 'schema:apply' => $this->schemaApply($args),
                 'schema:seed' => $this->schemaSeed($args),
-                'taxonomy:recompute-counts' => $this->taxonomyRecomputeCounts($args),
+                'taxonomy:recompute-counts', 'taxonomy:integrity' => $this->taxonomyRecomputeCounts($args),
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),

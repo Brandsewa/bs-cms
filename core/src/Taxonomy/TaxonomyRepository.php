@@ -66,9 +66,7 @@ final class TaxonomyRepository
     public function create(array $data): array
     {
         $handle = (string) ($data['handle'] ?? '');
-        if ($handle === '' || !preg_match('/^[a-z0-9_]+$/', $handle)) {
-            throw new InvalidArgumentException("Invalid taxonomy handle '{$handle}'. Must be lowercase alphanumeric with underscores.");
-        }
+        \BsCms\Schema\IdentifierValidator::validateTaxonomyHandle($handle);
 
         $id = Ulid::generate();
         $now = Clock::sql(Clock::now());
@@ -98,6 +96,111 @@ final class TaxonomyRepository
         );
 
         return $this->findById($id) ?? [];
+    }
+
+    /**
+     * Attach a taxonomy to a collection.
+     *
+     * @return array<string, mixed>
+     */
+    public function attach(
+        string $taxonomyHandle,
+        string $collectionHandle,
+        string $fieldKey,
+        bool $required = false,
+        bool $allowMultiple = true,
+        int $position = 0
+    ): array {
+        $taxonomy = $this->findByHandle($taxonomyHandle);
+        if ($taxonomy === null) {
+            throw new InvalidArgumentException("Taxonomy '{$taxonomyHandle}' not found.");
+        }
+
+        $colTable = $this->connection->prefixTable('collections');
+        $stmt = $this->connection->execute("SELECT * FROM `{$colTable}` WHERE `handle` = ?", [$collectionHandle]);
+        $collection = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$collection) {
+            throw new InvalidArgumentException("Collection '{$collectionHandle}' not found.");
+        }
+
+        $colTaxTable = $this->connection->prefixTable('collection_taxonomies');
+        $this->connection->execute(
+            "INSERT INTO `{$colTaxTable}` (`collection_id`, `taxonomy_id`, `required`, `allow_multiple`, `field_key`, `position`)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE `required` = VALUES(`required`), `allow_multiple` = VALUES(`allow_multiple`), `field_key` = VALUES(`field_key`), `position` = VALUES(`position`)",
+            [
+                $collection['id'],
+                $taxonomy['id'],
+                $required ? 1 : 0,
+                $allowMultiple ? 1 : 0,
+                $fieldKey,
+                $position
+            ]
+        );
+
+        return [
+            'taxonomy_id' => $taxonomy['id'],
+            'taxonomy_handle' => $taxonomyHandle,
+            'collection_id' => $collection['id'],
+            'collection_handle' => $collectionHandle,
+            'field_key' => $fieldKey,
+            'required' => $required,
+            'allow_multiple' => $allowMultiple,
+            'position' => $position,
+        ];
+    }
+
+    /**
+     * Detach a taxonomy from a collection.
+     */
+    public function detach(string $taxonomyHandle, string $collectionHandle): void
+    {
+        $taxonomy = $this->findByHandle($taxonomyHandle);
+        if ($taxonomy === null) {
+            return;
+        }
+
+        $colTable = $this->connection->prefixTable('collections');
+        $stmt = $this->connection->execute("SELECT `id` FROM `{$colTable}` WHERE `handle` = ?", [$collectionHandle]);
+        $colId = $stmt->fetchColumn();
+        if (!$colId) {
+            return;
+        }
+
+        $colTaxTable = $this->connection->prefixTable('collection_taxonomies');
+        $this->connection->execute(
+            "DELETE FROM `{$colTaxTable}` WHERE `collection_id` = ? AND `taxonomy_id` = ?",
+            [$colId, $taxonomy['id']]
+        );
+    }
+
+    /**
+     * Get all attachments for a taxonomy.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getAttachments(string $taxonomyHandle): array
+    {
+        $taxonomy = $this->findByHandle($taxonomyHandle);
+        if ($taxonomy === null) {
+            return [];
+        }
+
+        $colTaxTable = $this->connection->prefixTable('collection_taxonomies');
+        $colTable = $this->connection->prefixTable('collections');
+
+        $stmt = $this->connection->execute(
+            "SELECT ct.*, c.`handle` AS `collection_handle`
+             FROM `{$colTaxTable}` ct
+             JOIN `{$colTable}` c ON c.`id` = ct.`collection_id`
+             WHERE ct.`taxonomy_id` = ?
+             ORDER BY ct.`position` ASC",
+            [$taxonomy['id']]
+        );
+
+        /** @var list<array<string, mixed>> $rows */
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $rows;
     }
 
     /**

@@ -25,6 +25,11 @@ final class Subject
         return new self('taxonomy', $key);
     }
 
+    public static function term(string $key = '*'): self
+    {
+        return new self('term', $key);
+    }
+
     public static function media(string $key = '*'): self
     {
         return new self('media', $key);

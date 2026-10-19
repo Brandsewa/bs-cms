@@ -782,6 +782,1030 @@ final class OpenApiGenerator
                     ],
                 ],
             ],
+            // Taxonomies
+            '/taxonomies' => [
+                'get' => [
+                    'summary' => 'List taxonomies',
+                    'tags' => ['Taxonomies'],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'List of taxonomies',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'array',
+                                        'items' => ['$ref' => '#/components/schemas/Taxonomy'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'post' => [
+                    'summary' => 'Create a taxonomy',
+                    'tags' => ['Taxonomies'],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['handle', 'name'],
+                                    'properties' => [
+                                        'handle' => ['type' => 'string'],
+                                        'name' => ['type' => 'string'],
+                                        'description' => ['type' => 'string', 'nullable' => true],
+                                        'is_hierarchical' => ['type' => 'boolean'],
+                                        'allow_custom_meta' => ['type' => 'boolean'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Taxonomy created',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Taxonomy'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}' => [
+                'get' => [
+                    'summary' => 'Get taxonomy by handle',
+                    'tags' => ['Taxonomies'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Taxonomy details',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Taxonomy'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'patch' => [
+                    'summary' => 'Update taxonomy definition',
+                    'tags' => ['Taxonomies'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'description' => ['type' => 'string', 'nullable' => true],
+                                        'is_hierarchical' => ['type' => 'boolean'],
+                                        'allow_custom_meta' => ['type' => 'boolean'],
+                                        'default_term_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Taxonomy updated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Taxonomy'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'delete' => [
+                    'summary' => 'Delete taxonomy definition',
+                    'tags' => ['Taxonomies'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Taxonomy deleted',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/attach' => [
+                'post' => [
+                    'summary' => 'Attach taxonomy to collection',
+                    'tags' => ['Taxonomies'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['collection_handle'],
+                                    'properties' => [
+                                        'collection_handle' => ['type' => 'string'],
+                                        'field_key' => ['type' => 'string'],
+                                        'required' => ['type' => 'boolean'],
+                                        'allow_multiple' => ['type' => 'boolean'],
+                                        'position' => ['type' => 'integer'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Taxonomy attached to collection',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms' => [
+                'get' => [
+                    'summary' => 'List terms tree for taxonomy',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'parent_id', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Terms hierarchy',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'array',
+                                        'items' => ['$ref' => '#/components/schemas/Term'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'post' => [
+                    'summary' => 'Create term in taxonomy',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['name'],
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'slug' => ['type' => 'string'],
+                                        'description' => ['type' => 'string', 'nullable' => true],
+                                        'parent_id' => ['type' => 'string', 'nullable' => true],
+                                        'meta' => ['type' => 'object', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Term created',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Term'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms/{id}' => [
+                'get' => [
+                    'summary' => 'Get term by ID',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Term details',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Term'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'patch' => [
+                    'summary' => 'Update term',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'slug' => ['type' => 'string'],
+                                        'description' => ['type' => 'string', 'nullable' => true],
+                                        'meta' => ['type' => 'object', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Term updated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Term'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'delete' => [
+                    'summary' => 'Delete term',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'reassign_to', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Term deleted',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms/{id}/move' => [
+                'post' => [
+                    'summary' => 'Move term in tree',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'parent_id' => ['type' => 'string', 'nullable' => true],
+                                        'position' => ['type' => 'integer'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Term moved',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Term'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms/{id}/merge' => [
+                'post' => [
+                    'summary' => 'Merge term into target term',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['target_term_id'],
+                                    'properties' => [
+                                        'target_term_id' => ['type' => 'string'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Term merged',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['message'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms/reorder' => [
+                'post' => [
+                    'summary' => 'Reorder terms in taxonomy',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'terms' => [
+                                            'type' => 'array',
+                                            'items' => [
+                                                'type' => 'object',
+                                                'required' => ['id', 'position'],
+                                                'properties' => [
+                                                    'id' => ['type' => 'string'],
+                                                    'position' => ['type' => 'integer'],
+                                                    'parent_id' => ['type' => 'string', 'nullable' => true],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Terms reordered',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['message'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/taxonomies/{handle}/terms/bulk' => [
+                'post' => [
+                    'summary' => 'Bulk term operations',
+                    'tags' => ['Terms'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['action', 'ids'],
+                                    'properties' => [
+                                        'action' => ['type' => 'string', 'enum' => ['delete']],
+                                        'ids' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                        'reassign_to' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Bulk operation completed',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'affected' => ['type' => 'integer'],
+                                            'action' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['affected', 'action'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/public/taxonomies/{handle}/terms' => [
+                'get' => [
+                    'summary' => 'Public terms hierarchy listing',
+                    'tags' => ['Public'],
+                    'parameters' => [
+                        ['name' => 'handle', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Public terms tree',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'array',
+                                        'items' => ['$ref' => '#/components/schemas/Term'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            // Media Folders
+            '/media/folders' => [
+                'get' => [
+                    'summary' => 'List media folders',
+                    'tags' => ['Media Folders'],
+                    'parameters' => [
+                        ['name' => 'parent_id', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media folders list',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'array',
+                                        'items' => ['$ref' => '#/components/schemas/MediaFolder'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'post' => [
+                    'summary' => 'Create media folder',
+                    'tags' => ['Media Folders'],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['name'],
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'parent_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Media folder created',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/MediaFolder'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/folders/{id}' => [
+                'patch' => [
+                    'summary' => 'Update media folder',
+                    'tags' => ['Media Folders'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'parent_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media folder updated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/MediaFolder'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'delete' => [
+                    'summary' => 'Delete media folder',
+                    'tags' => ['Media Folders'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media folder deleted',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['message'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/folders/{id}/move' => [
+                'post' => [
+                    'summary' => 'Move media folder under new parent',
+                    'tags' => ['Media Folders'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'parent_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media folder moved',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/MediaFolder'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            // Media
+            '/media' => [
+                'get' => [
+                    'summary' => 'List media assets',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'folder_id', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                        ['name' => 'search', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                        ['name' => 'type', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string', 'enum' => ['image', 'video', 'audio', 'document']]],
+                        ['name' => 'page', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer', 'default' => 1]],
+                        ['name' => 'per_page', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer', 'default' => 50]],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Paginated media list',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'required' => ['items', 'total', 'page', 'per_page', 'last_page'],
+                                        'properties' => [
+                                            'items' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/Media']],
+                                            'total' => ['type' => 'integer'],
+                                            'page' => ['type' => 'integer'],
+                                            'per_page' => ['type' => 'integer'],
+                                            'last_page' => ['type' => 'integer'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'post' => [
+                    'summary' => 'Upload media file',
+                    'tags' => ['Media'],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'multipart/form-data' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['file'],
+                                    'properties' => [
+                                        'file' => ['type' => 'string', 'format' => 'binary'],
+                                        'folder_id' => ['type' => 'string', 'nullable' => true],
+                                        'title' => ['type' => 'string', 'nullable' => true],
+                                        'alt_text' => ['type' => 'string', 'nullable' => true],
+                                        'caption' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Media asset uploaded',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Media'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/bulk' => [
+                'post' => [
+                    'summary' => 'Bulk operations on media assets',
+                    'tags' => ['Media'],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['action', 'ids'],
+                                    'properties' => [
+                                        'action' => ['type' => 'string', 'enum' => ['delete', 'move']],
+                                        'ids' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                        'folder_id' => ['type' => 'string', 'nullable' => true],
+                                        'force' => ['type' => 'boolean'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Bulk operation completed',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'affected' => ['type' => 'integer'],
+                                            'action' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['affected', 'action'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/chunks/init' => [
+                'post' => [
+                    'summary' => 'Initiate chunked upload session',
+                    'tags' => ['Media'],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['original_name', 'total_chunks', 'total_size'],
+                                    'properties' => [
+                                        'original_name' => ['type' => 'string', 'description' => 'Original client filename'],
+                                        'total_chunks' => ['type' => 'integer', 'description' => 'Total number of chunks'],
+                                        'total_size' => ['type' => 'integer', 'description' => 'Total size in bytes'],
+                                        'folder_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Chunk session initiated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'session_id' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['session_id'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/chunks/{id}' => [
+                'get' => [
+                    'summary' => 'Get chunked upload progress',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Chunk status',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'session_id' => ['type' => 'string'],
+                                            'received_chunks' => ['type' => 'array', 'items' => ['type' => 'integer']],
+                                            'total_chunks' => ['type' => 'integer'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'post' => [
+                    'summary' => 'Upload a chunk part',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'multipart/form-data' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['chunk', 'chunk_index'],
+                                    'properties' => [
+                                        'chunk' => ['type' => 'string', 'format' => 'binary', 'description' => 'Chunk binary payload'],
+                                        'chunk_index' => ['type' => 'integer', 'description' => '0-based sequence index'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Chunk saved',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'status' => ['type' => 'string'],
+                                            'chunk_index' => ['type' => 'integer'],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/chunks/{id}/assemble' => [
+                'post' => [
+                    'summary' => 'Assemble uploaded chunks into media asset',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'title' => ['type' => 'string', 'nullable' => true],
+                                        'alt_text' => ['type' => 'string', 'nullable' => true],
+                                        'caption' => ['type' => 'string', 'nullable' => true],
+                                        'folder_id' => ['type' => 'string', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Media asset assembled and stored',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Media'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/{id}' => [
+                'get' => [
+                    'summary' => 'Get media asset by ID',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media asset details',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Media'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'patch' => [
+                    'summary' => 'Update media asset metadata',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'title' => ['type' => 'string', 'nullable' => true],
+                                        'alt_text' => ['type' => 'string', 'nullable' => true],
+                                        'caption' => ['type' => 'string', 'nullable' => true],
+                                        'folder_id' => ['type' => 'string', 'nullable' => true],
+                                        'focal_x' => ['type' => 'number', 'nullable' => true],
+                                        'focal_y' => ['type' => 'number', 'nullable' => true],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media asset updated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Media'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'delete' => [
+                    'summary' => 'Delete media asset',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                        ['name' => 'force', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'boolean']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media asset deleted',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                        ],
+                                        'required' => ['message'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/{id}/replace' => [
+                'post' => [
+                    'summary' => 'Replace media file keeping ID intact',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'multipart/form-data' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['file'],
+                                    'properties' => [
+                                        'file' => ['type' => 'string', 'format' => 'binary'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Media asset replaced',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/Media'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            '/media/{id}/usage' => [
+                'get' => [
+                    'summary' => 'List content entries referencing media asset',
+                    'tags' => ['Media'],
+                    'parameters' => [
+                        ['name' => 'id', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']],
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Usage list',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'usages' => [
+                                                'type' => 'array',
+                                                'items' => [
+                                                    'type' => 'object',
+                                                    'properties' => [
+                                                        'collection_id' => ['type' => 'string'],
+                                                        'collection_handle' => ['type' => 'string'],
+                                                        'collection_name' => ['type' => 'string'],
+                                                        'entry_id' => ['type' => 'string'],
+                                                        'entry_title' => ['type' => 'string'],
+                                                        'field_handle' => ['type' => 'string'],
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                        'required' => ['usages'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -1550,6 +2574,104 @@ final class OpenApiGenerator
                             ],
                         ],
                     ],
+                ],
+            ],
+            'Taxonomy' => [
+                'type' => 'object',
+                'required' => ['id', 'handle', 'name'],
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'handle' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string', 'nullable' => true],
+                    'is_hierarchical' => ['type' => 'boolean'],
+                    'allow_custom_meta' => ['type' => 'boolean'],
+                    'default_term_id' => ['type' => 'string', 'nullable' => true],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'Term' => [
+                'type' => 'object',
+                'required' => ['id', 'taxonomy_id', 'name', 'slug', 'path', 'depth', 'position', 'entry_count'],
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'taxonomy_id' => ['type' => 'string'],
+                    'parent_id' => ['type' => 'string', 'nullable' => true],
+                    'name' => ['type' => 'string'],
+                    'slug' => ['type' => 'string'],
+                    'description' => ['type' => 'string', 'nullable' => true],
+                    'path' => ['type' => 'string'],
+                    'depth' => ['type' => 'integer'],
+                    'position' => ['type' => 'integer'],
+                    'entry_count' => ['type' => 'integer'],
+                    'is_locked' => ['type' => 'boolean'],
+                    'meta' => ['type' => 'object', 'nullable' => true],
+                    'children' => [
+                        'type' => 'array',
+                        'items' => ['$ref' => '#/components/schemas/Term'],
+                    ],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'MediaFolder' => [
+                'type' => 'object',
+                'required' => ['id', 'name', 'path', 'created_at'],
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'parent_id' => ['type' => 'string', 'nullable' => true],
+                    'name' => ['type' => 'string'],
+                    'path' => ['type' => 'string'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'Media' => [
+                'type' => 'object',
+                'required' => ['id', 'filename', 'original_name', 'mime', 'extension', 'size_bytes', 'storage_path', 'url'],
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'folder_id' => ['type' => 'string', 'nullable' => true],
+                    'filename' => ['type' => 'string'],
+                    'original_name' => ['type' => 'string'],
+                    'mime' => ['type' => 'string'],
+                    'extension' => ['type' => 'string'],
+                    'size_bytes' => ['type' => 'integer'],
+                    'width' => ['type' => 'integer', 'nullable' => true],
+                    'height' => ['type' => 'integer', 'nullable' => true],
+                    'duration_seconds' => ['type' => 'integer', 'nullable' => true],
+                    'content_hash' => ['type' => 'string'],
+                    'storage_driver' => ['type' => 'string'],
+                    'storage_path' => ['type' => 'string'],
+                    'url' => ['type' => 'string'],
+                    'alt_text' => ['type' => 'string', 'nullable' => true],
+                    'caption' => ['type' => 'string', 'nullable' => true],
+                    'title' => ['type' => 'string', 'nullable' => true],
+                    'focal_x' => ['type' => 'number', 'nullable' => true],
+                    'focal_y' => ['type' => 'number', 'nullable' => true],
+                    'blurhash' => ['type' => 'string', 'nullable' => true],
+                    'dominant_color' => ['type' => 'string', 'nullable' => true],
+                    'usage_count' => ['type' => 'integer'],
+                    'uploaded_by' => ['type' => 'string', 'nullable' => true],
+                    'variants' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'variant_name' => ['type' => 'string'],
+                                'width' => ['type' => 'integer'],
+                                'height' => ['type' => 'integer'],
+                                'format' => ['type' => 'string'],
+                                'size_bytes' => ['type' => 'integer'],
+                                'storage_path' => ['type' => 'string'],
+                                'url' => ['type' => 'string'],
+                            ],
+                        ],
+                    ],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'deleted_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'duplicate_of' => ['type' => 'string', 'nullable' => true],
                 ],
             ],
         ];

@@ -133,6 +133,7 @@ final class SeedSystemRoles extends Migration
             // 2. Admin: all except owner role and security keys
             [self::ROLE_ADMIN, 'collection', '*', '*', 'allow', null, null],
             [self::ROLE_ADMIN, 'taxonomy', '*', '*', 'allow', null, null],
+            [self::ROLE_ADMIN, 'term', '*', '*', 'allow', null, null],
             [self::ROLE_ADMIN, 'media', '*', '*', 'allow', null, null],
             [self::ROLE_ADMIN, 'site', '*', '*', 'allow', null, null],
             [self::ROLE_ADMIN, 'redirects', '*', '*', 'allow', null, null],
@@ -151,6 +152,7 @@ final class SeedSystemRoles extends Migration
             // 3. Developer
             [self::ROLE_DEVELOPER, 'collection', '*', '*', 'allow', null, null],
             [self::ROLE_DEVELOPER, 'taxonomy', '*', '*', 'allow', null, null],
+            [self::ROLE_DEVELOPER, 'term', '*', '*', 'allow', null, null],
             [self::ROLE_DEVELOPER, 'media', '*', '*', 'allow', null, null],
             [self::ROLE_DEVELOPER, 'site', '*', '*', 'allow', null, null],
             [self::ROLE_DEVELOPER, 'redirects', '*', '*', 'allow', null, null],
@@ -164,7 +166,7 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_DEVELOPER, 'audit', '*', 'read', 'allow', null, null],
             [self::ROLE_DEVELOPER, 'system', '*', '*', 'allow', null, null],
 
-            // 4. Editor
+            // 4. Editor (manages content, terms, and media; cannot define schema/taxonomies)
             [self::ROLE_EDITOR, 'collection', '*', 'read', 'allow', null, null],
             [self::ROLE_EDITOR, 'collection', '*', 'create', 'allow', null, null],
             [self::ROLE_EDITOR, 'collection', '*', 'update', 'allow', null, null],
@@ -172,11 +174,8 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_EDITOR, 'collection', '*', 'unpublish', 'allow', null, null],
             [self::ROLE_EDITOR, 'collection', '*', 'schedule', 'allow', null, null],
             [self::ROLE_EDITOR, 'collection', '*', 'delete', 'allow', null, null],
-            [self::ROLE_EDITOR, 'taxonomy', '*', 'manage', 'allow', null, null],
             [self::ROLE_EDITOR, 'taxonomy', '*', 'read', 'allow', null, null],
-            [self::ROLE_EDITOR, 'taxonomy', '*', 'create', 'allow', null, null],
-            [self::ROLE_EDITOR, 'taxonomy', '*', 'update', 'allow', null, null],
-            [self::ROLE_EDITOR, 'taxonomy', '*', 'delete', 'allow', null, null],
+            [self::ROLE_EDITOR, 'term', '*', '*', 'allow', null, null],
             [self::ROLE_EDITOR, 'media', '*', '*', 'allow', null, null],
             [self::ROLE_EDITOR, 'site', 'navigation', 'read', 'allow', null, null],
             [self::ROLE_EDITOR, 'site', 'navigation', 'update', 'allow', null, null],
@@ -186,7 +185,7 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_AUTHOR, 'collection', '*', 'read', 'allow', null, null],
             [self::ROLE_AUTHOR, 'collection', '*', 'update', 'allow', null, json_encode(['owner' => 'self'])],
             [self::ROLE_AUTHOR, 'taxonomy', '*', 'read', 'allow', null, null],
-            [self::ROLE_AUTHOR, 'taxonomy', '*', 'create', 'allow', null, null],
+            [self::ROLE_AUTHOR, 'term', '*', 'read', 'allow', null, null],
             [self::ROLE_AUTHOR, 'media', '*', 'create', 'allow', null, null],
             [self::ROLE_AUTHOR, 'media', '*', 'read', 'allow', null, null],
             [self::ROLE_AUTHOR, 'media', '*', 'update', 'allow', null, json_encode(['owner' => 'self'])],
@@ -197,12 +196,14 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_CONTRIBUTOR, 'collection', '*', 'read', 'allow', null, json_encode(['owner' => 'self'])],
             [self::ROLE_CONTRIBUTOR, 'collection', '*', 'update', 'allow', null, json_encode(['owner' => 'self', 'status' => ['draft']])],
             [self::ROLE_CONTRIBUTOR, 'taxonomy', '*', 'read', 'allow', null, null],
+            [self::ROLE_CONTRIBUTOR, 'term', '*', 'read', 'allow', null, null],
             [self::ROLE_CONTRIBUTOR, 'media', '*', 'create', 'allow', null, null],
             [self::ROLE_CONTRIBUTOR, 'media', '*', 'read', 'allow', null, null],
 
             // 7. Viewer
             [self::ROLE_VIEWER, 'collection', '*', 'read', 'allow', null, null],
             [self::ROLE_VIEWER, 'taxonomy', '*', 'read', 'allow', null, null],
+            [self::ROLE_VIEWER, 'term', '*', 'read', 'allow', null, null],
             [self::ROLE_VIEWER, 'media', '*', 'read', 'allow', null, null],
 
             // 8. AI Draft
@@ -210,6 +211,7 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_AI_DRAFT, 'collection', '*', 'update', 'allow', null, json_encode(['status' => ['draft']])],
             [self::ROLE_AI_DRAFT, 'collection', '*', 'read', 'allow', null, null],
             [self::ROLE_AI_DRAFT, 'taxonomy', '*', 'read', 'allow', null, null],
+            [self::ROLE_AI_DRAFT, 'term', '*', 'read', 'allow', null, null],
             [self::ROLE_AI_DRAFT, 'media', '*', 'create', 'allow', null, null],
             [self::ROLE_AI_DRAFT, 'media', '*', 'read', 'allow', null, null],
 
@@ -218,8 +220,8 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_AI_PUBLISHER, 'collection', '*', 'update', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'collection', '*', 'publish', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'collection', '*', 'read', 'allow', null, null],
-            [self::ROLE_AI_PUBLISHER, 'taxonomy', '*', 'manage', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'taxonomy', '*', 'read', 'allow', null, null],
+            [self::ROLE_AI_PUBLISHER, 'term', '*', '*', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'media', '*', 'create', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'media', '*', 'read', 'allow', null, null],
             [self::ROLE_AI_PUBLISHER, 'site', 'navigation', 'update', 'allow', null, null],

@@ -731,7 +731,7 @@ final class TaxonomyEngineAndHttpIntegrationTest extends TestCase
         $term = $this->terms->create((string) $tax['id'], ['name' => 'Tech', 'slug' => 'tech']);
 
         $relTable = $this->connection->prefixTable('term_relationships');
-        $sql = "EXPLAIN SELECT `entry_id` FROM `{$relTable}`
+        $sql = "EXPLAIN FORMAT=TRADITIONAL SELECT `entry_id` FROM `{$relTable}`
                 WHERE `term_id` = ? AND `collection_id` = ? AND `is_published` = 1
                 ORDER BY `sort_at` DESC";
 

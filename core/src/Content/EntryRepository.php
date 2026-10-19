@@ -1036,6 +1036,20 @@ final class EntryRepository
             // Normalize value
             $normalizedVal = $fType->normalize($rawVal, $config);
 
+            if ($fTypeStr === 'media' && $normalizedVal !== null) {
+                $checkIds = is_array($normalizedVal) ? $normalizedVal : [$normalizedVal];
+                $mediaTable = $this->connection->prefixTable('media');
+                foreach ($checkIds as $mId) {
+                    $mStmt = $this->connection->execute(
+                        "SELECT `id` FROM `{$mediaTable}` WHERE `id` = ? AND `deleted_at` IS NULL",
+                        [$mId]
+                    );
+                    if ($mStmt->fetch() === false) {
+                        $validationErrors[$fHandle][] = "Referenced media item '{$mId}' does not exist.";
+                    }
+                }
+            }
+
             if ($fTypeStr === 'relation') {
                 $targetCollection = (string) ($config['target_collection'] ?? '');
                 $targetColId = $this->collectionRegistry->has($targetCollection)
@@ -1043,6 +1057,19 @@ final class EntryRepository
                     : $targetCollection;
 
                 $targetIds = is_array($normalizedVal) ? $normalizedVal : ($normalizedVal !== null ? [$normalizedVal] : []);
+                if (!empty($targetIds) && $this->collectionRegistry->has($targetCollection)) {
+                    $targetTableName = $this->connection->prefixTable('c_' . $targetCollection);
+                    foreach ($targetIds as $tId) {
+                        $tStmt = $this->connection->execute(
+                            "SELECT `id` FROM `{$targetTableName}` WHERE `id` = ? AND `deleted_at` IS NULL",
+                            [$tId]
+                        );
+                        if ($tStmt->fetch() === false) {
+                            $validationErrors[$fHandle][] = "Referenced relation entry '{$tId}' does not exist in collection '{$targetCollection}'.";
+                        }
+                    }
+                }
+
                 $relationsToSync[] = [
                     'field_key' => $fHandle,
                     'target_collection_id' => $targetColId,
@@ -1053,11 +1080,59 @@ final class EntryRepository
 
                 if ($fTypeStr === 'richtext' && is_array($normalizedVal)) {
                     $derived = \BsCms\Document\DerivedFields::extract($normalizedVal);
+                    $lastDerived = $derived;
                     if (!empty($derived['search_text'])) {
                         $searchTerms[] = $derived['search_text'];
                     }
+
+                    // Validate existence of any embedded media IDs
+                    if (!empty($derived['media_ids'])) {
+                        $mediaTable = $this->connection->prefixTable('media');
+                        foreach ($derived['media_ids'] as $mId) {
+                            $mStmt = $this->connection->execute(
+                                "SELECT `id` FROM `{$mediaTable}` WHERE `id` = ? AND `deleted_at` IS NULL",
+                                [$mId]
+                            );
+                            if ($mStmt->fetch() === false) {
+                                $validationErrors[$fHandle][] = "Document references nonexistent media '{$mId}'.";
+                            }
+                        }
+                    }
                 } elseif (!empty($def['is_searchable']) && is_scalar($normalizedVal)) {
                     $searchTerms[] = (string) $normalizedVal;
+                }
+            }
+        }
+
+        // Apply derived fields on save
+        if (isset($lastDerived)) {
+            if (isset($fields['excerpt']) && empty($dataValues['excerpt'])) {
+                $dataValues['excerpt'] = $lastDerived['excerpt'];
+            }
+            if (isset($fields['reading_time'])) {
+                $dataValues['reading_time'] = $lastDerived['reading_time'];
+            }
+            if (isset($fields['word_count'])) {
+                $dataValues['word_count'] = $lastDerived['word_count'];
+            }
+            $dataValues['_derived'] = [
+                'excerpt' => $lastDerived['excerpt'],
+                'reading_time' => $lastDerived['reading_time'],
+                'word_count' => $lastDerived['word_count'],
+                'outline' => $lastDerived['outline'],
+                'media_ids' => $lastDerived['media_ids'],
+                'internal_links' => $lastDerived['internal_links'],
+            ];
+        } else {
+            $joinedSearch = implode(' ', array_filter($searchTerms));
+            if (!empty($joinedSearch)) {
+                $wCount = str_word_count($joinedSearch);
+                $rTime = $wCount > 0 ? (int) ceil($wCount / 200) : 0;
+                if (isset($fields['reading_time']) && !isset($dataValues['reading_time'])) {
+                    $dataValues['reading_time'] = $rTime;
+                }
+                if (isset($fields['excerpt']) && empty($dataValues['excerpt'])) {
+                    $dataValues['excerpt'] = \BsCms\Document\DerivedFields::truncateExcerpt($joinedSearch, 160);
                 }
             }
         }

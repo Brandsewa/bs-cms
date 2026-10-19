@@ -225,6 +225,10 @@ final class ApiRoutes
             $routes->post('/api/v1/taxonomies/{handle}/terms/{id}/move', [$taxonomies, 'moveTerm']);
             $routes->post('/api/v1/taxonomies/{handle}/terms/{id}/merge', [$taxonomies, 'mergeTerm']);
 
+            $routes->post('/api/v1/taxonomies/{handle}/terms/reorder', [$taxonomies, 'reorderTerms']);
+            $routes->post('/api/v1/taxonomies/{handle}/terms/bulk', [$taxonomies, 'bulkTerms']);
+            $routes->post('/api/v1/taxonomies/{handle}/attach', [$taxonomies, 'attachTaxonomy']);
+
             $routes->get('/api/v1/public/taxonomies/{handle}/terms', [$taxonomies, 'publicListTerms']);
         }
 
@@ -234,17 +238,20 @@ final class ApiRoutes
             $routes->post('/api/v1/media/folders', [$mediaFolders, 'create']);
             $routes->patch('/api/v1/media/folders/{id}', [$mediaFolders, 'update']);
             $routes->delete('/api/v1/media/folders/{id}', [$mediaFolders, 'delete']);
+            $routes->post('/api/v1/media/folders/{id}/move', [$mediaFolders, 'move']);
         }
 
         if ($media !== null) {
             $routes->get('/api/v1/media', [$media, 'list']);
             $routes->post('/api/v1/media', [$media, 'upload']);
+            $routes->post('/api/v1/media/bulk', [$media, 'bulk']);
             $routes->post('/api/v1/media/chunks/init', [$media, 'initChunk']);
             $routes->post('/api/v1/media/chunks/{id}', [$media, 'uploadChunk']);
             $routes->get('/api/v1/media/chunks/{id}', [$media, 'chunkStatus']);
             $routes->post('/api/v1/media/chunks/{id}/assemble', [$media, 'assembleChunk']);
             $routes->get('/api/v1/media/{id}', [$media, 'get']);
             $routes->patch('/api/v1/media/{id}', [$media, 'update']);
+            $routes->post('/api/v1/media/{id}/replace', [$media, 'replace']);
             $routes->delete('/api/v1/media/{id}', [$media, 'delete']);
             $routes->get('/api/v1/media/{id}/usage', [$media, 'getUsage']);
         }

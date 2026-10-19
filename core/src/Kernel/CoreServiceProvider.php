@@ -476,7 +476,8 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Http\Controllers\TaxonomiesController(
                 $c->get(\BsCms\Taxonomy\TaxonomyRepository::class),
                 $c->get(\BsCms\Taxonomy\TermRepository::class),
-                $c->get(Authorizer::class)
+                $c->get(Authorizer::class),
+                $c->has(\BsCms\Content\Cache\PublicResponseCache::class) ? $c->get(\BsCms\Content\Cache\PublicResponseCache::class) : null
             );
         });
 

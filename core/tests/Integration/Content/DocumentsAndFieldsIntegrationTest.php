@@ -193,6 +193,18 @@ final class DocumentsAndFieldsIntegrationTest extends TestCase
         $validMediaUlid1 = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
         $validMediaUlid2 = '01ARZ3NDEKTSV4RRFFQ69G5FA2';
 
+        $mediaTable = $this->connection->prefixTable('media');
+        $now = date('Y-m-d H:i:s');
+        foreach ([$validMediaUlid1, $validMediaUlid2] as $mId) {
+            $this->connection->execute(
+                "INSERT INTO `{$mediaTable}` (
+                    `id`, `filename`, `original_name`, `mime`, `extension`, `size_bytes`, `content_hash`,
+                    `storage_driver`, `storage_path`, `usage_count`, `uploaded_by`, `created_at`, `updated_at`
+                ) VALUES (?, 'test.png', 'test.png', 'image/png', 'png', 100, ?, 'local', 'media/test.png', 0, ?, ?, ?)",
+                [$mId, hash('sha256', $mId), $this->ownerActor->id, $now, $now]
+            );
+        }
+
         // 1. Create entry with body_markdown
         $req1 = (new ServerRequest('POST', '/api/v1/collections/posts/entries'))
             ->withAttribute('actor', $this->ownerActor)

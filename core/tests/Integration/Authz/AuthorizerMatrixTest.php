@@ -107,7 +107,8 @@ final class AuthorizerMatrixTest extends TestCase
         $this->assertTrue($this->authorizer->can($editor, 'unpublish', Subject::collection('posts'))->isAllowed());
         $this->assertTrue($this->authorizer->can($editor, 'schedule', Subject::collection('posts'))->isAllowed());
         $this->assertTrue($this->authorizer->can($editor, 'delete', Subject::collection('posts'))->isAllowed());
-        $this->assertTrue($this->authorizer->can($editor, 'manage', Subject::taxonomy('categories'))->isAllowed());
+        $this->assertTrue($this->authorizer->can($editor, 'manage', Subject::term('categories'))->isAllowed());
+        $this->assertFalse($this->authorizer->can($editor, 'create', Subject::taxonomy('categories'))->isAllowed());
 
         // Cannot manage users or settings
         $this->assertFalse($this->authorizer->can($editor, 'create', Subject::users())->isAllowed());
