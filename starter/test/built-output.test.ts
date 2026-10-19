@@ -1,9 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execSync } from 'node:child_process';
 
 describe('Built dist output verification', () => {
   const distDir = path.resolve(__dirname, '../dist');
+
+  beforeAll(() => {
+    // If dist doesn't exist (e.g. running test without prior manual build in CI), build it
+    if (!fs.existsSync(distDir) || !fs.existsSync(path.join(distDir, 'index.html'))) {
+      const rootStarter = path.resolve(__dirname, '..');
+      execSync('npx astro build && npx tsx scripts/generate-artifacts.mjs', {
+        cwd: rootStarter,
+        env: { ...process.env, BENCHMARK_POSTS: '3' },
+        stdio: 'pipe',
+      });
+    }
+  }, 60000);
 
   it('dist directory exists and contains built output', () => {
     expect(fs.existsSync(distDir)).toBe(true);

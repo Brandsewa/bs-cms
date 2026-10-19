@@ -72,7 +72,8 @@ async function main() {
   }
 
   if (!entries || entries.length === 0) {
-    entries = Array.from({ length: 200 }, (_, i) => ({
+    const postCount = parseInt(process.env.BENCHMARK_POSTS || '200', 10);
+    entries = Array.from({ length: postCount }, (_, i) => ({
       id: `01BENCH${String(i + 1).padStart(6, '0')}`,
       slug: `post-${i + 1}`,
       title: `Benchmark Post Title ${i + 1}`,
