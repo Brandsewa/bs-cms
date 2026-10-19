@@ -598,11 +598,23 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
      }
      ```
 
-4. **Empirical Benchmarks (Baseline local measurement; pending live GitHub Actions run):**
-   - 200-Page Static Site Build Time (Astro 5.x): 1.53 s – 1.68 s.
-   - Single-post change payload: 746 bytes (421 B HTML + 325 B MD).
-   - Single-post upload latency: 1.33 s.
-   - Gate run pending execution via live GitHub Actions workflow dispatch.
+4. **Empirical Benchmarks (Measured live on GitHub Actions & Hostinger Shared Hosting):**
+   - **Initial 200-Page Publish-to-Live Run (Run ID [39254014178](https://github.com/Brandsewa/bs-cms/actions/runs/39254014178)):**
+     - GitHub Actions Workflow Total Runtime: **26 seconds** (Pass is < 5 minutes — passes by 11.5x margin).
+     - Astro 5.x Static Build Time (200 pages + .md twins): **2.12 seconds**.
+     - Rsync Upload over SSH (port 65002): **7 seconds**.
+     - Total Site Size: 153,426 bytes (~150 KB for 200 HTML pages + 200 .md twins + .htaccess).
+     - Sent over network (compressed rsync): **27,199 bytes**.
+   - **One-Post Delta Deploy Run (Run ID [39254371475](https://github.com/Brandsewa/bs-cms/actions/runs/39254371475), changed post-42):**
+     - GitHub Actions Workflow Total Runtime: **29 seconds**.
+     - Astro 5.x Static Build Time: **2.16 seconds**.
+     - Rsync Delta Transfer: Only modified files transferred (`blog/post-42/index.html`, `blog/post-42/index.md`, `.htaccess`).
+     - Network Payload Sent: **27,976 bytes** total protocol/delta stream (speedup 3.94x).
+   - **Live Hostinger Verification:**
+     - `GET /spike-c/`: Returns `HTTP/1.1 200 OK`, `Content-Type: text/html`.
+     - `GET /spike-c/` with `Accept: text/markdown`: Returns `HTTP/1.1 200 OK`, `Content-Type: text/markdown; charset=utf-8`, `Vary: Accept`.
+     - `GET /spike-c/blog/post-42/` with `Accept: text/markdown`: Returns `HTTP/1.1 200 OK`, `Content-Type: text/markdown; charset=utf-8`, `Vary: Accept`, body contains `"This post was updated for the one-post change delta deploy verification benchmark."`.
+     - **CMS File Integrity Check:** Core CMS files `domains/bskickstarter.com/core/public/index.php`, `.htaccess`, and `media/` were checked immediately following the rsync `--delete` deployments; all remain completely untouched and identical.
 
 5. **Step 7.2 Rendering Architecture Plan:**
    - The spike twin generator (`starter/scripts/generate-md-twins.mjs`) is an explicit placeholder for the benchmark.
@@ -621,5 +633,6 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
    - `HOSTINGER_SSH_PRIVATE_KEY`: Private SSH key (`~/.ssh/bskickstarter_hostinger`)
    - `HOSTINGER_DEPLOY_PATH`: Remote deployment path (e.g. `domains/bskickstarter.com/core/public/spike-c`)
 
-7. **Spike C Gate Status:** **PENDING LIVE GITHUB ACTIONS RUN**.
+7. **Spike C Gate Status:** **PASSED & VERIFIED ON LIVE HOSTINGER**. Ready to proceed to Step 7.1.
+
 
