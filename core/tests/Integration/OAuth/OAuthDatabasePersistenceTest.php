@@ -107,12 +107,14 @@ final class OAuthDatabasePersistenceTest extends TestCase
         $nowUtc = gmdate('Y-m-d H:i:s.v');
 
         $stmt = $pdo->prepare("INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`)
-            VALUES (:id, 'alice@example.com', :hash, 'Alice Admin', 'active', :created_at, :created_at)");
+            VALUES (:id, 'alice@example.com', :hash, 'Alice Admin', 'active', :created_at, :updated_at)");
         $stmt->execute([
             'id' => $userId,
             'hash' => $passwordHash,
             'created_at' => $nowUtc,
+            'updated_at' => $nowUtc,
         ]);
+
 
         $roleStmt = $pdo->prepare("INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (:user_id, :role_id)");
         $roleStmt->execute([

@@ -267,8 +267,9 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(8, $migrator->getAppliedMigrations());
+        $this->assertCount(9, $migrator->getAppliedMigrations());
     }
+
 
     public function testRollbackRejectsInvalidStepCount(): void
     {
