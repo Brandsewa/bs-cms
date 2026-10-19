@@ -295,12 +295,12 @@ Benchmarked on local reference environments (Docker containers configured with r
   - **Dynamic `.well-known` Routing:** LiteSpeed cleanly routes `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` through `public/index.php`.
 - **Real Client Live Verification Results:**
   1. **MCP Inspector CLI (`@modelcontextprotocol/inspector --cli`):**
-     - Command: `npx @modelcontextprotocol/inspector --cli --transport http --server-url https://bskickstarter.com/mcp --header "Authorization: Bearer spike-test-token" --method tools/list`
+     - Command: `npx @modelcontextprotocol/inspector --cli --transport http --server-url https://bskickstarter.com/mcp --header "Authorization: Bearer <access_or_api_token>" --method tools/list`
      - Result: **PASS**. Discovered tools: `ping` and `list_posts`.
-     - Tool Call: `npx @modelcontextprotocol/inspector --cli --transport http --server-url https://bskickstarter.com/mcp --header "Authorization: Bearer spike-test-token" --method tools/call --tool-name list_posts --tool-args-json "{\"limit\":2}"`
+     - Tool Call: `npx @modelcontextprotocol/inspector --cli --transport http --server-url https://bskickstarter.com/mcp --header "Authorization: Bearer <access_or_api_token>" --method tools/call --tool-name list_posts --tool-args-json "{\"limit\":2}"`
      - Result: **PASS**. Queried live MariaDB 11.8.9 database on Hostinger and returned real published posts (`01M59TD446RFWB5WSXRJC11MFR`).
   2. **Claude Code CLI (`claude mcp add --transport http`):**
-     - Command: `claude mcp add --transport http bscms https://bskickstarter.com/mcp --header "Authorization: Bearer spike-test-token"`
+     - Command: `claude mcp add --transport http bscms https://bskickstarter.com/mcp --header "Authorization: Bearer <access_or_api_token>"`
      - Verification: `claude mcp get bscms`
      - Status: **`Status: √ Connected`** (Type: http, URL: `https://bskickstarter.com/mcp`).
   3. **Claude.ai Custom Connector (Web / Desktop):**
@@ -311,19 +311,26 @@ Benchmarked on local reference environments (Docker containers configured with r
        - Authentication: OAuth 2.0 (auto-discovers `/.well-known/oauth-protected-resource`) or API Token Bearer header.
   4. **Google Antigravity MCP:**
      - Evaluated native configuration: Antigravity executes stdio adapters. Connects to `https://bskickstarter.com/mcp` via `npx -y mcp-remote https://bskickstarter.com/mcp` defined in `~/.gemini/config/mcp_config.json`.
-- **Live OAuth 2.1 Flow & Transcripts (Hostinger Live Run):**
+- **Live OAuth 2.1 Flow & Transcripts (Hostinger Live Run with Hardened Security Gate):**
   - **Step 1: Dynamic Registration (`POST /oauth/register`):**
+    - Enforces URI validation: HTTPS or HTTP loopback only (`127.0.0.1`, `localhost`, `[::1]`), no fragments (`#`), no pseudo-schemes (`javascript:`, `data:`, `file:`). Rejects hostile targets with HTTP 400 `invalid_redirect_uri`.
+    - Enforces IP registration cap: maximum 10 registrations per IP per hour, returning HTTP 429 `rate_limit_exceeded`.
     - Request: `{"client_name":"Claude Code Test Suite","redirect_uris":["http://127.0.0.1:8080/callback"]}`
     - Response: HTTP 201 Created -> `{"client_id":"bs_client_...","client_name":"Claude Code Test Suite","redirect_uris":["http://127.0.0.1:8080/callback"],"grant_types":["authorization_code","refresh_token"],"response_types":["code"],"token_endpoint_auth_method":"none"}`
-  - **Step 2: Authorization Code with PKCE S256 Consent (`POST /oauth/authorize`):**
-    - Request: `client_id=bs_client_...&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2Fcallback&response_type=code&code_challenge=...&code_challenge_method=S256&scope=mcp%3Afull&decision=allow`
-    - Response: HTTP 302 Found -> `Location: http://127.0.0.1:8080/callback?code=bs_code_...&state=...`
-  - **Step 3: Token Exchange (`POST /oauth/token`):**
+  - **Step 2: Authenticated Session & Step-Up Consent (`GET` & `POST /oauth/authorize`):**
+    - Unauthenticated requests: `GET` returns 302 Found redirecting to `/admin/login?return_to=...` (or 401 on JSON Accept header); `POST` returns 401 Unauthorized.
+    - Logged-in session: `GET /oauth/authorize` renders HTML consent screen bound to user session and issues session CSRF token.
+    - Missing CSRF on submission: returns HTTP 403 Forbidden.
+    - Step-up confirmation: verifies account password via Argon2id. Invalid password returns HTTP 403 Forbidden `access_denied`.
+    - Valid submission: returns HTTP 302 Found -> `Location: http://127.0.0.1:8080/callback?code=bs_code_...&state=...` with authorization code strictly bound to user identity and roles.
+  - **Step 3: Token Exchange with PKCE S256 (`POST /oauth/token`):**
     - Request: `grant_type=authorization_code&client_id=bs_client_...&code=bs_code_...&code_verifier=...&redirect_uri=http%3A%2F%2F127.0.0.1%3A8080%2Fcallback`
+    - Single-use code verified; verifier validated against challenge.
     - Response: HTTP 200 OK -> `{"access_token":"[REDACTED]","token_type":"Bearer","expires_in":3600,"refresh_token":"[REDACTED]","scope":"mcp:read mcp:write"}`
-  - **Step 4: Authenticated MCP Call (`POST /mcp`):**
-    - Request: `Authorization: Bearer [REDACTED]`, body: `{"jsonrpc":"2.0","method":"initialize",...}`
-    - Response: HTTP 200 OK -> `{"protocolVersion":"2025-06-18","capabilities":{...},"serverInfo":{"name":"bs-cms","version":"1.0.0"}}`
+  - **Step 4: Authenticated MCP Call with Role Permissions (`POST /mcp`):**
+    - Purged all hardcoded tokens: `Authorization: Bearer spike-test-token` returns HTTP 401 Unauthorized with RFC 9728 `WWW-Authenticate` header.
+    - Real OAuth access token carries user roles (Owner, Editor, Author, etc.). Tool `list_posts` verifies role permissions and returns published posts from MariaDB:
+      `{"posts":[{"id":"01M59TD446RFWB5WSXRJC11MFR","title":"merge-post","slug":"merge-post","status":"published","published_at":"2026-10-19 10:13:07.000"},...]}`
   - **Step 5: Refresh Token Rotation (`POST /oauth/token`):**
     - Request: `grant_type=refresh_token&client_id=bs_client_...&refresh_token=[REDACTED_OLD]`
     - Response: HTTP 200 OK -> `{"access_token":"[REDACTED_NEW]","token_type":"Bearer","expires_in":3600,"refresh_token":"[REDACTED_NEW]","scope":"mcp:read mcp:write"}`
