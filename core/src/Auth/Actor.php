@@ -13,6 +13,7 @@ final class Actor
     public const TYPE_USER = 'user';
     public const TYPE_AI_CLIENT = 'ai_client';
     public const TYPE_API_TOKEN = 'api_token';
+    public const TYPE_OAUTH = 'oauth';
     public const TYPE_SYSTEM = 'system';
     public const TYPE_PLUGIN = 'plugin';
     public const TYPE_ANONYMOUS = 'anonymous';
@@ -24,6 +25,7 @@ final class Actor
     /**
      * @param list<string> $roleIds
      * @param list<string> $scopes
+     * @param list<string> $userRoleIds
      */
     public function __construct(
         public readonly string $type,
@@ -32,7 +34,9 @@ final class Actor
         public readonly ?string $onBehalfOf = null,
         public readonly array $roleIds = [],
         public readonly ?string $aiMode = null,
-        public readonly array $scopes = ['*']
+        public readonly array $scopes = ['*'],
+        public readonly ?string $grantRoleId = null,
+        public readonly array $userRoleIds = []
     ) {
     }
 
@@ -113,6 +117,32 @@ final class Actor
             onBehalfOf: $userId,
             roleIds: $roleIds,
             aiMode: $aiMode
+        );
+    }
+
+    /**
+     * @param list<string> $userRoleIds
+     * @param list<string> $scopes
+     */
+    public static function oauth(
+        string $grantId,
+        string $clientName,
+        string $userId,
+        string $grantRoleId,
+        array $userRoleIds,
+        string $aiMode = self::AI_MODE_DRAFT_ONLY,
+        array $scopes = ['mcp:read', 'mcp:write']
+    ): self {
+        return new self(
+            type: self::TYPE_OAUTH,
+            id: $grantId,
+            label: $clientName,
+            onBehalfOf: $userId,
+            roleIds: [$grantRoleId],
+            aiMode: $aiMode,
+            scopes: $scopes,
+            grantRoleId: $grantRoleId,
+            userRoleIds: $userRoleIds
         );
     }
 

@@ -76,14 +76,48 @@ final class Authorizer
             }
         }
 
-        // 4. Compile permissions for actor's roles
+        // 4. Role evaluation
+        if ($actor->grantRoleId !== null) {
+            // OAuth grant-bound permission intersection:
+            // 1) The grant's role must allow the action
+            $grantPermissions = $this->compiler->compile([$actor->grantRoleId]);
+            $grantDecision = $this->evaluatePermissionRules($grantPermissions, $actor, $action, $subject, $entity);
+            if (!$grantDecision->allowed) {
+                return Decision::deny("OAuth grant role does not permit action '{$action}' on '{$subject->type}'.");
+            }
+
+            // 2) The user's current roles must ALSO allow the action
+            if ($actor->userRoleIds === []) {
+                return Decision::deny("User has no assigned roles (default deny).");
+            }
+
+            $userPermissions = $this->compiler->compile($actor->userRoleIds);
+            $userActor = Actor::user((string) $actor->onBehalfOf, $actor->label, $actor->userRoleIds);
+            $userDecision = $this->evaluatePermissionRules($userPermissions, $userActor, $action, $subject, $entity);
+            if (!$userDecision->allowed) {
+                return Decision::deny("User does not have permission to perform action '{$action}' on '{$subject->type}'.");
+            }
+
+            return Decision::allow("Permitted by intersection of OAuth grant role and user permissions.");
+        }
+
+        // Standard role evaluation for human users / API tokens
         if ($actor->roleIds === []) {
             return Decision::deny('Actor has no assigned roles (default deny).');
         }
 
         $permissions = $this->compiler->compile($actor->roleIds);
+        return $this->evaluatePermissionRules($permissions, $actor, $action, $subject, $entity);
+    }
+
+    /**
+     * @param list<Permission> $permissions
+     * @param array<string, mixed>|null $entity
+     */
+    private function evaluatePermissionRules(array $permissions, Actor $actor, string $action, Subject $subject, ?array $entity = null): Decision
+    {
         if ($permissions === []) {
-            return Decision::deny('No permissions assigned to actor roles (default deny).');
+            return Decision::deny('No permissions assigned to roles (default deny).');
         }
 
         $hasExplicitAllow = false;

@@ -32,7 +32,9 @@ final class ConfirmTokenService
      */
     public function generate(string $actorId, string $operationName, array $input, int $ttl = 300): string
     {
-        $inputHash = hash('sha256', self::canonicalJson($input));
+        $cleanedInput = $input;
+        unset($cleanedInput['confirm_token']);
+        $inputHash = hash('sha256', self::canonicalJson($cleanedInput));
         $payload = [
             'actor_id' => $actorId,
             'operation' => $operationName,
@@ -101,7 +103,9 @@ final class ConfirmTokenService
         }
 
         $tokenInputHash = isset($rawPayload['input_hash']) && is_string($rawPayload['input_hash']) ? $rawPayload['input_hash'] : '';
-        $currentInputHash = hash('sha256', self::canonicalJson($input));
+        $cleanedInput = $input;
+        unset($cleanedInput['confirm_token']);
+        $currentInputHash = hash('sha256', self::canonicalJson($cleanedInput));
         if (!hash_equals($tokenInputHash, $currentInputHash)) {
             throw new OperationException('Confirmation token does not match operation input parameters.');
         }

@@ -122,7 +122,8 @@ final class JsonSchemaValidator
 
             // Additional properties check
             if (isset($schema['additionalProperties']) && $schema['additionalProperties'] === false) {
-                $allowed = array_keys($schema['properties'] ?? []);
+                $rawProps = $schema['properties'] ?? [];
+                $allowed = is_array($rawProps) ? array_keys($rawProps) : (is_object($rawProps) ? array_keys((array) $rawProps) : []);
                 foreach (array_keys($data) as $actualKey) {
                     if (!in_array((string) $actualKey, $allowed, true)) {
                         $propPath = $path !== '' ? "{$path}.{$actualKey}" : (string) $actualKey;
