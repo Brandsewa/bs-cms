@@ -24,18 +24,19 @@ concurrency:
 
 jobs:
   build-and-deploy:
+    name: Build & Deploy Astro Site
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install dependencies
+        working-directory: starter
         run: npm ci
 
       - name: Notify build started
@@ -49,8 +50,8 @@ jobs:
             -d '{"status":"building"}' || true
 
       - name: Build Astro site
-        run: |
-          npm run build
+        working-directory: starter
+        run: npm run build
         env:
           CMS_URL: ${{ secrets.BS_CMS_URL }}
           BUILD_TOKEN: ${{ secrets.BS_BUILD_TOKEN }}
@@ -62,11 +63,24 @@ jobs:
           known_hosts: 'unnecessary'
           if_key_exists: replace
 
-      - name: Deploy to Hostinger via rsync over SSH
+      - name: Deploy to Hostinger via rsync over SSH with CMS Safeguards
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }} ${{ secrets.HOSTINGER_SSH_HOST }} >> ~/.ssh/known_hosts
+          # Rsync changed files with strict excludes protecting CMS core files from deletion:
           rsync -avz --delete \
+            --exclude='index.php' \
+            --exclude='core/' \
+            --exclude='media/' \
+            --exclude='.htaccess' \
+            --exclude='admin/' \
+            --exclude='storage/' \
+            --exclude='config/' \
+            --exclude='migrations/' \
+            --exclude='resources/' \
+            --exclude='bin/' \
+            --exclude='vendor/' \
+            --exclude='composer.*' \
             -e "ssh -p ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}" \
             starter/dist/ \
             ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}:${{ secrets.HOSTINGER_DEPLOY_PATH }}

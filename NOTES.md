@@ -432,6 +432,7 @@ Benchmarked on local reference environments (Docker containers configured with r
 - **Structured CSV Import:**
   - `POST /api/v1/redirects/import` validates every row against full safety, length, and domain rules, returning structured JSON containing overall metrics (`imported`, `skipped`, `errors_count`, `total`) and per-row execution results (`row`, `status`, `from_path`, `to_path`, `status_code`, `match_type`, `errors`).
 
+<<<<<<< HEAD
 ### 6.7 Risky Media Streaming & Media URL Resolution
 - **URL Resolution by File Type:**
   - In `MediaPresenter::present()`, the `url` field in media responses is dynamically determined:
@@ -485,6 +486,7 @@ Performs automated checks on database connectivity, disk storage, upload directo
 ### 6.9 Phase 7 / Step 7.0 Spike C: Astro Build & Deploy Pipeline (GATE IN PROGRESS)
 
 Empirical measurements and architecture decisions on live Hostinger shared hosting (`145.79.58.57:65002`, LiteSpeed Web Server, test site `bskickstarter.com`):
+
 
 1. **Hostinger SSH, SFTP & Rsync Tool Verification:**
    - Authenticated via ed25519 key `~/.ssh/bskickstarter_hostinger` (user `u497383174`, port 65002).

@@ -29,6 +29,7 @@ node_modules/
 dist/
 /build/
 /starter/dist/
+starter/.astro/
 /coverage/
 /tools/dist/
 *.tsbuildinfo
