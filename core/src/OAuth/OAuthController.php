@@ -155,55 +155,102 @@ final class OAuthController extends BaseController
         $body = (string) $request->getBody();
         $input = json_decode($body, true);
         if (!is_array($input)) {
-            return $this->oauthError(400, 'invalid_request', 'Malformed JSON payload.');
+            return $this->oauthError(400, 'invalid_client_metadata', 'Malformed JSON payload or non-object root.');
         }
 
-        $clientName = trim((string) ($input['client_name'] ?? 'AI Client'));
-        /** @var list<string> $redirectUris */
-        $redirectUris = is_array($input['redirect_uris'] ?? null)
-            ? array_values(array_filter(array_map('strval', $input['redirect_uris']), fn ($u) => $u !== ''))
-            : [];
+        // 2. Validate client_name type and length (<= 190 characters)
+        if (array_key_exists('client_name', $input)) {
+            if (!is_string($input['client_name'])) {
+                return $this->oauthError(400, 'invalid_client_metadata', 'The client_name field must be a string.');
+            }
+            $clientName = trim($input['client_name']);
+            if (mb_strlen($clientName) > 190) {
+                return $this->oauthError(400, 'invalid_client_metadata', 'The client_name field must not exceed 190 characters.');
+            }
+            if ($clientName === '') {
+                return $this->oauthError(400, 'invalid_client_metadata', 'The client_name field must not be empty.');
+            }
+        } else {
+            $clientName = 'AI Client';
+        }
 
-        if (empty($redirectUris)) {
+        // 3. Validate redirect_uris type, count (<= 10), and string values
+        if (!array_key_exists('redirect_uris', $input) || !is_array($input['redirect_uris'])) {
+            return $this->oauthError(400, 'invalid_client_metadata', 'The redirect_uris field is required and must be an array of strings.');
+        }
+
+        if (count($input['redirect_uris']) === 0) {
             return $this->oauthError(400, 'invalid_redirect_uri', 'At least one redirect URI is required.');
         }
 
-        // 2. Validate redirect URIs: HTTPS or HTTP loopback only, no fragments, no pseudo-schemes
-        foreach ($redirectUris as $uri) {
-            if (!self::isValidRedirectUri($uri)) {
-                return $this->oauthError(400, 'invalid_redirect_uri', "Invalid redirect URI '{$uri}'. Must be HTTPS or HTTP loopback (localhost/127.0.0.1/[::1]) with no fragment.");
-            }
+        if (count($input['redirect_uris']) > 10) {
+            return $this->oauthError(400, 'invalid_client_metadata', 'Too many redirect URIs. A maximum of 10 is permitted.');
         }
 
-        $clientId = 'bs_client_' . bin2hex(random_bytes(12));
-        $clientPk = Ulid::generate();
-        $nowUtc = gmdate('Y-m-d H:i:s.v');
+        /** @var list<string> $redirectUris */
+        $redirectUris = [];
+        foreach ($input['redirect_uris'] as $idx => $uri) {
+            if (!is_string($uri)) {
+                return $this->oauthError(400, 'invalid_client_metadata', "Redirect URI at index {$idx} must be a string.");
+            }
+            $trimmedUri = trim($uri);
+            if ($trimmedUri === '') {
+                return $this->oauthError(400, 'invalid_redirect_uri', "Redirect URI at index {$idx} must not be empty.");
+            }
+            if (strlen($trimmedUri) > 2048) {
+                return $this->oauthError(400, 'invalid_redirect_uri', "Redirect URI at index {$idx} exceeds maximum length of 2048 characters.");
+            }
+            if (!self::isValidRedirectUri($trimmedUri)) {
+                return $this->oauthError(400, 'invalid_redirect_uri', "Invalid redirect URI '{$trimmedUri}'. Must be HTTPS or HTTP loopback (localhost/127.0.0.1/[::1]) with no fragment.");
+            }
+            $redirectUris[] = $trimmedUri;
+        }
 
-        $this->recordDbIpRegistration($ip);
+        // 4. Validate metadata fields if supplied
+        if (isset($input['grant_types']) && !is_array($input['grant_types'])) {
+            return $this->oauthError(400, 'invalid_client_metadata', 'The grant_types field must be an array.');
+        }
+        if (isset($input['response_types']) && !is_array($input['response_types'])) {
+            return $this->oauthError(400, 'invalid_client_metadata', 'The response_types field must be an array.');
+        }
+        if (isset($input['token_endpoint_auth_method']) && !is_string($input['token_endpoint_auth_method'])) {
+            return $this->oauthError(400, 'invalid_client_metadata', 'The token_endpoint_auth_method field must be a string.');
+        }
 
-        $clientsTable = $this->connection->prefixTable('oauth_clients');
-        $stmt = $this->connection->getPdo()->prepare("INSERT INTO `{$clientsTable}`
-            (`id`, `client_id`, `name`, `redirect_uris`, `is_public`, `client_secret_hash`, `registration_method`, `metadata`, `created_at`, `revoked_at`)
-            VALUES (:id, :client_id, :name, :redirect_uris, 1, NULL, 'dynamic', NULL, :created_at, NULL)");
-        $stmt->execute([
-            'id' => $clientPk,
-            'client_id' => $clientId,
-            'name' => $clientName,
-            'redirect_uris' => json_encode($redirectUris, JSON_THROW_ON_ERROR),
-            'created_at' => $nowUtc,
-        ]);
+        try {
+            $clientId = 'bs_client_' . bin2hex(random_bytes(12));
+            $clientPk = Ulid::generate();
+            $nowUtc = gmdate('Y-m-d H:i:s.v');
 
-        return $this->json([
-            'client_id' => $clientId,
-            'client_name' => $clientName,
-            'redirect_uris' => $redirectUris,
-            'grant_types' => ['authorization_code', 'refresh_token'],
-            'response_types' => ['code'],
-            'token_endpoint_auth_method' => 'none',
-        ], 201, [
-            'Access-Control-Allow-Origin' => '*',
-            'Cache-Control' => 'no-store',
-        ]);
+            $this->recordDbIpRegistration($ip);
+
+            $clientsTable = $this->connection->prefixTable('oauth_clients');
+            $stmt = $this->connection->getPdo()->prepare("INSERT INTO `{$clientsTable}`
+                (`id`, `client_id`, `name`, `redirect_uris`, `is_public`, `client_secret_hash`, `registration_method`, `metadata`, `created_at`, `revoked_at`)
+                VALUES (:id, :client_id, :name, :redirect_uris, 1, NULL, 'dynamic', NULL, :created_at, NULL)");
+            $stmt->execute([
+                'id' => $clientPk,
+                'client_id' => $clientId,
+                'name' => $clientName,
+                'redirect_uris' => json_encode($redirectUris, JSON_THROW_ON_ERROR),
+                'created_at' => $nowUtc,
+            ]);
+
+            return $this->json([
+                'client_id' => $clientId,
+                'client_name' => $clientName,
+                'redirect_uris' => $redirectUris,
+                'grant_types' => ['authorization_code', 'refresh_token'],
+                'response_types' => ['code'],
+                'token_endpoint_auth_method' => 'none',
+            ], 201, [
+                'Access-Control-Allow-Origin' => '*',
+                'Cache-Control' => 'no-store',
+            ]);
+        } catch (\Throwable $e) {
+            $this->logServerError($request, $e, 'oauth_register');
+            return $this->problem(500, 'Internal Server Error', 'An unexpected error occurred during client registration.');
+        }
     }
 
     /**
@@ -481,6 +528,8 @@ final class OAuthController extends BaseController
         $nowUtc = gmdate('Y-m-d H:i:s.v');
         $expiresUtc = gmdate('Y-m-d H:i:s.v', time() + 300); // 5 min expiry
 
+        $scopes = ['mcp:read', 'mcp:write'];
+
         // Create active grant in database
         $clientDbId = $client['id'];
         $grantStmt = $this->connection->getPdo()->prepare("INSERT INTO `{$grantsTable}`
@@ -491,10 +540,29 @@ final class OAuthController extends BaseController
             'user_id' => $userId,
             'client_id' => $clientDbId,
             'role_id' => $chosenRoleId,
-            'scopes' => json_encode(['mcp:read', 'mcp:write'], JSON_THROW_ON_ERROR),
+            'scopes' => json_encode($scopes, JSON_THROW_ON_ERROR),
             'ai_mode' => $aiMode,
             'created_at' => $nowUtc,
         ]);
+
+        $this->auditLogger->record(
+            actor: $actor instanceof Actor ? $actor : Actor::user($userId, $userName, $userRoles),
+            action: 'oauth.grant_created',
+            subject: 'oauth_grant',
+            summary: "OAuth grant created for client {$client['client_id']} ({$client['name']}) with role {$chosenRoleId} and ai_mode {$aiMode}",
+            diff: [
+                'grant_id' => $grantPk,
+                'client_id' => (string) $client['client_id'],
+                'client_name' => (string) $client['name'],
+                'user_id' => $userId,
+                'role_id' => $chosenRoleId,
+                'ai_mode' => $aiMode,
+                'scopes' => $scopes,
+            ],
+            result: 'success',
+            ip: $this->resolveClientIp($request),
+            subjectId: $grantPk
+        );
 
         // Save authorization code with HASHED code and optional RFC 8707 resource
         $codeStmt = $this->connection->getPdo()->prepare("INSERT INTO `{$authCodesTable}`
@@ -591,6 +659,18 @@ final class OAuthController extends BaseController
 
             if ($authCode['grant_revoked_at'] !== null) {
                 return $this->oauthError(400, 'invalid_grant', 'Authorization grant has been revoked.');
+            }
+
+            // Exact match redirect_uri requirement (RFC 6749 Section 4.1.3 & OAuth 2.1)
+            $suppliedRedirectUri = (string) ($data['redirect_uri'] ?? '');
+            if ($suppliedRedirectUri === '' || !hash_equals((string) $authCode['redirect_uri'], $suppliedRedirectUri)) {
+                return $this->oauthError(400, 'invalid_grant', 'The redirect_uri parameter is missing or does not match the redirect_uri specified in the authorization request.');
+            }
+
+            // Client ID verification if supplied
+            $suppliedClientId = (string) ($data['client_id'] ?? '');
+            if ($suppliedClientId !== '' && !hash_equals((string) $authCode['client_string_id'], $suppliedClientId)) {
+                return $this->oauthError(400, 'invalid_grant', 'client_id does not match the authorization code.');
             }
 
             // RFC 8707 check: if code had a resource, request resource must match if supplied

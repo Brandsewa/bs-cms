@@ -12,6 +12,7 @@ use BsCms\Authz\Authorizer;
 use BsCms\Authz\PermissionCompiler;
 use BsCms\Database\Connection;
 use BsCms\Database\Migrator;
+use BsCms\Http\Controllers\AuditController;
 use BsCms\Kernel\Config;
 use BsCms\OAuth\OAuthController;
 use BsCms\Security\Ulid;
@@ -573,5 +574,426 @@ final class OAuthDatabasePersistenceTest extends TestCase
         $fullGoodRes = $controller->authorizePost($fullGoodReq);
         $this->assertSame(302, $fullGoodRes->getStatusCode());
         $this->assertStringContainsString('code=', $fullGoodRes->getHeaderLine('Location'));
+    }
+
+    public function testTokenEndpointRejectsMismatchedRedirectUri(): void
+    {
+        $pdo = $this->connection->getPdo();
+        $usersTable = $this->connection->prefixTable('users');
+        $userRolesTable = $this->connection->prefixTable('user_roles');
+        $clientsTable = $this->connection->prefixTable('oauth_clients');
+
+        $nowUtc = gmdate('Y-m-d H:i:s.v');
+        $userId = Ulid::generate();
+        $pdo->prepare("INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`)
+            VALUES (:id, 'redirmismatch@example.com', :hash, 'Redir User', 'active', :created_at, :updated_at)")
+            ->execute(['id' => $userId, 'hash' => $this->hasher->hash('password123'), 'created_at' => $nowUtc, 'updated_at' => $nowUtc]);
+        $pdo->prepare("INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (:u, :r)")
+            ->execute(['u' => $userId, 'r' => SystemRoles::ROLE_EDITOR]);
+
+        $clientPk = Ulid::generate();
+        $clientId = 'bs_client_redir_match';
+        $pdo->prepare("INSERT INTO `{$clientsTable}` (`id`, `client_id`, `name`, `redirect_uris`, `is_public`, `registration_method`, `created_at`)
+            VALUES (:id, :cid, 'Redir Client', '[\"http://127.0.0.1:8123/cb\", \"http://127.0.0.1:9999/cb\"]', 1, 'dynamic', :created_at)")
+            ->execute(['id' => $clientPk, 'cid' => $clientId, 'created_at' => $nowUtc]);
+
+        $controller = new OAuthController($this->connection, $this->hasher, $this->auditLogger, $this->authorizer, $this->config);
+
+        $codeVerifier = bin2hex(random_bytes(32));
+        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+
+        // 1. Authorize with redirect_uri = http://127.0.0.1:8123/cb
+        $authReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/authorize'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]))->withAttribute('session', [
+            'id' => 'sess_redir',
+            'user_id' => $userId,
+            'name' => 'Redir User',
+            'csrf_secret' => 'csrf_token_redir',
+        ])->withAttribute('actor', Actor::user($userId, 'Redir User', [SystemRoles::ROLE_EDITOR]));
+
+        $authReq->getBody()->write(http_build_query([
+            'client_id' => $clientId,
+            'redirect_uri' => 'http://127.0.0.1:8123/cb',
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => 'S256',
+            'response_type' => 'code',
+            'decision' => 'allow',
+            'csrf_token' => 'csrf_token_redir',
+            'password' => 'password123',
+            'role_id' => SystemRoles::ROLE_EDITOR,
+            'ai_mode' => 'draft_only',
+        ]));
+        $authReq->getBody()->rewind();
+
+        $authRes = $controller->authorizePost($authReq);
+        $this->assertSame(302, $authRes->getStatusCode());
+        $authLoc = $authRes->getHeaderLine('Location');
+        $this->assertStringStartsWith('http://127.0.0.1:8123/cb?', $authLoc);
+
+        $query1 = parse_url($authLoc, PHP_URL_QUERY);
+        parse_str(is_string($query1) ? $query1 : '', $params);
+        $rawCode1 = $params['code'] ?? '';
+        $code = is_string($rawCode1) ? $rawCode1 : '';
+        $this->assertNotEmpty($code);
+
+        // 2. Token request with mismatched redirect_uri (http://127.0.0.1:9999/cb): MUST be rejected with 400 invalid_grant
+        $badTokenReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/token'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]));
+        $badTokenReq->getBody()->write(http_build_query([
+            'grant_type' => 'authorization_code',
+            'client_id' => $clientId,
+            'code' => $code,
+            'code_verifier' => $codeVerifier,
+            'redirect_uri' => 'http://127.0.0.1:9999/cb', // Differs from authorization redirect_uri!
+        ]));
+        $badTokenReq->getBody()->rewind();
+
+        $badTokenRes = $controller->token($badTokenReq);
+        $this->assertSame(400, $badTokenRes->getStatusCode());
+        $badTokenJson = json_decode((string) $badTokenRes->getBody(), true);
+        $this->assertSame('invalid_grant', $badTokenJson['error']);
+        $this->assertStringContainsString('redirect_uri', $badTokenJson['error_description']);
+
+        // 3. Issue a fresh code for matching redirect_uri: MUST succeed with 200 OK
+        $codeVerifier2 = bin2hex(random_bytes(32));
+        $codeChallenge2 = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier2, true)), '+/', '-_'), '=');
+
+        $authReq2 = (new ServerRequest('POST', new Uri('https://example.com/oauth/authorize'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]))->withAttribute('session', [
+            'id' => 'sess_redir2',
+            'user_id' => $userId,
+            'name' => 'Redir User',
+            'csrf_secret' => 'csrf_token_redir',
+        ])->withAttribute('actor', Actor::user($userId, 'Redir User', [SystemRoles::ROLE_EDITOR]));
+
+        $authReq2->getBody()->write(http_build_query([
+            'client_id' => $clientId,
+            'redirect_uri' => 'http://127.0.0.1:8123/cb',
+            'code_challenge' => $codeChallenge2,
+            'code_challenge_method' => 'S256',
+            'response_type' => 'code',
+            'decision' => 'allow',
+            'csrf_token' => 'csrf_token_redir',
+            'password' => 'password123',
+            'role_id' => SystemRoles::ROLE_EDITOR,
+            'ai_mode' => 'draft_only',
+        ]));
+        $authReq2->getBody()->rewind();
+
+        $authRes2 = $controller->authorizePost($authReq2);
+        $query2 = parse_url($authRes2->getHeaderLine('Location'), PHP_URL_QUERY);
+        parse_str(is_string($query2) ? $query2 : '', $params2);
+        $rawCode2 = $params2['code'] ?? '';
+        $code2 = is_string($rawCode2) ? $rawCode2 : '';
+
+        $goodTokenReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/token'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]));
+        $goodTokenReq->getBody()->write(http_build_query([
+            'grant_type' => 'authorization_code',
+            'client_id' => $clientId,
+            'code' => $code2,
+            'code_verifier' => $codeVerifier2,
+            'redirect_uri' => 'http://127.0.0.1:8123/cb', // Exact match!
+        ]));
+        $goodTokenReq->getBody()->rewind();
+
+        $goodTokenRes = $controller->token($goodTokenReq);
+        $this->assertSame(200, $goodTokenRes->getStatusCode());
+        $goodJson = json_decode((string) $goodTokenRes->getBody(), true);
+        $this->assertArrayHasKey('access_token', $goodJson);
+    }
+
+    public function testRegistrationValidatesOversizedAndNonStringInputs(): void
+    {
+        $controller = new OAuthController($this->connection, $this->hasher, $this->auditLogger, $this->authorizer, $this->config);
+
+        // 1. Oversized client_name (300 characters): returns 400 invalid_client_metadata
+        $oversizedReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $oversizedReq->getBody()->write((string) json_encode([
+            'client_name' => str_repeat('A', 300),
+            'redirect_uris' => ['https://claude.ai/cb'],
+        ]));
+        $oversizedReq->getBody()->rewind();
+
+        $oversizedRes = $controller->register($oversizedReq);
+        $this->assertSame(400, $oversizedRes->getStatusCode());
+        $oversizedJson = json_decode((string) $oversizedRes->getBody(), true);
+        $this->assertSame('invalid_client_metadata', $oversizedJson['error']);
+        $this->assertStringContainsString('190', $oversizedJson['error_description']);
+
+        // 2. Non-string client_name (e.g. integer or array): returns 400 invalid_client_metadata
+        $nonStringNameReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $nonStringNameReq->getBody()->write((string) json_encode([
+            'client_name' => ['not', 'a', 'string'],
+            'redirect_uris' => ['https://claude.ai/cb'],
+        ]));
+        $nonStringNameReq->getBody()->rewind();
+
+        $nonStringNameRes = $controller->register($nonStringNameReq);
+        $this->assertSame(400, $nonStringNameRes->getStatusCode());
+        $nonStringNameJson = json_decode((string) $nonStringNameRes->getBody(), true);
+        $this->assertSame('invalid_client_metadata', $nonStringNameJson['error']);
+
+        // 3. Non-string element in redirect_uris: returns 400 invalid_client_metadata
+        $nonStringUriReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $nonStringUriReq->getBody()->write((string) json_encode([
+            'client_name' => 'Valid Name',
+            'redirect_uris' => [12345],
+        ]));
+        $nonStringUriReq->getBody()->rewind();
+
+        $nonStringUriRes = $controller->register($nonStringUriReq);
+        $this->assertSame(400, $nonStringUriRes->getStatusCode());
+        $nonStringUriJson = json_decode((string) $nonStringUriRes->getBody(), true);
+        $this->assertSame('invalid_client_metadata', $nonStringUriJson['error']);
+
+        // 4. Non-array redirect_uris: returns 400 invalid_client_metadata
+        $nonArrayUriReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $nonArrayUriReq->getBody()->write((string) json_encode([
+            'client_name' => 'Valid Name',
+            'redirect_uris' => 'https://claude.ai/cb',
+        ]));
+        $nonArrayUriReq->getBody()->rewind();
+
+        $nonArrayUriRes = $controller->register($nonArrayUriReq);
+        $this->assertSame(400, $nonArrayUriRes->getStatusCode());
+        $nonArrayUriJson = json_decode((string) $nonArrayUriRes->getBody(), true);
+        $this->assertSame('invalid_client_metadata', $nonArrayUriJson['error']);
+
+        // 5. Too many redirect_uris (> 10): returns 400 invalid_client_metadata
+        $tooManyUris = [];
+        for ($i = 0; $i < 11; $i++) {
+            $tooManyUris[] = "https://example{$i}.com/cb";
+        }
+        $tooManyReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $tooManyReq->getBody()->write((string) json_encode([
+            'client_name' => 'Valid Name',
+            'redirect_uris' => $tooManyUris,
+        ]));
+        $tooManyReq->getBody()->rewind();
+
+        $tooManyRes = $controller->register($tooManyReq);
+        $this->assertSame(400, $tooManyRes->getStatusCode());
+        $tooManyJson = json_decode((string) $tooManyRes->getBody(), true);
+        $this->assertSame('invalid_client_metadata', $tooManyJson['error']);
+
+        // 6. Oversized redirect_uri (> 2048 characters): returns 400 invalid_redirect_uri
+        $oversizedUri = 'https://example.com/cb?' . str_repeat('a', 2050);
+        $oversizedUriReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $oversizedUriReq->getBody()->write((string) json_encode([
+            'client_name' => 'Valid Name',
+            'redirect_uris' => [$oversizedUri],
+        ]));
+        $oversizedUriReq->getBody()->rewind();
+
+        $oversizedUriRes = $controller->register($oversizedUriReq);
+        $this->assertSame(400, $oversizedUriRes->getStatusCode());
+        $oversizedUriJson = json_decode((string) $oversizedUriRes->getBody(), true);
+        $this->assertSame('invalid_redirect_uri', $oversizedUriJson['error']);
+
+        // 7. Exactly 190-character client_name and valid redirect_uri: returns 201 Created
+        $boundaryReq = new ServerRequest('POST', new Uri('https://example.com/oauth/register'), [
+            'Content-Type' => 'application/json',
+        ]);
+        $boundaryReq->getBody()->write((string) json_encode([
+            'client_name' => str_repeat('B', 190),
+            'redirect_uris' => ['https://claude.ai/cb'],
+        ]));
+        $boundaryReq->getBody()->rewind();
+
+        $boundaryRes = $controller->register($boundaryReq);
+        $this->assertSame(201, $boundaryRes->getStatusCode());
+        $boundaryJson = json_decode((string) $boundaryRes->getBody(), true);
+        $this->assertSame(str_repeat('B', 190), $boundaryJson['client_name']);
+    }
+
+    public function testAuditLogCapturesAllFourOAuthActions(): void
+    {
+        $pdo = $this->connection->getPdo();
+        $usersTable = $this->connection->prefixTable('users');
+        $userRolesTable = $this->connection->prefixTable('user_roles');
+        $clientsTable = $this->connection->prefixTable('oauth_clients');
+
+        $nowUtc = gmdate('Y-m-d H:i:s.v');
+        $adminId = Ulid::generate();
+        $pdo->prepare("INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`)
+            VALUES (:id, 'audit-admin@example.com', :hash, 'Audit Admin', 'active', :created_at, :updated_at)")
+            ->execute(['id' => $adminId, 'hash' => $this->hasher->hash('adminpass'), 'created_at' => $nowUtc, 'updated_at' => $nowUtc]);
+        $pdo->prepare("INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (:u, :r)")
+            ->execute(['u' => $adminId, 'r' => SystemRoles::ROLE_ADMIN]);
+
+        $clientPk = Ulid::generate();
+        $clientId = 'bs_client_audit_test';
+        $pdo->prepare("INSERT INTO `{$clientsTable}` (`id`, `client_id`, `name`, `redirect_uris`, `is_public`, `registration_method`, `created_at`)
+            VALUES (:id, :cid, 'Audit Client', '[\"https://claude.ai/cb\"]', 1, 'dynamic', :created_at)")
+            ->execute(['id' => $clientPk, 'cid' => $clientId, 'created_at' => $nowUtc]);
+
+        $controller = new OAuthController($this->connection, $this->hasher, $this->auditLogger, $this->authorizer, $this->config);
+        $auditController = new AuditController($this->auditLogger, $this->authorizer);
+
+        $codeVerifier = bin2hex(random_bytes(32));
+        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+
+        // Action 1: oauth.grant_created (via authorizePost)
+        $authReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/authorize'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]))->withAttribute('session', [
+            'id' => 'sess_audit',
+            'user_id' => $adminId,
+            'name' => 'Audit Admin',
+            'csrf_secret' => 'csrf_token_audit',
+        ])->withAttribute('actor', Actor::user($adminId, 'Audit Admin', [SystemRoles::ROLE_ADMIN]));
+
+        $authReq->getBody()->write(http_build_query([
+            'client_id' => $clientId,
+            'redirect_uri' => 'https://claude.ai/cb',
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => 'S256',
+            'response_type' => 'code',
+            'decision' => 'allow',
+            'csrf_token' => 'csrf_token_audit',
+            'password' => 'adminpass',
+            'role_id' => SystemRoles::ROLE_ADMIN,
+            'ai_mode' => 'draft_only',
+        ]));
+        $authReq->getBody()->rewind();
+
+        $authRes = $controller->authorizePost($authReq);
+        $this->assertSame(302, $authRes->getStatusCode());
+        $query3 = parse_url($authRes->getHeaderLine('Location'), PHP_URL_QUERY);
+        parse_str(is_string($query3) ? $query3 : '', $authParams);
+        $rawAuthCode = $authParams['code'] ?? '';
+        $authCode = is_string($rawAuthCode) ? $rawAuthCode : '';
+
+        // Exchange for token pair
+        $tokenReq = new ServerRequest('POST', new Uri('https://example.com/oauth/token'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]);
+        $tokenReq->getBody()->write(http_build_query([
+            'grant_type' => 'authorization_code',
+            'client_id' => $clientId,
+            'code' => $authCode,
+            'code_verifier' => $codeVerifier,
+            'redirect_uri' => 'https://claude.ai/cb',
+        ]));
+        $tokenReq->getBody()->rewind();
+
+        $tokenRes = $controller->token($tokenReq);
+        $this->assertSame(200, $tokenRes->getStatusCode());
+        $tokenJson = json_decode((string) $tokenRes->getBody(), true);
+        $accessToken = (string) $tokenJson['access_token'];
+        $refreshToken = (string) $tokenJson['refresh_token'];
+
+        // Action 2: oauth.token_revoked (via POST /oauth/revoke)
+        $revokeReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/revoke'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]));
+        $revokeReq->getBody()->write(http_build_query([
+            'token' => $accessToken,
+            'token_type_hint' => 'access_token',
+        ]));
+        $revokeReq->getBody()->rewind();
+
+        $revokeRes = $controller->revoke($revokeReq);
+        $this->assertSame(200, $revokeRes->getStatusCode());
+
+        // Rotate refresh token to get an active token and a rotated predecessor
+        $rotateReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/token'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]));
+        $rotateReq->getBody()->write(http_build_query([
+            'grant_type' => 'refresh_token',
+            'client_id' => $clientId,
+            'refresh_token' => $refreshToken,
+        ]));
+        $rotateReq->getBody()->rewind();
+        $rotateRes = $controller->token($rotateReq);
+        $this->assertSame(200, $rotateRes->getStatusCode());
+
+        // Action 3: oauth.refresh_token_reuse_detected (replay already rotated refresh token)
+        $reuseReq = (new ServerRequest('POST', new Uri('https://example.com/oauth/token'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]));
+        $reuseReq->getBody()->write(http_build_query([
+            'grant_type' => 'refresh_token',
+            'client_id' => $clientId,
+            'refresh_token' => $refreshToken, // REUSE!
+        ]));
+        $reuseReq->getBody()->rewind();
+        $reuseRes = $controller->token($reuseReq);
+        $this->assertSame(400, $reuseRes->getStatusCode());
+
+        // Create another grant to test grant_revoked via DELETE /api/v1/oauth/grants/{id}
+        $codeVerifier3 = bin2hex(random_bytes(32));
+        $codeChallenge3 = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier3, true)), '+/', '-_'), '=');
+
+        $authReq3 = (new ServerRequest('POST', new Uri('https://example.com/oauth/authorize'), [
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ]))->withAttribute('session', [
+            'id' => 'sess_audit3',
+            'user_id' => $adminId,
+            'name' => 'Audit Admin',
+            'csrf_secret' => 'csrf_token_audit',
+        ])->withAttribute('actor', Actor::user($adminId, 'Audit Admin', [SystemRoles::ROLE_ADMIN]));
+
+        $authReq3->getBody()->write(http_build_query([
+            'client_id' => $clientId,
+            'redirect_uri' => 'https://claude.ai/cb',
+            'code_challenge' => $codeChallenge3,
+            'code_challenge_method' => 'S256',
+            'response_type' => 'code',
+            'decision' => 'allow',
+            'csrf_token' => 'csrf_token_audit',
+            'password' => 'adminpass',
+            'role_id' => SystemRoles::ROLE_ADMIN,
+            'ai_mode' => 'draft_only',
+        ]));
+        $authReq3->getBody()->rewind();
+
+        $authRes3 = $controller->authorizePost($authReq3);
+        $this->assertSame(302, $authRes3->getStatusCode());
+
+        // Get the newly created grant
+        $listReq = (new ServerRequest('GET', new Uri('https://example.com/api/v1/oauth/grants')))
+            ->withAttribute('actor', Actor::user($adminId, 'Audit Admin', [SystemRoles::ROLE_ADMIN]));
+        $listRes = $controller->listGrants($listReq);
+        $listJson = json_decode((string) $listRes->getBody(), true);
+        $grantToRevoke = $listJson['items'][0]['id'];
+
+        // Action 4: oauth.grant_revoked (via DELETE /api/v1/oauth/grants/{id})
+        $delReq = (new ServerRequest('DELETE', new Uri('https://example.com/api/v1/oauth/grants/' . $grantToRevoke)))
+            ->withAttribute('id', $grantToRevoke)
+            ->withAttribute('actor', Actor::user($adminId, 'Audit Admin', [SystemRoles::ROLE_ADMIN]));
+        $delRes = $controller->revokeGrant($delReq);
+        $this->assertSame(200, $delRes->getStatusCode());
+
+        // Verify all 4 actions appear in GET /api/v1/audit
+        $auditListReq = (new ServerRequest('GET', new Uri('https://example.com/api/v1/audit?limit=50')))
+            ->withAttribute('actor', Actor::user($adminId, 'Audit Admin', [SystemRoles::ROLE_ADMIN]));
+        $auditListRes = $auditController->list($auditListReq);
+        $this->assertSame(200, $auditListRes->getStatusCode());
+        $auditJson = json_decode((string) $auditListRes->getBody(), true);
+        $actions = array_column($auditJson['items'], 'action');
+
+        $this->assertContains('oauth.grant_created', $actions, 'Audit trail must contain oauth.grant_created');
+        $this->assertContains('oauth.token_revoked', $actions, 'Audit trail must contain oauth.token_revoked');
+        $this->assertContains('oauth.grant_revoked', $actions, 'Audit trail must contain oauth.grant_revoked');
+        $this->assertContains('oauth.refresh_token_reuse_detected', $actions, 'Audit trail must contain oauth.refresh_token_reuse_detected');
     }
 }

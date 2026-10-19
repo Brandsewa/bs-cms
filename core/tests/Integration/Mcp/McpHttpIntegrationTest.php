@@ -341,6 +341,7 @@ final class McpHttpIntegrationTest extends TestCase
         ], http_build_query([
             'grant_type' => 'authorization_code',
             'code' => $code,
+            'redirect_uri' => 'https://claude.ai/api/mcp/oauth/callback',
             'code_verifier' => 'invalid-verifier',
         ]));
         $this->assertSame(400, $wrongTokenRes->getStatusCode());
@@ -369,6 +370,7 @@ final class McpHttpIntegrationTest extends TestCase
         ], http_build_query([
             'grant_type' => 'authorization_code',
             'code' => $code2,
+            'redirect_uri' => 'https://claude.ai/api/mcp/oauth/callback',
             'code_verifier' => $codeVerifier,
         ]));
 
