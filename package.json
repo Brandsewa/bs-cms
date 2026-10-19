@@ -7,12 +7,13 @@
     "packages/renderer",
     "packages/ui",
     "packages/client",
-    "admin"
+    "admin",
+    "starter"
   ],
   "scripts": {
     "lint": "eslint packages/renderer/src packages/renderer/test packages/ui/src packages/ui/test packages/client/src packages/client/test admin/src",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/ui && tsc --noEmit -p packages/client && tsc --noEmit -p admin",
-    "test": "npm run test -w @bs/renderer && npm run test -w @bs/client && npm run test -w @bs/ui && npm run test -w admin",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p packages/ui && tsc --noEmit -p packages/client && tsc --noEmit -p admin && npm run astro check -w starter",
+    "test": "npm run test -w @bs/renderer && npm run test -w @bs/client && npm run test -w starter && npm run test -w @bs/ui && npm run test -w admin",
     "test:axe": "npm run test:axe -w @bs/ui && npm run test:axe -w admin",
     "build": "npm run build -w @bs/ui && npm run build -w admin",
     "size-budget": "node admin/scripts/check-size.mjs",

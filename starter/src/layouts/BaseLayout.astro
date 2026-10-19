@@ -1,23 +1,77 @@
 ---
+import '../styles/tokens.css';
+import { escapeJsonLd } from '../lib/bs';
+
 interface Props {
   title: string;
   description?: string;
+  canonical?: string;
+  structuredData?: unknown;
+  robots?: {
+    noindex?: boolean;
+    nofollow?: boolean;
+  };
 }
 
-const { title, description = 'BS CMS Starter' } = Astro.props;
+const {
+  title,
+  description = 'BS CMS Static Starter Site',
+  canonical = Astro.url.href,
+  structuredData,
+  robots,
+} = Astro.props;
+
+const robotsContent = [
+  robots?.noindex ? 'noindex' : 'index',
+  robots?.nofollow ? 'nofollow' : 'follow',
+  'max-image-preview:large',
+].join(', ');
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robotsContent} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- Open Graph & Twitter -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    {structuredData && (
+      <script
+        type="application/ld+json"
+        is:inline
+        set:html={escapeJsonLd(structuredData)}
+      />
+    )}
   </head>
   <body>
+    <header>
+      <nav aria-label="Main Navigation">
+        <a href="/">Home</a>
+        <a href="/blog">Blog</a>
+      </nav>
+    </header>
+
     <main>
       <slot />
     </main>
+
+    <footer>
+      <p>&copy; {new Date().getFullYear()} BS CMS. Zero Node daemons in production.</p>
+    </footer>
+
+    <!-- Embed activation loader conforming to CSP script-src 'self' -->
+    <script src="/embed.js" is:inline></script>
   </body>
 </html>
