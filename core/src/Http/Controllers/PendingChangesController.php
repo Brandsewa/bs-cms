@@ -130,9 +130,7 @@ final class PendingChangesController extends BaseController
         } catch (\BsCms\Operations\Exceptions\ForbiddenException $e) {
             return $this->forbidden($e->getMessage());
         } catch (\BsCms\Operations\Exceptions\ValidationException $e) {
-            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error', [
-                'errors' => $e->getErrors(),
-            ]);
+            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error');
         } catch (Throwable $e) {
             return $this->problem(500, 'Internal Server Error', $e->getMessage());
         }
@@ -171,9 +169,7 @@ final class PendingChangesController extends BaseController
         } catch (\BsCms\Operations\Exceptions\ForbiddenException $e) {
             return $this->forbidden($e->getMessage());
         } catch (\BsCms\Operations\Exceptions\ValidationException $e) {
-            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error', [
-                'errors' => $e->getErrors(),
-            ]);
+            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error');
         } catch (Throwable $e) {
             return $this->problem(500, 'Internal Server Error', $e->getMessage());
         }

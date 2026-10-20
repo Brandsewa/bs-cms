@@ -332,7 +332,7 @@ final class PendingChangesService
         // Strip internal _target_* conflict-detection fields before passing to Dispatcher
         $cleanPayload = array_filter(
             $payload,
-            fn(string $key): bool => !str_starts_with($key, '_target_'),
+            fn (string $key): bool => !str_starts_with($key, '_target_'),
             ARRAY_FILTER_USE_KEY
         );
 
@@ -499,7 +499,7 @@ final class PendingChangesService
 
         $cleanPayload = array_filter(
             $payload,
-            fn(string $key): bool => !str_starts_with($key, '_target_'),
+            fn (string $key): bool => !str_starts_with($key, '_target_'),
             ARRAY_FILTER_USE_KEY
         );
 

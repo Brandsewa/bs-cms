@@ -1536,6 +1536,7 @@ final class McpCoreServerTest extends TestCase
 
         // Verify the entry was NOT published
         $unmodified = $this->entryRepo->find('articles', $entryId);
+        $this->assertNotNull($unmodified);
         $this->assertSame('draft', $unmodified['status']);
 
         // 2. Hostile target collection unauthorized for approver -> Rejected by Dispatcher authorizer
