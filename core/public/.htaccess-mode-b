@@ -25,6 +25,10 @@ DirectoryIndex core/public/index.php index.php
     RewriteCond %{DOCUMENT_ROOT}/core/public%{REQUEST_URI} -f
     RewriteRule ^(admin|media)/(.*)$ core/public/$1/$2 [L]
 
+    # 4b. Admin SPA client-side routing fallback: route non-file requests under /admin to /admin/index.html
+    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
+    RewriteRule ^admin(?:/.*)?$ core/public/admin/index.html [L]
+
     # 5. Route all other requests to front controller inside core/public/
     RewriteRule ^ core/public/index.php [L,QSA]
 </IfModule>

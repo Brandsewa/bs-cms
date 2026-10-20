@@ -42,6 +42,11 @@ This document is the authoritative log for Phase 0 technical verifications, arch
    - **Testing Deferral:** Email delivery testing is deferred by the owner (2026-10-18). Phase 3 acceptance and sign-off does not depend on live email delivery.
 6. **Host B Shared Hosting Test Deferral:**
    - Second hosting account testing is **deferred by owner, 2026-10-18** (marked in NOTES.md, Phase 0, and Phase 9 checklists). Production validation continues against Host A (Hostinger).
+7. **Admin UI Bundling into Release Archive:**
+   - Production builds bundle the Admin SPA directly into `core/public/admin/` inside the release zip via `tools/build-release` (`npm run build -w admin`).
+   - `core/public/.htaccess` and `core/public/index.php` serve `/admin/*` assets directly and rewrite non-file client-side routes under `/admin/*` to `/admin/index.html` (not to PHP), preserving `/api`, `/oauth`, `/mcp`, and `/.well-known` routing.
+   - Built assets use base path `/admin/` with hashed filenames and zero sourcemaps, adding only ~110 KB compressed to the release zip (~2 MB total, well within the 10 MB budget).
+   - If `admin/` is absent in any environment prior to PR #14 landing, `tools/build-release` tolerates its absence without failing the build. Once PR #14 lands, `admin/` is bundled unconditionally.
 
 ---
 

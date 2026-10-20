@@ -45,6 +45,32 @@ $request = $creator->fromGlobals();
 
 $uriPath = $request->getUri()->getPath();
 
+// Serve Admin SPA (CLI-server static file handling and client-side route fallback to admin/index.html)
+if ($uriPath === '/admin' || str_starts_with($uriPath, '/admin/')) {
+    if ($uriPath === '/admin') {
+        header('Location: /admin/', true, 301);
+        exit;
+    }
+
+    $staticFile = __DIR__ . $uriPath;
+    if (is_file($staticFile) && php_sapi_name() === 'cli-server') {
+        return false;
+    }
+
+    $adminIndex = __DIR__ . '/admin/index.html';
+    if (is_file($adminIndex)) {
+        http_response_code(200);
+        header('Content-Type: text/html; charset=utf-8');
+        header('X-Robots-Tag: noindex, nofollow');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        readfile($adminIndex);
+        exit;
+    }
+}
+
 // If not installed, route to InstallerController (except /health when testing before install if needed, or route everything before install to installer)
 if (!$isInstalled) {
     // If /health is pinged before install, handle liveness and reject non-GET with 405

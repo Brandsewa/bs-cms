@@ -3,7 +3,7 @@
 
 Options -Indexes
 Options -MultiViews
-DirectoryIndex index.php
+DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -20,6 +20,17 @@ DirectoryIndex index.php
     RewriteCond %{THE_REQUEST} \.php[/\s?] [NC]
     RewriteCond %{REQUEST_URI} !^/index\.php$
     RewriteRule .* - [F,L]
+
+    # Admin SPA routing:
+    # 1. Serve existing files/directories directly (e.g. static assets under /admin/assets/)
+    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 2. Fall back non-file requests under /admin to /admin/index.html (not to PHP)
+    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
+    RewriteRule ^admin(?:/.*)?$ admin/index.html [L]
 
     # If the requested file or directory physically exists in public/, serve it directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]

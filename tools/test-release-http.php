@@ -61,13 +61,13 @@ function httpRequest(string $method, string $url, array $headers = [], $body = n
     $rawResponse = curl_exec($ch);
     if ($rawResponse === false) {
         $err = curl_error($ch);
-        curl_close($ch);
+        @curl_close($ch);
         failTest("cURL error requesting {$url}: {$err}");
     }
 
     $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
     $statusCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    @curl_close($ch);
 
     $headerStr = substr((string) $rawResponse, 0, $headerSize);
     $bodyStr = substr((string) $rawResponse, $headerSize);
@@ -1189,6 +1189,83 @@ if ($resOversized['status'] !== 413) {
     failTest("PATCH /api/v1/me/preferences with >4KB payload expected 413, got {$resOversized['status']}");
 }
 passTest("16e. User preferences GET/PATCH validated with 4KB cap and strict allow-list");
+
+// 17. Admin SPA bundling, client-side routing fallback, and API/OAuth route preservation
+echo "Testing 17: Admin SPA bundling, deep links, and API/OAuth route preservation...\n";
+
+// 17a. Root admin endpoint returns SPA index
+$resAdmin = httpRequest('GET', "{$baseUrl}/admin/");
+if ($resAdmin['status'] !== 200) {
+    failTest("GET /admin/ expected 200, got {$resAdmin['status']}: {$resAdmin['body']}");
+}
+if (!str_contains($resAdmin['headers']['content-type'] ?? '', 'text/html')) {
+    failTest("GET /admin/ content-type expected text/html, got " . ($resAdmin['headers']['content-type'] ?? 'none'));
+}
+if (!str_contains($resAdmin['body'], '<div id="root"></div>')) {
+    failTest("GET /admin/ body missing root container <div id=\"root\"></div>");
+}
+if (!str_contains($resAdmin['body'], 'BS CMS')) {
+    failTest("GET /admin/ body missing BS CMS title");
+}
+if (($resAdmin['headers']['x-frame-options'] ?? '') !== 'DENY') {
+    failTest("GET /admin/ missing X-Frame-Options: DENY");
+}
+if (($resAdmin['headers']['x-content-type-options'] ?? '') !== 'nosniff') {
+    failTest("GET /admin/ missing X-Content-Type-Options: nosniff");
+}
+if (!str_contains($resAdmin['headers']['x-robots-tag'] ?? '', 'noindex')) {
+    failTest("GET /admin/ missing X-Robots-Tag: noindex");
+}
+passTest("17a. GET /admin/ returns 200 SPA index with text/html and security headers");
+
+// 17b. Deep client-side link falls back to SPA index with 200 and security headers
+$resDeepLink = httpRequest('GET', "{$baseUrl}/admin/entries/posts");
+if ($resDeepLink['status'] !== 200) {
+    failTest("GET /admin/entries/posts expected 200, got {$resDeepLink['status']}: {$resDeepLink['body']}");
+}
+if (!str_contains($resDeepLink['headers']['content-type'] ?? '', 'text/html')) {
+    failTest("GET /admin/entries/posts content-type expected text/html, got " . ($resDeepLink['headers']['content-type'] ?? 'none'));
+}
+if (!str_contains($resDeepLink['body'], '<div id="root"></div>')) {
+    failTest("GET /admin/entries/posts body missing root container <div id=\"root\"></div>");
+}
+if (($resDeepLink['headers']['x-frame-options'] ?? '') !== 'DENY') {
+    failTest("GET /admin/entries/posts missing X-Frame-Options: DENY");
+}
+passTest("17b. Deep link GET /admin/entries/posts falls back to SPA index with 200 and security headers");
+
+// 17c. Static asset in /admin served directly
+$resThemeInit = httpRequest('GET', "{$baseUrl}/admin/theme-init.js");
+if ($resThemeInit['status'] !== 200) {
+    failTest("GET /admin/theme-init.js expected 200, got {$resThemeInit['status']}: {$resThemeInit['body']}");
+}
+passTest("17c. Static asset /admin/theme-init.js served directly with 200");
+
+// 17d. /api/v1/openapi.json routing is unaffected (returns 200 JSON)
+$resOpenApiCheck = httpRequest('GET', "{$baseUrl}/api/v1/openapi.json");
+if ($resOpenApiCheck['status'] !== 200) {
+    failTest("GET /api/v1/openapi.json expected 200, got {$resOpenApiCheck['status']}");
+}
+if (!str_contains($resOpenApiCheck['headers']['content-type'] ?? '', 'application/json')) {
+    failTest("GET /api/v1/openapi.json content-type expected application/json, got " . ($resOpenApiCheck['headers']['content-type'] ?? 'none'));
+}
+if (($resOpenApiCheck['json']['openapi'] ?? '') !== '3.1.0') {
+    failTest("GET /api/v1/openapi.json invalid JSON response: " . substr($resOpenApiCheck['body'], 0, 100));
+}
+passTest("17d. /api/v1/openapi.json routing is unaffected (returns 200 JSON)");
+
+// 17e. /oauth/authorize routing is unaffected (routed to PHP OAuthController)
+$resOAuth = httpRequest('GET', "{$baseUrl}/oauth/authorize?response_type=code&client_id=nonexistent_client&redirect_uri=https://example.com/callback&code_challenge=xyz&code_challenge_method=S256");
+if ($resOAuth['status'] !== 302 && $resOAuth['status'] !== 400) {
+    failTest("GET /oauth/authorize routing affected: expected 302 or 400 from OAuthController, got {$resOAuth['status']}: {$resOAuth['body']}");
+}
+if ($resOAuth['status'] === 302) {
+    $location = $resOAuth['headers']['location'] ?? '';
+    if (!str_starts_with($location, '/admin/login')) {
+        failTest("GET /oauth/authorize expected redirect to /admin/login, got {$location}");
+    }
+}
+passTest("17e. /oauth/authorize routing is unaffected (routed to PHP OAuthController)");
 
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";
