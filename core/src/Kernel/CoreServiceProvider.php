@@ -598,9 +598,7 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Dashboard\DashboardService(
                 $c->get(Connection::class),
                 $c->get(\BsCms\Schema\CollectionRegistry::class),
-                $c->get(\BsCms\PendingChanges\PendingChangesService::class),
                 $c->get(\BsCms\Health\SiteHealthService::class),
-                $c->get(AuditLogger::class),
                 $c->get(Config::class)
             );
         });

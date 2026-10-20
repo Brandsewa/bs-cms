@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace BsCms\Dashboard;
 
-use BsCms\Audit\AuditLogger;
 use BsCms\Auth\Actor;
 use BsCms\Auth\SystemRoles;
 use BsCms\Database\Connection;
 use BsCms\Health\SiteHealthService;
 use BsCms\Kernel\Config;
-use BsCms\PendingChanges\PendingChangesService;
 use BsCms\Schema\CollectionRegistry;
 use PDO;
 
@@ -23,11 +21,18 @@ final class DashboardService
     public function __construct(
         private readonly Connection $connection,
         private readonly CollectionRegistry $collectionRegistry,
-        private readonly PendingChangesService $pendingChangesService,
         private readonly SiteHealthService $siteHealthService,
-        private readonly AuditLogger $auditLogger,
         private readonly Config $config
     ) {
+    }
+
+    private function formatIsoDateTime(?string $dateTime): string
+    {
+        if ($dateTime === null || $dateTime === '') {
+            return '';
+        }
+        $timestamp = strtotime($dateTime);
+        return $timestamp !== false ? date('c', $timestamp) : $dateTime;
     }
 
     /**
@@ -296,7 +301,7 @@ final class DashboardService
                 'collection' => (string) $row['collection'],
                 'title' => (string) $row['title'],
                 'status' => (string) $row['status'],
-                'updated_at' => (string) date('c', strtotime((string) $row['updated_at'])),
+                'updated_at' => $this->formatIsoDateTime((string) $row['updated_at']),
                 'updated_by' => $row['updated_by'] !== null ? (string) $row['updated_by'] : 'System',
             ];
         }
@@ -345,7 +350,7 @@ final class DashboardService
                 'collection' => (string) $row['collection'],
                 'title' => (string) $row['title'],
                 'status' => 'draft',
-                'updated_at' => (string) date('c', strtotime((string) $row['updated_at'])),
+                'updated_at' => $this->formatIsoDateTime((string) $row['updated_at']),
             ];
         }
 
@@ -392,7 +397,7 @@ final class DashboardService
                 'id' => (string) $row['id'],
                 'collection' => (string) $row['collection'],
                 'title' => (string) $row['title'],
-                'scheduled_at' => (string) date('c', strtotime((string) $row['scheduled_at'])),
+                'scheduled_at' => $this->formatIsoDateTime((string) $row['scheduled_at']),
             ];
         }
 
@@ -422,7 +427,7 @@ final class DashboardService
                     'action' => (string) $row['action'],
                     'target_collection' => $row['target_collection'] !== null ? (string) $row['target_collection'] : null,
                     'target_id' => $row['target_id'] !== null ? (string) $row['target_id'] : null,
-                    'created_at' => (string) date('c', strtotime((string) $row['created_at'])),
+                    'created_at' => $this->formatIsoDateTime((string) $row['created_at']),
                 ];
             }
         } catch (\Throwable) {
@@ -447,18 +452,15 @@ final class DashboardService
 
         try {
             $scan = $this->siteHealthService->scan();
-            $sum = $scan['summary'] ?? [];
-            $summary['status'] = (string) ($sum['status'] ?? 'healthy');
-            $summary['total_issues'] = (int) ($sum['total'] ?? 0);
-            $summary['errors'] = (int) ($sum['errors'] ?? 0);
-            $summary['warnings'] = (int) ($sum['warnings'] ?? 0);
-            if (isset($scan['scanned_at']) && is_string($scan['scanned_at'])) {
-                $summary['scanned_at'] = date('c', strtotime($scan['scanned_at']));
-            }
+            $sum = $scan['summary'];
+            $summary['status'] = (string) $sum['status'];
+            $summary['total_issues'] = (int) $sum['total'];
+            $summary['errors'] = (int) $sum['errors'];
+            $summary['warnings'] = (int) $sum['warnings'];
+            $summary['scanned_at'] = $this->formatIsoDateTime($scan['scanned_at']);
 
             $top = [];
-            $issues = $scan['issues'] ?? [];
-            foreach (array_slice($issues, 0, 3) as $issue) {
+            foreach (array_slice($scan['issues'], 0, 3) as $issue) {
                 $top[] = [
                     'rule_id' => (string) ($issue['rule_id'] ?? ''),
                     'message' => (string) ($issue['message'] ?? ''),
@@ -494,7 +496,7 @@ final class DashboardService
                     'action' => (string) $row['action'],
                     'actor' => (string) $row['actor'],
                     'target' => (string) $row['target'],
-                    'created_at' => (string) date('c', strtotime((string) $row['created_at'])),
+                    'created_at' => $this->formatIsoDateTime((string) $row['created_at']),
                 ];
             }
         } catch (\Throwable) {

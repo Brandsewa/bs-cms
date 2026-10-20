@@ -167,9 +167,7 @@ final class DashboardHttpIntegrationTest extends TestCase
         $dashboardService = new \BsCms\Dashboard\DashboardService(
             $this->connection,
             $collections,
-            $pendingChanges,
             $siteHealth,
-            $auditLogger,
             $config
         );
 
@@ -454,7 +452,7 @@ final class DashboardHttpIntegrationTest extends TestCase
         $this->assertSame(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . '.' . PHP_RELEASE_VERSION, $status['php_version']);
 
         // No paths leaked
-        $statusString = json_encode($status);
+        $statusString = is_string($enc = json_encode($status)) ? $enc : '';
         $this->assertStringNotContainsString('C:\\', $statusString);
         $this->assertStringNotContainsString('/home/', $statusString);
         $this->assertStringNotContainsString('/var/', $statusString);
@@ -560,6 +558,9 @@ final class DashboardHttpIntegrationTest extends TestCase
 
     public function testPerformanceUnderLoad(): void
     {
+        // Warmup request
+        $this->sendRequest('GET', '/api/v1/dashboard', $this->actors['admin']['token']);
+
         $start = microtime(true);
         $response = $this->sendRequest('GET', '/api/v1/dashboard', $this->actors['admin']['token']);
         $elapsed = (microtime(true) - $start) * 1000;

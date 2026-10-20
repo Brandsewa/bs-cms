@@ -121,14 +121,18 @@ final class AuthenticateMiddleware implements MiddlewareInterface
                     } elseif ($this->oauthController !== null) {
                         $oauthData = $this->oauthController->verifyAccessToken($plainToken);
                         if (!empty($oauthData['valid'])) {
+                            /** @var list<string> $userRoleIds */
+                            $userRoleIds = (array) ($oauthData['user_role_ids'] ?? ($oauthData['user_roles'] ?? []));
+                            /** @var list<string> $scopes */
+                            $scopes = (array) ($oauthData['scopes'] ?? ['mcp:read', 'mcp:write']);
                             $tokenActor = Actor::oauth(
-                                (string) $oauthData['grant_id'],
-                                (string) $oauthData['client_name'],
-                                (string) $oauthData['user_id'],
-                                (string) $oauthData['grant_role_id'],
-                                (array) $oauthData['user_role_ids'],
+                                (string) ($oauthData['grant_id'] ?? ''),
+                                (string) ($oauthData['client_name'] ?? 'OAuth Client'),
+                                (string) ($oauthData['user_id'] ?? ''),
+                                (string) ($oauthData['grant_role_id'] ?? ($oauthData['role_ids'][0] ?? '')),
+                                $userRoleIds,
                                 (string) ($oauthData['ai_mode'] ?? 'draft_only'),
-                                (array) ($oauthData['scopes'] ?? ['mcp:read', 'mcp:write']),
+                                $scopes,
                                 (string) ($oauthData['user_name'] ?? 'User')
                             );
 
