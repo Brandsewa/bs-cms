@@ -128,4 +128,24 @@ class SettingsRepository
         $this->cache?->delete("setting:{$handle}");
         return $deleted > 0;
     }
+
+    /**
+     * Retrieve all non-secret settings as key-value pairs.
+     *
+     * @return array<string, mixed>
+     */
+    public function allNonSecret(): array
+    {
+        $rows = $this->connection->table('settings')
+            ->where('is_secret', '=', 0)
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $rawJson = is_string($row['value']) ? $row['value'] : Json::encode($row['value']);
+            $result[$row['handle']] = Json::decode($rawJson);
+        }
+
+        return $result;
+    }
 }

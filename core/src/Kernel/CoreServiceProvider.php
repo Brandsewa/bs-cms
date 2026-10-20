@@ -663,7 +663,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->has(\BsCms\Security\RateLimiter::class) ? $c->get(\BsCms\Security\RateLimiter::class) : null,
                 $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null,
-                $c->has(Config::class) ? $c->get(Config::class) : null
+                $c->has(Config::class) ? $c->get(Config::class) : null,
+                $c->has(\BsCms\Schema\CollectionRegistry::class) ? $c->get(\BsCms\Schema\CollectionRegistry::class) : null
             );
         });
     }
