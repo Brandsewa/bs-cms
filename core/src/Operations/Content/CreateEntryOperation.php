@@ -76,12 +76,12 @@ final class CreateEntryOperation implements Operation
         }
 
         $col = (string) ($input['collection'] ?? '');
-        $decision = $this->authorizer->can($ctx->actor, 'create', new Subject('collection', $col));
+        $status = (string) ($input['status'] ?? 'draft');
+        $decision = $this->authorizer->can($ctx->actor, 'create', new Subject('collection', $col), ['status' => $status]);
         if (!$decision->allowed) {
             throw new ForbiddenException("Insufficient permissions to create entry in collection '{$col}': {$decision->reason}");
         }
 
-        $status = (string) ($input['status'] ?? 'draft');
         if ($status === 'published') {
             if ($ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
                 throw new ForbiddenException("Creating published entries is forbidden in draft_only mode. Create entries as draft or request approval.");

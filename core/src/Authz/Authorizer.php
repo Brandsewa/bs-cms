@@ -56,13 +56,6 @@ final class Authorizer
         }
 
         // 3. AI Mode & OAuth security restrictions:
-        // Security invariant: AI actors and OAuth tokens can NEVER modify settings (including tool allowlist), roles, or users
-        if ($actor->isAi() || $actor->type === Actor::TYPE_OAUTH || $actor->aiMode !== null) {
-            if (in_array($subject->type, ['settings', 'roles', 'users'], true) && $action !== 'read') {
-                return Decision::deny("AI actors and OAuth tokens are forbidden from modifying '{$subject->type}'.");
-            }
-        }
-
         if ($actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
             $destructiveActions = ['publish', 'unpublish', 'delete', 'export', 'manage', 'schedule'];
             $sensitiveSubjects = ['users', 'roles', 'settings', 'schema', 'system', 'redirect', 'deploy', 'crawler_policy', 'environment', 'term', 'terms', 'taxonomy', 'taxonomies'];
@@ -73,6 +66,13 @@ final class Authorizer
 
             if (in_array($subject->type, $sensitiveSubjects, true) && $action !== 'read') {
                 return Decision::deny("Modifying '{$subject->type}' is forbidden in AI draft_only mode.");
+            }
+        }
+
+        // Security invariant: AI actors and OAuth tokens can NEVER modify settings (including tool allowlist), roles, or users
+        if ($actor->isAi() || $actor->type === Actor::TYPE_OAUTH || $actor->aiMode !== null) {
+            if (in_array($subject->type, ['settings', 'roles', 'users'], true) && $action !== 'read') {
+                return Decision::deny("AI actors and OAuth tokens are forbidden from modifying '{$subject->type}'.");
             }
         }
 

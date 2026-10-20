@@ -389,14 +389,16 @@ final class McpCoreServerTest extends TestCase
         $this->assertArrayHasKey('tools', $json['result']);
 
         $tools = $json['result']['tools'];
-        $this->assertCount(27, $tools);
+        $this->assertCount(25, $tools);
 
         $toolNames = array_column($tools, 'name');
 
-        // Verify destructive and schema tools are omitted by default
+        // Verify destructive, schema, and sensitive external/redirect tools are omitted by default
         $this->assertNotContains('delete_entry', $toolNames);
         $this->assertNotContains('propose_schema_change', $toolNames);
         $this->assertNotContains('apply_schema_change', $toolNames);
+        $this->assertNotContains('upload_media_from_url', $toolNames);
+        $this->assertNotContains('create_redirect', $toolNames);
 
         // Verify representative enabled tools
         $this->assertContains('site_overview', $toolNames);
@@ -426,9 +428,6 @@ final class McpCoreServerTest extends TestCase
         $createTool = $toolMap['create_entry'];
         $this->assertFalse($createTool['annotations']['readOnlyHint']);
         $this->assertFalse($createTool['annotations']['destructiveHint']);
-
-        $uploadTool = $toolMap['upload_media_from_url'];
-        $this->assertTrue($uploadTool['annotations']['openWorldHint']);
     }
 
     public function testAdminCanAllowlistDestructiveAndSchemaToolsViaSettings(): void
@@ -457,7 +456,7 @@ final class McpCoreServerTest extends TestCase
         // Now admin allowlists delete_entry and apply_schema_change
         $this->settingsRepo->set('mcp.tool_allowlist', json_encode(['delete_entry', 'apply_schema_change']));
 
-        // tools/list now includes allowlisted tools (27 + 2 = 29)
+        // tools/list now includes allowlisted tools (25 + 2 = 27)
         $listRes = $this->request('POST', 'https://example.com/mcp', [
             'Content-Type' => 'application/json',
             'Authorization' => "Bearer {$oauth['token']}",
@@ -469,7 +468,7 @@ final class McpCoreServerTest extends TestCase
 
         $listJson = json_decode((string) $listRes->getBody(), true);
         $tools = $listJson['result']['tools'];
-        $this->assertCount(29, $tools);
+        $this->assertCount(27, $tools);
 
         $toolNames = array_column($tools, 'name');
         $this->assertContains('delete_entry', $toolNames);
@@ -922,8 +921,8 @@ final class McpCoreServerTest extends TestCase
             'restore_version' => ['collection' => 'articles', 'id' => $entryId, 'version' => 1],
             'create_redirect' => ['from_path' => '/old-path', 'to_path' => '/new-path', 'status_code' => 301],
             'create_term' => ['taxonomy' => 'tags', 'name' => 'New Tag', 'slug' => 'new-tag'],
-            'update_term' => ['taxonomy' => 'tags', 'id' => 'term_1', 'name' => 'Renamed Tag'],
-            'move_term' => ['taxonomy' => 'tags', 'id' => 'term_1', 'parent_id' => null, 'sort_order' => 1],
+            'update_term' => ['id' => 'term_1', 'name' => 'Renamed Tag'],
+            'move_term' => ['id' => 'term_1', 'parent_id' => 'term_parent'],
             'update_media' => ['id' => 'med_1', 'alt_text' => 'New Alt'],
             'upload_media_from_url' => ['url' => 'https://example.com/image.png'],
             'trigger_deploy' => ['environment' => 'production'],
@@ -1173,10 +1172,10 @@ final class McpCoreServerTest extends TestCase
         $this->assertSame(409, $doubleRes->getStatusCode());
 
         // 5. Rejection flow
-        // Queue create_redirect
+        $adminOAuth = $this->createOAuthGrantToken('usr_admin', SystemRoles::ROLE_ADMIN, 'approval_required');
         $redirRes = $this->request('POST', 'https://example.com/mcp', [
             'Content-Type' => 'application/json',
-            'Authorization' => "Bearer {$editorOAuth['token']}",
+            'Authorization' => "Bearer {$adminOAuth['token']}",
         ], [
             'jsonrpc' => '2.0',
             'id' => 3002,
@@ -1186,7 +1185,9 @@ final class McpCoreServerTest extends TestCase
                 'arguments' => ['from_path' => '/blog-old', 'to_path' => '/blog-new'],
             ],
         ]);
-        $redirPendingId = json_decode((string) $redirRes->getBody(), true)['result']['pending_change_id'];
+        $redirJson = json_decode((string) $redirRes->getBody(), true);
+        $this->assertArrayHasKey('result', $redirJson, "Expected queued redirect change: " . json_encode($redirJson));
+        $redirPendingId = $redirJson['result']['pending_change_id'];
 
         // Reject it
         $rejectRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$redirPendingId}/reject", [
@@ -1352,7 +1353,7 @@ final class McpCoreServerTest extends TestCase
         ]);
         $json4 = json_decode((string) $res4->getBody(), true);
         $this->assertSame(-32002, $json4['error']['code']);
-        $this->assertStringContainsString('already been consumed', $json4['error']['message']);
+        $this->assertStringContainsString('already been used', $json4['error']['message']);
 
         // 5. Calling with expired confirm token returns -32002
         $expiredToken = $this->confirmTokenService->generate($ownerOAuth['grant_id'], 'delete_entry', [
@@ -1528,7 +1529,7 @@ final class McpCoreServerTest extends TestCase
         $this->assertArrayHasKey('result', $authorCreateJson);
         $authorEntryId = $authorCreateJson['result']['data']['id'];
 
-        // Author publishes own entry -> succeeds!
+        // Author attempts to publish own entry -> denied with -32003 (author cannot publish)
         $authorPubRes = $this->request('POST', 'https://example.com/mcp', [
             'Content-Type' => 'application/json',
             'Authorization' => "Bearer {$authorOAuth['token']}",
@@ -1542,7 +1543,40 @@ final class McpCoreServerTest extends TestCase
             ],
         ]);
         $authorPubJson = json_decode((string) $authorPubRes->getBody(), true);
-        $this->assertArrayHasKey('result', $authorPubJson);
-        $this->assertSame('published', $authorPubJson['result']['data']['status']);
+        $this->assertSame(-32003, $authorPubJson['error']['code']);
+
+        // Author can update own draft entry
+        $authorUpdateRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$authorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7005,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $authorEntryId, 'title' => 'Author Updated Title'],
+            ],
+        ]);
+        $authorUpdateJson = json_decode((string) $authorUpdateRes->getBody(), true);
+        $this->assertArrayHasKey('result', $authorUpdateJson);
+
+        // Editor CAN publish the entry
+        $editorOAuth = $this->createOAuthGrantToken('usr_editor', SystemRoles::ROLE_EDITOR, 'full');
+        $editorPubRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7006,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $authorEntryId],
+            ],
+        ]);
+        $editorPubJson = json_decode((string) $editorPubRes->getBody(), true);
+        $this->assertArrayHasKey('result', $editorPubJson);
+        $this->assertSame('published', $editorPubJson['result']['data']['status']);
     }
 }

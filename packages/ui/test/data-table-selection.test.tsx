@@ -292,7 +292,7 @@ describe('DataTable — selection and bulk actions (docs/02-ui-spec.md 3.1)', ()
     expect(firstRow).toHaveFocus();
     await user.keyboard('{ArrowDown}');
     const secondRow = screen.getAllByRole('row')[2]!;
-    expect(secondRow).toHaveFocus();
+    await waitFor(() => expect(secondRow).toHaveFocus());
     await user.keyboard(' ');
     expect(screen.getByText(/1 of 28 selected/)).toBeInTheDocument();
     await user.keyboard('{Enter}');
