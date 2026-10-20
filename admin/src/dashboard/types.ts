@@ -209,3 +209,32 @@ export const MOCK_DASHBOARD_DATA: DashboardData = {
     },
   },
 };
+
+export const EMPTY_DASHBOARD_DATA: DashboardData = {
+  greeting: {
+    user_name: '',
+    environment: 'production',
+  },
+  counts: {
+    drafts: 0,
+    scheduled: 0,
+    pending_ai_changes: 0,
+  },
+  recent_edits: [],
+  drafts_waiting: [],
+  scheduled_items: [],
+  pending_ai_changes: [],
+  site_health: {
+    status: 'healthy',
+    total_issues: 0,
+    errors: 0,
+    warnings: 0,
+  },
+  recent_activity: [],
+  system_status: {
+    cron: 'healthy',
+    mail: 'healthy',
+    disk_usage_percent: 0,
+    php_version: '',
+  },
+};

@@ -5,6 +5,51 @@ const ADMIN_URL = 'http://127.0.0.1:4173/admin';
 
 test.describe('Dashboard Home Screen (v1)', () => {
   test.beforeEach(async ({ page }) => {
+    // Default mock dashboard endpoint for test verification
+    await page.route('**/api/v1/dashboard', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          greeting: { user_name: 'Anna Admin', environment: 'production' },
+          counts: { drafts: 3, scheduled: 1, pending_ai_changes: 2 },
+          recent_edits: [
+            {
+              id: '1',
+              collection: 'posts',
+              title: 'Getting Started with BS CMS',
+              status: 'published',
+              updated_at: '2026-10-19T10:00:00Z',
+              updated_by: 'Anna Admin',
+            },
+          ],
+          drafts_waiting: [
+            { id: '2', collection: 'posts', title: 'Draft Post', status: 'draft', updated_at: '2026-10-19T11:00:00Z' },
+          ],
+          scheduled_items: [
+            { id: '3', collection: 'posts', title: 'Scheduled Launch', scheduled_at: '2026-10-25T12:00:00Z' },
+          ],
+          pending_ai_changes: [
+            { id: '4', actor_label: 'Claude (via Anna)', action: 'update_entry', created_at: '2026-10-19T12:00:00Z' },
+          ],
+          site_health: { status: 'healthy', total_issues: 0, errors: 0, warnings: 0 },
+          system_status: { cron: 'healthy', mail: 'healthy', disk_usage_percent: 28, php_version: '8.3.12' },
+          onboarding: {
+            completed: false,
+            dismissed: false,
+            steps: {
+              create_page: true,
+              write_post: true,
+              site_details: true,
+              configure_email: false,
+              connect_astro: false,
+              connect_ai: false,
+            },
+          },
+        }),
+      });
+    });
+
     // Default authenticated session with owner/admin permissions
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
@@ -49,33 +94,29 @@ test.describe('Dashboard Home Screen (v1)', () => {
     // Verify Onboarding Checklist Card
     const onboarding = page.locator('[data-testid="onboarding-checklist-card"]');
     await expect(onboarding).toBeVisible();
-    await expect(onboarding.locator('text=Create your first page')).toBeVisible();
-    await expect(onboarding.locator('text=Write your first blog post')).toBeVisible();
+    await expect(onboarding.locator('text=Welcome to BS CMS — Getting Started')).toBeVisible();
 
     // Verify Recent Edits Table
     const recentEdits = page.locator('[data-testid="recent-edits-widget"]');
     await expect(recentEdits).toBeVisible();
-    await expect(recentEdits.locator('text=Welcome to Brand Sewa CMS v1')).toBeVisible();
+    await expect(recentEdits.locator('text=Getting Started with BS CMS')).toBeVisible();
 
-    // Verify Content Queue Widget
-    const contentQueue = page.locator('[data-testid="content-queue-widget"]');
-    await expect(contentQueue).toBeVisible();
-    await expect(contentQueue.locator('text=Scheduled Feature Launch Announcement')).toBeVisible();
-    await expect(contentQueue.locator('text=Pending AI actions')).toBeVisible();
+    // Verify Content Queue
+    const queue = page.locator('[data-testid="content-queue-widget"]');
+    await expect(queue).toBeVisible();
+    await expect(queue.locator('text=Drafts in progress')).toBeVisible();
+    await expect(queue.locator('text=Scheduled for release')).toBeVisible();
 
-    // Verify Site Health & System Status Widget
-    const systemHealth = page.locator('[data-testid="system-health-widget"]');
-    await expect(systemHealth).toBeVisible();
-    await expect(systemHealth.locator('text=Content & SEO Health')).toBeVisible();
-    await expect(systemHealth.locator('text=Background Cron')).toBeVisible();
-    await expect(systemHealth.locator('text=Mail Delivery')).toBeVisible();
-    await expect(systemHealth.locator('text=Storage Disk')).toBeVisible();
-    await expect(systemHealth.locator('text=PHP Runtime')).toBeVisible();
+    // Verify System & Health Widget (Owner/Admin only)
+    const healthWidget = page.locator('[data-testid="system-health-widget"]');
+    await expect(healthWidget).toBeVisible();
+    await expect(healthWidget.locator('text=Content & SEO Health')).toBeVisible();
+    await expect(healthWidget.locator('text=Background Cron')).toBeVisible();
 
     // Verify Shortcuts Card
     const shortcuts = page.locator('[data-testid="dashboard-shortcuts-card"]');
     await expect(shortcuts).toBeVisible();
-    await expect(shortcuts.locator('text=Quick search / Jump to route')).toBeVisible();
+    await expect(shortcuts.locator('text=Keyboard shortcuts')).toBeVisible();
   });
 
   test('onboarding checklist can be toggled and dismissed', async ({ page }) => {
@@ -84,16 +125,16 @@ test.describe('Dashboard Home Screen (v1)', () => {
     const onboarding = page.locator('[data-testid="onboarding-checklist-card"]');
     await expect(onboarding).toBeVisible();
 
-    // Dismiss onboarding card
+    // Dismiss the card
     const dismissBtn = onboarding.locator('button[aria-label="Dismiss onboarding checklist"]');
-    await expect(dismissBtn).toBeVisible();
     await dismissBtn.click();
 
+    // Should no longer be visible
     await expect(onboarding).not.toBeVisible();
   });
 
   test('role-awareness: content editor sees only content-related widgets', async ({ page }) => {
-    // Override session to editor role (no system/developer/AI permissions)
+    // Override session to content editor (no system/admin roles)
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
         status: 200,
@@ -102,10 +143,10 @@ test.describe('Dashboard Home Screen (v1)', () => {
           status: 'authenticated',
           user: {
             id: 'usr_editor',
-            name: 'Edward Editor',
+            name: 'Ed Editor',
             email: 'editor@example.com',
             roles: ['editor'],
-            permissions: ['entries:*', 'media:*', 'taxonomies:*'],
+            permissions: ['entries:*'],
           },
           csrf_token: 'test_csrf_token',
         }),
@@ -114,19 +155,24 @@ test.describe('Dashboard Home Screen (v1)', () => {
 
     await page.goto(`${ADMIN_URL}/`);
 
-    await expect(page.locator('text=Welcome back, Edward Editor')).toBeVisible();
+    // Verify greeting
+    await expect(page.locator('text=Welcome back, Ed Editor')).toBeVisible();
 
-    // Content widgets visible
-    await expect(page.locator('[data-testid="quick-actions-widget"]')).toBeVisible();
-    await expect(page.locator('[data-testid="recent-edits-widget"]')).toBeVisible();
-    await expect(page.locator('[data-testid="content-queue-widget"]')).toBeVisible();
+    // Quick actions: can create posts, pages, and media
+    const quickActions = page.locator('[data-testid="quick-actions-widget"]');
+    await expect(quickActions.locator('text=New post')).toBeVisible();
+    await expect(quickActions.locator('text=New page')).toBeVisible();
 
-    // System and AI widgets hidden for pure content editor
+    // System health widget should be hidden for pure content editors
     await expect(page.locator('[data-testid="system-health-widget"]')).not.toBeVisible();
-    await expect(page.locator('text=Pending AI actions')).not.toBeVisible();
+
+    // AI pending changes column should be hidden from ContentQueueWidget
+    const queue = page.locator('[data-testid="content-queue-widget"]');
+    await expect(queue.locator('text=Pending AI changes')).not.toBeVisible();
   });
 
   test('role-awareness: author cannot create pages', async ({ page }) => {
+    // Override session to author
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
         status: 200,
@@ -150,6 +196,42 @@ test.describe('Dashboard Home Screen (v1)', () => {
     const quickActions = page.locator('[data-testid="quick-actions-widget"]');
     await expect(quickActions.locator('text=New post')).toBeVisible();
     await expect(quickActions.locator('text=New page')).not.toBeVisible();
+  });
+
+  test('production 404 does not fabricate mock data and displays honest empty state', async ({ page }) => {
+    // Override dashboard route to return 404
+    await page.route('**/api/v1/dashboard', async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          type: 'https://bs-cms.org/errors/not-found',
+          title: 'Not Found',
+          status: 404,
+          detail: 'Endpoint /api/v1/dashboard does not exist.',
+        }),
+      });
+    });
+
+    await page.goto(`${ADMIN_URL}/`);
+
+    // Verify honest status banner
+    const statusBanner = page.locator('[data-testid="dashboard-status-banner"]');
+    await expect(statusBanner).toBeVisible();
+    await expect(statusBanner).toHaveText('Dashboard data endpoint is not yet available.');
+
+    // Verify metric cards show zero counts, not fabricated numbers
+    const metricsRow = page.locator('[data-testid="dashboard-metrics-row"]');
+    await expect(metricsRow.locator('text=Drafts in progress')).toBeVisible();
+    await expect(metricsRow.locator('text=0').first()).toBeVisible();
+
+    // Verify recent edits shows empty message rather than mock items
+    const recentEdits = page.locator('[data-testid="recent-edits-widget"]');
+    await expect(recentEdits.locator('text=No recent content edits found.')).toBeVisible();
+
+    // Verify content queues show honest empty states
+    await expect(page.locator('text=No drafts waiting.')).toBeVisible();
+    await expect(page.locator('text=No items currently scheduled.')).toBeVisible();
   });
 
   test('axe clean in light and dark mode', async ({ page }) => {

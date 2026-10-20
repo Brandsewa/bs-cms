@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { PageContainer, PageHeader, MetricCard } from '@bs/ui';
 import { useSession } from '../auth/session-context';
 import { apiClient } from '../lib/api';
-import { DashboardData, MOCK_DASHBOARD_DATA } from './types';
+import { DashboardData, MOCK_DASHBOARD_DATA, EMPTY_DASHBOARD_DATA } from './types';
 import { QuickActionsWidget } from './quick-actions-widget';
 import { OnboardingChecklistCard } from './onboarding-card';
 import { RecentEditsWidget } from './recent-edits-widget';
@@ -12,8 +12,9 @@ import { ShortcutsCard } from './shortcuts-card';
 
 export function DashboardRoute() {
   const { session } = useSession();
-  const [data, setData] = useState<DashboardData>(MOCK_DASHBOARD_DATA);
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
 
   // Role permissions detection
@@ -41,15 +42,35 @@ export function DashboardRoute() {
         if (mounted) {
           if (res.ok && res.data) {
             setData(res.data);
+            setError(null);
           } else {
-            // When endpoint returns 404/501 (as documented in BACKEND-REQUESTS.md #8),
-            // use the verified mock data layer to provide the full UX without faking in production
-            setData(MOCK_DASHBOARD_DATA);
+            // In test/gallery mock mode only (window.__BS_TEST_MOCKS__), allow mock fallback.
+            // In production/live deployment, never fabricate data on 404/failure:
+            // present honest empty/error state.
+            const isTestMode = typeof window !== 'undefined' && Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
+            if (isTestMode) {
+              setData(MOCK_DASHBOARD_DATA);
+              setError(null);
+            } else {
+              setData(EMPTY_DASHBOARD_DATA);
+              if (res.status === 404) {
+                setError('Dashboard data endpoint is not yet available.');
+              } else {
+                setError('Unable to load dashboard data.');
+              }
+            }
           }
         }
       } catch {
         if (mounted) {
-          setData(MOCK_DASHBOARD_DATA);
+          const isTestMode = typeof window !== 'undefined' && Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
+          if (isTestMode) {
+            setData(MOCK_DASHBOARD_DATA);
+            setError(null);
+          } else {
+            setData(EMPTY_DASHBOARD_DATA);
+            setError('Network error while loading dashboard.');
+          }
         }
       } finally {
         if (mounted) {
@@ -83,6 +104,17 @@ export function DashboardRoute() {
         />
       </div>
 
+      {/* Honest error / unavailable notification if backend 404 occurs in production */}
+      {error && !loading && (
+        <div
+          role="status"
+          className="rounded-lg border border-border bg-muted/40 p-3 text-13 text-muted-foreground"
+          data-testid="dashboard-status-banner"
+        >
+          {error}
+        </div>
+      )}
+
       {/* Metric Cards Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="dashboard-metrics-row">
         <MetricCard
@@ -107,7 +139,7 @@ export function DashboardRoute() {
         ) : (
           <MetricCard
             label="Site Health status"
-            value={loading ? '-' : String(data.site_health?.status ?? 'healthy')}
+            value={loading ? '-' : String(data.site_health?.status ?? 'unscanned')}
             hint="Content and SEO validation"
             loading={loading}
           />
