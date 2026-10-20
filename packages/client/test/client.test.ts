@@ -334,4 +334,15 @@ describe('uploadChunked', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toBe('Payload too large');
   });
+
+  it('invokes onUnauthorized callback when request returns 401', async () => {
+    const onUnauthorized = vi.fn();
+    vi.stubGlobal('fetch', vi.fn(async () => fetchJson({ title: 'Unauthorized', status: 401 }, 401)));
+    const client = new ApiClient({ baseUrl: 'https://api.example.com', onUnauthorized });
+    const res = await client.request('GET', '/auth/session');
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(401);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).toHaveBeenCalledWith(expect.objectContaining({ status: 401 }));
+  });
 });

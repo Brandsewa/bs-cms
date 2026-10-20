@@ -53,4 +53,22 @@ Requesting backend team confirm/plan:
 1. Backend middleware/handler support for caching responses by `Idempotency-Key` (e.g., Redis or DB key table with a short TTL such as 15–60 minutes) so retried requests return the original outcome instead of re-executing.
 2. Confirmation that chunk uploads (`POST /media/chunks/{id}` with `chunk` and `chunk_index`) are idempotent on the backend (overwriting/re-saving the same chunk index for the active session without side effects).
 
+## 6. Build integration: bundling admin shell into release zip — OPEN
 
+Tools script tools/build-release currently creates the release archive without compiling and bundling the admin SPA application.
+Per owner directives, UI agents do not touch tools/ or core/. Requesting backend/release engineering to update tools/build-release as follows:
+1. **Build step**: Execute npm run build -w admin during the release pipeline.
+2. **Distribution directory**: Copy the built assets from admin/dist/* into core/public/admin/.
+3. **SPA fallback routing**: Ensure core/public/.htaccess routes any non-file request under /admin/* to /admin/index.html (e.g. RewriteCond %{REQUEST_FILENAME} !-f followed by RewriteRule ^admin/.* /admin/index.html [L]).
+4. **Base path**: The admin build uses base /admin/ and serves index.html at /admin/.
+
+## 7. OAuth return_to handling and sanitizeReturnTo alignment — OPEN
+
+When an unauthenticated user arrives at GET `/oauth/authorize` while logged out, the backend redirects them to `/admin/login?return_to=https%3A%2F%2F<origin>%2Foauth%2Fauthorize%3Fclient_id%3D...`.
+Notice that the backend sends an **absolute URL** (e.g. `https://bskickstarter.com/oauth/authorize?client_id=...`) rather than a relative path.
+The UI `sanitizeReturnTo` implementation (`admin/src/lib/return-to.ts`) supports both:
+1. Same-origin absolute URLs: parses with `new URL(val, window.location.origin)`, verifies `origin === window.location.origin`, checks that userinfo (`user:pass@`) is absent, and reduces to `pathname + search` before checking against the allow-list (`/admin/*` and `/oauth/authorize*`).
+2. Same-origin relative paths (`/admin/*` and `/oauth/authorize*`).
+3. Navigates to `/oauth/authorize` via full-page navigation (`window.location.assign`), since it is a server-rendered route.
+
+Backend note: GA is separately updating the backend to emit relative paths for consistency; the frontend supports both formats cleanly.
