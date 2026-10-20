@@ -55,6 +55,7 @@
 
   --success: hsl(142, 71%, 45%);
   --success-foreground: hsl(150, 85%, 12%);
+  --success-text: hsl(150, 85%, 25%);
 
   --info: hsl(210, 90%, 45%);
   --info-foreground: hsl(210, 40%, 98%);
@@ -158,6 +159,7 @@
 
   --success: hsl(142, 71%, 45%);
   --success-foreground: hsl(150, 85%, 12%);
+  --success-text: hsl(142, 71%, 45%);
 
   /* Dark info keeps white text AA by staying deep enough (4.8:1 measured). */
   --info: hsl(211, 75%, 45%);

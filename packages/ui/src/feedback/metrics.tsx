@@ -109,7 +109,7 @@ function MetricCard({ label, value, hint, trend, loading = false, className }: M
             <span
               className={cn(
                 'font-medium',
-                trend.direction === 'up' && 'text-success',
+                trend.direction === 'up' && 'text-success-text',
                 trend.direction === 'down' && 'text-destructive-text'
               )}
             >

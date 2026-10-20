@@ -186,3 +186,47 @@ lazy chunks from M2/M3 onward.
 
 ### 11.4 Real-Browser Verification
 - 28 Playwright browser tests covering boot, axe light/dark sweeps across all components and auth/shell screens, 2FA challenge, lockout handling, return-to safety with same-origin absolute OAuth consent URLs, session expiry redirects, role filtering, and 360px mobile viewport stability.
+
+---
+
+## 12. Phase 6: Milestone 6.1 — Dashboard Home Screen (v1)
+
+### 12.1 Overview & Architecture (admin/src/dashboard/)
+- **Route Integration**: Replaced placeholder stub with code-split DashboardRoute in admin/src/dashboard/dashboard-route.tsx.
+- **Top Greeting & Environment**: Displays personalized greeting based on time of day, active user display name, and environment badge (Production, Staging, Local Development).
+- **Quick Actions Widget (QuickActionsWidget)**:
+  - Contextual create triggers for "New post", "New page", "Upload media".
+  - Role-aware: Page creation is hidden for authors and contributors who lack page editing permissions.
+- **Onboarding Card (OnboardingCard)**:
+  - Dismissible setup checklist with progress bar tracking completed steps (Site title & tagline, First post, Navigation menu, Media asset, Social links, Live preview).
+  - Persists dismissed state via localStorage key bs-dashboard-onboarding-dismissed.
+- **Content Queue & Recent Edits**:
+  - RecentEditsWidget: Shows recently modified entries with status badges, updated timestamps, author info, and direct editor navigation.
+  - ContentQueueWidget: Segregates drafts awaiting review, scheduled publications with release badges, and pending AI changes awaiting review.
+- **System & Site Health Widget (SystemAndHealthWidget)**:
+  - Displays site health status (SEO audit score, cron status, background mail delivery, storage usage, PHP runtime telemetry).
+  - Recent audit/operations activity log.
+  - Visible only to users with administrative roles (Owner, Admin).
+- **Keyboard Shortcuts Card (ShortcutsCard)**: Quick reference for global hotkeys (Ctrl+K, Ctrl+S, Ctrl+Shift+P, GD, GE, GM).
+
+### 12.2 Backend Contract & Fallback Strategy
+- Documented GET /api/v1/dashboard in docs/ui/BACKEND-REQUESTS.md Item #8 with full JSON response specification.
+- Production route fetches from apiClient if available; gracefully falls back to mock fixture in development/gallery mode or when the endpoint returns 404/not yet implemented.
+
+### 12.3 Contrast & Accessibility Fixes
+- Added --success-text token (hsl(150, 85%, 25%) in light mode for 5.7:1 contrast on white cards; hsl(142, 71%, 45%) in dark mode for 8.6:1 contrast) resolving real-browser Axe failure in MetricCard trends.
+- Responsive design uses min-w-0 container bounds to maintain layout stability down to 360px mobile viewports without horizontal overflow.
+
+### 12.4 Performance & Size Budget
+- Production JS total gzipped: 171.0 KB (comfortably within the 200 KB ceiling).
+- Baseline updated in admin/scripts/size-budget.json (175,106 bytes).
+
+### 12.5 Test Verification
+- 6 Playwright browser tests in admin/tests/browser/dashboard.spec.ts:
+  - Full widget rendering and metric cards check
+  - Quick action role-awareness
+  - Dismissible onboarding checklist
+  - Author vs editor vs admin role widget permissions
+  - Zero serious/critical Axe accessibility violations across light and dark modes
+  - 360px mobile viewport horizontal overflow check
+- All 34 browser tests passing cleanly.
