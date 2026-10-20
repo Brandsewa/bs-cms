@@ -485,6 +485,9 @@ final class EntryRepository
      */
     public function find(string $collectionHandle, string $id, bool $includeTrashed = false): ?array
     {
+        if (!$this->collectionRegistry->has($collectionHandle)) {
+            return null;
+        }
         $collection = $this->collectionRegistry->get($collectionHandle);
         $collectionId = (string) $collection['id'];
         $prefix = $this->connection->getPrefix();

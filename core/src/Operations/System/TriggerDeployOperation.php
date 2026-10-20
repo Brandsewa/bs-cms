@@ -54,10 +54,7 @@ final class TriggerDeployOperation implements Operation
 
         $decision = $this->authorizer->can($ctx->actor, 'manage', new Subject('site', 'deploy'));
         if (!$decision->allowed) {
-            $pubDecision = $this->authorizer->can($ctx->actor, 'publish', new Subject('collection', '*'));
-            if (!$pubDecision->allowed) {
-                throw new ForbiddenException("Insufficient permissions to trigger deploy: {$decision->reason}");
-            }
+            throw new ForbiddenException("Insufficient permissions to trigger deploy: {$decision->reason}");
         }
     }
 

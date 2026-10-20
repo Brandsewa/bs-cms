@@ -492,11 +492,18 @@ final class McpHttpIntegrationTest extends TestCase
     {
         $uri = 'https://example.com/oauth/authorize?client_id=any&redirect_uri=http://localhost:8080/cb&response_type=code';
 
-        // 1. Browser HTML request -> redirects to /admin/login
+        // 1. Browser HTML request -> redirects to /admin/login with relative return_to
         $htmlRes = $this->request('GET', $uri, ['Accept' => 'text/html']);
         $this->assertSame(302, $htmlRes->getStatusCode());
         $location = $htmlRes->getHeaderLine('Location');
-        $this->assertStringStartsWith('/admin/login?return_to=', $location);
+        $this->assertStringStartsWith('/admin/login?return_to=%2Foauth%2Fauthorize%3Fclient_id%3D', $location);
+
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $queryParts);
+        $this->assertArrayHasKey('return_to', $queryParts);
+        $returnToVal = is_string($queryParts['return_to'] ?? null) ? $queryParts['return_to'] : '';
+        $this->assertStringStartsWith('/oauth/authorize?client_id=', $returnToVal);
+        $this->assertStringNotContainsString('example.com', $returnToVal);
+        $this->assertSame($returnToVal, OAuthController::sanitizeReturnTo($returnToVal));
 
         // 2. API / JSON request -> returns 401 Unauthorized
         $jsonRes = $this->request('GET', $uri, ['Accept' => 'application/json']);
@@ -813,22 +820,49 @@ final class McpHttpIntegrationTest extends TestCase
         $this->assertSame('/admin/oauth/authorize?client_id=123', OAuthController::sanitizeReturnTo('/admin/oauth/authorize?client_id=123'));
         $this->assertSame('/admin?page=1', OAuthController::sanitizeReturnTo('/admin?page=1'));
 
-        // External URLs -> Fallback to /admin
+        // Valid /oauth/authorize with query string
+        $this->assertSame(
+            '/oauth/authorize?client_id=123&response_type=code',
+            OAuthController::sanitizeReturnTo('/oauth/authorize?client_id=123&response_type=code')
+        );
+
+        // /oauth/authorize without query string -> rejected to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize?'));
+
+        // External URLs / Absolute URLs -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('https://evil.example'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('https://evil.example.com'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('http://evil.example.com/admin'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('//evil.example'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('//evil.example.com/admin'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('javascript:alert(1)'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('data:text/html,evil'));
 
-        // Non-admin paths -> Fallback to /admin
+        // Backslash and protocol-relative variations -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/\\evil.example'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('\\\\evil.com\\admin'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin/..\\evil'));
+
+        // Path traversal -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize/../x'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin/../secret'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize/%2e%2e/x'));
+
+        // %0d%0a CRLF and control character variants -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin%0d%0aevil'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo("/admin\r\nevil"));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize?foo=bar%0d%0aevil'));
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/oauth/authorize?foo=%00null'));
+
+        // Non-admin / disallowed paths -> Fallback to /admin
+        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/api/v1/users'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/api/v1/posts'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/public/index.php'));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/administrator'));
 
-        // Path traversal and tricky backslashes -> Fallback to /admin
-        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('/admin/..\\evil'));
-        $this->assertSame('/admin', OAuthController::sanitizeReturnTo('\\\\evil.com\\admin'));
+        // Null and empty -> Fallback to /admin
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo(null));
         $this->assertSame('/admin', OAuthController::sanitizeReturnTo(''));
     }

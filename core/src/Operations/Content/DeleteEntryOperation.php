@@ -85,6 +85,10 @@ final class DeleteEntryOperation implements Operation
         }
 
         $id = (string) ($input['id'] ?? '');
+        $existing = $this->repository->find($handle, $id, true);
+        if ($existing === null) {
+            throw new ValidationException("Target entry '{$id}' not found in collection '{$handle}'.");
+        }
         $permanent = (bool) ($input['permanent'] ?? false);
 
         $this->repository->delete($handle, $id, $permanent);

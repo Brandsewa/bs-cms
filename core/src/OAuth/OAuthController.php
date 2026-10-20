@@ -291,7 +291,17 @@ final class OAuthController extends BaseController
 
     /**
      * Sanitize return_to URL to prevent open redirection.
-     * Must be a same-origin path strictly beginning with /admin.
+     * Must be a relative path strictly matching:
+     * - Exactly /admin paths (/admin, /admin/, /admin/..., /admin?...)
+     * - /oauth/authorize with non-empty query string (/oauth/authorize?...)
+     *
+     * Rejects everything else (falling back to '/admin'):
+     * - Absolute URLs (https://..., http://...)
+     * - Protocol-relative (//...)
+     * - Backslashes (/\..., \...)
+     * - Path traversal (.. or %2e)
+     * - Control characters (raw [\x00-\x1F\x7F] or encoded %0d%0a, %00, %7f)
+     * - Other paths (e.g. /api/v1/users)
      */
     public static function sanitizeReturnTo(?string $returnTo): string
     {
@@ -301,17 +311,54 @@ final class OAuthController extends BaseController
 
         $returnTo = trim($returnTo);
 
-        // Reject protocol-relative URLs (//evil.com), control chars, and backslashes
-        if (str_starts_with($returnTo, '//') || str_contains($returnTo, '\\') || preg_match('/[\x00-\x1F\x7F]/', $returnTo)) {
+        // Reject raw control characters (ASCII 0x00 - 0x1F and 0x7F)
+        if (preg_match('/[\x00-\x1F\x7F]/', $returnTo)) {
             return '/admin';
         }
 
-        // Must start with /admin or /admin/...
-        if (!preg_match('#^/admin(/.*|\?.*)?$#', $returnTo)) {
+        // Reject backslashes (both single \ and combinations like /\, \\)
+        if (str_contains($returnTo, '\\')) {
             return '/admin';
         }
 
-        return $returnTo;
+        // Reject protocol-relative URLs (//)
+        if (str_starts_with($returnTo, '//')) {
+            return '/admin';
+        }
+
+        // Reject encoded control characters, CRLF (%0d, %0a), null byte (%00), DEL (%7f)
+        // Also reject encoded backslashes (%5c, %5C)
+        if (preg_match('/%(?:[01][0-9a-fA-F]|7[fF]|5[cC])/i', $returnTo)) {
+            return '/admin';
+        }
+
+        // Reject directory traversal (.. or %2e)
+        if (str_contains($returnTo, '..') || stripos($returnTo, '%2e') !== false) {
+            return '/admin';
+        }
+
+        // Must strictly start with a single '/'
+        if (!str_starts_with($returnTo, '/')) {
+            return '/admin';
+        }
+
+        // Split into path and query
+        $questionPos = strpos($returnTo, '?');
+        $path = $questionPos !== false ? substr($returnTo, 0, $questionPos) : $returnTo;
+        $query = $questionPos !== false ? substr($returnTo, $questionPos + 1) : null;
+
+        // 1. Allowed: Exactly /admin paths (/admin, /admin/, /admin/...)
+        if ($path === '/admin' || str_starts_with($path, '/admin/')) {
+            return $returnTo;
+        }
+
+        // 2. Allowed: /oauth/authorize WITH a non-empty query string
+        if ($path === '/oauth/authorize' && $query !== null && $query !== '') {
+            return $returnTo;
+        }
+
+        // Everything else is rejected -> fallback to /admin
+        return '/admin';
     }
 
     public function optionsRegister(ServerRequestInterface $request): ResponseInterface
@@ -372,9 +419,13 @@ final class OAuthController extends BaseController
                 return $this->oauthError(401, 'unauthorized', 'Authenticated user session required to authorize agent access. Please log in first.');
             }
 
-            // Browser request: redirect to /admin/login with sanitized return_to parameter
+            // Browser request: redirect to /admin/login with sanitized relative return_to parameter
             $currentUri = $request->getUri();
-            $pathAndQuery = $currentUri->getPath();
+            $path = $currentUri->getPath();
+            if ($path === '' || !str_starts_with($path, '/')) {
+                $path = '/' . ltrim($path, '/');
+            }
+            $pathAndQuery = $path;
             if ($currentUri->getQuery() !== '') {
                 $pathAndQuery .= '?' . $currentUri->getQuery();
             }

@@ -16,6 +16,7 @@ use BsCms\Http\Controllers\MediaController;
 use BsCms\Http\Controllers\MediaFoldersController;
 use BsCms\Http\Controllers\NotificationsController;
 use BsCms\Http\Controllers\OpenApiController;
+use BsCms\Http\Controllers\PendingChangesController;
 use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\PublicSeoController;
 use BsCms\Http\Controllers\RedirectsController;
@@ -61,7 +62,8 @@ final class ApiRoutes
         ?PublicSeoController $publicSeo = null,
         ?SiteHealthController $siteHealth = null,
         ?McpController $mcp = null,
-        ?OAuthController $oauth = null
+        ?OAuthController $oauth = null,
+        ?PendingChangesController $pendingChanges = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -317,6 +319,15 @@ final class ApiRoutes
             // Grants API
             $routes->get('/api/v1/oauth/grants', [$oauth, 'listGrants']);
             $routes->delete('/api/v1/oauth/grants/{id}', [$oauth, 'revokeGrant']);
+        }
+
+        // 23. Pending Changes endpoints
+        if ($pendingChanges !== null) {
+            $routes->get('/api/v1/pending-changes', [$pendingChanges, 'list']);
+            $routes->get('/api/v1/pending-changes/{id}', [$pendingChanges, 'get']);
+            $routes->post('/api/v1/pending-changes/{id}/approve', [$pendingChanges, 'approve']);
+            $routes->post('/api/v1/pending-changes/{id}/reject', [$pendingChanges, 'reject']);
+            $routes->post('/api/v1/pending-changes/expire', [$pendingChanges, 'expire']);
         }
     }
 }

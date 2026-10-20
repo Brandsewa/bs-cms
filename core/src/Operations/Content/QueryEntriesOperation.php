@@ -95,8 +95,10 @@ final class QueryEntriesOperation implements Operation
         }
 
         $collection = $this->registry->get($handle);
+        $collectionFields = (array) ($collection['fields'] ?? []);
         $limit = max(1, min(100, (int) ($input['limit'] ?? 20)));
         $offset = max(0, (int) ($input['offset'] ?? 0));
+        $page = (int) floor($offset / $limit) + 1;
         $status = isset($input['status']) && is_string($input['status']) ? $input['status'] : null;
 
         $filters = (array) ($input['filter'] ?? []);
@@ -104,32 +106,98 @@ final class QueryEntriesOperation implements Operation
             $filters['status'] = $status;
         }
 
-        $page = (int) floor($offset / $limit) + 1;
+        $indexedSystem = [
+            'id', 'slug', 'status', 'locale', 'parent_id', 'position',
+            'author_id', 'published_at', 'scheduled_at', 'created_at', 'updated_at',
+        ];
+
         $filterClauses = [];
         foreach ($filters as $fKey => $fVal) {
-            $isSystem = in_array((string) $fKey, IdentifierValidator::SYSTEM_COLUMNS, true);
+            $field = (string) $fKey;
+
+            // Identifier syntax validation (prevent hostile keys like "title'; DROP TABLE ...")
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $field)) {
+                throw new ValidationException("Invalid filter field name '{$field}'.");
+            }
+
+            $isSystem = in_array(strtolower($field), IdentifierValidator::SYSTEM_COLUMNS, true);
+            $customDef = $collectionFields[$field] ?? null;
+
+            if (!$isSystem && $customDef === null) {
+                throw new ValidationException("Field '{$field}' does not exist on collection '{$handle}'.");
+            }
+
+            // Index requirement rule:
+            $isIndexed = false;
+            if ($isSystem) {
+                $isIndexed = in_array(strtolower($field), $indexedSystem, true);
+            } else {
+                $isTaxonomyField = ($customDef['type'] ?? '') === 'taxonomy';
+                $isIndexed = $isTaxonomyField || !empty($customDef['is_filterable']) || !empty($customDef['is_unique']) || !empty($customDef['is_sortable']);
+            }
+
+            if (!$isIndexed) {
+                throw new ValidationException("Field '{$field}' is not indexed; add an index before filtering on it.");
+            }
+
             if (is_array($fVal)) {
                 foreach ($fVal as $op => $val) {
-                    $filterClauses[] = new FilterClause((string) $fKey, (string) $op, $val, $isSystem);
+                    $opStr = strtolower((string) $op);
+                    if (!in_array($opStr, FilterClause::ALLOWED_OPS, true)) {
+                        throw new ValidationException("Filter operator '{$opStr}' is not supported.");
+                    }
+                    $filterClauses[] = new FilterClause($field, $opStr, $val, $isSystem);
                 }
             } else {
-                $filterClauses[] = new FilterClause((string) $fKey, FilterClause::OP_EQ, $fVal, $isSystem);
+                $filterClauses[] = new FilterClause($field, FilterClause::OP_EQ, $fVal, $isSystem);
             }
         }
 
+        // Validate and parse sort keys
         $sortClauses = [];
-        $rawSort = isset($input['sort']) && is_string($input['sort']) ? $input['sort'] : '-created_at';
+        $rawSort = isset($input['sort']) && is_string($input['sort']) ? trim($input['sort']) : '-created_at';
+        if ($rawSort === '') {
+            $rawSort = '-created_at';
+        }
+
+        $systemSortable = [
+            'id', 'slug', 'title', 'status', 'locale', 'parent_id', 'position',
+            'author_id', 'published_at', 'scheduled_at', 'created_at', 'updated_at',
+        ];
+        $customSortable = [];
+        foreach ($collectionFields as $fHandle => $fDef) {
+            if (!empty($fDef['is_sortable'])) {
+                $customSortable[] = (string) $fHandle;
+            }
+        }
+        $sortableFields = array_values(array_unique(array_merge($systemSortable, $customSortable)));
+
         $parts = array_filter(array_map('trim', explode(',', $rawSort)));
         foreach ($parts as $part) {
             $dir = 'asc';
             if (str_starts_with($part, '-')) {
                 $dir = 'desc';
                 $part = substr($part, 1);
+            } elseif (str_starts_with($part, '+')) {
+                $part = substr($part, 1);
             } elseif (str_contains($part, ':')) {
                 [$f, $d] = explode(':', $part, 2);
                 $part = $f;
                 $dir = strtolower($d) === 'desc' ? 'desc' : 'asc';
             }
+
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $part)) {
+                throw new ValidationException("Invalid sort field name '{$part}'.");
+            }
+
+            $isSortable = in_array(strtolower($part), $systemSortable, true)
+                || (isset($collectionFields[$part]) && !empty($collectionFields[$part]['is_sortable']));
+
+            if (!$isSortable) {
+                $sortableList = implode(', ', $sortableFields);
+                throw new ValidationException("Field '{$part}' is not sortable on collection '{$handle}'. Sortable fields: {$sortableList}.");
+            }
+
             $isSystem = in_array(strtolower($part), IdentifierValidator::SYSTEM_COLUMNS, true);
             $sortClauses[] = ['field' => $part, 'direction' => $dir, 'is_system' => $isSystem];
         }

@@ -77,6 +77,11 @@ final class UnpublishEntryOperation implements Operation
 
         $collection = $this->registry->get($handle);
         $id = (string) ($input['id'] ?? '');
+        $existing = $this->repository->find($handle, $id);
+        if ($existing === null) {
+            throw new ValidationException("Target entry '{$id}' not found in collection '{$handle}'.");
+        }
+
         $actor = $ctx->actor ?? \BsCms\Auth\Actor::anonymous();
         $userId = $actor->onBehalfOf ?? $actor->id;
 

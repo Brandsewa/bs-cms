@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Operations\Content;
 
+use BsCms\Auth\Actor;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
@@ -78,9 +79,17 @@ final class UpdateEntryOperation implements Operation
         }
 
         $col = (string) ($input['collection'] ?? '');
-        $decision = $this->authorizer->can($ctx->actor, 'update', new Subject('collection', $col));
+        $entryId = (string) ($input['id'] ?? '');
+        $existing = $entryId !== '' ? $this->repository->find($col, $entryId) : null;
+        $decision = $this->authorizer->can($ctx->actor, 'update', new Subject('collection', $col), $existing);
         if (!$decision->allowed) {
             throw new ForbiddenException("Insufficient permissions to update entry in collection '{$col}': {$decision->reason}");
+        }
+
+        if ($ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
+            if ($existing !== null && ($existing['status'] ?? 'draft') === 'published') {
+                throw new ForbiddenException("Modifying published entries directly is forbidden in draft_only mode. Modify drafts only or request approval.");
+            }
         }
     }
 
@@ -93,6 +102,10 @@ final class UpdateEntryOperation implements Operation
 
         $collection = $this->registry->get($handle);
         $id = (string) ($input['id'] ?? '');
+        $existing = $this->repository->find($handle, $id);
+        if ($existing === null) {
+            throw new ValidationException("Target entry '{$id}' not found in collection '{$handle}'.");
+        }
         $actor = $ctx->actor ?? \BsCms\Auth\Actor::anonymous();
         $userId = $actor->onBehalfOf ?? $actor->id;
 

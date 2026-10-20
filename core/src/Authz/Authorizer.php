@@ -55,10 +55,10 @@ final class Authorizer
             }
         }
 
-        // 3. AI Mode restrictions
+        // 3. AI Mode & OAuth security restrictions:
         if ($actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
-            $destructiveActions = ['publish', 'unpublish', 'delete', 'export', 'manage'];
-            $sensitiveSubjects = ['users', 'roles', 'settings', 'schema', 'system'];
+            $destructiveActions = ['publish', 'unpublish', 'delete', 'export', 'manage', 'schedule'];
+            $sensitiveSubjects = ['users', 'roles', 'settings', 'schema', 'system', 'redirect', 'deploy', 'crawler_policy', 'environment', 'term', 'terms', 'taxonomy', 'taxonomies'];
 
             if (in_array($action, $destructiveActions, true)) {
                 return Decision::deny("Action '{$action}' is forbidden in AI draft_only mode.");
@@ -67,12 +67,12 @@ final class Authorizer
             if (in_array($subject->type, $sensitiveSubjects, true) && $action !== 'read') {
                 return Decision::deny("Modifying '{$subject->type}' is forbidden in AI draft_only mode.");
             }
-        } elseif ($actor->aiMode === Actor::AI_MODE_APPROVAL_REQUIRED) {
-            $approvalActions = ['publish', 'unpublish', 'delete'];
-            $approvalSubjects = ['schema', 'settings'];
+        }
 
-            if (in_array($action, $approvalActions, true) || (in_array($subject->type, $approvalSubjects, true) && $action !== 'read')) {
-                return Decision::deny("Action '{$action}' on '{$subject->type}' requires human approval in approval_required mode.");
+        // Security invariant: AI actors and OAuth tokens can NEVER modify settings (including tool allowlist), roles, or users
+        if ($actor->isAi() || $actor->type === Actor::TYPE_OAUTH || $actor->aiMode !== null) {
+            if (in_array($subject->type, ['settings', 'roles', 'users'], true) && $action !== 'read') {
+                return Decision::deny("AI actors and OAuth tokens are forbidden from modifying '{$subject->type}'.");
             }
         }
 

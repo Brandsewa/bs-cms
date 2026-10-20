@@ -102,14 +102,15 @@ This document is the authoritative log for Phase 0 technical verifications, arch
 
 - **Tool Allowlist Setting (`mcp.tool_allowlist`):**
   - Controlled by the administrator via the `mcp.tool_allowlist` setting in `settings` table (JSON array or comma-separated string).
-  - Default-safe posture: Destructive tools and schema modification tools are **OFF by default** unless explicitly allowlisted by an administrator.
+  - Default-safe posture: Destructive tools, schema modification tools, and sensitive external/routing tools are **OFF by default** unless explicitly allowlisted by an administrator.
+  - In addition to `delete_entry`, `apply_schema_change`, and `propose_schema_change`, Milestone 8.4 defaults `upload_media_from_url` and `create_redirect` to disabled.
   - MCP Tool Hints: Each tool's JSON-RPC definition advertises MCP tool annotations:
     - `readOnlyHint`: `true` for non-mutating query/get/list operations, `false` for mutating operations.
     - `destructiveHint`: `true` for destructive actions (`delete_entry`, `apply_schema_change`).
     - `idempotentHint`: `true` for idempotent actions (`update_entry`, `restore_version`, etc.).
     - `openWorldHint`: `true` for external/network actions (`upload_media_from_url`).
 
-- **Default Tool Set (27 Enabled, 3 Disabled):**
+- **Default Tool Set (25 Enabled, 5 Disabled):**
   | Category | Tool Name | Mutates | Destructive | Schema | Default Status |
   | :--- | :--- | :---: | :---: | :---: | :--- |
   | Schema | `site_overview` | No | No | No | **Enabled** |
@@ -134,14 +135,110 @@ This document is the authoritative log for Phase 0 technical verifications, arch
   | Taxonomy | `move_term` | Yes | No | No | **Enabled** |
   | Media | `list_media` | No | No | No | **Enabled** |
   | Media | `update_media` | Yes | No | No | **Enabled** |
-  | Media | `upload_media_from_url` | Yes | No | No | **Enabled** |
+  | Media | `upload_media_from_url` | Yes | No | No | **Disabled (Admin allowlist required)** |
   | System | `get_site_health` | No | No | No | **Enabled** |
   | System | `trigger_deploy` | Yes | No | No | **Enabled** |
   | System | `get_deploy_status` | No | No | No | **Enabled** |
   | System | `list_redirects` | No | No | No | **Enabled** |
-  | System | `create_redirect` | Yes | No | No | **Enabled** |
+  | System | `create_redirect` | Yes | No | No | **Disabled (Admin allowlist required)** |
   | System | `get_audit_log` | No | No | No | **Enabled** |
   | System | `list_pending_changes` | No | No | No | **Enabled** |
+
+### 2.2.3 AI Safety Enforcement in the Dispatcher (Milestone 8.4)
+- **`draft_only` Rule Definition & Policy:**
+  - In `draft_only` mode, the AI may freely read content, inspect schemas, and create or edit drafts.
+  - The AI is **forbidden** from executing any operation that alters the public-facing site, public URLs, or live assets.
+  - Specifically, `draft_only` denies the following 14 operations:
+    1. `publish_entry`
+    2. `unpublish_entry`
+    3. `schedule_entry`
+    4. `delete_entry`
+    5. `create_entry` (when `status` is `'published'` or `'scheduled'`)
+    6. `update_entry` (when modifying an already published entry)
+    7. `restore_version`
+    8. `create_redirect`
+    9. `create_term`
+    10. `update_term`
+    11. `move_term`
+    12. `update_media`
+    13. `upload_media_from_url`
+    14. `trigger_deploy`
+    (In addition to schema modifications `propose_schema_change`/`apply_schema_change`, and all settings/roles/users modifications).
+  - Calling any of these operations with a `draft_only` grant immediately returns JSON-RPC `-32003 Forbidden`.
+
+- **`approval_required` Mode & Human-in-the-Loop Workflow:**
+  - In `approval_required` mode, non-live-affecting operations (reading, creating drafts, editing drafts) execute immediately.
+  - Any live-affecting operation (the 14 listed above) is intercepted by the Dispatcher **after** verifying the actor's grant/user permissions.
+  - If the actor lacks permission (e.g. Viewer attempting to publish or delete), the request is rejected immediately with `-32003 Forbidden` without creating a pending change.
+  - If the actor has permission (e.g. Editor or Admin), the operation creates a row in the `pending_changes` table:
+    - `actor_label`: Formatted as `"Claude (via Anna)"` (`{client_name} (via {user_name})`).
+    - `on_behalf_of`: User ID who authorized the AI.
+    - `operation` & `payload`: Exact operation name and validated JSON arguments.
+    - `diff`: Human-readable structured change diff showing previous vs proposed values.
+    - `status`: `'pending'`.
+    - `expires_at`: 7 days from creation.
+  - The tool call succeeds with:
+    `{"status": "pending_approval", "pending_change_id": "<ulid>", "message": "Operation '<op>' queued for human approval.", "action": "<op>", "expires_at": "<timestamp>"}`.
+  - In-app notification is dispatched to notify administrators and editors of the pending change.
+
+- **Pending Changes REST API (`/api/v1/pending-changes`):**
+  - `GET /api/v1/pending-changes`: List pending changes with status and operation filters, pagination (`limit`, `offset`), and total counts.
+  - `GET /api/v1/pending-changes/{id}`: Detailed view of a single pending change.
+  - `POST /api/v1/pending-changes/{id}/approve`: Approved by a human user (AI actors forbidden). The operation is re-executed through the Dispatcher under the authority of the approving user. The target is checked for conflicts (if the target entry was modified or deleted since the proposal was created, HTTP 409 Conflict is returned). Two-step confirmation for destructive changes is satisfied by the human approval. Records `pending_change.approved` in audit log. Double-approval returns 409 Conflict.
+  - `POST /api/v1/pending-changes/{id}/reject`: Rejects the change with optional `decision_note`. Records `pending_change.rejected` in audit log.
+  - `POST /api/v1/pending-changes/expire`: Prunes/updates expired pending changes past their 7-day TTL. Requires authentication and proper permissions (Owner, Admin, or authority covering change approvals; Anonymous -> 401, Viewer/Author -> 403, Editor/Admin -> 200).
+  - Strict presenters ensure internal columns, token hashes, and sensitive secrets are never leaked.
+
+- **Approver Authority Re-Check & Permission Matrix at Approval Time:**
+  - An approving user's authority is strictly re-checked at approval time. An approver **cannot** approve a queued operation that they do not have authority to execute themselves, even if the queueing AI actor had a higher-privilege grant (e.g. an Owner grant queueing `trigger_deploy` or an admin operation cannot be approved by an Editor).
+  - Approval re-executes the operation through the Dispatcher using the approver's authenticated context. If the approver lacks the required permission, HTTP 403 Forbidden is returned.
+  - **Required Permissions by Queued Operation:**
+    | Queued Operation | Required Approver Permission | Minimum Role |
+    | :--- | :--- | :--- |
+    | `publish_entry` | `publish` on `collection:{collection}` | Editor |
+    | `unpublish_entry` | `publish` on `collection:{collection}` | Editor |
+    | `schedule_entry` | `publish` on `collection:{collection}` | Editor |
+    | `update_entry` (published) | `update` on `collection:{collection}` | Editor |
+    | `delete_entry` | `delete` on `collection:{collection}` | Editor / Admin |
+    | `restore_version` | `update` on `collection:{collection}` | Editor |
+    | `create_redirect` | `create` on `redirect:*` | Admin |
+    | `create_term` | `create` on `term:*` | Editor |
+    | `update_term` | `update` on `term:*` | Editor |
+    | `move_term` | `update` on `term:*` | Editor |
+    | `upload_media_from_url` | `create` on `media:*` | Author / Editor |
+    | `update_media` | `update` on `media:*` | Editor |
+    | `trigger_deploy` | `manage` on `site:deploy` | Admin / Owner |
+    | `propose_schema_change` | `manage` on `schema:*` | Admin / Owner |
+    | `apply_schema_change` | `manage` on `schema:*` | Admin / Owner |
+
+- **Stale Approval & Optimistic Concurrency Checks (HTTP 409 Conflict):**
+  - To prevent silent overwriting of human edits or applying changes to trashed/modified content:
+    - At queue time, the target's snapshot metadata (`_target_version`, `_target_updated_at`, `_target_status`) is persisted alongside the proposal.
+    - At approval time, before applying the change, the target is re-fetched and inspected. If the target's version, updated_at timestamp, or status has changed since queue time, approval is rejected with `HTTP 409 Conflict` and a clear explanatory message: `"Target entry '{id}' has been modified since this change was queued (version changed from X to Y). Review the target and reject or re-queue this change."`
+    - If the target entry has been deleted or moved to trash (`trashed_at !== null`), approval is rejected with `HTTP 409 Conflict`: `"Target entry '{id}' has been trashed or deleted since this change was queued. Reject or re-queue this change."`
+  - The reviewer can inspect the current target state and either reject the stale change or re-queue an updated change.
+
+- **Target Existence Validation at Queue Time:**
+  - In `approval_required` mode, mutating operations (`publish_entry`, `unpublish_entry`, `schedule_entry`, `update_entry`, `delete_entry`) validate that the target collection and target entry ID exist **before** queueing.
+  - Attempting to queue an action for a nonexistent collection or nonexistent entry ID immediately returns a standard tool error (`ValidationException` / JSON-RPC `-32602 Invalid params`) and does **not** insert a phantom row into `pending_changes`.
+
+- **Hostile Payload Re-Validation at Apply Time:**
+  - The stored JSON payload in `pending_changes` is treated as untrusted input.
+  - At approval time, when the change is applied through the Dispatcher:
+    - The stored payload is passed through the operation's strict JSON input schema validator (`additionalProperties: false`). Any hostile, unknown, or mutated properties (e.g. injected SQL or role fields) trigger a `ValidationException` resulting in HTTP 422 Unprocessable Entity.
+    - The approver's permissions and scope constraints are re-evaluated against the payload arguments.
+
+- **`full` Mode & Two-Step Confirmation:**
+  - Destructive operations (`delete_entry`, `apply_schema_change`) still require a two-step confirmation token even in `full` mode.
+  - Missing token returns JSON-RPC result with `isError: true` and `confirmation_required: true`.
+  - Supplying an invalid, expired, or replayed confirmation token returns JSON-RPC error `-32002 Confirmation failed`.
+  - Tool allowlist (`mcp.tool_allowlist`) must explicitly enable the tool before it can be invoked.
+  - System settings and tool allowlists can **NEVER** be altered by OAuth or AI actors (enforced unconditionally in `Authorizer`).
+
+- **Immediate Demotion & Suspension Enforcement:**
+  - Role demotion (e.g. owner demoting user from editor to viewer): Because the Authorizer evaluates $P_{grant} \cap P_{user}$ dynamically on every single call, demotion takes effect immediately on the very next HTTP request without waiting for token expiry.
+  - User suspension: A suspended or inactive user immediately results in HTTP 401 Unauthorized on `/mcp`.
+  - Author and Contributor roles: Fully tested and supported under the role hierarchy. Contributor can draft own entries; Author can draft and publish own entries; Editor can manage all entries; Admin can manage settings and users.
 
 - **Input Hardening & Protocol Standard Compliance:**
   - Reject unknown arguments: tools validate parameter keys and reject unrecognized arguments with `-32602 Invalid params`.

@@ -52,7 +52,8 @@ final class ProposeSchemaChangeOperation implements Operation
                 'additionalProperties' => false,
             ],
             mutates: false,
-            isSchema: true
+            isSchema: true,
+            aiPolicy: OperationMeta::AI_POLICY_DRAFT_ONLY_BLOCKED
         );
     }
 
