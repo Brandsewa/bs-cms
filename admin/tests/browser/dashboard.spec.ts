@@ -260,4 +260,110 @@ test.describe('Dashboard Home Screen (v1)', () => {
     await expect(page.locator('[data-testid="dashboard-metrics-row"]')).toBeVisible();
     await expect(page.locator('[data-testid="recent-edits-widget"]')).toBeVisible();
   });
+
+  test('role-awareness: editor payload omits system_status and recent_activity gracefully', async ({ page }) => {
+    // Editor session
+    await page.route('**/api/v1/auth/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'authenticated',
+          user: {
+            id: 'usr_editor',
+            name: 'Ed Editor',
+            email: 'editor@example.com',
+            roles: ['editor'],
+            permissions: ['entries:*'],
+          },
+          csrf_token: 'test_csrf_token',
+        }),
+      });
+    });
+
+    // Real backend behavior: editor payload omits system_status and recent_activity
+    await page.route('**/api/v1/dashboard', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          greeting: { user_name: 'Ed Editor', environment: 'production' },
+          counts: { drafts: 1, scheduled: 0, pending_ai_changes: 0 },
+          recent_edits: [
+            { id: '1', collection: 'posts', title: 'Editor Post', status: 'draft', updated_at: '2026-10-20T10:00:00Z' },
+          ],
+          drafts_waiting: [
+            { id: '1', collection: 'posts', title: 'Editor Post', status: 'draft', updated_at: '2026-10-20T10:00:00Z' },
+          ],
+          scheduled_items: [],
+          pending_ai_changes: [],
+          site_health: { status: 'healthy', total_issues: 0, errors: 0, warnings: 0 },
+          onboarding: {
+            completed: false,
+            steps: { create_page: false, write_post: true, site_details: false, configure_email: false, connect_astro: false, connect_ai: false },
+          },
+        }),
+      });
+    });
+
+    await page.goto(`${ADMIN_URL}/`);
+
+    // Verify widgets render cleanly without crashing on missing system_status or recent_activity
+    await expect(page.locator('text=Welcome back, Ed Editor')).toBeVisible();
+    await expect(page.locator('[data-testid="system-health-widget"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="recent-edits-widget"]')).toBeVisible();
+    await expect(page.locator('[data-testid="recent-edits-widget"]').locator('text=Editor Post')).toBeVisible();
+  });
+
+  test('role-awareness: author payload with self-scoped content and empty AI changes', async ({ page }) => {
+    // Author session
+    await page.route('**/api/v1/auth/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'authenticated',
+          user: {
+            id: 'usr_author',
+            name: 'Arthur Author',
+            email: 'author@example.com',
+            roles: ['author'],
+            permissions: ['entries:posts:*'],
+          },
+          csrf_token: 'test_csrf_token',
+        }),
+      });
+    });
+
+    // Real backend behavior: author sees self-authored items, no AI queue, no telemetry
+    await page.route('**/api/v1/dashboard', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          greeting: { user_name: 'Arthur Author', environment: 'production' },
+          counts: { drafts: 2, scheduled: 0, pending_ai_changes: 0 },
+          recent_edits: [
+            { id: '10', collection: 'posts', title: 'My Author Story', status: 'draft', updated_at: '2026-10-20T11:00:00Z' },
+          ],
+          drafts_waiting: [
+            { id: '10', collection: 'posts', title: 'My Author Story', status: 'draft', updated_at: '2026-10-20T11:00:00Z' },
+          ],
+          scheduled_items: [],
+          pending_ai_changes: [],
+          site_health: { status: 'healthy', total_issues: 0, errors: 0, warnings: 0 },
+          onboarding: {
+            completed: false,
+            steps: { create_page: false, write_post: true, site_details: false, configure_email: false, connect_astro: false, connect_ai: false },
+          },
+        }),
+      });
+    });
+
+    await page.goto(`${ADMIN_URL}/`);
+
+    await expect(page.locator('text=Welcome back, Arthur Author')).toBeVisible();
+    await expect(page.locator('[data-testid="recent-edits-widget"]').locator('text=My Author Story')).toBeVisible();
+    await expect(page.locator('[data-testid="system-health-widget"]')).not.toBeVisible();
+  });
 });
