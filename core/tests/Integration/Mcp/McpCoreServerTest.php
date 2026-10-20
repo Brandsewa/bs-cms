@@ -131,6 +131,8 @@ final class McpCoreServerTest extends TestCase
             ['id' => 'usr_owner', 'email' => 'owner@example.com', 'name' => 'Owner User', 'role' => SystemRoles::ROLE_OWNER],
             ['id' => 'usr_admin', 'email' => 'admin@example.com', 'name' => 'Admin User', 'role' => SystemRoles::ROLE_ADMIN],
             ['id' => 'usr_editor', 'email' => 'editor@example.com', 'name' => 'Editor User', 'role' => SystemRoles::ROLE_EDITOR],
+            ['id' => 'usr_author', 'email' => 'author@example.com', 'name' => 'Author User', 'role' => SystemRoles::ROLE_AUTHOR],
+            ['id' => 'usr_contributor', 'email' => 'contributor@example.com', 'name' => 'Contributor User', 'role' => SystemRoles::ROLE_CONTRIBUTOR],
             ['id' => 'usr_viewer', 'email' => 'viewer@example.com', 'name' => 'Viewer User', 'role' => SystemRoles::ROLE_VIEWER],
         ];
 
@@ -218,6 +220,20 @@ final class McpCoreServerTest extends TestCase
 
         $this->rateLimiter = new RateLimiter(120, 60, [], fn () => $this->connection);
 
+        $pendingChanges = new \BsCms\PendingChanges\PendingChangesService(
+            $this->connection,
+            $authorizer,
+            $auditLogger,
+            $this->entryRepo,
+            $redirectRepo,
+            $this->confirmTokenService
+        );
+        $pendingChanges->setDispatcher($dispatcher);
+        $dispatcher->setPendingChangesService($pendingChanges);
+        $dispatcher->setEntryRepository($this->entryRepo);
+
+        $pendingController = new \BsCms\Http\Controllers\PendingChangesController($pendingChanges, $authorizer);
+
         $oauthController = new OAuthController($this->connection, $this->hasher, $auditLogger, $authorizer, $config);
         $mcpController = new McpController(
             $this->connection,
@@ -235,6 +251,12 @@ final class McpCoreServerTest extends TestCase
         $routes->get('/mcp', [$mcpController, 'handleGet']);
         $routes->post('/mcp', [$mcpController, 'handlePost']);
         $routes->options('/mcp', [$mcpController, 'handleOptions']);
+
+        $routes->get('/api/v1/pending-changes', [$pendingController, 'list']);
+        $routes->get('/api/v1/pending-changes/{id}', [$pendingController, 'get']);
+        $routes->post('/api/v1/pending-changes/{id}/approve', [$pendingController, 'approve']);
+        $routes->post('/api/v1/pending-changes/{id}/reject', [$pendingController, 'reject']);
+        $routes->post('/api/v1/pending-changes/expire', [$pendingController, 'expire']);
 
         $router = new Router($routes);
         $this->kernel = new Kernel($router);
@@ -868,5 +890,659 @@ final class McpCoreServerTest extends TestCase
         $encoded = json_encode($data);
         $this->assertStringNotContainsString('password', (string) $encoded);
         $this->assertStringNotContainsString('secret', (string) $encoded);
+    }
+
+    public function testDraftOnlyStopsAllLiveAffectingOperations(): void
+    {
+        // 1. Enable all tools in allowlist so that rejection is specifically due to draft_only policy, not allowlist
+        $this->settingsRepo->set('mcp.tool_allowlist', json_encode([
+            'delete_entry', 'apply_schema_change', 'propose_schema_change',
+            'upload_media_from_url', 'create_redirect',
+        ]));
+
+        $draftOAuth = $this->createOAuthGrantToken('usr_owner', SystemRoles::ROLE_OWNER, 'draft_only');
+        $authHeader = "Bearer {$draftOAuth['token']}";
+
+        // Seed a test entry to target
+        $entry = $this->entryRepo->create('articles', [
+            'title' => 'Target Article',
+            'status' => 'published',
+            'content' => 'Initial body',
+        ], 'usr_owner');
+        $entryId = $entry['id'];
+
+        // Define all 14 live-affecting operations
+        $opsToTest = [
+            'publish_entry' => ['collection' => 'articles', 'id' => $entryId],
+            'unpublish_entry' => ['collection' => 'articles', 'id' => $entryId],
+            'schedule_entry' => ['collection' => 'articles', 'id' => $entryId, 'publish_at' => gmdate('Y-m-d H:i:s', time() + 3600)],
+            'delete_entry' => ['collection' => 'articles', 'id' => $entryId],
+            'create_entry' => ['collection' => 'articles', 'title' => 'Illegal Published', 'status' => 'published'],
+            'update_entry' => ['collection' => 'articles', 'id' => $entryId, 'title' => 'Illegal Published Edit'],
+            'restore_version' => ['collection' => 'articles', 'id' => $entryId, 'version' => 1],
+            'create_redirect' => ['from_path' => '/old-path', 'to_path' => '/new-path', 'status_code' => 301],
+            'create_term' => ['taxonomy' => 'tags', 'name' => 'New Tag', 'slug' => 'new-tag'],
+            'update_term' => ['taxonomy' => 'tags', 'id' => 'term_1', 'name' => 'Renamed Tag'],
+            'move_term' => ['taxonomy' => 'tags', 'id' => 'term_1', 'parent_id' => null, 'sort_order' => 1],
+            'update_media' => ['id' => 'med_1', 'alt_text' => 'New Alt'],
+            'upload_media_from_url' => ['url' => 'https://example.com/image.png'],
+            'trigger_deploy' => ['environment' => 'production'],
+        ];
+
+        $reqId = 1000;
+        foreach ($opsToTest as $opName => $args) {
+            $reqId++;
+            $res = $this->request('POST', 'https://example.com/mcp', [
+                'Content-Type' => 'application/json',
+                'Authorization' => $authHeader,
+            ], [
+                'jsonrpc' => '2.0',
+                'id' => $reqId,
+                'method' => 'tools/call',
+                'params' => [
+                    'name' => $opName,
+                    'arguments' => $args,
+                ],
+            ]);
+
+            $json = json_decode((string) $res->getBody(), true);
+            $this->assertArrayHasKey('error', $json, "Expected operation '{$opName}' to be denied in draft_only mode, but got result: " . json_encode($json));
+            $this->assertSame(-32003, $json['error']['code'], "Operation '{$opName}' should return JSON-RPC -32003");
+            $this->assertTrue(
+                str_contains($json['error']['message'], 'draft_only') || str_contains($json['error']['message'], 'Forbidden'),
+                "Error message for '{$opName}' should mention draft_only or Forbidden: " . $json['error']['message']
+            );
+        }
+
+        // Verify that draft operations ARE permitted in draft_only mode
+        $createDraftRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => $authHeader,
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 1099,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'title' => 'Allowed Draft Article',
+                    'status' => 'draft',
+                ],
+            ],
+        ]);
+        $draftJson = json_decode((string) $createDraftRes->getBody(), true);
+        $this->assertArrayHasKey('result', $draftJson, "Creating draft should succeed in draft_only mode: " . json_encode($draftJson));
+        $createdDraftId = $draftJson['result']['data']['id'];
+
+        // Updating a draft entry should ALSO succeed in draft_only mode
+        $updateDraftRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => $authHeader,
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 1100,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $createdDraftId,
+                    'title' => 'Updated Draft Title',
+                ],
+            ],
+        ]);
+        $updateJson = json_decode((string) $updateDraftRes->getBody(), true);
+        $this->assertArrayHasKey('result', $updateJson, "Updating a draft should succeed in draft_only mode: " . json_encode($updateJson));
+    }
+
+    public function testApprovalRequiredQueuesLiveAffectingOperations(): void
+    {
+        $this->settingsRepo->set('mcp.tool_allowlist', json_encode([
+            'delete_entry', 'create_redirect',
+        ]));
+
+        // Create an entry in draft
+        $entry = $this->entryRepo->create('articles', [
+            'title' => 'Draft For Approval',
+            'status' => 'draft',
+            'content' => 'Content to publish',
+        ], 'usr_editor');
+        $entryId = $entry['id'];
+
+        // 1. Editor grant in approval_required mode
+        $editorOAuth = $this->createOAuthGrantToken('usr_editor', SystemRoles::ROLE_EDITOR, 'approval_required');
+
+        // Calling publish_entry should be queued
+        $res = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 2001,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                ],
+            ],
+        ]);
+
+        $json = json_decode((string) $res->getBody(), true);
+        $this->assertArrayHasKey('result', $json, "Expected queued result, got error: " . json_encode($json));
+        $this->assertTrue($json['result']['pending_approval'] ?? false);
+        $pendingId = $json['result']['pending_change_id'];
+        $this->assertNotEmpty($pendingId);
+
+        // Verify pending_changes database row
+        $pendingTable = $this->connection->prefixTable('pending_changes');
+        $stmt = $this->connection->getPdo()->prepare("SELECT * FROM `{$pendingTable}` WHERE `id` = :id");
+        $stmt->execute(['id' => $pendingId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $this->assertIsArray($row);
+        $this->assertSame('publish_entry', $row['operation']);
+        $this->assertSame('pending', $row['status']);
+        $this->assertSame('usr_editor', $row['on_behalf_of']);
+        $this->assertStringContainsString('via Editor User', (string) $row['actor_label']);
+
+        // Verify that creating a draft in approval_required mode is NOT queued and executes immediately
+        $draftRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 2002,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'title' => 'Immediate Draft In Approval Mode',
+                    'status' => 'draft',
+                ],
+            ],
+        ]);
+        $draftJson = json_decode((string) $draftRes->getBody(), true);
+        $this->assertArrayHasKey('result', $draftJson);
+        $this->assertFalse(isset($draftJson['result']['pending_approval']));
+
+        // Verify that a Viewer in approval_required mode is rejected immediately (permission failure BEFORE queueing)
+        $viewerOAuth = $this->createOAuthGrantToken('usr_viewer', SystemRoles::ROLE_VIEWER, 'approval_required');
+        $viewerRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$viewerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 2003,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                ],
+            ],
+        ]);
+        $viewerJson = json_decode((string) $viewerRes->getBody(), true);
+        $this->assertSame(-32003, $viewerJson['error']['code']);
+    }
+
+    public function testPendingChangesApprovalQueueLifecycleAndConflictHandling(): void
+    {
+        $this->settingsRepo->set('mcp.tool_allowlist', json_encode(['create_redirect', 'delete_entry']));
+
+        // Create a draft entry
+        $entry = $this->entryRepo->create('articles', [
+            'title' => 'Lifecycle Entry',
+            'status' => 'draft',
+            'content' => 'Initial content',
+        ], 'usr_editor');
+        $entryId = $entry['id'];
+
+        $editorOAuth = $this->createOAuthGrantToken('usr_editor', SystemRoles::ROLE_EDITOR, 'approval_required');
+
+        // Queue publish_entry
+        $res = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3001,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $entryId],
+            ],
+        ]);
+        $json = json_decode((string) $res->getBody(), true);
+        $pendingId = $json['result']['pending_change_id'];
+
+        $adminActor = Actor::user('usr_admin', 'Admin User', [SystemRoles::ROLE_ADMIN]);
+
+        // 1. GET /api/v1/pending-changes (List)
+        $listRes = $this->request('GET', 'https://example.com/api/v1/pending-changes', [], null, ['actor' => $adminActor]);
+        $this->assertSame(200, $listRes->getStatusCode());
+        $listData = json_decode((string) $listRes->getBody(), true);
+        $this->assertGreaterThanOrEqual(1, $listData['total']);
+        $this->assertNotEmpty($listData['items']);
+
+        // Check key-set of first item
+        $item = $listData['items'][0];
+        $expectedKeys = [
+            'id', 'actor_type', 'actor_label', 'oauth_grant_id', 'api_token_id', 'on_behalf_of',
+            'operation', 'subject_type', 'subject_id', 'payload', 'diff', 'status',
+            'decided_by', 'decided_at', 'decision_note', 'expires_at', 'created_at',
+        ];
+        $this->assertSame($expectedKeys, array_keys($item));
+
+        // 2. GET /api/v1/pending-changes/{id}
+        $getRes = $this->request('GET', "https://example.com/api/v1/pending-changes/{$pendingId}", [], null, ['actor' => $adminActor]);
+        $this->assertSame(200, $getRes->getStatusCode());
+        $getData = json_decode((string) $getRes->getBody(), true);
+        $this->assertSame($pendingId, $getData['id']);
+        $this->assertSame('pending', $getData['status']);
+
+        // 3. POST /api/v1/pending-changes/{id}/approve
+        $approveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingId}/approve", [
+            'Content-Type' => 'application/json',
+        ], ['decision_note' => 'Approved by editor review'], ['actor' => $adminActor]);
+        $this->assertSame(200, $approveRes->getStatusCode());
+        $approveData = json_decode((string) $approveRes->getBody(), true);
+        $this->assertSame('approved', $approveData['status']);
+        $this->assertSame('usr_admin', $approveData['decided_by']);
+
+        // Check that entry was actually published by Dispatcher!
+        $updatedEntry = $this->entryRepo->find('articles', $entryId);
+        $this->assertNotNull($updatedEntry);
+        $this->assertSame('published', $updatedEntry['status']);
+
+        // Check audit log for pending_change.approved
+        $auditTable = $this->connection->prefixTable('audit_log');
+        $auditStmt = $this->connection->getPdo()->prepare("SELECT * FROM `{$auditTable}` WHERE `action` = 'pending_change.approved' ORDER BY `created_at` DESC LIMIT 1");
+        $auditStmt->execute();
+        $auditRow = $auditStmt->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($auditRow);
+
+        // 4. Double-approve returns 409 Conflict
+        $doubleRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingId}/approve", [
+            'Content-Type' => 'application/json',
+        ], [], ['actor' => $adminActor]);
+        $this->assertSame(409, $doubleRes->getStatusCode());
+
+        // 5. Rejection flow
+        // Queue create_redirect
+        $redirRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3002,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_redirect',
+                'arguments' => ['from_path' => '/blog-old', 'to_path' => '/blog-new'],
+            ],
+        ]);
+        $redirPendingId = json_decode((string) $redirRes->getBody(), true)['result']['pending_change_id'];
+
+        // Reject it
+        $rejectRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$redirPendingId}/reject", [
+            'Content-Type' => 'application/json',
+        ], ['decision_note' => 'Not compliant with URL naming guidelines'], ['actor' => $adminActor]);
+        $this->assertSame(200, $rejectRes->getStatusCode());
+        $rejectData = json_decode((string) $rejectRes->getBody(), true);
+        $this->assertSame('rejected', $rejectData['status']);
+
+        // Attempting to approve rejected returns 409 Conflict
+        $approveRejectedRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$redirPendingId}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $approveRejectedRes->getStatusCode());
+
+        // 6. Stale / Target Conflict handling
+        // Create an entry v1
+        $conflictEntry = $this->entryRepo->create('articles', [
+            'title' => 'Target Conflict Test',
+            'status' => 'published',
+            'content' => 'V1 content',
+        ], 'usr_editor');
+        $conflictId = $conflictEntry['id'];
+
+        // AI queues an update expecting version 1
+        $updatePendingRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3003,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $conflictId, 'version' => 1, 'title' => 'AI Title Update'],
+            ],
+        ]);
+        $updatePendingId = json_decode((string) $updatePendingRes->getBody(), true)['result']['pending_change_id'];
+
+        // Meanwhile, an editor updates the entry directly, bumping version to 2
+        $this->entryRepo->update('articles', $conflictId, ['title' => 'Human Title Update', 'version' => 1], 'usr_editor');
+
+        // Now human attempts to approve the stale change -> 409 Conflict!
+        $conflictApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$updatePendingId}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $conflictApproveRes->getStatusCode());
+
+        // 7. Expiry handling
+        $table = $this->connection->prefixTable('pending_changes');
+        $expiredId = \BsCms\Security\Ulid::generate();
+        $this->connection->getPdo()->prepare("INSERT INTO `{$table}` (
+            `id`, `actor_type`, `actor_label`, `oauth_grant_id`, `api_token_id`, `on_behalf_of`,
+            `operation`, `subject_type`, `subject_id`, `payload`, `diff`, `status`,
+            `decided_by`, `decided_at`, `decision_note`, `expires_at`, `created_at`
+        ) VALUES (
+            :id, 'oauth', 'Claude (via Bob)', NULL, NULL, 'usr_editor',
+            'publish_entry', 'entry', 'ent_exp', '{}', '{}', 'pending',
+            NULL, NULL, NULL, :expires_at, :created_at
+        )")->execute([
+            'id' => $expiredId,
+            'expires_at' => gmdate('Y-m-d H:i:s.v', time() - 3600), // 1 hour ago
+            'created_at' => gmdate('Y-m-d H:i:s.v', time() - 86400),
+        ]);
+
+        // Attempting to approve expired returns 409
+        $expApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$expiredId}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $expApproveRes->getStatusCode());
+
+        // POST /api/v1/pending-changes/expire sweeps expired items
+        $expireSweepRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $adminActor]);
+        $this->assertSame(200, $expireSweepRes->getStatusCode());
+        $sweepData = json_decode((string) $expireSweepRes->getBody(), true);
+        $this->assertGreaterThanOrEqual(1, $sweepData['expired_count']);
+    }
+
+    public function testFullModeConfirmTokenRequirementsAndFailures(): void
+    {
+        $this->settingsRepo->set('mcp.tool_allowlist', json_encode(['delete_entry']));
+
+        $ownerOAuth = $this->createOAuthGrantToken('usr_owner', SystemRoles::ROLE_OWNER, 'full');
+
+        // Create an entry to delete
+        $entry = $this->entryRepo->create('articles', [
+            'title' => 'To Be Deleted',
+            'status' => 'draft',
+            'content' => 'Will be deleted',
+        ], 'usr_owner');
+        $entryId = $entry['id'];
+
+        // 1. Missing confirm token returns confirmation_required
+        $res1 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 4001,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $entryId],
+            ],
+        ]);
+        $json1 = json_decode((string) $res1->getBody(), true);
+        $this->assertTrue($json1['result']['confirmation_required'] ?? false);
+        $confirmToken = $json1['result']['confirm_token'];
+        $this->assertNotEmpty($confirmToken);
+
+        // 2. Calling with wrong confirm token returns -32002
+        $res2 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 4002,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'confirm_token' => 'invalid.tampered.token',
+                ],
+            ],
+        ]);
+        $json2 = json_decode((string) $res2->getBody(), true);
+        $this->assertSame(-32002, $json2['error']['code']);
+        $this->assertStringContainsString('Confirmation failed', $json2['error']['message']);
+
+        // 3. Calling with valid confirm token succeeds
+        $res3 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 4003,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'confirm_token' => $confirmToken,
+                ],
+            ],
+        ]);
+        $json3 = json_decode((string) $res3->getBody(), true);
+        $this->assertArrayHasKey('result', $json3);
+        $this->assertTrue($json3['result']['data']['deleted']);
+
+        // 4. Calling AGAIN with the same consumed confirm token returns -32002
+        $res4 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 4004,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'confirm_token' => $confirmToken,
+                ],
+            ],
+        ]);
+        $json4 = json_decode((string) $res4->getBody(), true);
+        $this->assertSame(-32002, $json4['error']['code']);
+        $this->assertStringContainsString('already been consumed', $json4['error']['message']);
+
+        // 5. Calling with expired confirm token returns -32002
+        $expiredToken = $this->confirmTokenService->generate($ownerOAuth['grant_id'], 'delete_entry', [
+            'collection' => 'articles',
+            'id' => $entryId,
+        ], -10); // Expired 10 seconds ago
+
+        $res5 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 4005,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'confirm_token' => $expiredToken,
+                ],
+            ],
+        ]);
+        $json5 = json_decode((string) $res5->getBody(), true);
+        $this->assertSame(-32002, $json5['error']['code']);
+        $this->assertStringContainsString('expired', $json5['error']['message']);
+    }
+
+    public function testDefaultToolAllowlistHidesMediaUrlAndRedirects(): void
+    {
+        // Clear allowlist setting (default state)
+        $this->settingsRepo->set('mcp.tool_allowlist', '[]');
+
+        $ownerOAuth = $this->createOAuthGrantToken('usr_owner', SystemRoles::ROLE_OWNER, 'full');
+
+        // Request tools/list
+        $res = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 5001,
+            'method' => 'tools/list',
+        ]);
+        $json = json_decode((string) $res->getBody(), true);
+        $toolNames = array_column($json['result']['tools'], 'name');
+
+        // Sensitive and destructive tools must NOT be present by default
+        $this->assertNotContains('upload_media_from_url', $toolNames);
+        $this->assertNotContains('create_redirect', $toolNames);
+        $this->assertNotContains('delete_entry', $toolNames);
+        $this->assertNotContains('apply_schema_change', $toolNames);
+        $this->assertNotContains('propose_schema_change', $toolNames);
+
+        // Standard tools MUST be present
+        $this->assertContains('create_entry', $toolNames);
+        $this->assertContains('update_entry', $toolNames);
+        $this->assertContains('publish_entry', $toolNames);
+        $this->assertContains('get_site_health', $toolNames);
+
+        // When administrator adds upload_media_from_url and create_redirect to allowlist
+        $this->settingsRepo->set('mcp.tool_allowlist', json_encode(['upload_media_from_url', 'create_redirect']));
+
+        $res2 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 5002,
+            'method' => 'tools/list',
+        ]);
+        $json2 = json_decode((string) $res2->getBody(), true);
+        $toolNames2 = array_column($json2['result']['tools'], 'name');
+
+        $this->assertContains('upload_media_from_url', $toolNames2);
+        $this->assertContains('create_redirect', $toolNames2);
+    }
+
+    public function testUserSuspensionKillsTokenImmediately(): void
+    {
+        $ownerOAuth = $this->createOAuthGrantToken('usr_owner', SystemRoles::ROLE_OWNER, 'full');
+
+        // 1. Initial call works
+        $res1 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 6001,
+            'method' => 'tools/call',
+            'params' => ['name' => 'get_site_health', 'arguments' => []],
+        ]);
+        $this->assertSame(200, $res1->getStatusCode());
+
+        // 2. Suspend usr_owner in database
+        $usersTable = $this->connection->prefixTable('users');
+        $this->connection->getPdo()->exec("UPDATE `{$usersTable}` SET `status` = 'suspended' WHERE `id` = 'usr_owner'");
+
+        // 3. Next call immediately returns 401 Unauthorized!
+        $res2 = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 6002,
+            'method' => 'tools/call',
+            'params' => ['name' => 'get_site_health', 'arguments' => []],
+        ]);
+        $this->assertSame(401, $res2->getStatusCode());
+    }
+
+    public function testAuthorAndContributorRoles(): void
+    {
+        // 1. Contributor: can create draft, cannot publish
+        $contribOAuth = $this->createOAuthGrantToken('usr_contributor', SystemRoles::ROLE_CONTRIBUTOR, 'full');
+
+        $createRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$contribOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7001,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'title' => 'Contributor Draft',
+                    'status' => 'draft',
+                ],
+            ],
+        ]);
+        $createJson = json_decode((string) $createRes->getBody(), true);
+        $this->assertArrayHasKey('result', $createJson);
+        $contribEntryId = $createJson['result']['data']['id'];
+
+        // Contributor attempts to publish -> denied with -32003
+        $pubRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$contribOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7002,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $contribEntryId],
+            ],
+        ]);
+        $pubJson = json_decode((string) $pubRes->getBody(), true);
+        $this->assertSame(-32003, $pubJson['error']['code']);
+
+        // 2. Author: can create draft and publish own entry
+        $authorOAuth = $this->createOAuthGrantToken('usr_author', SystemRoles::ROLE_AUTHOR, 'full');
+
+        $authorCreateRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$authorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7003,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'title' => 'Author Article',
+                    'status' => 'draft',
+                ],
+            ],
+        ]);
+        $authorCreateJson = json_decode((string) $authorCreateRes->getBody(), true);
+        $this->assertArrayHasKey('result', $authorCreateJson);
+        $authorEntryId = $authorCreateJson['result']['data']['id'];
+
+        // Author publishes own entry -> succeeds!
+        $authorPubRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$authorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 7004,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $authorEntryId],
+            ],
+        ]);
+        $authorPubJson = json_decode((string) $authorPubRes->getBody(), true);
+        $this->assertArrayHasKey('result', $authorPubJson);
+        $this->assertSame('published', $authorPubJson['result']['data']['status']);
     }
 }

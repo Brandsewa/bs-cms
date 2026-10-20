@@ -16,6 +16,7 @@ use BsCms\Operations\Context;
 use BsCms\Operations\Dispatcher;
 use BsCms\Operations\Exceptions\ConfirmationRequiredException;
 use BsCms\Operations\Exceptions\ForbiddenException;
+use BsCms\Operations\Exceptions\OperationException;
 use BsCms\Operations\Exceptions\StepUpRequiredException;
 use BsCms\Operations\Exceptions\ValidationException;
 use BsCms\Operations\OperationMeta;
@@ -236,7 +237,8 @@ final class McpController extends BaseController
             grantRoleId: (string) ($authInfo['grant_role_id'] ?? 'viewer'),
             userRoleIds: (array) ($authInfo['user_role_ids'] ?? []),
             aiMode: (string) ($authInfo['ai_mode'] ?? Actor::AI_MODE_DRAFT_ONLY),
-            scopes: (array) ($authInfo['scopes'] ?? ['mcp:read', 'mcp:write'])
+            scopes: (array) ($authInfo['scopes'] ?? ['mcp:read', 'mcp:write']),
+            userName: (string) ($authInfo['user_name'] ?? '')
         );
 
         $ctx = new Context(
@@ -525,11 +527,12 @@ final class McpController extends BaseController
         // 6. Execute operation through Dispatcher
         try {
             $result = $this->dispatcher->run($toolName, $arguments, $ctx);
-            $this->recordToolAudit($actor, $toolName, 'success', $requestId, $clientIp, $userAgent);
+            $outcome = ($result->data['status'] ?? '') === 'pending_approval' ? 'pending_approval' : 'success';
+            $this->recordToolAudit($actor, $toolName, $outcome, $requestId, $clientIp, $userAgent);
 
             $textRepresentation = $this->formatToolResultText($toolName, $result->data);
 
-            return $this->jsonRpcResult($id, [
+            $resultPayload = [
                 'content' => [
                     [
                         'type' => 'text',
@@ -538,7 +541,14 @@ final class McpController extends BaseController
                 ],
                 'content_trust' => 'untrusted',
                 'data' => $result->data,
-            ], $headers, $startTime, $startMem);
+            ];
+
+            if ($outcome === 'pending_approval') {
+                $resultPayload['pending_approval'] = true;
+                $resultPayload['pending_change_id'] = (string) ($result->data['pending_change_id'] ?? '');
+            }
+
+            return $this->jsonRpcResult($id, $resultPayload, $headers, $startTime, $startMem);
         } catch (ValidationException $e) {
             $this->recordToolAudit($actor, $toolName, 'invalid_params', $requestId, $clientIp, $userAgent);
             return $this->jsonRpcError(
@@ -586,6 +596,15 @@ final class McpController extends BaseController
                 200,
                 $headers
             );
+        } catch (OperationException $e) {
+            $this->recordToolAudit($actor, $toolName, 'confirmation_failed', $requestId, $clientIp, $userAgent);
+            return $this->jsonRpcError(
+                $id,
+                -32002,
+                "Confirmation failed: " . $e->getMessage(),
+                200,
+                $headers
+            );
         } catch (Throwable $e) {
             $this->recordToolAudit($actor, $toolName, 'error', $requestId, $clientIp, $userAgent);
             $this->logServerError($request, $e, "McpController::tools/call::{$toolName}");
@@ -601,12 +620,16 @@ final class McpController extends BaseController
 
     /**
      * Determine whether a tool is allowed by the admin tool allowlist setting.
-     * Default safe: destructive tools and schema tools are OFF by default.
+     * Default safe: destructive, schema, external-fetch (upload_media_from_url), and live-routing (create_redirect) tools are OFF by default.
      */
     private function isToolAllowed(string $toolName, OperationMeta $meta): bool
     {
-        // Default-safe policy: destructive and schema tools are OFF by default unless explicitly allowlisted
-        if ($meta->destructive || $meta->isSchema) {
+        // Default-safe policy: destructive, schema, external-fetch, and live-routing tools are OFF by default unless explicitly allowlisted
+        $restrictedByDefault = $meta->destructive
+            || $meta->isSchema
+            || in_array($toolName, ['upload_media_from_url', 'create_redirect'], true);
+
+        if ($restrictedByDefault) {
             if ($this->settings !== null) {
                 $allowlist = $this->settings->get('mcp.tool_allowlist', null);
                 if (is_string($allowlist)) {

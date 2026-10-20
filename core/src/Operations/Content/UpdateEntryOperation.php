@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Operations\Content;
 
+use BsCms\Auth\Actor;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
@@ -81,6 +82,16 @@ final class UpdateEntryOperation implements Operation
         $decision = $this->authorizer->can($ctx->actor, 'update', new Subject('collection', $col));
         if (!$decision->allowed) {
             throw new ForbiddenException("Insufficient permissions to update entry in collection '{$col}': {$decision->reason}");
+        }
+
+        if ($ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
+            $entryId = (string) ($input['id'] ?? '');
+            if ($entryId !== '') {
+                $existing = $this->repository->find($col, $entryId);
+                if ($existing !== null && ($existing['status'] ?? 'draft') === 'published') {
+                    throw new ForbiddenException("Modifying published entries directly is forbidden in draft_only mode. Modify drafts only or request approval.");
+                }
+            }
         }
     }
 

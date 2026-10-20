@@ -30,6 +30,9 @@ final class Dispatcher
     /** @var (callable(array<string, mixed>): void)|null */
     private $eventDispatcher = null;
 
+    private ?\BsCms\PendingChanges\PendingChangesService $pendingChanges = null;
+    private ?\BsCms\Content\EntryRepository $entryRepository = null;
+
     public function __construct(
         private readonly ConfirmTokenService $confirmTokens,
         private readonly JsonSchemaValidator $validator = new JsonSchemaValidator(),
@@ -106,6 +109,16 @@ final class Dispatcher
         $this->eventDispatcher = $dispatcher;
     }
 
+    public function setPendingChangesService(\BsCms\PendingChanges\PendingChangesService $pendingChanges): void
+    {
+        $this->pendingChanges = $pendingChanges;
+    }
+
+    public function setEntryRepository(\BsCms\Content\EntryRepository $entryRepository): void
+    {
+        $this->entryRepository = $entryRepository;
+    }
+
     /**
      * Execute an operation through the unified pipeline.
      *
@@ -132,10 +145,45 @@ final class Dispatcher
         // 2. Authorize
         $operation->authorize($ctx, $input);
 
-        // 3. AI-mode enforcement: draft_only tokens blocked from mutating non-draft / destructive ops
-        if ($ctx->actor !== null && $ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
-            if ($meta->aiPolicy === OperationMeta::AI_POLICY_DRAFT_ONLY_BLOCKED) {
-                throw new ForbiddenException("API token with 'draft_only' mode is not permitted to execute '{$name}'.");
+        // 3. AI-mode enforcement: draft_only tokens blocked; approval_required tokens queued
+        if ($ctx->actor !== null && $ctx->actor->aiMode !== null) {
+            $isLiveAffecting = $meta->aiPolicy === OperationMeta::AI_POLICY_DRAFT_ONLY_BLOCKED;
+            if (!$isLiveAffecting) {
+                if ($name === 'create_entry') {
+                    $status = (string) ($input['status'] ?? 'draft');
+                    if ($status === 'published' || $status === 'scheduled') {
+                        $isLiveAffecting = true;
+                    }
+                } elseif ($name === 'update_entry') {
+                    $col = (string) ($input['collection'] ?? '');
+                    $entryId = (string) ($input['id'] ?? '');
+                    if ($col !== '' && $entryId !== '' && $this->entryRepository !== null) {
+                        $existing = $this->entryRepository->find($col, $entryId);
+                        if ($existing !== null && ($existing['status'] ?? 'draft') === 'published') {
+                            $isLiveAffecting = true;
+                        }
+                    }
+                }
+            }
+
+            if ($ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
+                if ($isLiveAffecting) {
+                    throw new ForbiddenException("API token with 'draft_only' mode is not permitted to execute '{$name}'.");
+                }
+            } elseif ($ctx->actor->aiMode === Actor::AI_MODE_APPROVAL_REQUIRED) {
+                if ($isLiveAffecting) {
+                    if ($this->pendingChanges !== null) {
+                        $pendingId = $this->pendingChanges->createFromOperation($name, $input, $ctx, $meta);
+                        return Result::ok([
+                            'status' => 'pending_approval',
+                            'pending_change_id' => $pendingId,
+                            'message' => "Operation '{$name}' queued for human approval.",
+                            'action' => $name,
+                            'expires_at' => gmdate('Y-m-d H:i:s.v', time() + (7 * 86400)),
+                        ]);
+                    }
+                    throw new ForbiddenException("Operation '{$name}' requires human approval, but pending changes service is not configured.");
+                }
             }
         }
 

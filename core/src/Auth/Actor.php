@@ -36,7 +36,8 @@ final class Actor
         public readonly ?string $aiMode = null,
         public readonly array $scopes = ['*'],
         public readonly ?string $grantRoleId = null,
-        public readonly array $userRoleIds = []
+        public readonly array $userRoleIds = [],
+        public readonly ?string $userName = null
     ) {
     }
 
@@ -78,7 +79,8 @@ final class Actor
             onBehalfOf: $id,
             roleIds: $roleIds,
             aiMode: null,
-            scopes: ['*']
+            scopes: ['*'],
+            userName: $name !== '' ? $name : $id
         );
     }
 
@@ -92,7 +94,8 @@ final class Actor
         string $userId,
         array $roleIds,
         string $aiMode = self::AI_MODE_DRAFT_ONLY,
-        array $scopes = ['*']
+        array $scopes = ['*'],
+        ?string $userName = null
     ): self {
         return new self(
             type: self::TYPE_API_TOKEN,
@@ -101,22 +104,30 @@ final class Actor
             onBehalfOf: $userId,
             roleIds: $roleIds,
             aiMode: $aiMode,
-            scopes: $scopes
+            scopes: $scopes,
+            userName: $userName
         );
     }
 
     /**
      * @param list<string> $roleIds
      */
-    public static function aiClient(string $id, string $clientName, string $userId, array $roleIds, string $aiMode = self::AI_MODE_DRAFT_ONLY): self
-    {
+    public static function aiClient(
+        string $id,
+        string $clientName,
+        string $userId,
+        array $roleIds,
+        string $aiMode = self::AI_MODE_DRAFT_ONLY,
+        ?string $userName = null
+    ): self {
         return new self(
             type: self::TYPE_AI_CLIENT,
             id: $id,
             label: $clientName,
             onBehalfOf: $userId,
             roleIds: $roleIds,
-            aiMode: $aiMode
+            aiMode: $aiMode,
+            userName: $userName
         );
     }
 
@@ -131,7 +142,8 @@ final class Actor
         string $grantRoleId,
         array $userRoleIds,
         string $aiMode = self::AI_MODE_DRAFT_ONLY,
-        array $scopes = ['mcp:read', 'mcp:write']
+        array $scopes = ['mcp:read', 'mcp:write'],
+        ?string $userName = null
     ): self {
         return new self(
             type: self::TYPE_OAUTH,
@@ -142,7 +154,8 @@ final class Actor
             aiMode: $aiMode,
             scopes: $scopes,
             grantRoleId: $grantRoleId,
-            userRoleIds: $userRoleIds
+            userRoleIds: $userRoleIds,
+            userName: $userName
         );
     }
 
@@ -158,7 +171,10 @@ final class Actor
 
     public function isAi(): bool
     {
-        return $this->type === self::TYPE_AI_CLIENT || $this->type === self::TYPE_API_TOKEN;
+        return $this->type === self::TYPE_AI_CLIENT
+            || $this->type === self::TYPE_API_TOKEN
+            || $this->type === self::TYPE_OAUTH
+            || $this->aiMode !== null;
     }
 
     public function hasRole(string $roleId): bool
@@ -167,13 +183,25 @@ final class Actor
     }
 
     /**
-     * @return array{id: string, label: string, type: string, on_behalf_of: ?string, role_ids: list<string>, ai_mode: ?string, scopes: list<string>}
+     * Format actor label for pending changes or audit logs (e.g. "Claude (via Anna)").
+     */
+    public function getDisplayLabel(): string
+    {
+        if ($this->userName !== null && $this->userName !== '' && $this->label !== $this->userName) {
+            return "{$this->label} (via {$this->userName})";
+        }
+        return $this->label;
+    }
+
+    /**
+     * @return array{id: string, label: string, display_label: string, type: string, on_behalf_of: ?string, role_ids: list<string>, ai_mode: ?string, scopes: list<string>}
      */
     public function toArray(): array
     {
         return [
             'id' => $this->id,
             'label' => $this->label,
+            'display_label' => $this->getDisplayLabel(),
             'type' => $this->type,
             'on_behalf_of' => $this->onBehalfOf,
             'role_ids' => $this->roleIds,

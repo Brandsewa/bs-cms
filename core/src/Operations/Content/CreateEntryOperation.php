@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Operations\Content;
 
+use BsCms\Auth\Actor;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
@@ -82,6 +83,9 @@ final class CreateEntryOperation implements Operation
 
         $status = (string) ($input['status'] ?? 'draft');
         if ($status === 'published') {
+            if ($ctx->actor->aiMode === Actor::AI_MODE_DRAFT_ONLY) {
+                throw new ForbiddenException("Creating published entries is forbidden in draft_only mode. Create entries as draft or request approval.");
+            }
             $pubDecision = $this->authorizer->can($ctx->actor, 'publish', new Subject('collection', $col));
             if (!$pubDecision->allowed) {
                 throw new ForbiddenException("Insufficient permissions to publish entry in collection '{$col}': {$pubDecision->reason}");

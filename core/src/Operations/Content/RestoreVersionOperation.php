@@ -57,7 +57,8 @@ final class RestoreVersionOperation implements Operation
                 'additionalProperties' => false,
             ],
             mutates: true,
-            idempotent: true
+            idempotent: true,
+            aiPolicy: OperationMeta::AI_POLICY_DRAFT_ONLY_BLOCKED
         );
     }
 

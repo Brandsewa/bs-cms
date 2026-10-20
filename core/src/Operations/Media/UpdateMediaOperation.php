@@ -57,7 +57,8 @@ final class UpdateMediaOperation implements Operation
                 ],
                 'additionalProperties' => false,
             ],
-            mutates: true
+            mutates: true,
+            aiPolicy: OperationMeta::AI_POLICY_DRAFT_ONLY_BLOCKED
         );
     }
 

@@ -574,13 +574,37 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
-        // 16. Operations Dispatcher
+        // 16. Pending Changes and Operations Dispatcher
+        $container->singleton(\BsCms\PendingChanges\PendingChangesService::class, function (Container $c): \BsCms\PendingChanges\PendingChangesService {
+            return new \BsCms\PendingChanges\PendingChangesService(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(\BsCms\Redirects\RedirectRepository::class),
+                $c->get(\BsCms\Operations\ConfirmTokenService::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PendingChangesController::class, function (Container $c): \BsCms\Http\Controllers\PendingChangesController {
+            return new \BsCms\Http\Controllers\PendingChangesController(
+                $c->get(\BsCms\PendingChanges\PendingChangesService::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
         $container->singleton(\BsCms\Operations\Dispatcher::class, function (Container $c): \BsCms\Operations\Dispatcher {
             $dispatcher = new \BsCms\Operations\Dispatcher(
                 $c->get(\BsCms\Operations\ConfirmTokenService::class),
                 new \BsCms\Operations\JsonSchemaValidator(),
                 $c->get(AuditLogger::class)
             );
+
+            /** @var \BsCms\PendingChanges\PendingChangesService $pendingChanges */
+            $pendingChanges = $c->get(\BsCms\PendingChanges\PendingChangesService::class);
+            $pendingChanges->setDispatcher($dispatcher);
+            $dispatcher->setPendingChangesService($pendingChanges);
+            $dispatcher->setEntryRepository($c->get(\BsCms\Content\EntryRepository::class));
 
             \BsCms\Operations\OperationsRegistrar::registerAll(
                 $dispatcher,
