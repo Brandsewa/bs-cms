@@ -1,0 +1,28 @@
+{
+    auto_https disable_redirects
+}
+
+https://localhost:{$SIM_HTTPS_PORT:8481}, https://127.0.0.1:{$SIM_HTTPS_PORT:8481} {
+    tls internal
+
+    # Optional Hostinger Edge / CDN simulation
+    header {
+        Server "hcdn"
+        platform "hostinger"
+        panel "hpanel"
+    }
+
+    reverse_proxy ols:80 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}
+
+:{$SIM_HTTP_PORT:8081} {
+    reverse_proxy ols:80 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto http
+    }
+}

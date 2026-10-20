@@ -160,11 +160,20 @@ passTest("2. Request ID validation and sanitization verified");
 
 // 3. Database setup: seed owner user for testing
 echo "Testing 3: Seeding test admin user in database...\n";
-$dbConfigFile = "{$corePath}/config/database.php";
-if (!file_exists($dbConfigFile)) {
-    failTest("Missing database config: {$dbConfigFile}");
+$storageConfigFile = dirname($corePath) . '/storage/config.php';
+if (!file_exists($storageConfigFile)) {
+    $storageConfigFile = "{$corePath}/storage/config.php";
 }
-$dbConfig = require $dbConfigFile;
+if (file_exists($storageConfigFile)) {
+    $storageCfg = require $storageConfigFile;
+    $dbConfig = $storageCfg['database'] ?? [];
+} else {
+    $dbConfigFile = "{$corePath}/config/database.php";
+    if (!file_exists($dbConfigFile)) {
+        failTest("Missing database config: {$dbConfigFile}");
+    }
+    $dbConfig = require $dbConfigFile;
+}
 $connection = new Connection($dbConfig);
 
 $userRepo = new UserRepository($connection);
@@ -192,8 +201,9 @@ if ($existing === null) {
     $userRepo->update($userId, [
         'password_hash' => $hasher->hash($testPass),
         'status' => 'active',
-        'two_factor_enabled' => 0,
+        'totp_enabled_at' => null,
         'totp_secret_enc' => null,
+        'totp_last_step' => null,
         'recovery_codes_hash' => null,
     ]);
 }
@@ -870,12 +880,17 @@ $editorTokenHash = hash('sha256', $editorToken);
 
 $usersTable = $dbConfig['prefix'] . 'users';
 $userRolesTable = $dbConfig['prefix'] . 'user_roles';
-$connection->getPdo()->prepare(
-    "INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`) VALUES (?, 'editor@example.com', 'dummy_hash', 'Test Editor', 'active', ?, ?)"
-)->execute([$editorUserId, $now, $now]);
-$connection->getPdo()->prepare(
-    "INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (?, ?)"
-)->execute([$editorUserId, \BsCms\Auth\SystemRoles::ROLE_EDITOR]);
+$existingEditor = $connection->getPdo()->query("SELECT `id` FROM `{$usersTable}` WHERE `email` = 'editor@example.com'")->fetch();
+if ($existingEditor !== false) {
+    $editorUserId = $existingEditor['id'];
+} else {
+    $connection->getPdo()->prepare(
+        "INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`) VALUES (?, 'editor@example.com', 'dummy_hash', 'Test Editor', 'active', ?, ?)"
+    )->execute([$editorUserId, $now, $now]);
+    $connection->getPdo()->prepare(
+        "INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (?, ?)"
+    )->execute([$editorUserId, \BsCms\Auth\SystemRoles::ROLE_EDITOR]);
+}
 $connection->getPdo()->prepare(
     "INSERT INTO `{$tokensTable}` (`id`, `user_id`, `role_id`, `name`, `token_prefix`, `token_hash`, `scopes`, `ai_mode`, `created_at`, `expires_at`) VALUES (?, ?, NULL, 'Editor Test Token', ?, ?, ?, 'full', ?, NULL)"
 )->execute([Ulid::generate(), $editorUserId, $editorTokenPrefix, $editorTokenHash, json_encode(['*']), $now]);

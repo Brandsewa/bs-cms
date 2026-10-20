@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# In Git Bash on Windows, prevent automatic Unix-to-Windows path conversions in docker commands
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
+# dev/sim: CLI driver for Hostinger simulation environments
+# Usage:
+#   ./dev/sim up <name> [base-port] [db-flavor]
+#   ./dev/sim down <name>
+#   ./dev/sim reset <name>
+#   ./dev/sim deploy <name> <release-zip>
+#   ./dev/sim logs <name> [service]
+#   ./dev/sim shell <name> [service]
+#   ./dev/sim test <name> [base-port]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SIM_DIR="${SCRIPT_DIR}/hostinger-sim"
+
+usage() {
+    cat <<EOF
+Hostinger Simulation Controller
+
+Commands:
+  up <name> [base-port] [db-flavor]   Start an isolated simulation instance (e.g. ./dev/sim up ga1 8081 mariadb11)
+  down <name>                         Stop the simulation instance
+  reset <name>                        Reset volumes and database for a clean state
+  deploy <name> <release.zip>         Extract release zip, setup docroot, and run installer over HTTP
+  logs <name> [service]               View container logs (ols, caddy, db, cron, sftp)
+  shell <name> [service]              Open interactive shell inside container (default: ols)
+  test <name> [base-port]             Run automated HTTP smoke & API tests against local instance
+
+Database flavors (optional third argument to 'up'):
+  mariadb11 (default): mariadb:11.8
+  mysql8:             mysql:8.4
+  mariadb10:          mariadb:10.6
+EOF
+    exit 1
+}
+
+if [ $# -lt 1 ]; then
+    usage
+fi
+
+CMD="$1"
+shift
+
+calculate_ports() {
+    local base_port="$1"
+    SIM_HTTP_PORT="${base_port}"
+    SIM_HTTPS_PORT="$((base_port + 400))"
+    SIM_OLS_PORT="$((base_port + 800))"
+    SIM_SFTP_PORT="$((base_port + 1000))"
+}
+
+get_db_image() {
+    local flavor="${1:-mariadb11}"
+    case "$flavor" in
+        mysql8)    echo "mysql:8.4" ;;
+        mariadb10) echo "mariadb:10.6" ;;
+        mariadb11|*) echo "mariadb:11.8" ;;
+    esac
+}
+
+case "$CMD" in
+    up)
+        NAME="${1:-ga1}"
+        BASE_PORT="${2:-8081}"
+        DB_FLAVOR="${3:-mariadb11}"
+        calculate_ports "$BASE_PORT"
+        DB_IMAGE="$(get_db_image "$DB_FLAVOR")"
+
+        echo ">>> Starting Hostinger simulation instance '${NAME}'..."
+        echo "    HTTP:  http://localhost:${SIM_HTTP_PORT}"
+        echo "    HTTPS: https://localhost:${SIM_HTTPS_PORT}"
+        echo "    OLS:   http://localhost:${SIM_OLS_PORT}"
+        echo "    SFTP:  localhost:${SIM_SFTP_PORT} (user: u497383174, pass: hostinger)"
+        echo "    DB:    ${DB_IMAGE}"
+
+        export SIM_NAME="$NAME"
+        export SIM_HTTP_PORT="$SIM_HTTP_PORT"
+        export SIM_HTTPS_PORT="$SIM_HTTPS_PORT"
+        export SIM_OLS_PORT="$SIM_OLS_PORT"
+        export SIM_SFTP_PORT="$SIM_SFTP_PORT"
+        export SIM_DB_IMAGE="$DB_IMAGE"
+
+        docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" up -d --build
+        echo ">>> Instance '${NAME}' is running."
+        ;;
+
+    down)
+        NAME="${1:-ga1}"
+        echo ">>> Stopping simulation instance '${NAME}'..."
+        docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" down
+        ;;
+
+    reset)
+        NAME="${1:-ga1}"
+        echo ">>> Resetting simulation instance '${NAME}' (destroying volumes)..."
+        docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" down -v
+        echo ">>> Reset complete."
+        ;;
+
+    logs)
+        NAME="${1:-ga1}"
+        SERVICE="${2:-}"
+        docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" logs -f $SERVICE
+        ;;
+
+    shell)
+        NAME="${1:-ga1}"
+        SERVICE="${2:-ols}"
+        docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" exec -it "$SERVICE" /bin/sh
+        ;;
+
+    deploy)
+        NAME="${1:-ga1}"
+        ZIP_FILE="${2:-}"
+
+        if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
+            echo "Error: valid release zip path required. Run tools/build-release first." >&2
+            exit 1
+        fi
+
+        echo ">>> Deploying release $(basename "$ZIP_FILE") into '${NAME}'..."
+        ZIP_BASENAME="$(basename "$ZIP_FILE")"
+        CONTAINER="bs-sim-${NAME}-ols"
+
+        # Copy zip into container
+        docker cp "$ZIP_FILE" "${CONTAINER}:/tmp/${ZIP_BASENAME}"
+
+        # Setup directory layout matching Hostinger:
+        # Release zip contains `core/` at the top level.
+        # Extracting into /var/www/vhosts/localhost puts files in /var/www/vhosts/localhost/core
+        # DocRoot at /var/www/vhosts/localhost/public_html -> core/public
+        docker exec "${CONTAINER}" /bin/sh -c "
+            set -e
+            rm -rf /var/www/vhosts/localhost/core
+            rm -rf /var/www/vhosts/localhost/public_html
+            mkdir -p /var/www/vhosts/localhost
+            php /usr/local/bin/extract.php /tmp/${ZIP_BASENAME} /var/www/vhosts/localhost
+            rm /tmp/${ZIP_BASENAME}
+
+            # Create symlink public_html -> core/public exactly matching Hostinger docroot
+            ln -sf /var/www/vhosts/localhost/core/public /var/www/vhosts/localhost/public_html
+
+            # Ensure permissions and restart OLS to reload vhost docroot symlink and .htaccess
+            chown -R nobody:nogroup /var/www/vhosts/localhost
+            chmod -R 777 /var/www/vhosts/localhost/core/storage
+            /usr/local/lsws/bin/lswsctrl restart
+        "
+
+        echo ">>> Running automated web installation over HTTP..."
+        docker exec "${CONTAINER}" php /usr/local/bin/auto-install.php http://127.0.0.1 db 3306 bs_cms bs_user bs_password
+
+        echo ">>> Seeding 5 system role test users..."
+        docker exec "${CONTAINER}" php /usr/local/bin/seed-users.php
+
+        echo ">>> Deployment & installation complete for instance '${NAME}'."
+        ;;
+
+    test)
+        NAME="${1:-ga1}"
+        BASE_PORT="${2:-8081}"
+        calculate_ports "$BASE_PORT"
+        BASE_URL="http://127.0.0.1:${SIM_HTTP_PORT}"
+        HTTPS_URL="https://127.0.0.1:${SIM_HTTPS_PORT}"
+
+        echo ">>> Running test suite against '${NAME}' (${BASE_URL} / ${HTTPS_URL})..."
+        export BS_BASE_URL="$BASE_URL"
+        export BS_HTTPS_URL="$HTTPS_URL"
+        export SIM_NAME="$NAME"
+
+        bash "${SIM_DIR}/test-sim.sh" "$NAME" "$BASE_PORT"
+        ;;
+
+    *)
+        usage
+        ;;
+esac

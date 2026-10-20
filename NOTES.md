@@ -1019,6 +1019,24 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
   - Bounded query budget: ~6-8 bounded queries total, sub-5ms total execution time. Zero N+1 queries.
   - Response header: `Cache-Control: no-store, no-cache, must-revalidate` (never cached across sessions or users).
 
+---
+
+## 17. Hostinger Simulation Environment & Live Parity Records
+
+- **Simulation Architecture (`dev/hostinger-sim`):**
+  - Container stack: OpenLiteSpeed 1.8.3 (`lsphp83`), Caddy reverse proxy with internal TLS, MariaDB 11.8 (plus profiles for MySQL 8.4 and MariaDB 10.6), cron container (`jobs:run`), SFTP/SSH+rsync target.
+  - Per-agent isolation: Parameterized via `dev/sim` / `dev/sim.ps1` (`<name>` and `<base-port>`) with isolated Docker networks and named volumes.
+- **Observed Parity & Differences vs. Live Hostinger:**
+  - **Authorization Header Stripping:** Confirmed LiteSpeed strips the `Authorization` header under FastCGI / lsphp unless passed explicitly via `RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]` in `.htaccess`. Removing this rule causes API session requests to return 401 Unauthorized identically to Hostinger live.
+  - **PHP Extensions & Modules:**
+    - Live host: Missing APCu. Simulation: Omit APCu identically.
+    - Modules `sodium`, `pdo_mysql`, `curl`, `mbstring`, `zip`, `opcache`, `intl`, `exif` present and verified in both.
+    - Minor CLI difference: Real host has `imap`, `tidy`, `xmlrpc`, `shmop`, `timezonedb`. None are required or used by BS CMS core.
+  - **Configuration Limits:**
+    - `disable_functions`: Matches host (`system, exec, shell_exec, passthru, mysql_list_dbs, ini_alter, dl, symlink, link, chgrp, leak, popen, apache_child_terminate, virtual, mb_send_mail, proc_open`).
+    - `memory_limit`: 2048M CLI/web.
+  - **CDN & Edge Behavior:**
+    - Caddy emulates Hostinger CDN edge headers (`Server: hcdn`, `platform: hostinger`, `panel: hpanel`) and handles self-signed TLS certificates for `https://localhost:PORT`.
 
 
 
