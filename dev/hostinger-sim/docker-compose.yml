@@ -10,8 +10,7 @@ services:
     environment:
       - TZ=UTC
     volumes:
-      - web_root:/var/www/vhosts/localhost/html
-      - core_root:/var/www/vhosts/localhost/core
+      - web_root:/var/www/vhosts/localhost
     ports:
       - "${SIM_OLS_PORT:-8881}:80"
     networks:
@@ -66,8 +65,7 @@ services:
     environment:
       - TZ=UTC
     volumes:
-      - web_root:/var/www/vhosts/localhost/html
-      - core_root:/var/www/vhosts/localhost/core
+      - web_root:/var/www/vhosts/localhost
     networks:
       - sim_net
     depends_on:
@@ -95,16 +93,13 @@ services:
     ports:
       - "${SIM_SFTP_PORT:-9081}:22"
     volumes:
-      - web_root:/home/u497383174/domains/bskickstarter.com/public_html
-      - core_root:/home/u497383174/domains/bskickstarter.com/core
+      - web_root:/home/u497383174/domains/bskickstarter.com
     networks:
       - sim_net
 
 volumes:
   web_root:
     name: "bs-sim-${SIM_NAME:-default}-web"
-  core_root:
-    name: "bs-sim-${SIM_NAME:-default}-core"
   db_data:
     name: "bs-sim-${SIM_NAME:-default}-db"
 

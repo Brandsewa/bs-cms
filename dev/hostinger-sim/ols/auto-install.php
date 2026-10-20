@@ -35,14 +35,14 @@ function request(string $method, string $targetUrl, array $data = []): array {
 // 1. Fetch requirements page to get CSRF token
 $step1 = request('GET', "{$url}/install");
 if ($step1['status'] !== 200) {
-    echo "[FAIL] /install returned {$step1['status']}: {$step1['body']}\n";
+    fwrite(STDERR, "[FAIL] /install returned {$step1['status']}: {$step1['body']}\n");
     exit(1);
 }
 
 preg_match('/name="_csrf" value="([^"]+)"/', $step1['body'], $m);
 $csrf = $m[1] ?? '';
 if ($csrf === '') {
-    echo "[FAIL] Could not extract CSRF token from /install\n";
+    fwrite(STDERR, "[FAIL] Could not extract CSRF token from /install\n");
     exit(1);
 }
 echo "[OK] Extracted install CSRF token: {$csrf}\n";
@@ -61,7 +61,7 @@ $step2 = request('POST', "{$url}/install/database", [
 ]);
 
 if ($step2['status'] !== 200) {
-    echo "[FAIL] /install/database returned {$step2['status']}: {$step2['body']}\n";
+    fwrite(STDERR, "[FAIL] /install/database returned {$step2['status']}: {$step2['body']}\n");
     exit(1);
 }
 echo "[OK] Database connection verified\n";
@@ -75,7 +75,7 @@ $step3 = request('POST', "{$url}/install/execute", [
 ]);
 
 if ($step3['status'] !== 200) {
-    echo "[FAIL] /install/execute returned {$step3['status']}: {$step3['body']}\n";
+    fwrite(STDERR, "[FAIL] /install/execute returned {$step3['status']}: {$step3['body']}\n");
     exit(1);
 }
 echo "[OK] BS CMS installation completed successfully\n";

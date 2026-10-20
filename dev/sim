@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# In Git Bash on Windows, prevent automatic Unix-to-Windows path conversions in docker commands
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 # dev/sim: CLI driver for Hostinger simulation environments
 # Usage:
 #   ./dev/sim up <name> [base-port] [db-flavor]
@@ -116,7 +120,7 @@ case "$CMD" in
         ZIP_FILE="${2:-}"
 
         if [ -z "$ZIP_FILE" ] || [ ! -f "$ZIP_FILE" ]; then
-            echo "Error: valid release zip path required. Run tools/build-release first."
+            echo "Error: valid release zip path required. Run tools/build-release first." >&2
             exit 1
         fi
 
@@ -128,35 +132,24 @@ case "$CMD" in
         docker cp "$ZIP_FILE" "${CONTAINER}:/tmp/${ZIP_BASENAME}"
 
         # Setup directory layout matching Hostinger:
-        # Core at /var/www/vhosts/localhost/core
-        # DocRoot at /var/www/vhosts/localhost/html (which is public_html)
+        # Release zip contains `core/` at the top level.
+        # Extracting into /var/www/vhosts/localhost puts files in /var/www/vhosts/localhost/core
+        # DocRoot at /var/www/vhosts/localhost/public_html -> core/public
         docker exec "${CONTAINER}" /bin/sh -c "
             set -e
-            rm -rf /var/www/vhosts/localhost/core/*
-            rm -rf /var/www/vhosts/localhost/html/*
-            mkdir -p /var/www/vhosts/localhost/core
-            mkdir -p /var/www/vhosts/localhost/html
-            php /usr/local/bin/extract.php /tmp/${ZIP_BASENAME} /tmp/extracted_release
+            rm -rf /var/www/vhosts/localhost/core
+            rm -rf /var/www/vhosts/localhost/public_html
+            mkdir -p /var/www/vhosts/localhost
+            php /usr/local/bin/extract.php /tmp/${ZIP_BASENAME} /var/www/vhosts/localhost
             rm /tmp/${ZIP_BASENAME}
-            
-            # Move core files to core/
-            cp -r /tmp/extracted_release/core/* /var/www/vhosts/localhost/core/
-            
-            # Copy public assets and index.php to docroot
-            cp -r /var/www/vhosts/localhost/core/public/* /var/www/vhosts/localhost/html/
-            cp -r /var/www/vhosts/localhost/core/public/.* /var/www/vhosts/localhost/html/ 2>/dev/null || true
-            rm -rf /tmp/extracted_release
 
-            # Hostinger-style symlinks for rootDir compatibility
-            ln -sf /var/www/vhosts/localhost/core/vendor /var/www/vhosts/localhost/vendor
-            ln -sf /var/www/vhosts/localhost/core/storage /var/www/vhosts/localhost/storage
-            ln -sf /var/www/vhosts/localhost/core/migrations /var/www/vhosts/localhost/migrations
-            ln -sf /var/www/vhosts/localhost/core/resources /var/www/vhosts/localhost/resources
-            ln -sf /var/www/vhosts/localhost/core/config /var/www/vhosts/localhost/config
-            
-            # Ensure permissions
-            chown -R nobody:nogroup /var/www/vhosts/localhost/
-            chmod -R 777 /var/www/vhosts/localhost/core/storage/ || true
+            # Create symlink public_html -> core/public exactly matching Hostinger docroot
+            ln -sf /var/www/vhosts/localhost/core/public /var/www/vhosts/localhost/public_html
+
+            # Ensure permissions and restart OLS to reload vhost docroot symlink and .htaccess
+            chown -R nobody:nogroup /var/www/vhosts/localhost
+            chmod -R 777 /var/www/vhosts/localhost/core/storage
+            /usr/local/lsws/bin/lswsctrl restart
         "
 
         echo ">>> Running automated web installation over HTTP..."

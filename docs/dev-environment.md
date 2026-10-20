@@ -12,8 +12,12 @@ The simulation mirrors the Hostinger Business Web Hosting tier:
    - Running `litespeedtech/openlitespeed:1.8.3-lsphp83` with PHP 8.3 matching Hostinger's environment.
    - PHP settings matching the host:
      - `disable_functions = system, exec, shell_exec, passthru, mysql_list_dbs, ini_alter, dl, symlink, link, chgrp, leak, popen, apache_child_terminate, virtual, mb_send_mail, proc_open`
-     - `memory_limit = 2048M`, `max_execution_time = 360`
-     - Missing extensions matched: No APCu (same as Hostinger), Sodium and Opcache enabled.
+     - `memory_limit = 2048M`
+     - `max_execution_time`: Measured as `0` on CLI on the real host; web SAPI value is unmeasured on the host. In simulation, CLI is `0` and web default is `360`.
+     - Extension & module parity:
+       - APCu: Omitted in simulation, matching real host where APCu is absent.
+       - Modules verified in both: `bcmath`, `bz2`, `calendar`, `ctype`, `curl`, `dom`, `exif`, `fileinfo`, `filter`, `ftp`, `gd`, `gettext`, `gmp`, `hash`, `iconv`, `igbinary`, `imagick`, `intl`, `json`, `libxml`, `mbstring`, `memcached`, `msgpack`, `mysqli`, `mysqlnd`, `openssl`, `pcntl`, `pcre`, `PDO`, `pdo_mysql`, `pdo_sqlite`, `Phar`, `posix`, `random`, `readline`, `redis`, `session`, `SimpleXML`, `soap`, `sockets`, `sodium`, `sqlite3`, `standard`, `sysvmsg`, `sysvsem`, `sysvshm`, `tokenizer`, `xml`, `xmlreader`, `xmlwriter`, `xsl`, `zip`, `Zend OPcache`.
+       - Real-host extra modules (CLI differences not required or used by BS CMS core): `imap`, `shmop`, `tidy`, `timezonedb`.
    - Native `.htaccess` execution with rewrite rules, including authorization header preservation (`RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]`).
 
 2. **Caddy Edge Proxy (`caddy`)**:

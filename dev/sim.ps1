@@ -60,11 +60,13 @@ switch ($Command) {
 
     "down" {
         Write-Host ">>> Stopping simulation instance '$Name'..." -ForegroundColor Cyan
+        $env:SIM_NAME = $Name
         docker compose -f "$SimDir\docker-compose.yml" -p "bs-sim-$Name" down
     }
 
     "reset" {
         Write-Host ">>> Resetting simulation instance '$Name' (destroying volumes)..." -ForegroundColor Yellow
+        $env:SIM_NAME = $Name
         docker compose -f "$SimDir\docker-compose.yml" -p "bs-sim-$Name" down -v
     }
 
@@ -89,15 +91,35 @@ switch ($Command) {
 
         Write-Host ">>> Copying $ZipBasename to $Container..." -ForegroundColor Cyan
         docker cp $ZipFile "$Container`:/tmp/$ZipBasename"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to copy release zip to container."
+            exit 1
+        }
 
         Write-Host ">>> Extracting release and deploying docroot inside container..." -ForegroundColor Cyan
-        docker exec $Container /bin/sh -c "rm -rf /var/www/vhosts/localhost/core/* && rm -rf /var/www/vhosts/localhost/html/* && mkdir -p /var/www/vhosts/localhost/core /var/www/vhosts/localhost/html && php /usr/local/bin/extract.php /tmp/$ZipBasename /tmp/extracted_release && rm /tmp/$ZipBasename && cp -r /tmp/extracted_release/core/* /var/www/vhosts/localhost/core/ && cp -r /var/www/vhosts/localhost/core/public/* /var/www/vhosts/localhost/html/ && cp -r /var/www/vhosts/localhost/core/public/.* /var/www/vhosts/localhost/html/ 2>/dev/null || true && rm -rf /tmp/extracted_release && ln -sf /var/www/vhosts/localhost/core/vendor /var/www/vhosts/localhost/vendor && ln -sf /var/www/vhosts/localhost/core/storage /var/www/vhosts/localhost/storage && ln -sf /var/www/vhosts/localhost/core/migrations /var/www/vhosts/localhost/migrations && ln -sf /var/www/vhosts/localhost/core/resources /var/www/vhosts/localhost/resources && ln -sf /var/www/vhosts/localhost/core/config /var/www/vhosts/localhost/config && chown -R nobody:nogroup /var/www/vhosts/localhost/ && chmod -R 777 /var/www/vhosts/localhost/core/storage/ || true"
+        # The real host structure:
+        # Release zip contains `core/` at the top level.
+        # Extracting into /var/www/vhosts/localhost puts files in /var/www/vhosts/localhost/core
+        # Docroot at /var/www/vhosts/localhost/public_html -> core/public
+        docker exec $Container /bin/sh -c "set -e; rm -rf /var/www/vhosts/localhost/core; rm -rf /var/www/vhosts/localhost/public_html; mkdir -p /var/www/vhosts/localhost; php /usr/local/bin/extract.php /tmp/$ZipBasename /var/www/vhosts/localhost; rm /tmp/$ZipBasename; ln -sf /var/www/vhosts/localhost/core/public /var/www/vhosts/localhost/public_html; chown -R nobody:nogroup /var/www/vhosts/localhost; chmod -R 777 /var/www/vhosts/localhost/core/storage; /usr/local/lsws/bin/lswsctrl restart"
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to extract release or create docroot symlink."
+            exit 1
+        }
 
         Write-Host ">>> Running automated web installation over HTTP..." -ForegroundColor Cyan
         docker exec $Container php /usr/local/bin/auto-install.php http://127.0.0.1 db 3306 bs_cms bs_user bs_password
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Automated installation failed."
+            exit 1
+        }
 
         Write-Host ">>> Seeding 5 system role test users..." -ForegroundColor Cyan
         docker exec $Container php /usr/local/bin/seed-users.php
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Seeding test users failed."
+            exit 1
+        }
 
         Write-Host ">>> Deployment & installation complete for instance '$Name'." -ForegroundColor Green
     }
