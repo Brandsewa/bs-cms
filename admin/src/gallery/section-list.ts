@@ -13,6 +13,7 @@ export const GALLERY_SECTIONS = [
   { id: 'form', name: 'Form system' },
   { id: 'overlays', name: 'Overlays' },
   { id: 'feedback', name: 'Feedback & status' },
+  { id: 'pickers', name: 'Pickers' },
 ] as const;
 
 export type GallerySectionId = (typeof GALLERY_SECTIONS)[number]['id'];

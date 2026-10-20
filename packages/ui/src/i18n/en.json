@@ -214,5 +214,22 @@
     "sortNone": "Clear sorting",
     "toggleColumn": "Show column {column}",
     "openRow": "Open {title}"
+  },
+  "pickers": {
+    "mediaSearch": "Search media…",
+    "mediaFolder": "Folder",
+    "mediaAllFolders": "All folders",
+    "mediaUpload": "Upload",
+    "mediaUploading": "Uploading {done} of {total}…",
+    "mediaEmpty": "No media found",
+    "termSearch": "Search terms…",
+    "includeSubcategories": "Include subcategories",
+    "terms": "Terms",
+    "relationSearch": "Search…",
+    "userSearch": "Search users…",
+    "slugLock": "Stop deriving from the title",
+    "slugUnlock": "Derive from the title",
+    "slugTaken": "This slug is already in use.",
+    "slugCheckFailed": "Could not verify the slug right now."
   }
 }

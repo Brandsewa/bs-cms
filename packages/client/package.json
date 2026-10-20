@@ -15,9 +15,14 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src test"
+    "lint": "eslint src test",
+    "generate-client": "node scripts/generate-client.mjs",
+    "check-generated": "node scripts/generate-client.mjs && git diff --exit-code -- src/generated"
   },
   "devDependencies": {
     "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "5.104.4"
   }
 }

@@ -70,7 +70,7 @@ All licences permissive (MIT unless noted). Sizes are approximate gzipped minifi
 | `react-day-picker` | 10.0.2 | MIT | ~20 KB | Calendar/date pickers. |
 | `date-fns` | 4.4.0 | MIT | tree-shaken | Date formatting in pickers. |
 | `@tanstack/react-router` | 1.170.45 | MIT | ~25 KB | Admin routing, URL state, loaders. Code-based routes (no router-plugin dependency). |
-| `@tanstack/react-query` | 5.104.4 | MIT | ~13 KB | Server state cache. |
+| `@tanstack/react-query` | 5.104.4 | MIT | ~13 KB | Server state cache; runtime dependency of `@bs/client` hooks and `admin`. |
 | `react-hook-form` | 7.90.0 | MIT | ~9 KB | Form state; Zod resolver hand-rolled (see 4.3). |
 
 ### 4.2 Dev-only tooling (never shipped)

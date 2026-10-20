@@ -110,3 +110,52 @@ lazy chunks from M2/M3 onward.
   @bs/ui Select — the library's defaults are native `<select>` elements,
   which the spec bans even in library-rendered markup (defect 1; enforced by
   `admin/src/gallery/no-native-inputs.test.tsx`).
+
+---
+
+## 9. Milestone M2b: Typed API Client (`@bs/client`)
+
+### 9.1 Hand-rolled Generator Decision (vs openapi-typescript)
+- **Zero External Runtime/Generator Dependencies:** Hand-rolled generator in `packages/client/scripts/generate-client.mjs` directly parses `docs/api/openapi-v1.json` (frozen as `api-v1`).
+- Generates 27 clean TypeScript component schemas in `src/generated/schema.ts` and 147 typed operation interfaces in `src/generated/operations.ts`.
+- Avoids large generator dependencies (`openapi-typescript`, `openapi-fetch`), preserving zero-bloat monorepo posture.
+- Guarded in CI via `check-generated` script (`node scripts/generate-client.mjs && git diff --exit-code -- src/generated`).
+
+### 9.2 Envelope Discovery: `items` and `meta.cursor`
+- Verified against frozen OpenAPI contract:
+  - Standard list envelope is `{ items: T[], meta: { total, count, cursor } }` with cursor pagination via `cursor[after]`.
+  - Not `{ data: ..., meta: { pagination: ... } }` as older initial prose assumed; spec wins.
+  - Helpers `cursor.ts` provide `nextCursor`, `buildListQuery` (mapping `cursorAfter` to `cursor[after]`), and `listAll` async pagination.
+
+### 9.3 Chunked Upload Contract
+- `POST /media/chunks/init`: returns `{ session_id, expires_at }` per frozen spec (`session_id` adhered to strictly over prompt mention of `upload_id`; flagged in `BACKEND-REQUESTS.md`).
+- `POST /media/chunks/{session_id}`: multipart upload with chunk binary and chunk index.
+- `POST /media/chunks/{session_id}/assemble`: produces final `Media` entity.
+- Handled with typed progress callback and `AbortSignal` in `packages/client/src/upload.ts`.
+
+### 9.4 Preconditions & Retries
+- Preconditions (ETag / If-Match): 428 and 409 responses return typed `{ ok: false, status: 428 | 409, kind: 'precondition', problem }` when `ifMatch` is provided. If `ifMatch` is omitted, 428 returns as a normal `ApiError` (`kind` is undefined).
+- Mutation requests automatically include `X-CSRF-Token` header.
+- Retries:
+  - Idempotent methods (`GET`, `PUT`, `DELETE`) retry on network errors and 5xx responses with linear backoff (default 2 attempts).
+  - Mutating methods (`POST`, `PATCH`) are never retried by default to prevent duplicate resource creation, unless caller passes `idempotencyKey` (sent via `Idempotency-Key` header).
+  - `requestMultipart` converts network errors to `ApiResult` with `status: 0`, and chunk uploads opt-in to retry because re-uploading the same chunk index for a session is idempotent.
+  - Aborted requests are never retried.
+  - 4xx client errors are never retried.
+
+---
+
+## 10. Milestone M2b: Pickers & Gallery Integration
+
+### 10.1 Pickers Suite (`packages/ui/src/pickers/`)
+- **MediaPicker**: Folder filtering, filename search, responsive thumbnail grid (accessible keyboard listbox buttons), upload handler with progress and error state.
+- **TermPicker**: Searchable hierarchical taxonomy tree with multi-select chips, "include subcategories" subtree selection toggle.
+- **RelationPicker**: Debounced async search, keyboard navigation (Arrow Up/Down, Enter, Backspace chip removal), duplicate prevention.
+- **UserPicker**: Searchable combobox with avatar badges, single-select clear, accessible roving focus.
+- **SlugInput**: Auto-derivation from title (source) while locked, unlocks on edit, debounced uniqueness validation (`available` / `taken` / `error`), full URL preview.
+
+### 10.2 Gallery Acceptance & Axe Coverage
+- Pickers showcase added in `admin/src/gallery/sections/pickers.tsx` with dedicated mock fixtures in `admin/src/gallery/mocks/fixtures.ts`.
+- Registered in `admin/src/gallery/registry.ts` and `admin/src/gallery/section-list.ts` (guarded against drift by `section-list.test.ts`).
+- Full axe accessibility acceptance verified in jsdom (`admin/src/gallery/axe.test.tsx`) and real-browser Playwright sweeps across light and dark themes with zero serious/critical violations.
+
