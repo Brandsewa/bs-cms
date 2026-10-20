@@ -594,6 +594,21 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
+        $container->singleton(\BsCms\Dashboard\DashboardService::class, function (Container $c): \BsCms\Dashboard\DashboardService {
+            return new \BsCms\Dashboard\DashboardService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Health\SiteHealthService::class),
+                $c->get(Config::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\DashboardController::class, function (Container $c): \BsCms\Http\Controllers\DashboardController {
+            return new \BsCms\Http\Controllers\DashboardController(
+                $c->get(\BsCms\Dashboard\DashboardService::class)
+            );
+        });
+
         $container->singleton(\BsCms\Operations\Dispatcher::class, function (Container $c): \BsCms\Operations\Dispatcher {
             $dispatcher = new \BsCms\Operations\Dispatcher(
                 $c->get(\BsCms\Operations\ConfirmTokenService::class),

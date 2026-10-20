@@ -8,6 +8,7 @@ use BsCms\Http\Controllers\AuthController;
 use BsCms\Http\Controllers\AuditController;
 use BsCms\Http\Controllers\BulkEntriesController;
 use BsCms\Http\Controllers\CollectionsController;
+use BsCms\Http\Controllers\DashboardController;
 use BsCms\Http\Controllers\EmailSettingsController;
 use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
@@ -63,7 +64,8 @@ final class ApiRoutes
         ?SiteHealthController $siteHealth = null,
         ?McpController $mcp = null,
         ?OAuthController $oauth = null,
-        ?PendingChangesController $pendingChanges = null
+        ?PendingChangesController $pendingChanges = null,
+        ?DashboardController $dashboard = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -328,6 +330,11 @@ final class ApiRoutes
             $routes->post('/api/v1/pending-changes/{id}/approve', [$pendingChanges, 'approve']);
             $routes->post('/api/v1/pending-changes/{id}/reject', [$pendingChanges, 'reject']);
             $routes->post('/api/v1/pending-changes/expire', [$pendingChanges, 'expire']);
+        }
+
+        // 24. Dashboard aggregate endpoint
+        if ($dashboard !== null) {
+            $routes->get('/api/v1/dashboard', [$dashboard, 'get']);
         }
     }
 }

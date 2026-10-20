@@ -7,6 +7,7 @@ namespace BsCms\Http\Middleware;
 use BsCms\Auth\Actor;
 use BsCms\Auth\ApiTokenService;
 use BsCms\Http\ProblemDetails;
+use BsCms\OAuth\OAuthController;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -24,7 +25,8 @@ final class AuthenticateMiddleware implements MiddlewareInterface
     private array $publicRoutes = [];
 
     public function __construct(
-        private readonly ?ApiTokenService $tokenService = null
+        private readonly ?ApiTokenService $tokenService = null,
+        private readonly ?OAuthController $oauthController = null
     ) {
         $this->definePublicRoutes();
     }
@@ -116,6 +118,36 @@ final class AuthenticateMiddleware implements MiddlewareInterface
                             ->withAttribute('actor', $tokenActor)
                             ->withAttribute('api_token', $tokenData);
                         $actor = $tokenActor;
+                    } elseif ($this->oauthController !== null) {
+                        $oauthData = $this->oauthController->verifyAccessToken($plainToken);
+                        if (!empty($oauthData['valid'])) {
+                            /** @var list<string> $userRoleIds */
+                            $userRoleIds = (array) ($oauthData['user_role_ids'] ?? ($oauthData['user_roles'] ?? []));
+                            /** @var list<string> $scopes */
+                            $scopes = (array) ($oauthData['scopes'] ?? ['mcp:read', 'mcp:write']);
+                            $tokenActor = Actor::oauth(
+                                (string) ($oauthData['grant_id'] ?? ''),
+                                (string) ($oauthData['client_name'] ?? 'OAuth Client'),
+                                (string) ($oauthData['user_id'] ?? ''),
+                                (string) ($oauthData['grant_role_id'] ?? ($oauthData['role_ids'][0] ?? '')),
+                                $userRoleIds,
+                                (string) ($oauthData['ai_mode'] ?? 'draft_only'),
+                                $scopes,
+                                (string) ($oauthData['user_name'] ?? 'User')
+                            );
+
+                            $request = $request
+                                ->withAttribute('actor', $tokenActor)
+                                ->withAttribute('oauth_data', $oauthData);
+                            $actor = $tokenActor;
+                        } elseif (str_starts_with($path, '/api/v1/') && !$this->isPublicRoute($method, $normalizedPath)) {
+                            return ProblemDetails::create(
+                                401,
+                                'Unauthorized',
+                                'Invalid or expired API token.',
+                                'https://errors.bscms.org/unauthorized'
+                            )->toResponse()->withHeader('Cache-Control', 'no-store');
+                        }
                     } elseif (str_starts_with($path, '/api/v1/') && !$this->isPublicRoute($method, $normalizedPath)) {
                         return ProblemDetails::create(
                             401,

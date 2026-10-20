@@ -195,7 +195,8 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\SiteHealthController::class),
     $container->get(\BsCms\Mcp\McpController::class),
     $container->get(\BsCms\OAuth\OAuthController::class),
-    $container->get(\BsCms\Http\Controllers\PendingChangesController::class)
+    $container->get(\BsCms\Http\Controllers\PendingChangesController::class),
+    $container->get(\BsCms\Http\Controllers\DashboardController::class)
 );
 
 // Build middleware pipeline
@@ -220,7 +221,10 @@ $sessionManager = $container->get(\BsCms\Auth\SessionManager::class);
 $apiTokenService = $container->get(\BsCms\Auth\ApiTokenService::class);
 
 $kernel->addMiddleware(new \BsCms\Http\Middleware\SessionMiddleware($sessionManager, $db));
-$kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware($apiTokenService));
+$kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware(
+    $apiTokenService,
+    $container->get(\BsCms\OAuth\OAuthController::class)
+));
 
 $limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
     try {
