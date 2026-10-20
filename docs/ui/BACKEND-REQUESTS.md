@@ -70,3 +70,18 @@ The UI `sanitizeReturnTo` implementation (`admin/src/lib/return-to.ts`) supports
 3. Navigates to `/oauth/authorize` via full-page navigation (`window.location.assign`), since it is a server-rendered route.
 
 Backend note: GA is separately updating the backend to emit relative paths for consistency; the frontend supports both formats cleanly.
+
+## 8. Dashboard Aggregate Endpoint (`GET /api/v1/dashboard`) — RESOLVED
+
+Implemented in `core/src/Dashboard/DashboardService.php`, `core/src/Http/Controllers/DashboardController.php`, and registered in `core/src/Routing/ApiRoutes.php` / `core/public/index.php`.
+1. **Contract Adherence**: Returns the exact schema expected by `admin/src/dashboard/types.ts`: `greeting`, `counts` (drafts, scheduled, pending AI changes), `recent_edits`, `drafts_waiting`, `scheduled_items`, `pending_ai_changes`, `site_health`, `recent_activity`, `system_status`, and `onboarding`.
+2. **Role Awareness & Security Hardening**:
+   - `owner` / `admin` / `developer`: full payload with coarse telemetry (cron: healthy/warning, mail: healthy/unconfigured/error, disk_usage_percent: coarse int, php_version) and recent audit feed. No paths, env vars, or hostnames are leaked.
+   - `editor`: content queues and site health provided; sensitive audit activity (`recent_activity`) and telemetry (`system_status`) are omitted.
+   - `author` / `contributor`: content queries (`recent_edits`, `drafts_waiting`, `scheduled_items`, `counts`) are strictly scoped by `created_by = current_user_id` in SQL. Audit activity, system telemetry, and pending AI changes are omitted.
+   - `viewer`: read-only summary; mutating quick counts and pending changes omitted.
+   - `anonymous`: HTTP 401 Unauthorized (`Authentication is required.`).
+   - `oauth` / `mcp`: HTTP 403 Forbidden (`OAuth and MCP tokens cannot access the administrative dashboard.`).
+3. **Performance & Caching**: Fast bounded SQL queries with limits and indexed columns (`ix_c_*_updated`, `ix_c_*_status_pub`). Zero N+1 queries. Always sends `Cache-Control: no-store, no-cache, must-revalidate` (no cross-user caching).
+4. **OpenAPI Document**: Documented in `docs/api/openapi-v1.json` with `DashboardResponse` schema definition.
+

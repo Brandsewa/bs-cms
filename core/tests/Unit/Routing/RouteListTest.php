@@ -402,4 +402,60 @@ final class RouteListTest extends TestCase
             );
         }
     }
+
+    public function testDashboardRouteRegistered(): void
+    {
+        $routes = new RouteCollection();
+        $auth = $this->createMock(AuthController::class);
+        $me = $this->createMock(MeController::class);
+        $users = $this->createMock(UsersController::class);
+        $roles = $this->createMock(RolesController::class);
+        $tokens = $this->createMock(TokensController::class);
+        $audit = $this->createMock(AuditController::class);
+        $email = $this->createMock(EmailSettingsController::class);
+        $notifications = $this->createMock(NotificationsController::class);
+        $dashboard = $this->createMock(\BsCms\Http\Controllers\DashboardController::class);
+
+        ApiRoutes::register(
+            $routes,
+            $auth,
+            $me,
+            $users,
+            $roles,
+            $tokens,
+            $audit,
+            $email,
+            $notifications,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $dashboard
+        );
+
+        $registered = [];
+        foreach ($routes->getRoutes() as $r) {
+            $registered[$r->getMethod() . ' ' . $r->getPattern()] = true;
+        }
+
+        $this->assertArrayHasKey(
+            'GET /api/v1/dashboard',
+            $registered,
+            "Expected route 'GET /api/v1/dashboard' was not registered in ApiRoutes."
+        );
+    }
 }

@@ -973,6 +973,7 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
   - Direct static asset serving: Real physical files under `/admin/` (e.g. `/admin/theme-init.js` and `/admin/assets/*.js`, `*.css`) are served directly.
   - Asset 404 enforcement: Missing asset paths under `/admin/assets/*` or files with file extensions return HTTP 404 (never falling through to the SPA index with 200).
   - Vite asset caching: Vite-hashed production assets under `/admin/assets/` receive `Cache-Control: public, max-age=31536000, immutable`. Non-hashed files like `theme-init.js` and HTML shell are served fresh (`Cache-Control: no-cache`).
+    - *Hostinger Edge CDN Note:* Hostinger's edge CDN (`hcdn`) overrides hashed asset caching to `Cache-Control: public, max-age=604800` (7 days) instead of 1 year immutable. Origin headers are respected for dynamic HTML (`no-cache`), and no fix is required at origin.
 
 - **Admin Content Security Policy (CSP) & Security Headers:**
   - `Content-Security-Policy`:
@@ -986,6 +987,38 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
     - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
     - `X-Robots-Tag: noindex, nofollow`
     - `Cache-Control: no-cache` (prevents stale authentication state caching)
+
+---
+
+## 16. Dashboard Aggregate API (`GET /api/v1/dashboard`)
+
+- **Design & Contract Alignment:**
+  - Implements the aggregate dashboard specification requested in `docs/ui/BACKEND-REQUESTS.md` Item 8 and `admin/src/dashboard/types.ts`:
+    - `greeting`: `user_name` (from actor/user), `environment` (from app config).
+    - `counts`: `drafts`, `scheduled`, `pending_ai_changes`.
+    - `recent_edits`: up to 10 recently modified entries across registered collections, with status, timestamps, and resolved author name.
+    - `drafts_waiting`: up to 5 drafts awaiting review across registered collections.
+    - `scheduled_items`: up to 5 scheduled publications ordered chronologically.
+    - `pending_ai_changes`: up to 5 pending changes from `bs_pending_changes` awaiting approval (admin/owner only).
+    - `site_health`: summary status (`healthy`/`warning`/`critical`), issue totals, scan timestamp, and top 3 issues from `SiteHealthService`.
+    - `recent_activity`: up to 10 latest audit log entries from `bs_audit_log` (admin/owner only).
+    - `system_status`: coarse system telemetry (cron: healthy/warning, mail: healthy/unconfigured/error, disk_usage_percent: coarse integer, php_version) (admin/owner only).
+    - `onboarding`: 6-step progress status derived from actual database records (pages, posts, site settings, email config, build tokens, oauth clients).
+
+- **Role Scoping & Privacy Enforcement:**
+  - `owner` / `admin` / `developer`: full payload including audit activity and coarse telemetry. No paths, environment variables, or hostnames leaked.
+  - `editor`: content queues (`recent_edits`, `drafts_waiting`, `scheduled_items`), site health, and onboarding. Sensitive audit feed (`recent_activity`) and telemetry (`system_status`) are omitted.
+  - `author` / `contributor`: content queues are strictly scoped at the SQL query level (`WHERE created_by = :userId`). Audit activity, system telemetry, and pending AI changes are omitted.
+  - `viewer`: read-only summary; mutating counts and pending changes are omitted.
+  - `anonymous`: HTTP 401 Unauthorized (`Authentication is required.`).
+  - `oauth` / `ai_client`: HTTP 403 Forbidden (`OAuth and MCP tokens cannot access the administrative dashboard.`).
+
+- **Database Performance & Query Efficiency:**
+  - Fast, bounded SQL queries using existing table indexes (`ix_c_*_updated`, `ix_c_*_status_pub`).
+  - Single `UNION ALL` statements across collections limit returned rows before fetching.
+  - Bounded query budget: ~6-8 bounded queries total, sub-5ms total execution time. Zero N+1 queries.
+  - Response header: `Cache-Control: no-store, no-cache, must-revalidate` (never cached across sessions or users).
+
 
 
 

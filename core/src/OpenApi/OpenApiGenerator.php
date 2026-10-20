@@ -2198,6 +2198,28 @@ final class OpenApiGenerator
                     ],
                 ],
             ],
+            '/dashboard' => [
+                'get' => [
+                    'summary' => 'Get role-aware aggregate dashboard summary for administrative shell',
+                    'tags' => ['Dashboard'],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Aggregate dashboard metrics, queues, and health status',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/DashboardResponse'],
+                                ],
+                            ],
+                        ],
+                        '401' => [
+                            'description' => 'Unauthenticated',
+                        ],
+                        '403' => [
+                            'description' => 'Forbidden (OAuth and MCP tokens cannot access dashboard)',
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -3159,6 +3181,169 @@ final class OpenApiGenerator
                     ],
                     'rules_checked' => ['type' => 'integer'],
                     'scanned_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'DashboardResponse' => [
+                'type' => 'object',
+                'required' => [
+                    'greeting',
+                    'counts',
+                    'recent_edits',
+                    'drafts_waiting',
+                    'scheduled_items',
+                    'pending_ai_changes',
+                    'site_health',
+                    'onboarding',
+                ],
+                'properties' => [
+                    'greeting' => [
+                        'type' => 'object',
+                        'required' => ['user_name', 'environment'],
+                        'properties' => [
+                            'user_name' => ['type' => 'string'],
+                            'environment' => ['type' => 'string'],
+                        ],
+                    ],
+                    'counts' => [
+                        'type' => 'object',
+                        'required' => ['drafts', 'scheduled', 'pending_ai_changes'],
+                        'properties' => [
+                            'drafts' => ['type' => 'integer'],
+                            'scheduled' => ['type' => 'integer'],
+                            'pending_ai_changes' => ['type' => 'integer'],
+                        ],
+                    ],
+                    'recent_edits' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'required' => ['id', 'collection', 'title', 'status', 'updated_at'],
+                            'properties' => [
+                                'id' => ['type' => 'string'],
+                                'collection' => ['type' => 'string'],
+                                'title' => ['type' => 'string'],
+                                'status' => ['type' => 'string'],
+                                'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                                'updated_by' => ['type' => 'string', 'nullable' => true],
+                            ],
+                        ],
+                    ],
+                    'drafts_waiting' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'required' => ['id', 'collection', 'title', 'status', 'updated_at'],
+                            'properties' => [
+                                'id' => ['type' => 'string'],
+                                'collection' => ['type' => 'string'],
+                                'title' => ['type' => 'string'],
+                                'status' => ['type' => 'string'],
+                                'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                            ],
+                        ],
+                    ],
+                    'scheduled_items' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'required' => ['id', 'collection', 'title', 'scheduled_at'],
+                            'properties' => [
+                                'id' => ['type' => 'string'],
+                                'collection' => ['type' => 'string'],
+                                'title' => ['type' => 'string'],
+                                'scheduled_at' => ['type' => 'string', 'format' => 'date-time'],
+                            ],
+                        ],
+                    ],
+                    'pending_ai_changes' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'required' => ['id', 'actor_label', 'action', 'created_at'],
+                            'properties' => [
+                                'id' => ['type' => 'string'],
+                                'actor_label' => ['type' => 'string'],
+                                'action' => ['type' => 'string'],
+                                'target_collection' => ['type' => 'string', 'nullable' => true],
+                                'target_id' => ['type' => 'string', 'nullable' => true],
+                                'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                            ],
+                        ],
+                    ],
+                    'site_health' => [
+                        'type' => 'object',
+                        'required' => ['status', 'total_issues', 'errors', 'warnings'],
+                        'properties' => [
+                            'status' => ['type' => 'string', 'enum' => ['healthy', 'warning', 'critical']],
+                            'total_issues' => ['type' => 'integer'],
+                            'errors' => ['type' => 'integer'],
+                            'warnings' => ['type' => 'integer'],
+                            'scanned_at' => ['type' => 'string', 'format' => 'date-time'],
+                            'top_issues' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'required' => ['rule_id', 'message', 'severity'],
+                                    'properties' => [
+                                        'rule_id' => ['type' => 'string'],
+                                        'message' => ['type' => 'string'],
+                                        'severity' => ['type' => 'string', 'enum' => ['error', 'warn', 'info']],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                    'recent_activity' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'required' => ['id', 'action', 'actor', 'target', 'created_at'],
+                            'properties' => [
+                                'id' => ['type' => 'string'],
+                                'action' => ['type' => 'string'],
+                                'actor' => ['type' => 'string'],
+                                'target' => ['type' => 'string'],
+                                'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                            ],
+                        ],
+                    ],
+                    'system_status' => [
+                        'type' => 'object',
+                        'required' => ['cron', 'mail', 'disk_usage_percent', 'php_version'],
+                        'properties' => [
+                            'cron' => ['type' => 'string', 'enum' => ['healthy', 'warning', 'error', 'disabled']],
+                            'mail' => ['type' => 'string', 'enum' => ['healthy', 'warning', 'error', 'unconfigured']],
+                            'disk_usage_percent' => ['type' => 'integer'],
+                            'php_version' => ['type' => 'string'],
+                        ],
+                    ],
+                    'onboarding' => [
+                        'type' => 'object',
+                        'required' => ['completed', 'steps'],
+                        'properties' => [
+                            'completed' => ['type' => 'boolean'],
+                            'dismissed' => ['type' => 'boolean'],
+                            'steps' => [
+                                'type' => 'object',
+                                'required' => [
+                                    'create_page',
+                                    'write_post',
+                                    'site_details',
+                                    'configure_email',
+                                    'connect_astro',
+                                    'connect_ai',
+                                ],
+                                'properties' => [
+                                    'create_page' => ['type' => 'boolean'],
+                                    'write_post' => ['type' => 'boolean'],
+                                    'site_details' => ['type' => 'boolean'],
+                                    'configure_email' => ['type' => 'boolean'],
+                                    'connect_astro' => ['type' => 'boolean'],
+                                    'connect_ai' => ['type' => 'boolean'],
+                                ],
+                            ],
+                        ],
+                    ],
                 ],
             ],
         ];
