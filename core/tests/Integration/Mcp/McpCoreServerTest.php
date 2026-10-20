@@ -925,7 +925,7 @@ final class McpCoreServerTest extends TestCase
             'move_term' => ['id' => 'term_1', 'parent_id' => 'term_parent'],
             'update_media' => ['id' => 'med_1', 'alt_text' => 'New Alt'],
             'upload_media_from_url' => ['url' => 'https://example.com/image.png'],
-            'trigger_deploy' => ['environment' => 'production'],
+            'trigger_deploy' => ['message' => 'Deploy request'],
         ];
 
         $reqId = 1000;
@@ -1253,6 +1253,22 @@ final class McpCoreServerTest extends TestCase
         $expApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$expiredId}/approve", [], null, ['actor' => $adminActor]);
         $this->assertSame(409, $expApproveRes->getStatusCode());
 
+        // Insert another expired pending change to test sweeping
+        $sweepExpiredId = \BsCms\Security\Ulid::generate();
+        $this->connection->getPdo()->prepare("INSERT INTO `{$table}` (
+            `id`, `actor_type`, `actor_label`, `oauth_grant_id`, `api_token_id`, `on_behalf_of`,
+            `operation`, `subject_type`, `subject_id`, `payload`, `diff`, `status`,
+            `decided_by`, `decided_at`, `decision_note`, `expires_at`, `created_at`
+        ) VALUES (
+            :id, 'oauth', 'Claude (via Bob)', NULL, NULL, 'usr_editor',
+            'publish_entry', 'entry', 'ent_exp2', '{}', '{}', 'pending',
+            NULL, NULL, NULL, :expires_at, :created_at
+        )")->execute([
+            'id' => $sweepExpiredId,
+            'expires_at' => gmdate('Y-m-d H:i:s.v', time() - 3600),
+            'created_at' => gmdate('Y-m-d H:i:s.v', time() - 86400),
+        ]);
+
         // POST /api/v1/pending-changes/expire sweeps expired items
         $expireSweepRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $adminActor]);
         $this->assertSame(200, $expireSweepRes->getStatusCode());
@@ -1577,6 +1593,11 @@ final class McpCoreServerTest extends TestCase
         ]);
         $editorPubJson = json_decode((string) $editorPubRes->getBody(), true);
         $this->assertArrayHasKey('result', $editorPubJson);
-        $this->assertSame('published', $editorPubJson['result']['data']['status']);
+        $this->assertSame('published', $editorPubJson['result']['data']['entry']['status']);
+
+        // Check entry in database
+        $dbEntry = $this->entryRepo->find('articles', $authorEntryId);
+        $this->assertNotNull($dbEntry);
+        $this->assertSame('published', $dbEntry['status']);
     }
 }
