@@ -49,6 +49,8 @@ final class Console
                 'jobs:run' => $this->jobsRun($args),
                 'jobs:failed' => $this->jobsFailed(),
                 'jobs:retry' => $this->jobsRetry($args),
+                'schedule:run' => $this->scheduleRun(),
+                'deploy:process' => $this->deployProcess(),
                 'cache:clear' => $this->cacheClear(),
                 'cache:warm' => $this->cacheWarm(),
                 'key:generate' => $this->keyGenerate(),
@@ -225,6 +227,50 @@ final class Console
         $processed = $worker->run($maxTime, $queue);
 
         echo "Worker executed {$processed} due job(s).\n";
+        return 0;
+    }
+
+    private function scheduleRun(): int
+    {
+        $container = $this->app->getContainer();
+        $processedDeploys = 0;
+
+        // 1. Run due recurring tasks if Scheduler exists
+        if ($container->has(\BsCms\Jobs\Scheduler::class)) {
+            $scheduler = $container->get(\BsCms\Jobs\Scheduler::class);
+            $tasks = $scheduler->runDue();
+            if (!empty($tasks)) {
+                echo "Scheduler executed: " . implode(', ', $tasks) . "\n";
+            }
+        }
+
+        // 2. Process deploy debounce queue
+        if ($container->has(\BsCms\Publishing\DeploymentService::class)) {
+            $deployment = $container->get(\BsCms\Publishing\DeploymentService::class)->processDebounceQueue();
+            if ($deployment !== null) {
+                echo "Processed deployment: [{$deployment['id']}] status: {$deployment['status']}\n";
+                $processedDeploys = 1;
+            }
+        }
+
+        echo "Schedule run completed.\n";
+        return 0;
+    }
+
+    private function deployProcess(): int
+    {
+        $container = $this->app->getContainer();
+        if (!$container->has(\BsCms\Publishing\DeploymentService::class)) {
+            echo "Publishing deployment service not available.\n";
+            return 1;
+        }
+
+        $deployment = $container->get(\BsCms\Publishing\DeploymentService::class)->processDebounceQueue();
+        if ($deployment !== null) {
+            echo "Dispatched deployment: [{$deployment['id']}] status: {$deployment['status']}\n";
+        } else {
+            echo "No deploy debounce window due.\n";
+        }
         return 0;
     }
 
@@ -414,6 +460,8 @@ final class Console
         echo "  jobs:run          Execute due background jobs (--max-time=50, --queue=default)\n";
         echo "  jobs:failed       List failed background jobs\n";
         echo "  jobs:retry <id>   Retry a failed background job\n";
+        echo "  schedule:run      Execute scheduled tasks and due deploy debounce\n";
+        echo "  deploy:process    Process pending deploy debounce queue immediately if due\n";
         echo "  cache:clear       Clear the file/apcu cache\n";
         echo "  cache:warm        Compile and warm configuration cache\n";
         echo "  key:generate      Generate a new libsodium 32-byte secret key\n";

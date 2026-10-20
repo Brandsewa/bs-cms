@@ -6,6 +6,7 @@ namespace BsCms\Routing;
 
 use BsCms\Http\Controllers\AuthController;
 use BsCms\Http\Controllers\AuditController;
+use BsCms\Http\Controllers\BuildTokensController;
 use BsCms\Http\Controllers\BulkEntriesController;
 use BsCms\Http\Controllers\CollectionsController;
 use BsCms\Http\Controllers\DashboardController;
@@ -21,6 +22,7 @@ use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PendingChangesController;
 use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\PublicSeoController;
+use BsCms\Http\Controllers\PublishingController;
 use BsCms\Http\Controllers\RedirectsController;
 use BsCms\Http\Controllers\RolesController;
 use BsCms\Http\Controllers\SavedViewsController;
@@ -67,7 +69,9 @@ final class ApiRoutes
         ?OAuthController $oauth = null,
         ?PendingChangesController $pendingChanges = null,
         ?DashboardController $dashboard = null,
-        ?AiController $ai = null
+        ?AiController $ai = null,
+        ?PublishingController $publishing = null,
+        ?BuildTokensController $buildTokens = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -344,6 +348,23 @@ final class ApiRoutes
             $routes->get('/api/v1/ai/status', [$ai, 'status']);
             $routes->post('/api/v1/ai/disconnect', [$ai, 'disconnect']);
             $routes->post('/api/v1/ai/reconnect', [$ai, 'reconnect']);
+        }
+
+        // 26. Publishing and Build Tokens endpoints
+        if ($publishing !== null) {
+            $routes->get('/api/v1/settings/publishing', [$publishing, 'getSettings']);
+            $routes->put('/api/v1/settings/publishing', [$publishing, 'updateSettings']);
+            $routes->post('/api/v1/settings/publishing/test', [$publishing, 'testDispatch']);
+            $routes->get('/api/v1/deployments', [$publishing, 'listDeployments']);
+            $routes->post('/api/v1/deployments/trigger', [$publishing, 'triggerDeploy']);
+            $routes->post('/api/v1/deployments/{id}/status', [$publishing, 'updateDeploymentStatus']);
+        }
+
+        if ($buildTokens !== null) {
+            $routes->get('/api/v1/tokens/build', [$buildTokens, 'index']);
+            $routes->post('/api/v1/tokens/build', [$buildTokens, 'create']);
+            $routes->delete('/api/v1/tokens/build/{id}', [$buildTokens, 'revoke']);
+        }
         }
     }
 }

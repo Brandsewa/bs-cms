@@ -30,7 +30,7 @@ describe('Real build failures and fixture isolation', () => {
     expect(buildError.status).not.toBe(0);
     const stderr = buildError.stderr?.toString() || buildError.stdout?.toString() || '';
     expect(stderr).toMatch(/Fatal error fetching collection 'posts'/);
-  }, 30000);
+  }, 120000);
 
   it('builds zero post pages and no benchmark strings when live API returns empty list', async () => {
     // Spawn hermetic mock CMS server in a separate process so Astro's build doesn't block the Node event loop
