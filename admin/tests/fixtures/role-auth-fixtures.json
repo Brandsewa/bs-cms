@@ -1,0 +1,759 @@
+{
+  "owner": {
+    "role": "owner",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D41DTGE7YB98WNT2D1N37J",
+        "email": "owner@example.com",
+        "name": "Owner Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000001",
+            "handle": "owner",
+            "name": "Owner",
+            "description": "Full ownership with all permissions across all subjects",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 16:59:13.105",
+        "updated_at": "2026-10-20 17:12:08.838",
+        "last_login_at": "2026-10-20 17:12:08.838"
+      },
+      "csrf_token": "8162bdbd82d5c2edbe18ae41de78d586"
+    },
+    "permissions": {
+      "actor_id": "01M5D41DTGE7YB98WNT2D1N37J",
+      "role_ids": [
+        "01JB0000000000000000000001"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BSA22RM6DDPD4QK3BP5",
+          "role_id": "01JB0000000000000000000001",
+          "subject_type": "*",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        }
+      ]
+    }
+  },
+  "admin": {
+    "role": "admin",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D41DW297JEV4X9FQ094FCM",
+        "email": "admin@example.com",
+        "name": "Admin Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000002",
+            "handle": "admin",
+            "name": "Administrator",
+            "description": "Administrator with access to all content, media, site and settings except owner role management and security keys",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 16:59:13.154",
+        "updated_at": "2026-10-20 17:12:09.379",
+        "last_login_at": "2026-10-20 17:12:09.379"
+      },
+      "csrf_token": "c6b8b0ac488402b12abdeeb5217b16b3"
+    },
+    "permissions": {
+      "actor_id": "01M5D41DW297JEV4X9FQ094FCM",
+      "role_ids": [
+        "01JB0000000000000000000002"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BSBP7QA9B2RS09ZV0H8",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSD8EYZDXFA2D9XKZ6C",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "taxonomy",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSEB4ZTVBE3REKRHSM5",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "term",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSF3H7H9EK7780RBYWE",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSG0M0BB5QEKHQ6Z4FP",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "site",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSH7MT7CS2XR87AAW6Y",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "redirects",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSJ8F23VP8PRPXHMBAT",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "plugins",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSKG2YAZ47JF4KCS2XA",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "webhooks",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSNC6W6VGCP3RS3DSXT",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "ai",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSPDPT88Y9YCZHH5J0V",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "schema",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSPDPT88Y9YCZHH5J0W",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "settings",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSRFCNS19K583V5MRCP",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "settings",
+          "subject_key": "security_keys",
+          "action": "update",
+          "effect": "deny",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSSRXB61KBRM967QRGE",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "users",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSSRXB61KBRM967QRGF",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "roles",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSTKWQJ5MR5FM42RA4C",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "roles",
+          "subject_key": "owner",
+          "action": "*",
+          "effect": "deny",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSV8CRZ79J5Z6R34F4T",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "audit",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BSV8CRZ79J5Z6R34F4V",
+          "role_id": "01JB0000000000000000000002",
+          "subject_type": "system",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        }
+      ]
+    }
+  },
+  "editor": {
+    "role": "editor",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D41DYX31PM58RNJCN4XPVF",
+        "email": "editor@example.com",
+        "name": "Editor Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000004",
+            "handle": "editor",
+            "name": "Editor",
+            "description": "Can edit, publish, unpublish, schedule, and soft-delete content across all collections, manage terms and media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 16:59:13.245",
+        "updated_at": "2026-10-20 17:12:09.670",
+        "last_login_at": "2026-10-20 17:12:09.670"
+      },
+      "csrf_token": "cf10befcd7a44321781df878b348a89a"
+    },
+    "permissions": {
+      "actor_id": "01M5D41DYX31PM58RNJCN4XPVF",
+      "role_ids": [
+        "01JB0000000000000000000004"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BT8C23DBDVWP91XA9Z2",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BT9RYEP2QB9C93W6YH8",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "create",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTAX9A6XJW81XGCHGGR",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "update",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTAX9A6XJW81XGCHGGS",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "publish",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTB8Q9XXTPHQYZWCYKP",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "unpublish",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTCVDT7S455KWJJ7QW3",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "schedule",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTCVDT7S455KWJJ7QW4",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "delete",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTD6DFZ1YKJ2Y0NWXHM",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "taxonomy",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTE4QBD6XFNY2AAGDQ6",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "term",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTFCVJ1GWGMX65SYWY6",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "*",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTGBG9M0THWQN8AB1DK",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "site",
+          "subject_key": "navigation",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTHNTPGZXFX71TSF32G",
+          "role_id": "01JB0000000000000000000004",
+          "subject_type": "site",
+          "subject_key": "navigation",
+          "action": "update",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        }
+      ]
+    }
+  },
+  "author": {
+    "role": "author",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D41E09K6945RA9NPHN9120",
+        "email": "author@example.com",
+        "name": "Author Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000005",
+            "handle": "author",
+            "name": "Author",
+            "description": "Can create and edit own entries and submit for review, assign terms, and manage own media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 16:59:13.289",
+        "updated_at": "2026-10-20 17:12:09.955",
+        "last_login_at": "2026-10-20 17:12:09.955"
+      },
+      "csrf_token": "78f1d01e87a674dbb9f15c8b68643e96"
+    },
+    "permissions": {
+      "actor_id": "01M5D41E09K6945RA9NPHN9120",
+      "role_ids": [
+        "01JB0000000000000000000005"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BTJYZ378RMWMHK55SXD",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "create",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTKZH5HTX7BH62FJZ5X",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTMHKHQ9R5B3NTC5AE6",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "update",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "owner": "self"
+          }
+        },
+        {
+          "id": "01M5D41BTMHKHQ9R5B3NTC5AE7",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "taxonomy",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTN31SZB6AH74TMCVTW",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "term",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTPHH88MQ85PFE72V5V",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "create",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTQFMZRVW4Y4JRHH53A",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTQFMZRVW4Y4JRHH53B",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "update",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "owner": "self"
+          }
+        },
+        {
+          "id": "01M5D41BTR5T42Z1VM5AHYNJWY",
+          "role_id": "01JB0000000000000000000005",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "delete",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "owner": "self"
+          }
+        }
+      ]
+    }
+  },
+  "contributor": {
+    "role": "contributor",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D464YKERHRCFFGCRZ9MBW2",
+        "email": "contributor@example.com",
+        "name": "Contributor Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000006",
+            "handle": "contributor",
+            "name": "Contributor",
+            "description": "Can create drafts only and upload media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 17:01:47.859",
+        "updated_at": "2026-10-20 17:12:10.352",
+        "last_login_at": "2026-10-20 17:12:10.352"
+      },
+      "csrf_token": "124df432f0ad10b30bba3140e2089f15"
+    },
+    "permissions": {
+      "actor_id": "01M5D464YKERHRCFFGCRZ9MBW2",
+      "role_ids": [
+        "01JB0000000000000000000006"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BTR5T42Z1VM5AHYNJWZ",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "create",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "status": [
+              "draft"
+            ]
+          }
+        },
+        {
+          "id": "01M5D41BTS6255J0ZNE45EDJ91",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "owner": "self"
+          }
+        },
+        {
+          "id": "01M5D41BTVHTG60364QVB095C7",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "update",
+          "effect": "allow",
+          "fields": null,
+          "conditions": {
+            "owner": "self",
+            "status": [
+              "draft"
+            ]
+          }
+        },
+        {
+          "id": "01M5D41BTW3R3R8YDJT6W7XJQD",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "taxonomy",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTW3R3R8YDJT6W7XJQE",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "term",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTXA0MGX66QK7A0JE4V",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "create",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BTYM277TZ9H18A84668",
+          "role_id": "01JB0000000000000000000006",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        }
+      ]
+    }
+  },
+  "viewer": {
+    "role": "viewer",
+    "session": {
+      "status": "authenticated",
+      "user": {
+        "id": "01M5D464ZPNHYWV783VZPA9KW0",
+        "email": "viewer@example.com",
+        "name": "Viewer Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000007",
+            "handle": "viewer",
+            "name": "Viewer",
+            "description": "Read-only access to content, taxonomies and media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-20 16:59:11.005",
+            "updated_at": "2026-10-20 16:59:11.005"
+          }
+        ],
+        "created_at": "2026-10-20 17:01:47.894",
+        "updated_at": "2026-10-20 17:12:10.611",
+        "last_login_at": "2026-10-20 17:12:10.611"
+      },
+      "csrf_token": "ac1d17e35c0960cdc6cfae9a7c0d8510"
+    },
+    "permissions": {
+      "actor_id": "01M5D464ZPNHYWV783VZPA9KW0",
+      "role_ids": [
+        "01JB0000000000000000000007"
+      ],
+      "permissions": [
+        {
+          "id": "01M5D41BTZX7G2WG4GE1YVQW8P",
+          "role_id": "01JB0000000000000000000007",
+          "subject_type": "collection",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BV09DVVG2Y0WQBJZCCH",
+          "role_id": "01JB0000000000000000000007",
+          "subject_type": "taxonomy",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BV09DVVG2Y0WQBJZCCJ",
+          "role_id": "01JB0000000000000000000007",
+          "subject_type": "term",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        },
+        {
+          "id": "01M5D41BV1V2WBPAGKM803NH9H",
+          "role_id": "01JB0000000000000000000007",
+          "subject_type": "media",
+          "subject_key": "*",
+          "action": "read",
+          "effect": "allow",
+          "fields": null,
+          "conditions": null
+        }
+      ]
+    }
+  }
+}

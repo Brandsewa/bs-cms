@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute } from './routing';
 import { ProtectedAdmin } from './shell/protected-admin';
+import { ComingSoonPage } from './shell/coming-soon';
 
 // Code-split routes to keep the bundle size well within 200 KB gzipped
 const LoginRoute = lazy(() => import('./auth/login').then((m) => ({ default: m.LoginRoute })));
@@ -115,11 +116,24 @@ export const entriesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/entries',
   component: () => (
-    <ProtectedAdmin permission="entries.read">
-      <div className="p-6">
-        <h1 className="text-lg font-semibold">Entries</h1>
-        <p className="text-13 text-muted-foreground mt-1">Entries management screen.</p>
-      </div>
+    <ProtectedAdmin permission="collection:read">
+      <ComingSoonPage
+        title="Entries Management"
+        description="The content collection entries list and editor are arriving in Phase 6.2."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const taxonomiesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/taxonomies',
+  component: () => (
+    <ProtectedAdmin permission="taxonomy:read">
+      <ComingSoonPage
+        title="Taxonomies & Categories"
+        description="Taxonomy management and term relationships will be configurable here."
+      />
     </ProtectedAdmin>
   ),
 });
@@ -128,11 +142,76 @@ export const mediaRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/media',
   component: () => (
-    <ProtectedAdmin permission="media.read">
-      <div className="p-6">
-        <h1 className="text-lg font-semibold">Media Library</h1>
-        <p className="text-13 text-muted-foreground mt-1">Media library screen.</p>
-      </div>
+    <ProtectedAdmin permission="media:read">
+      <ComingSoonPage
+        title="Media Library"
+        description="Manage media assets, folders, and chunked uploads here."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const menusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/menus',
+  component: () => (
+    <ProtectedAdmin permission="site:read">
+      <ComingSoonPage
+        title="Site Navigation"
+        description="Configure menus, header/footer links, and hierarchy here."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const aiRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ai',
+  component: () => (
+    <ProtectedAdmin permission="ai:read">
+      <ComingSoonPage
+        title="AI Studio & Pending Changes"
+        description="Review AI agent suggestions, draft reviews, and automated changes."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const usersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/users',
+  component: () => (
+    <ProtectedAdmin permission="users:read">
+      <ComingSoonPage
+        title="User & Access Management"
+        description="Invite users, assign roles, and inspect permissions."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const developerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/developer',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <ComingSoonPage
+        title="Developer Tools"
+        description="API keys, webhooks, schema inspection, and MCP connections."
+      />
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <ComingSoonPage
+        title="Site & System Settings"
+        description="General configuration, email settings, backups, and publishing webhooks."
+      />
     </ProtectedAdmin>
   ),
 });
@@ -151,9 +230,11 @@ export const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '*',
   component: () => (
-    <RouteSuspense>
-      <NotFoundRoute />
-    </RouteSuspense>
+    <ProtectedAdmin>
+      <RouteSuspense>
+        <NotFoundRoute />
+      </RouteSuspense>
+    </ProtectedAdmin>
   ),
 });
 
@@ -166,7 +247,13 @@ export async function buildRouteTree() {
     acceptInvitationRoute,
     oauthReturnRoute,
     entriesRoute,
+    taxonomiesRoute,
     mediaRoute,
+    menusRoute,
+    aiRoute,
+    usersRoute,
+    developerRoute,
+    settingsRoute,
     forbiddenRoute,
     notFoundRoute,
   ];

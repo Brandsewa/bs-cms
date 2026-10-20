@@ -19,38 +19,47 @@ import { StepUpDialog } from '../auth/step-up-dialog';
 import { ShellThemeToggle } from './theme-toggle';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
-  const { session, logout } = useSession();
+  const { session, logout, hasPermission: sessionHasPermission } = useSession();
   const [stepUpOpen, setStepUpOpen] = useState(false);
 
-  const permissions = new Set<string>(session?.permissions ?? []);
-  const roles = session?.user?.roles ?? [];
-  const isOwner = roles.includes('owner') || roles.includes('admin');
+  const roleHandles = session?.roleHandles ?? [];
+  const isOwner = roleHandles.includes('owner') || roleHandles.includes('admin');
 
   const hasPermission = (permission: string) => {
-    if (isOwner) return true;
-    return permissions.has(permission);
+    if (isOwner) {
+      return true;
+    }
+    if (permission.includes(':')) {
+      const [subject, action] = permission.split(':');
+      return sessionHasPermission(subject, action);
+    }
+    return sessionHasPermission(permission, 'read');
   };
 
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/admin';
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/admin/';
 
   // Find active item
   let activeId: string | undefined;
   for (const group of ADMIN_SIDEBAR_GROUPS) {
     for (const item of group.items) {
-      if (currentPath === item.to || (item.to !== '/admin' && currentPath.startsWith(item.to))) {
+      if (
+        currentPath === item.to ||
+        currentPath === item.to + '/' ||
+        (item.to !== '/admin' && item.to !== '/admin/' && currentPath.startsWith(item.to))
+      ) {
         activeId = item.id;
         break;
       }
     }
   }
 
-  const primaryRole = roles[0] ?? 'user';
+  const primaryRole = roleHandles[0] ?? 'user';
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
       <AppSidebar
-        className='shrink-0 hidden md:flex'
+        className="shrink-0 hidden md:flex"
         groups={ADMIN_SIDEBAR_GROUPS}
         hasPermission={hasPermission}
         activeId={activeId}
@@ -75,7 +84,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-4 min-w-0">
             <Breadcrumbs
               items={[
-                { label: 'Admin', href: '/admin' },
+                { label: 'Admin', href: '/admin/' },
                 ...(activeId ? [{ label: activeId.charAt(0).toUpperCase() + activeId.slice(1) }] : []),
               ]}
             />
@@ -98,37 +107,34 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               </kbd>
             </Button>
 
-            {/* Step-up trigger shortcut / demo */}
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Security verification"
-              title="Security step-up test"
-              onClick={() => setStepUpOpen(true)}
-              className="h-8 w-8 p-0"
-            >
-              <ShieldCheck className="h-4 w-4" />
-            </Button>
-
-            {/* Theme toggle */}
+            {/* Theme switcher toggle */}
             <ShellThemeToggle />
 
-            {/* User profile dropdown menu */}
+            {/* User menu dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center gap-2 h-8 px-2">
-                  <User className="h-4 w-4" />
-                  <span className="hidden md:inline-block text-13 font-medium">
-                    {session?.user?.name || session?.user?.email || 'User'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-2 px-2"
+                  aria-label="User menu"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-200 text-foreground">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <span className="hidden text-13 font-medium sm:inline-block">
+                    {session?.user?.name ?? 'Admin'}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-0.5">
-                    <p className="text-13 font-medium">{session?.user?.name || 'Account'}</p>
-                    <p className="text-12 text-muted-foreground truncate">{session?.user?.email}</p>
-                    <span className="inline-block mt-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-13 font-medium leading-none">{session?.user?.name}</p>
+                    <p className="text-11 leading-none text-muted-foreground">
+                      {session?.user?.email}
+                    </p>
+                    <span className="mt-1 inline-flex w-fit items-center rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-secondary-foreground">
                       {primaryRole}
                     </span>
                   </div>
@@ -136,11 +142,21 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
+                    setStepUpOpen(true);
+                  }}
+                  className="gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                  <span>Verify session (2FA)</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
                     void logout();
                   }}
-                  className="text-destructive focus:text-destructive"
+                  className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogOut className="h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -148,23 +164,21 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Global Banner Area */}
-        <BannerArea aria-label="System announcements" className="px-4 pt-3 sm:px-6">
-          {null}
-        </BannerArea>
+        {/* Global banner area */}
+        <BannerArea />
 
-        {/* Content Outlet wrapped in ErrorBoundary */}
-        <main className="flex-1 min-w-0">
+        {/* Workspace body */}
+        <main className="flex-1 overflow-y-auto">
           <ShellErrorBoundary>{children}</ShellErrorBoundary>
         </main>
       </div>
 
-      {/* Step up dialog */}
+      {/* Step-up authentication dialog */}
       <StepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
         onSuccess={() => {
-          // Sensitive action completed
+          setStepUpOpen(false);
         }}
       />
     </div>
