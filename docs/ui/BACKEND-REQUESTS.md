@@ -132,6 +132,26 @@ Implemented for Settings > AI management screens per Phase 8.4:
      - `/oauth/*` returns HTTP 403 `access_denied`.
      - `/oauth/revoke` is explicitly allowed through so connected clients can clean up credentials.
 
+## 10. Publishing Pipeline & Static Build Token Endpoints (Step 7.4) — RESOLVED
+
+The backend static publishing pipeline endpoints (Step 7.4) are fully implemented and ready for UI consumption in the Admin settings screens:
+
+1. **Publishing Settings** (`/api/v1/settings/publishing`):
+   - `GET /api/v1/settings/publishing`: Returns `{ target_type, enabled, debounce_window, github_repository, github_workflow_id, has_github_token, webhook_url, has_webhook_secret, updated_at }`. Sensitive secrets (`github_token`, `webhook_secret`) are encrypted at rest using libsodium and NEVER exposed or returned by any endpoint.
+   - `PUT /api/v1/settings/publishing`: Updates settings (`target_type`, `enabled`, `debounce_window`, `github_repository`, `github_workflow_id`, `github_token`, `webhook_url`, `webhook_secret`).
+   - `POST /api/v1/settings/publishing/test`: Validates the publishing target. Enforces SSRF protection on `webhook_url` (blocking private/reserved IPv4/IPv6 networks and loopback) or validates GitHub credentials against the GitHub API.
+
+2. **Deployments API** (`/api/v1/deployments`):
+   - `GET /api/v1/deployments`: Lists deployment history (pagination: `limit`, `offset`, order: `created_at DESC`).
+   - `POST /api/v1/deployments/trigger`: Manually enqueues/dispatches a deployment.
+   - `POST /api/v1/deployments/{id}/status`: Single-use callback endpoint invoked by external runners (GitHub Actions or webhook receivers) using a Bearer callback token. State transitions: `building` -> `succeeded` / `failed` / `cancelled`.
+
+3. **Build Tokens API** (`/api/v1/tokens/build`):
+   - `GET /api/v1/tokens/build`: Lists build tokens (`id`, `name`, `token_prefix`, `last_used_at`, `revoked_at`, `created_at`). Raw tokens and token hashes are never exposed.
+   - `POST /api/v1/tokens/build`: Generates a new build token with format `bsbuild_{prefix}_{secret}`. The plain token is returned ONCE in the response (`{ id, name, token, token_prefix, created_at }`).
+   - `DELETE /api/v1/tokens/build/{id}`: Immediately revokes the token. Revoked tokens are instantly rejected (401).
+   - Build tokens are strictly restricted to read-only access for published content (`/api/v1/public/*` and build endpoints); any mutating, administrative, or draft endpoint immediately returns 403 Forbidden.
+
 
 
 

@@ -693,6 +693,55 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Ai\AiKillSwitchGuard::class)
             );
         });
+
+        // 18. Publishing Pipeline & Build Tokens
+        $container->singleton(\BsCms\Publishing\PublishingSettingsRepository::class, function (Container $c): \BsCms\Publishing\PublishingSettingsRepository {
+            return new \BsCms\Publishing\PublishingSettingsRepository(
+                $c->get(SettingsRepository::class),
+                $c->get(Crypto::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Publishing\BuildTokenService::class, function (Container $c): \BsCms\Publishing\BuildTokenService {
+            return new \BsCms\Publishing\BuildTokenService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Publishing\IndexNowService::class, function (Container $c): \BsCms\Publishing\IndexNowService {
+            return new \BsCms\Publishing\IndexNowService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Security\HttpClient::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Publishing\DeploymentService::class, function (Container $c): \BsCms\Publishing\DeploymentService {
+            $config = $c->has(Config::class) ? $c->get(Config::class) : null;
+            $appUrl = $config !== null ? (string) $config->get('app.url', '') : null;
+
+            return new \BsCms\Publishing\DeploymentService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Publishing\PublishingSettingsRepository::class),
+                $c->get(SettingsRepository::class),
+                $c->get(\BsCms\Security\HttpClient::class),
+                $c->get(\BsCms\Publishing\IndexNowService::class),
+                $appUrl
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PublishingController::class, function (Container $c): \BsCms\Http\Controllers\PublishingController {
+            return new \BsCms\Http\Controllers\PublishingController(
+                $c->get(\BsCms\Publishing\PublishingSettingsRepository::class),
+                $c->get(\BsCms\Publishing\DeploymentService::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Security\HttpClient::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\BuildTokensController::class, function (Container $c): \BsCms\Http\Controllers\BuildTokensController {
+            return new \BsCms\Http\Controllers\BuildTokensController(
+                $c->get(\BsCms\Publishing\BuildTokenService::class),
+                $c->get(Authorizer::class)
+            );
+        });
     }
 
     public function boot(Container $container): void
@@ -713,6 +762,38 @@ final class CoreServiceProvider implements ServiceProvider
                     $colKey = (string) ($payload['collection_key'] ?? $payload['collection'] ?? '');
                     if ($colKey !== '') {
                         $container->get(\BsCms\Content\Cache\PublicResponseCache::class)->invalidateCollection($colKey);
+                    }
+                }
+
+                // 3. Publishing pipeline: enqueue deploy request on content / structural events
+                if ($container->has(\BsCms\Publishing\DeploymentService::class)) {
+                    $name = $e->name();
+                    $payload = $e->payload();
+                    $changedUrls = [];
+
+                    // Calculate changed URL from entry slug/path if present
+                    if (str_starts_with($name, 'entry.')) {
+                        $slug = (string) ($payload['slug'] ?? '');
+                        $col = (string) ($payload['collection_key'] ?? $payload['collection'] ?? 'posts');
+                        if ($slug !== '') {
+                            $changedUrls[] = $col === 'pages' ? "/{$slug}" : "/{$col}/{$slug}";
+                        }
+                    } elseif (str_starts_with($name, 'term.')) {
+                        $tSlug = (string) ($payload['slug'] ?? '');
+                        if ($tSlug !== '') {
+                            $changedUrls[] = "/category/{$tSlug}";
+                        }
+                    } elseif (str_starts_with($name, 'redirect.') || str_starts_with($name, 'navigation.') || str_starts_with($name, 'settings.')) {
+                        $changedUrls[] = '/';
+                    }
+
+                    if (!empty($changedUrls) || in_array($name, [
+                        'entry.published', 'entry.updated', 'entry.unpublished', 'entry.deleted',
+                        'term.created', 'term.updated', 'term.deleted',
+                        'navigation.updated', 'redirect.created', 'redirect.updated', 'redirect.deleted',
+                        'crawler_policy.updated'
+                    ], true)) {
+                        $container->get(\BsCms\Publishing\DeploymentService::class)->requestDeploy($changedUrls, null, $name);
                     }
                 }
             });

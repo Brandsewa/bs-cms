@@ -16,6 +16,7 @@ final class Actor
     public const TYPE_OAUTH = 'oauth';
     public const TYPE_SYSTEM = 'system';
     public const TYPE_PLUGIN = 'plugin';
+    public const TYPE_BUILD_TOKEN = 'build_token';
     public const TYPE_ANONYMOUS = 'anonymous';
 
     public const AI_MODE_DRAFT_ONLY = 'draft_only';
@@ -157,6 +158,24 @@ final class Actor
             userRoleIds: $userRoleIds,
             userName: $userName
         );
+    }
+
+    public static function buildToken(string $id, string $name): self
+    {
+        return new self(
+            type: self::TYPE_BUILD_TOKEN,
+            id: $id,
+            label: $name,
+            onBehalfOf: null,
+            roleIds: ['build_agent'],
+            aiMode: null,
+            scopes: ['build:read']
+        );
+    }
+
+    public function isBuildToken(): bool
+    {
+        return $this->type === self::TYPE_BUILD_TOKEN;
     }
 
     public function isSystem(): bool

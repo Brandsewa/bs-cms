@@ -197,7 +197,9 @@ $router = new Router($routes);
     $container->get(\BsCms\OAuth\OAuthController::class),
     $container->get(\BsCms\Http\Controllers\PendingChangesController::class),
     $container->get(\BsCms\Http\Controllers\DashboardController::class),
-    $container->get(\BsCms\Http\Controllers\AiController::class)
+    $container->get(\BsCms\Http\Controllers\AiController::class),
+    $container->get(\BsCms\Http\Controllers\PublishingController::class),
+    $container->get(\BsCms\Http\Controllers\BuildTokensController::class)
 );
 
 // Build middleware pipeline
@@ -225,9 +227,11 @@ $sessionManager = $container->get(\BsCms\Auth\SessionManager::class);
 $apiTokenService = $container->get(\BsCms\Auth\ApiTokenService::class);
 
 $kernel->addMiddleware(new \BsCms\Http\Middleware\SessionMiddleware($sessionManager, $db));
+$buildTokenService = $container->get(\BsCms\Publishing\BuildTokenService::class);
 $kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware(
     $apiTokenService,
-    $container->get(\BsCms\OAuth\OAuthController::class)
+    $container->get(\BsCms\OAuth\OAuthController::class),
+    $buildTokenService
 ));
 
 $limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
@@ -253,6 +257,11 @@ Kernel::terminate(function () use ($container) {
         $db = $container->get(Connection::class);
         $worker = new Worker($db, $container);
         $worker->run(5);
+
+        // Process deploy debounce window if due
+        if ($container->has(\BsCms\Publishing\DeploymentService::class)) {
+            $container->get(\BsCms\Publishing\DeploymentService::class)->processDebounceQueue();
+        }
     }
 });
 
