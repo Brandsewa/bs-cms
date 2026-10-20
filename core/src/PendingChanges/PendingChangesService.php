@@ -33,7 +33,8 @@ final class PendingChangesService
         private readonly ?AuditLogger $auditLogger = null,
         private readonly ?EntryRepository $entryRepository = null,
         private readonly ?RedirectRepository $redirectRepository = null,
-        private readonly ?ConfirmTokenService $confirmTokens = null
+        private readonly ?ConfirmTokenService $confirmTokens = null,
+        private readonly ?\BsCms\Schema\CollectionRegistry $collectionRegistry = null
     ) {
     }
 
@@ -53,6 +54,28 @@ final class PendingChangesService
         Context $ctx,
         OperationMeta $meta
     ): string {
+        // Validate target collection and entry existence at queue time
+        if (isset($input['collection']) && is_string($input['collection'])) {
+            $col = $input['collection'];
+            if ($this->collectionRegistry !== null && !$this->collectionRegistry->has($col)) {
+                throw new \BsCms\Operations\Exceptions\ValidationException("Collection '{$col}' not found.");
+            }
+            if (isset($input['id']) && is_string($input['id'])) {
+                $entryId = $input['id'];
+                $existing = $this->entryRepository !== null ? $this->entryRepository->find($col, $entryId, true) : null;
+                if ($existing === null) {
+                    throw new \BsCms\Operations\Exceptions\ValidationException("Target entry '{$entryId}' not found in collection '{$col}'.");
+                }
+                if (!empty($existing['deleted_at'])) {
+                    throw new \BsCms\Operations\Exceptions\ValidationException("Target entry '{$entryId}' in collection '{$col}' has been deleted.");
+                }
+                // Store target metadata snapshot for stale approval detection
+                $input['_target_version'] = (int) ($existing['version'] ?? 1);
+                $input['_target_updated_at'] = (string) ($existing['updated_at'] ?? '');
+                $input['_target_status'] = (string) ($existing['status'] ?? 'draft');
+            }
+        }
+
         $actor = $ctx->actor ?? Actor::anonymous();
         $id = Ulid::generate();
         $nowUtc = gmdate('Y-m-d H:i:s.v');
@@ -306,16 +329,23 @@ final class PendingChangesService
             connection: $this->connection
         );
 
+        // Strip internal _target_* conflict-detection fields before passing to Dispatcher
+        $cleanPayload = array_filter(
+            $payload,
+            fn(string $key): bool => !str_starts_with($key, '_target_'),
+            ARRAY_FILTER_USE_KEY
+        );
+
         if ($this->confirmTokens !== null) {
             $operationObj = $this->dispatcher->getOperation($operation, $approverCtx);
             $meta = $operationObj::describe();
-            if ($meta->destructive || ($meta->bulk && isset($payload['ids']) && is_array($payload['ids']) && count($payload['ids']) > 10)) {
-                $token = $this->confirmTokens->generate($approver->id, $operation, $payload);
+            if ($meta->destructive || ($meta->bulk && isset($cleanPayload['ids']) && is_array($cleanPayload['ids']) && count($cleanPayload['ids']) > 10)) {
+                $token = $this->confirmTokens->generate($approver->id, $operation, $cleanPayload);
                 $approverCtx = $approverCtx->withConfirmToken($token);
             }
         }
 
-        $this->dispatcher->run($operation, $payload, $approverCtx);
+        $this->dispatcher->run($operation, $cleanPayload, $approverCtx);
 
         // 4. Mark pending change as approved
         $nowUtc = gmdate('Y-m-d H:i:s.v');
@@ -467,23 +497,47 @@ final class PendingChangesService
             return;
         }
 
+        $cleanPayload = array_filter(
+            $payload,
+            fn(string $key): bool => !str_starts_with($key, '_target_'),
+            ARRAY_FILTER_USE_KEY
+        );
+
+        // Check using the actual Operation object's authorize method if Dispatcher is wired
+        if ($this->dispatcher !== null && $this->dispatcher->has($operation)) {
+            $approverCtx = new Context(
+                actor: $approver,
+                requestId: Ulid::generate(),
+                clock: new \DateTimeImmutable(),
+                connection: $this->connection
+            );
+            $opObj = $this->dispatcher->getOperation($operation, $approverCtx);
+            $opObj->authorize($approverCtx, $cleanPayload);
+            return;
+        }
+
         if (str_starts_with($operation, 'publish_') || str_starts_with($operation, 'unpublish_') || str_starts_with($operation, 'schedule_')) {
-            $col = (string) ($payload['collection'] ?? '*');
+            $col = (string) ($cleanPayload['collection'] ?? '*');
             $dec = $this->authorizer->can($approver, 'publish', new Subject('collection', $col));
             if (!$dec->allowed) {
                 throw new ForbiddenException("Approver does not have permission to publish content in collection '{$col}': {$dec->reason}");
             }
         } elseif (str_starts_with($operation, 'delete_')) {
-            $col = (string) ($payload['collection'] ?? '*');
+            $col = (string) ($cleanPayload['collection'] ?? '*');
             $dec = $this->authorizer->can($approver, 'delete', new Subject('collection', $col));
             if (!$dec->allowed) {
                 throw new ForbiddenException("Approver does not have permission to delete content in collection '{$col}': {$dec->reason}");
             }
         } elseif (str_starts_with($operation, 'update_')) {
-            $col = (string) ($payload['collection'] ?? '*');
+            $col = (string) ($cleanPayload['collection'] ?? '*');
             $dec = $this->authorizer->can($approver, 'update', new Subject('collection', $col));
             if (!$dec->allowed) {
                 throw new ForbiddenException("Approver does not have permission to update content in collection '{$col}': {$dec->reason}");
+            }
+        } elseif (str_contains($operation, 'deploy')) {
+            $dec = $this->authorizer->can($approver, 'manage', new Subject('site', 'deploy'));
+            if (!$dec->allowed) {
+                throw new ForbiddenException("Approver does not have permission to trigger deploy: {$dec->reason}");
             }
         } elseif (str_contains($operation, 'redirect')) {
             $dec = $this->authorizer->can($approver, 'create', new Subject('redirect', '*'));
@@ -509,16 +563,43 @@ final class PendingChangesService
         if ($this->entryRepository !== null && isset($payload['collection'], $payload['id'])) {
             $collection = (string) $payload['collection'];
             $id = (string) $payload['id'];
-            $entry = $this->entryRepository->find($collection, $id);
+            $entry = $this->entryRepository->find($collection, $id, true);
 
             if ($entry === null) {
-                throw new ConflictException("Target entry '{$id}' in collection '{$collection}' no longer exists.");
+                throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' no longer exists.");
             }
 
-            if (isset($payload['version']) && is_int($payload['version'])) {
+            if (!empty($entry['deleted_at'])) {
+                throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' has been deleted/trashed since this change was requested.");
+            }
+
+            // 1. Version check (optimistic concurrency)
+            if (isset($payload['_target_version']) && is_int($payload['_target_version'])) {
                 $currentVersion = (int) ($entry['version'] ?? 1);
-                if ($currentVersion > $payload['version']) {
-                    throw new ConflictException("Conflict: target entry has been updated to version {$currentVersion} since this change was requested (expected version {$payload['version']}).");
+                if ($currentVersion !== $payload['_target_version']) {
+                    throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' has been modified to version {$currentVersion} since this change was requested (expected version {$payload['_target_version']}). Please reject or re-queue.");
+                }
+            }
+
+            // 2. Updated_at check
+            if (isset($payload['_target_updated_at']) && is_string($payload['_target_updated_at']) && $payload['_target_updated_at'] !== '') {
+                $currentUpdatedAt = (string) ($entry['updated_at'] ?? '');
+                if ($currentUpdatedAt !== '' && $currentUpdatedAt !== $payload['_target_updated_at']) {
+                    throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' was modified at {$currentUpdatedAt} since this change was requested at {$payload['_target_updated_at']}. Please reject or re-queue.");
+                }
+            }
+
+            // 3. Status change check
+            if (isset($payload['_target_status']) && is_string($payload['_target_status'])) {
+                $currentStatus = (string) ($entry['status'] ?? '');
+                if ($operation === 'publish_entry' && $currentStatus === 'published') {
+                    throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' has already been published since this change was requested.");
+                }
+                if ($operation === 'unpublish_entry' && $currentStatus !== 'published') {
+                    throw new ConflictException("Conflict: Target entry '{$id}' in collection '{$collection}' is not published (current status: {$currentStatus}).");
+                }
+                if ($currentStatus !== $payload['_target_status'] && !in_array($operation, ['update_entry'], true)) {
+                    throw new ConflictException("Conflict: Target entry '{$id}' status changed from '{$payload['_target_status']}' to '{$currentStatus}' since this change was requested.");
                 }
             }
         }
@@ -539,51 +620,41 @@ final class PendingChangesService
      */
     private function buildDiff(string $operation, array $input): array
     {
+        $diff = [
+            'action' => $operation,
+            'collection' => $input['collection'] ?? null,
+            'id' => $input['id'] ?? null,
+        ];
+
+        if (isset($input['_target_version'])) {
+            $diff['target_version'] = $input['_target_version'];
+        }
+        if (isset($input['_target_updated_at'])) {
+            $diff['target_updated_at'] = $input['_target_updated_at'];
+        }
+        if (isset($input['_target_status'])) {
+            $diff['target_status'] = $input['_target_status'];
+        }
+
         if ($operation === 'publish_entry') {
-            return [
-                'action' => 'publish',
-                'collection' => $input['collection'] ?? null,
-                'id' => $input['id'] ?? null,
-                'target_status' => 'published',
-            ];
+            $diff['action'] = 'publish';
+            $diff['target_status'] = 'published';
+        } elseif ($operation === 'unpublish_entry') {
+            $diff['action'] = 'unpublish';
+            $diff['target_status'] = 'draft';
+        } elseif ($operation === 'schedule_entry') {
+            $diff['action'] = 'schedule';
+            $diff['publish_at'] = $input['publish_at'] ?? null;
+        } elseif ($operation === 'create_redirect') {
+            $diff['action'] = 'create_redirect';
+            $diff['from_path'] = $input['from_path'] ?? null;
+            $diff['to_path'] = $input['to_path'] ?? null;
+            $diff['status_code'] = $input['status_code'] ?? 301;
+        } elseif ($operation === 'delete_entry') {
+            $diff['action'] = 'delete';
         }
 
-        if ($operation === 'unpublish_entry') {
-            return [
-                'action' => 'unpublish',
-                'collection' => $input['collection'] ?? null,
-                'id' => $input['id'] ?? null,
-                'target_status' => 'draft',
-            ];
-        }
-
-        if ($operation === 'schedule_entry') {
-            return [
-                'action' => 'schedule',
-                'collection' => $input['collection'] ?? null,
-                'id' => $input['id'] ?? null,
-                'publish_at' => $input['publish_at'] ?? null,
-            ];
-        }
-
-        if ($operation === 'create_redirect') {
-            return [
-                'action' => 'create_redirect',
-                'from_path' => $input['from_path'] ?? null,
-                'to_path' => $input['to_path'] ?? null,
-                'status_code' => $input['status_code'] ?? 301,
-            ];
-        }
-
-        if ($operation === 'delete_entry') {
-            return [
-                'action' => 'delete',
-                'collection' => $input['collection'] ?? null,
-                'id' => $input['id'] ?? null,
-            ];
-        }
-
-        return $input;
+        return $diff;
     }
 
     /**

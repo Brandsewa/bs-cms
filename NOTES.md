@@ -186,8 +186,47 @@ This document is the authoritative log for Phase 0 technical verifications, arch
   - `GET /api/v1/pending-changes/{id}`: Detailed view of a single pending change.
   - `POST /api/v1/pending-changes/{id}/approve`: Approved by a human user (AI actors forbidden). The operation is re-executed through the Dispatcher under the authority of the approving user. The target is checked for conflicts (if the target entry was modified or deleted since the proposal was created, HTTP 409 Conflict is returned). Two-step confirmation for destructive changes is satisfied by the human approval. Records `pending_change.approved` in audit log. Double-approval returns 409 Conflict.
   - `POST /api/v1/pending-changes/{id}/reject`: Rejects the change with optional `decision_note`. Records `pending_change.rejected` in audit log.
-  - `POST /api/v1/pending-changes/expire`: Prunes/updates expired pending changes past their 7-day TTL.
+  - `POST /api/v1/pending-changes/expire`: Prunes/updates expired pending changes past their 7-day TTL. Requires authentication and proper permissions (Owner, Admin, or authority covering change approvals; Anonymous -> 401, Viewer/Author -> 403, Editor/Admin -> 200).
   - Strict presenters ensure internal columns, token hashes, and sensitive secrets are never leaked.
+
+- **Approver Authority Re-Check & Permission Matrix at Approval Time:**
+  - An approving user's authority is strictly re-checked at approval time. An approver **cannot** approve a queued operation that they do not have authority to execute themselves, even if the queueing AI actor had a higher-privilege grant (e.g. an Owner grant queueing `trigger_deploy` or an admin operation cannot be approved by an Editor).
+  - Approval re-executes the operation through the Dispatcher using the approver's authenticated context. If the approver lacks the required permission, HTTP 403 Forbidden is returned.
+  - **Required Permissions by Queued Operation:**
+    | Queued Operation | Required Approver Permission | Minimum Role |
+    | :--- | :--- | :--- |
+    | `publish_entry` | `publish` on `collection:{collection}` | Editor |
+    | `unpublish_entry` | `publish` on `collection:{collection}` | Editor |
+    | `schedule_entry` | `publish` on `collection:{collection}` | Editor |
+    | `update_entry` (published) | `update` on `collection:{collection}` | Editor |
+    | `delete_entry` | `delete` on `collection:{collection}` | Editor / Admin |
+    | `restore_version` | `update` on `collection:{collection}` | Editor |
+    | `create_redirect` | `create` on `redirect:*` | Admin |
+    | `create_term` | `create` on `term:*` | Editor |
+    | `update_term` | `update` on `term:*` | Editor |
+    | `move_term` | `update` on `term:*` | Editor |
+    | `upload_media_from_url` | `create` on `media:*` | Author / Editor |
+    | `update_media` | `update` on `media:*` | Editor |
+    | `trigger_deploy` | `manage` on `site:deploy` | Admin / Owner |
+    | `propose_schema_change` | `manage` on `schema:*` | Admin / Owner |
+    | `apply_schema_change` | `manage` on `schema:*` | Admin / Owner |
+
+- **Stale Approval & Optimistic Concurrency Checks (HTTP 409 Conflict):**
+  - To prevent silent overwriting of human edits or applying changes to trashed/modified content:
+    - At queue time, the target's snapshot metadata (`_target_version`, `_target_updated_at`, `_target_status`) is persisted alongside the proposal.
+    - At approval time, before applying the change, the target is re-fetched and inspected. If the target's version, updated_at timestamp, or status has changed since queue time, approval is rejected with `HTTP 409 Conflict` and a clear explanatory message: `"Target entry '{id}' has been modified since this change was queued (version changed from X to Y). Review the target and reject or re-queue this change."`
+    - If the target entry has been deleted or moved to trash (`trashed_at !== null`), approval is rejected with `HTTP 409 Conflict`: `"Target entry '{id}' has been trashed or deleted since this change was queued. Reject or re-queue this change."`
+  - The reviewer can inspect the current target state and either reject the stale change or re-queue an updated change.
+
+- **Target Existence Validation at Queue Time:**
+  - In `approval_required` mode, mutating operations (`publish_entry`, `unpublish_entry`, `schedule_entry`, `update_entry`, `delete_entry`) validate that the target collection and target entry ID exist **before** queueing.
+  - Attempting to queue an action for a nonexistent collection or nonexistent entry ID immediately returns a standard tool error (`ValidationException` / JSON-RPC `-32602 Invalid params`) and does **not** insert a phantom row into `pending_changes`.
+
+- **Hostile Payload Re-Validation at Apply Time:**
+  - The stored JSON payload in `pending_changes` is treated as untrusted input.
+  - At approval time, when the change is applied through the Dispatcher:
+    - The stored payload is passed through the operation's strict JSON input schema validator (`additionalProperties: false`). Any hostile, unknown, or mutated properties (e.g. injected SQL or role fields) trigger a `ValidationException` resulting in HTTP 422 Unprocessable Entity.
+    - The approver's permissions and scope constraints are re-evaluated against the payload arguments.
 
 - **`full` Mode & Two-Step Confirmation:**
   - Destructive operations (`delete_entry`, `apply_schema_change`) still require a two-step confirmation token even in `full` mode.

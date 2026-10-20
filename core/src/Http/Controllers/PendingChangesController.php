@@ -129,6 +129,10 @@ final class PendingChangesController extends BaseController
             return $this->problem(409, 'Conflict', $e->getMessage(), 'https://errors.bscms.org/conflict');
         } catch (\BsCms\Operations\Exceptions\ForbiddenException $e) {
             return $this->forbidden($e->getMessage());
+        } catch (\BsCms\Operations\Exceptions\ValidationException $e) {
+            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error', [
+                'errors' => $e->getErrors(),
+            ]);
         } catch (Throwable $e) {
             return $this->problem(500, 'Internal Server Error', $e->getMessage());
         }
@@ -166,6 +170,10 @@ final class PendingChangesController extends BaseController
             return $this->problem(409, 'Conflict', $e->getMessage(), 'https://errors.bscms.org/conflict');
         } catch (\BsCms\Operations\Exceptions\ForbiddenException $e) {
             return $this->forbidden($e->getMessage());
+        } catch (\BsCms\Operations\Exceptions\ValidationException $e) {
+            return $this->problem(422, 'Unprocessable Entity', $e->getMessage(), 'https://errors.bscms.org/validation-error', [
+                'errors' => $e->getErrors(),
+            ]);
         } catch (Throwable $e) {
             return $this->problem(500, 'Internal Server Error', $e->getMessage());
         }
@@ -181,6 +189,16 @@ final class PendingChangesController extends BaseController
             return $authError;
         }
         $actor = $this->getActor($request);
+
+        // Require permission: owner, admin, or authority covering change approvals
+        $canExpire = $actor->hasRole(\BsCms\Auth\SystemRoles::ROLE_OWNER)
+            || $actor->hasRole(\BsCms\Auth\SystemRoles::ROLE_ADMIN)
+            || $this->authorizer->can($actor, 'manage', new Subject('pending_changes', '*'))->allowed
+            || $this->authorizer->can($actor, 'publish', new Subject('collection', '*'))->allowed;
+
+        if (!$canExpire) {
+            return $this->forbidden('You do not have permission to expire pending changes.');
+        }
 
         $count = $this->service->expireStaleRecords();
 

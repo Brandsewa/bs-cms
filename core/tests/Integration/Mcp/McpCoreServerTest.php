@@ -1276,6 +1276,293 @@ final class McpCoreServerTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $sweepData['expired_count']);
     }
 
+    public function testStaleApprovalConflictWhenTargetModifiedOrTrashed(): void
+    {
+        $editorOAuth = $this->createOAuthGrantToken('usr_editor', SystemRoles::ROLE_EDITOR, 'approval_required');
+        $adminActor = Actor::user('usr_admin', 'Admin User', [SystemRoles::ROLE_ADMIN]);
+
+        // A. update_entry without explicit version: human edits after AI queueing
+        $entryA = $this->entryRepo->create('articles', [
+            'title' => 'Original Draft A',
+            'status' => 'published',
+            'content' => 'Initial content A',
+        ], 'usr_editor');
+        $idA = $entryA['id'];
+
+        // AI queues an update WITHOUT version parameter
+        $queueResA = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3101,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'update_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $idA, 'title' => 'AI Update Title'],
+            ],
+        ]);
+        $queueJsonA = json_decode((string) $queueResA->getBody(), true);
+        $pendingIdA = $queueJsonA['result']['pending_change_id'];
+
+        // Human edits the entry directly (version increments, updated_at changes)
+        $this->entryRepo->update('articles', $idA, ['title' => 'Human Edited Title'], 'usr_editor');
+
+        // Reviewer attempts to approve -> Must return 409 Conflict with clear message
+        $approveResA = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingIdA}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $approveResA->getStatusCode());
+        $bodyA = json_decode((string) $approveResA->getBody(), true);
+        $this->assertStringContainsString('modified', (string) ($bodyA['detail'] ?? ''));
+        $this->assertStringContainsString('reject or re-queue', (string) ($bodyA['detail'] ?? ''));
+
+        // Reviewer rejects the stale change
+        $rejectResA = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingIdA}/reject", [
+            'Content-Type' => 'application/json',
+        ], ['decision_note' => 'Rejected stale AI update because human already edited'], ['actor' => $adminActor]);
+        $this->assertSame(200, $rejectResA->getStatusCode());
+        $this->assertSame('rejected', json_decode((string) $rejectResA->getBody(), true)['status']);
+
+        // B. publish_entry: human trashes/deletes the entry after queueing
+        $entryB = $this->entryRepo->create('articles', [
+            'title' => 'Original Draft B',
+            'status' => 'draft',
+            'content' => 'Initial content B',
+        ], 'usr_editor');
+        $idB = $entryB['id'];
+
+        $queueResB = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3102,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $idB],
+            ],
+        ]);
+        $pendingIdB = json_decode((string) $queueResB->getBody(), true)['result']['pending_change_id'];
+
+        // Human deletes/trashes entry B
+        $this->entryRepo->delete('articles', $idB, false);
+
+        // Reviewer attempts to approve -> 409 Conflict
+        $approveResB = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingIdB}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $approveResB->getStatusCode());
+        $bodyB = json_decode((string) $approveResB->getBody(), true);
+        $this->assertStringContainsString('deleted/trashed', (string) ($bodyB['detail'] ?? ''));
+
+        // C. publish_entry: human already publishes the entry after queueing
+        $entryC = $this->entryRepo->create('articles', [
+            'title' => 'Original Draft C',
+            'status' => 'draft',
+            'content' => 'Initial content C',
+        ], 'usr_editor');
+        $idC = $entryC['id'];
+
+        $queueResC = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3103,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => $idC],
+            ],
+        ]);
+        $pendingIdC = json_decode((string) $queueResC->getBody(), true)['result']['pending_change_id'];
+
+        // Human publishes entry C directly
+        $this->entryRepo->update('articles', $idC, ['status' => 'published'], 'usr_editor');
+
+        // Reviewer attempts to approve -> 409 Conflict
+        $approveResC = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingIdC}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(409, $approveResC->getStatusCode());
+        $bodyC = json_decode((string) $approveResC->getBody(), true);
+        $this->assertTrue(
+            str_contains((string) ($bodyC['detail'] ?? ''), 'already published')
+            || str_contains((string) ($bodyC['detail'] ?? ''), 'modified')
+        );
+    }
+
+    public function testQueueingTargetValidationAtQueueTime(): void
+    {
+        $editorOAuth = $this->createOAuthGrantToken('usr_editor', SystemRoles::ROLE_EDITOR, 'approval_required');
+
+        // 1. Nonexistent entry ID returns normal tool error (-32602), not pending_approval
+        $resNonexistentId = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3201,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'articles', 'id' => '01NONEXISTENT00000000000000'],
+            ],
+        ]);
+        $jsonNonexistentId = json_decode((string) $resNonexistentId->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonNonexistentId);
+        $this->assertSame(-32602, $jsonNonexistentId['error']['code']);
+        $this->assertStringContainsString('not found', $jsonNonexistentId['error']['message']);
+        $this->assertArrayNotHasKey('result', $jsonNonexistentId);
+
+        // 2. Nonexistent collection returns normal tool error (-32602)
+        $resNonexistentCol = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$editorOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3202,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'publish_entry',
+                'arguments' => ['collection' => 'nonexistent_collection', 'id' => '01NONEXISTENT00000000000000'],
+            ],
+        ]);
+        $jsonNonexistentCol = json_decode((string) $resNonexistentCol->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonNonexistentCol);
+        $this->assertSame(-32602, $jsonNonexistentCol['error']['code']);
+        $this->assertStringContainsString('not found', $jsonNonexistentCol['error']['message']);
+    }
+
+    public function testPendingChangesExpirePermissions(): void
+    {
+        // 1. Anonymous request -> 401 Unauthorized
+        $anonRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire');
+        $this->assertSame(401, $anonRes->getStatusCode());
+
+        // 2. Viewer request -> 403 Forbidden
+        $viewerActor = Actor::user('usr_viewer', 'Viewer User', [SystemRoles::ROLE_VIEWER]);
+        $viewerRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $viewerActor]);
+        $this->assertSame(403, $viewerRes->getStatusCode());
+
+        // 3. Author request -> 403 Forbidden
+        $authorActor = Actor::user('usr_author', 'Author User', [SystemRoles::ROLE_AUTHOR]);
+        $authorRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $authorActor]);
+        $this->assertSame(403, $authorRes->getStatusCode());
+
+        // 4. Editor request -> 200 OK
+        $editorActor = Actor::user('usr_editor', 'Editor User', [SystemRoles::ROLE_EDITOR]);
+        $editorRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $editorActor]);
+        $this->assertSame(200, $editorRes->getStatusCode());
+        $editorJson = json_decode((string) $editorRes->getBody(), true);
+        $this->assertSame('ok', $editorJson['status']);
+
+        // 5. Admin request -> 200 OK
+        $adminActor = Actor::user('usr_admin', 'Admin User', [SystemRoles::ROLE_ADMIN]);
+        $adminRes = $this->request('POST', 'https://example.com/api/v1/pending-changes/expire', [], null, ['actor' => $adminActor]);
+        $this->assertSame(200, $adminRes->getStatusCode());
+    }
+
+    public function testApproverAuthorityReCheckedAtApproval(): void
+    {
+        $ownerOAuth = $this->createOAuthGrantToken('usr_owner', SystemRoles::ROLE_OWNER, 'approval_required');
+
+        // Owner AI queues trigger_deploy
+        $deployRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$ownerOAuth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 3301,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'trigger_deploy',
+                'arguments' => ['message' => 'Production deploy request from AI'],
+            ],
+        ]);
+        $deployJson = json_decode((string) $deployRes->getBody(), true);
+        $this->assertTrue($deployJson['result']['pending_approval'] ?? false);
+        $pendingId = $deployJson['result']['pending_change_id'];
+
+        // Editor attempts to approve -> MUST FAIL with 403 Forbidden (Editor cannot trigger deploy!)
+        $editorActor = Actor::user('usr_editor', 'Editor User', [SystemRoles::ROLE_EDITOR]);
+        $editorApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingId}/approve", [], null, ['actor' => $editorActor]);
+        $this->assertSame(403, $editorApproveRes->getStatusCode());
+        $editorBody = json_decode((string) $editorApproveRes->getBody(), true);
+        $this->assertStringContainsString('permission', (string) ($editorBody['detail'] ?? ''));
+
+        // Admin attempts to approve -> SUCCEEDS (Admin can trigger deploy!)
+        $adminActor = Actor::user('usr_admin', 'Admin User', [SystemRoles::ROLE_ADMIN]);
+        $adminApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$pendingId}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(200, $adminApproveRes->getStatusCode());
+        $this->assertSame('approved', json_decode((string) $adminApproveRes->getBody(), true)['status']);
+    }
+
+    public function testHostilePendingChangePayloadsAtApplyTime(): void
+    {
+        $adminActor = Actor::user('usr_admin', 'Admin User', [SystemRoles::ROLE_ADMIN]);
+        $editorActor = Actor::user('usr_editor', 'Editor User', [SystemRoles::ROLE_EDITOR]);
+        $table = $this->connection->prefixTable('pending_changes');
+
+        $entry = $this->entryRepo->create('articles', [
+            'title' => 'Hostile Payload Test Entry',
+            'status' => 'draft',
+            'content' => 'Content',
+        ], 'usr_editor');
+        $entryId = $entry['id'];
+
+        // 1. Hostile extra argument in stored payload -> Rejected by Dispatcher JSON schema validation
+        $hostileId = \BsCms\Security\Ulid::generate();
+        $this->connection->getPdo()->prepare("INSERT INTO `{$table}` (
+            `id`, `actor_type`, `actor_label`, `oauth_grant_id`, `api_token_id`, `on_behalf_of`,
+            `operation`, `subject_type`, `subject_id`, `payload`, `diff`, `status`,
+            `decided_by`, `decided_at`, `decision_note`, `expires_at`, `created_at`
+        ) VALUES (
+            :id, 'oauth', 'Malicious Actor', NULL, NULL, 'usr_editor',
+            'publish_entry', 'entry', :entry_id, :payload, '{}', 'pending',
+            NULL, NULL, NULL, :expires_at, :created_at
+        )")->execute([
+            'id' => $hostileId,
+            'entry_id' => $entryId,
+            'payload' => json_encode([
+                'collection' => 'articles',
+                'id' => $entryId,
+                'malicious_sql_injection' => "'; DROP TABLE bs_users; --",
+                'unauthorized_param' => 12345,
+            ]),
+            'expires_at' => gmdate('Y-m-d H:i:s.v', time() + 86400),
+            'created_at' => gmdate('Y-m-d H:i:s.v'),
+        ]);
+
+        // When approved, Dispatcher validates inputSchema and rejects unknown properties
+        $hostileApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$hostileId}/approve", [], null, ['actor' => $adminActor]);
+        $this->assertSame(422, $hostileApproveRes->getStatusCode());
+
+        // Verify the entry was NOT published
+        $unmodified = $this->entryRepo->find('articles', $entryId);
+        $this->assertSame('draft', $unmodified['status']);
+
+        // 2. Hostile target collection unauthorized for approver -> Rejected by Dispatcher authorizer
+        $unauthColId = \BsCms\Security\Ulid::generate();
+        $this->connection->getPdo()->prepare("INSERT INTO `{$table}` (
+            `id`, `actor_type`, `actor_label`, `oauth_grant_id`, `api_token_id`, `on_behalf_of`,
+            `operation`, `subject_type`, `subject_id`, `payload`, `diff`, `status`,
+            `decided_by`, `decided_at`, `decision_note`, `expires_at`, `created_at`
+        ) VALUES (
+            :id, 'oauth', 'Malicious Actor', NULL, NULL, 'usr_editor',
+            'publish_entry', 'entry', 'fake_id', :payload, '{}', 'pending',
+            NULL, NULL, NULL, :expires_at, :created_at
+        )")->execute([
+            'id' => $unauthColId,
+            'payload' => json_encode([
+                'collection' => 'restricted_system_collection',
+                'id' => 'fake_id',
+            ]),
+            'expires_at' => gmdate('Y-m-d H:i:s.v', time() + 86400),
+            'created_at' => gmdate('Y-m-d H:i:s.v'),
+        ]);
+
+        $unauthApproveRes = $this->request('POST', "https://example.com/api/v1/pending-changes/{$unauthColId}/approve", [], null, ['actor' => $editorActor]);
+        // Re-authorizer or target validator rejects
+        $this->assertTrue(in_array($unauthApproveRes->getStatusCode(), [403, 409, 422], true));
+    }
+
     public function testFullModeConfirmTokenRequirementsAndFailures(): void
     {
         $this->settingsRepo->set('mcp.tool_allowlist', json_encode(['delete_entry']));

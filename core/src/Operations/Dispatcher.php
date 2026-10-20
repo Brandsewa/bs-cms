@@ -32,6 +32,7 @@ final class Dispatcher
 
     private ?\BsCms\PendingChanges\PendingChangesService $pendingChanges = null;
     private ?\BsCms\Content\EntryRepository $entryRepository = null;
+    private ?\BsCms\Schema\CollectionRegistry $collectionRegistry = null;
 
     public function __construct(
         private readonly ConfirmTokenService $confirmTokens,
@@ -119,6 +120,11 @@ final class Dispatcher
         $this->entryRepository = $entryRepository;
     }
 
+    public function setCollectionRegistry(\BsCms\Schema\CollectionRegistry $collectionRegistry): void
+    {
+        $this->collectionRegistry = $collectionRegistry;
+    }
+
     /**
      * Execute an operation through the unified pipeline.
      *
@@ -139,6 +145,13 @@ final class Dispatcher
             $errors = $this->validator->validate($input, $meta->inputSchema);
             if (!empty($errors)) {
                 throw new ValidationException('Input validation failed.', $errors);
+            }
+        }
+
+        // Validate collection existence if collection parameter is provided
+        if (isset($input['collection']) && is_string($input['collection']) && $this->collectionRegistry !== null) {
+            if (!$this->collectionRegistry->has($input['collection'])) {
+                throw new ValidationException("Collection '{$input['collection']}' not found.");
             }
         }
 

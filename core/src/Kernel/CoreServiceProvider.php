@@ -582,7 +582,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->get(\BsCms\Content\EntryRepository::class),
                 $c->get(\BsCms\Redirects\RedirectRepository::class),
-                $c->get(\BsCms\Operations\ConfirmTokenService::class)
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
+                $c->get(\BsCms\Schema\CollectionRegistry::class)
             );
         });
 
@@ -605,6 +606,7 @@ final class CoreServiceProvider implements ServiceProvider
             $pendingChanges->setDispatcher($dispatcher);
             $dispatcher->setPendingChangesService($pendingChanges);
             $dispatcher->setEntryRepository($c->get(\BsCms\Content\EntryRepository::class));
+            $dispatcher->setCollectionRegistry($c->get(\BsCms\Schema\CollectionRegistry::class));
 
             \BsCms\Operations\OperationsRegistrar::registerAll(
                 $dispatcher,
