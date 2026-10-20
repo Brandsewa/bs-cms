@@ -9,6 +9,7 @@ use BsCms\Http\Controllers\AuditController;
 use BsCms\Http\Controllers\BulkEntriesController;
 use BsCms\Http\Controllers\CollectionsController;
 use BsCms\Http\Controllers\DashboardController;
+use BsCms\Http\Controllers\AiController;
 use BsCms\Http\Controllers\EmailSettingsController;
 use BsCms\Http\Controllers\EntriesController;
 use BsCms\Http\Controllers\JobsController;
@@ -65,7 +66,8 @@ final class ApiRoutes
         ?McpController $mcp = null,
         ?OAuthController $oauth = null,
         ?PendingChangesController $pendingChanges = null,
-        ?DashboardController $dashboard = null
+        ?DashboardController $dashboard = null,
+        ?AiController $ai = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -335,6 +337,13 @@ final class ApiRoutes
         // 24. Dashboard aggregate endpoint
         if ($dashboard !== null) {
             $routes->get('/api/v1/dashboard', [$dashboard, 'get']);
+        }
+
+        // 25. AI Kill switch & Management endpoints
+        if ($ai !== null) {
+            $routes->get('/api/v1/ai/status', [$ai, 'status']);
+            $routes->post('/api/v1/ai/disconnect', [$ai, 'disconnect']);
+            $routes->post('/api/v1/ai/reconnect', [$ai, 'reconnect']);
         }
     }
 }

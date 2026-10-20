@@ -643,13 +643,37 @@ final class CoreServiceProvider implements ServiceProvider
         });
 
         // 17. MCP and OAuth Controllers
+        $container->singleton(\BsCms\Ai\AiKillSwitchGuard::class, function (Container $c): \BsCms\Ai\AiKillSwitchGuard {
+            return new \BsCms\Ai\AiKillSwitchGuard(
+                $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null
+            );
+        });
+
+        $container->singleton(\BsCms\Ai\AiAccessService::class, function (Container $c): \BsCms\Ai\AiAccessService {
+            return new \BsCms\Ai\AiAccessService(
+                $c->get(Connection::class),
+                $c->get(SettingsRepository::class),
+                $c->get(AuditLogger::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\AiController::class, function (Container $c): \BsCms\Http\Controllers\AiController {
+            return new \BsCms\Http\Controllers\AiController(
+                $c->get(\BsCms\Ai\AiAccessService::class),
+                $c->get(\BsCms\Users\UserRepository::class),
+                $c->get(\BsCms\Auth\PasswordHasher::class)
+            );
+        });
+
         $container->singleton(\BsCms\OAuth\OAuthController::class, function (Container $c): \BsCms\OAuth\OAuthController {
             return new \BsCms\OAuth\OAuthController(
                 $c->get(Connection::class),
                 $c->get(\BsCms\Auth\PasswordHasher::class),
                 $c->get(AuditLogger::class),
                 $c->get(Authorizer::class),
-                $c->has(Config::class) ? $c->get(Config::class) : null
+                $c->has(Config::class) ? $c->get(Config::class) : null,
+                $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null,
+                $c->get(\BsCms\Ai\AiKillSwitchGuard::class)
             );
         });
 
@@ -664,7 +688,9 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->has(\BsCms\Security\RateLimiter::class) ? $c->get(\BsCms\Security\RateLimiter::class) : null,
                 $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null,
                 $c->has(Config::class) ? $c->get(Config::class) : null,
-                $c->has(\BsCms\Schema\CollectionRegistry::class) ? $c->get(\BsCms\Schema\CollectionRegistry::class) : null
+                $c->has(\BsCms\Schema\CollectionRegistry::class) ? $c->get(\BsCms\Schema\CollectionRegistry::class) : null,
+                null,
+                $c->get(\BsCms\Ai\AiKillSwitchGuard::class)
             );
         });
     }

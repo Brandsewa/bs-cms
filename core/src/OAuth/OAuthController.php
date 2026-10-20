@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\OAuth;
 
+use BsCms\Ai\AiKillSwitchGuard;
 use BsCms\Audit\AuditLogger;
 use BsCms\Auth\Actor;
 use BsCms\Auth\PasswordHasher;
@@ -14,6 +15,7 @@ use BsCms\Database\Connection;
 use BsCms\Http\Controllers\BaseController;
 use BsCms\Kernel\Config;
 use BsCms\Security\Ulid;
+use BsCms\Settings\SettingsRepository;
 use Nyholm\Psr7\Response;
 use PDO;
 use PDOStatement;
@@ -65,8 +67,13 @@ class OAuthController extends BaseController
         private readonly PasswordHasher $passwordHasher,
         private readonly AuditLogger $auditLogger,
         private readonly Authorizer $authorizer,
-        private readonly ?Config $config = null
+        private readonly ?Config $config = null,
+        private readonly ?SettingsRepository $settings = null,
+        private ?AiKillSwitchGuard $aiGuard = null
     ) {
+        if ($this->aiGuard === null && $this->settings !== null) {
+            $this->aiGuard = new AiKillSwitchGuard($this->settings);
+        }
     }
 
     /**
@@ -140,6 +147,11 @@ class OAuthController extends BaseController
      */
     public function register(ServerRequestInterface $request): ResponseInterface
     {
+        // 0. AI Kill Switch check
+        if ($this->aiGuard !== null && ($guardResponse = $this->aiGuard->checkRequest($request)) !== null) {
+            return $guardResponse;
+        }
+
         // 1. Enforce IP rate limit cap from configuration (default: 5 per hour)
         $ip = $this->resolveClientIp($request);
         $rateLimitConfig = (array) ($this->config?->get('security.oauth.registration_rate_limit', []));
@@ -402,6 +414,11 @@ class OAuthController extends BaseController
      */
     private function processAuthorize(ServerRequestInterface $request, array $params, bool $isPost): ResponseInterface
     {
+        // 0. AI Kill Switch check
+        if ($this->aiGuard !== null && ($guardResponse = $this->aiGuard->checkRequest($request)) !== null) {
+            return $guardResponse;
+        }
+
         // 1. Mandatory authenticated user session check
         $session = $request->getAttribute('session');
         $actor = $request->getAttribute('actor');
@@ -645,6 +662,11 @@ class OAuthController extends BaseController
      */
     public function token(ServerRequestInterface $request): ResponseInterface
     {
+        // 0. AI Kill Switch check
+        if ($this->aiGuard !== null && ($guardResponse = $this->aiGuard->checkRequest($request)) !== null) {
+            return $guardResponse;
+        }
+
         $body = (string) $request->getBody();
         $contentType = $request->getHeaderLine('Content-Type');
         $data = [];

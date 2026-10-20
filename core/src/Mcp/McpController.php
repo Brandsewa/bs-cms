@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Mcp;
 
+use BsCms\Ai\AiKillSwitchGuard;
 use BsCms\Audit\AuditLogger;
 use BsCms\Auth\Actor;
 use BsCms\Auth\ApiTokenService;
@@ -71,8 +72,12 @@ final class McpController extends BaseController
         private readonly ?SettingsRepository $settings = null,
         private readonly ?Config $config = null,
         private readonly ?CollectionRegistry $collectionRegistry = null,
-        private readonly ?string $guidesPath = null
+        private readonly ?string $guidesPath = null,
+        private ?AiKillSwitchGuard $aiGuard = null
     ) {
+        if ($this->aiGuard === null && $this->settings !== null) {
+            $this->aiGuard = new AiKillSwitchGuard($this->settings);
+        }
     }
 
     public function getAuthorizer(): ?Authorizer
@@ -128,6 +133,11 @@ final class McpController extends BaseController
         $requestId = $request->getHeaderLine('X-Request-ID');
         if ($requestId === '') {
             $requestId = Ulid::generate();
+        }
+
+        // 0. AI Kill Switch check (rejects all calls with JSON-RPC -32000 if ai_disabled)
+        if ($this->aiGuard !== null && ($guardResponse = $this->aiGuard->checkRequest($request)) !== null) {
+            return $guardResponse;
         }
 
         // 1. IP Rate Limiting (120 calls per minute)

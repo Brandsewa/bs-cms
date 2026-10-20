@@ -196,7 +196,8 @@ $router = new Router($routes);
     $container->get(\BsCms\Mcp\McpController::class),
     $container->get(\BsCms\OAuth\OAuthController::class),
     $container->get(\BsCms\Http\Controllers\PendingChangesController::class),
-    $container->get(\BsCms\Http\Controllers\DashboardController::class)
+    $container->get(\BsCms\Http\Controllers\DashboardController::class),
+    $container->get(\BsCms\Http\Controllers\AiController::class)
 );
 
 // Build middleware pipeline
@@ -211,6 +212,9 @@ $kernel->addMiddleware(new HttpsEnforcerMiddleware($env));
 $kernel->addMiddleware(new MaintenanceModeMiddleware($storageDir));
 $kernel->addMiddleware(new BodyLimitMiddleware(2 * 1024 * 1024));
 $kernel->addMiddleware(new JsonBodyMiddleware());
+$kernel->addMiddleware(new \BsCms\Http\Middleware\AiKillSwitchMiddleware(
+    $container->get(\BsCms\Ai\AiKillSwitchGuard::class)
+));
 
 // Phase 2 Auth Middleware pipeline: Session -> Authenticate -> RateLimit -> CSRF
 /** @var Connection $db */
