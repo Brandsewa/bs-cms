@@ -53,4 +53,19 @@ Requesting backend team confirm/plan:
 1. Backend middleware/handler support for caching responses by `Idempotency-Key` (e.g., Redis or DB key table with a short TTL such as 15–60 minutes) so retried requests return the original outcome instead of re-executing.
 2. Confirmation that chunk uploads (`POST /media/chunks/{id}` with `chunk` and `chunk_index`) are idempotent on the backend (overwriting/re-saving the same chunk index for the active session without side effects).
 
+## 6. Build integration: bundling admin shell into release zip — OPEN
 
+Tools script tools/build-release currently creates the release archive without compiling and bundling the admin SPA application.
+Per owner directives, UI agents do not touch tools/ or core/. Requesting backend/release engineering to update tools/build-release as follows:
+1. **Build step**: Execute npm run build -w admin during the release pipeline.
+2. **Distribution directory**: Copy the built assets from admin/dist/* into core/public/admin/.
+3. **SPA fallback routing**: Ensure core/public/.htaccess routes any non-file request under /admin/* to /admin/index.html (e.g. RewriteCond %{REQUEST_FILENAME} !-f followed by RewriteRule ^admin/.* /admin/index.html [L]).
+4. **Base path**: The admin build uses base /admin/ and serves index.html at /admin/.
+
+## 7. OAuth return_to handling and sanitizeReturnTo alignment — OPEN
+
+When an unauthenticated user arrives at /oauth/authorize?client_id=..., OAuthController redirects them to /admin/login?return_to=/oauth/authorize?...
+However, OAuthController::sanitizeReturnTo on the backend validates return paths against ^/admin(/.*|\?.*)?$
+If the backend enforces this strict pattern on return_to validation, redirects back to /oauth/authorize may be stripped or reset.
+The frontend login screen (admin/src/lib/return-to.ts) safely allows both /admin/* and same-origin /oauth/authorize(\?.*)?
+Requesting backend team align sanitizeReturnTo in OAuthController to permit /oauth/authorize so users return to the OAuth consent page after signing in.

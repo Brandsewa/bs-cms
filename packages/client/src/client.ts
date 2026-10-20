@@ -19,6 +19,8 @@ export interface ApiClientOptions {
   retries?: number;
   /** Fetch override for tests. */
   fetchImpl?: typeof fetch;
+  /** Callback fired whenever any request returns HTTP 401 Unauthorized (e.g. session expired). */
+  onUnauthorized?: (result: ApiError) => void;
 }
 
 export type ApiSuccess<T> = { ok: true; status: number; data: T };
@@ -75,6 +77,7 @@ export class ApiClient {
   private csrfToken?: string;
   private readonly retries: number;
   private readonly fetchImpl?: typeof fetch;
+  private readonly onUnauthorized?: (result: ApiError) => void;
   private getFetch(): typeof fetch {
     return this.fetchImpl ?? globalThis.fetch;
   }
@@ -84,6 +87,7 @@ export class ApiClient {
     this.csrfToken = options.csrfToken;
     this.retries = options.retries ?? 2;
     this.fetchImpl = options.fetchImpl;
+    this.onUnauthorized = options.onUnauthorized;
   }
 
   setCsrfToken(token: string | undefined): void {
@@ -168,6 +172,9 @@ export class ApiClient {
       }
 
       const problem = await parseProblemResponse(response);
+      if (response.status === 401 && this.onUnauthorized) {
+        this.onUnauthorized({ ok: false, status: 401, problem });
+      }
       if ((response.status === 428 || response.status === 409) && options.ifMatch !== undefined) {
         return { ok: false, status: response.status as 428 | 409, kind: 'precondition', problem };
       }
@@ -236,6 +243,9 @@ export class ApiClient {
       }
 
       const problem = await parseProblemResponse(response);
+      if (response.status === 401 && this.onUnauthorized) {
+        this.onUnauthorized({ ok: false, status: 401, problem });
+      }
       if ((response.status === 428 || response.status === 409) && opts.ifMatch !== undefined) {
         return { ok: false, status: response.status as 428 | 409, kind: 'precondition', problem };
       }

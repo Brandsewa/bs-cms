@@ -159,3 +159,30 @@ lazy chunks from M2/M3 onward.
 - Registered in `admin/src/gallery/registry.ts` and `admin/src/gallery/section-list.ts` (guarded against drift by `section-list.test.ts`).
 - Full axe accessibility acceptance verified in jsdom (`admin/src/gallery/axe.test.tsx`) and real-browser Playwright sweeps across light and dark themes with zero serious/critical violations.
 
+---
+
+## 11. Milestone M3: Admin Shell & Authentication Screens
+
+### 11.1 App Shell Architecture
+- **Router**: Built on @tanstack/react-router with route code-splitting for auth and admin views.
+- **Session Bootstrap & CSRF**: SessionProvider loads GET /api/v1/auth/session on startup, stores user profile and roles, bootstraps piClient.setCsrfToken(csrf_token).
+- **Session Expiry**: ApiClient calls onUnauthorized callback on any HTTP 401 response; redirects to /admin/login?return_to=<sanitized current path>.
+- **Navigation & Permission Filter**: ADMIN_SIDEBAR_GROUPS categorizes features across Content, Site, and System. Renders only items matching the user permissions or owner/admin role.
+- **Top Bar**: Breadcrumbs, global search / command menu trigger shortcut, ThemeToggle, and User profile dropdown with sign-out action.
+- **Resilience & Errors**: ShellErrorBoundary catches runtime failures; ForbiddenRoute (403) and NotFoundRoute (404) offer intuitive recovery paths.
+
+### 11.2 Auth Screens Suite (dmin/src/auth/)
+- **Login**: Email + password with remember-me checkbox, lockout state (HTTP 423) handling, generic error messages preventing user/email enumeration.
+- **Two-Factor Challenge**: Supports 6-digit TOTP and 8-character recovery code switching. Submits single code parameter adhering to backend contract.
+- **Forgot Password**: Submits email to POST /auth/password/forgot and renders generic confirmation notice.
+- **Reset Password**: Validates token and email from query params, enforces 8-character password minimum and confirmation matching.
+- **Accept Invitation**: Validates token on mount via GET /auth/invitations/{token}, registers name and password via POST /auth/invitations/{token}/accept.
+- **Step-up Dialog**: Reusable modal for password or 2FA challenge on sensitive administrative actions (POST /auth/step-up).
+- **Return-To Sanitization (sanitizeReturnTo)**: Permits only same-origin /admin/* and /oauth/authorize* paths; rejects protocol-relative URLs (//), backslashes, schemes, and control characters.
+
+### 11.3 Performance & Bundle Budget
+- Code-split chunking keeps initial JS gzipped bundle well under the 200 KB budget limit (~162.7 KB total gzipped JS, well below 200 KB).
+- Zero gallery or mock code in production build (guarded by dmin/scripts/check-size.mjs).
+
+### 11.4 Real-Browser Verification
+- 27 Playwright browser tests covering boot, axe light/dark sweeps across all components and auth/shell screens, 2FA challenge, lockout handling, return-to safety, session expiry redirects, role filtering, and 360px mobile viewport stability.

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { I18nProvider, ThemeProvider } from '@bs/ui';
 import { buildRouteTree } from './route-tree';
+import { SessionProvider } from './auth/session-context';
 import './styles/main.css';
 
 const queryClient = new QueryClient({
@@ -15,7 +16,7 @@ const queryClient = new QueryClient({
 void buildRouteTree().then((routeTree) => {
   const router = createRouter({
     routeTree,
-    basepath: import.meta.env.PROD ? '/admin' : '/',
+    basepath: '/admin',
     context: { queryClient },
   });
   const container = document.getElementById('root');
@@ -25,7 +26,9 @@ void buildRouteTree().then((routeTree) => {
       <ThemeProvider>
         <I18nProvider>
           <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
+            <SessionProvider>
+              <RouterProvider router={router} />
+            </SessionProvider>
           </QueryClientProvider>
         </I18nProvider>
       </ThemeProvider>
