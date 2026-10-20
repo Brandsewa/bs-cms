@@ -45,6 +45,7 @@
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-text: var(--success-text);
 
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);

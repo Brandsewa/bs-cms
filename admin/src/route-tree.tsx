@@ -18,7 +18,7 @@ const OAuthConsentReturnRoute = lazy(() =>
   import('./auth/oauth-consent-return').then((m) => ({ default: m.OAuthConsentReturnRoute }))
 );
 const DashboardRoute = lazy(() =>
-  import('./shell/dashboard').then((m) => ({ default: m.DashboardRoute }))
+  import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
 const ForbiddenRoute = lazy(() =>
   import('./shell/forbidden').then((m) => ({ default: m.ForbiddenRoute }))

@@ -215,7 +215,7 @@ describe('MetricCard', () => {
       />
     );
     expect(screen.getByText('1,284')).toBeInTheDocument();
-    expect(screen.getByText(/\+12%/)).toHaveClass('text-success');
+    expect(screen.getByText(/\+12%/)).toHaveClass('text-success-text');
     expect(screen.getByText('this month')).toBeInTheDocument();
   });
 
