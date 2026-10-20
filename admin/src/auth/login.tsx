@@ -63,7 +63,7 @@ export function LoginRoute() {
         apiClient.setCsrfToken(sessionRes.data.csrf_token);
       }
 
-      window.location.href = returnTo;
+      window.location.assign(returnTo);
     } catch {
       setErrorMessage('A network error occurred. Please try again.');
     } finally {

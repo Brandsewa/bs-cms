@@ -207,6 +207,59 @@ test.describe('Admin Auth & Shell Suite', () => {
     expect(page.url()).not.toContain('evil.com');
   });
 
+  test('OAuth return_to flow: navigates to server-rendered /oauth/authorize with original query intact', async ({
+    page,
+  }) => {
+    await page.route('**/api/v1/auth/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'authenticated',
+          csrf_token: 'csrf123',
+          user: { id: 'u1', email: 'alice@example.com', name: 'Alice', roles: ['admin'] },
+          permissions: ['entries.read'],
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/auth/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'authenticated',
+          user: { id: 'u1', email: 'alice@example.com', name: 'Alice', roles: ['admin'] },
+        }),
+      });
+    });
+
+    // Intercept server-rendered /oauth/authorize destination
+    let interceptedAuthorizeUrl = '';
+    await page.route('**/oauth/authorize*', async (route) => {
+      interceptedAuthorizeUrl = route.request().url();
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<!DOCTYPE html><html><body><h1>OAuth Consent Screen</h1></body></html>',
+      });
+    });
+
+    // Logged-out visit with absolute return_to URL on same origin
+    const returnToUrl = 'http://127.0.0.1:4173/oauth/authorize?client_id=client_123&response_type=code&state=xyz789';
+    await page.goto(ADMIN_URL + '/login?return_to=' + encodeURIComponent(returnToUrl));
+
+    await page.getByLabel('Email').fill('alice@example.com');
+    await page.getByLabel('Password').fill('Secret123!');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+
+    // Verify browser requests /oauth/authorize via full-page navigation with query intact
+    await page.waitForURL('**/oauth/authorize*');
+    expect(page.url()).toContain('/oauth/authorize?client_id=client_123&response_type=code&state=xyz789');
+    await expect(page.getByRole('heading', { name: 'OAuth Consent Screen' })).toBeVisible();
+    expect(interceptedAuthorizeUrl).toBe(returnToUrl);
+  });
+
   test('session expiry redirect: 401 on protected route redirects to /admin/login?return_to=...', async ({
     page,
   }) => {

@@ -64,8 +64,11 @@ Per owner directives, UI agents do not touch tools/ or core/. Requesting backend
 
 ## 7. OAuth return_to handling and sanitizeReturnTo alignment — OPEN
 
-When an unauthenticated user arrives at /oauth/authorize?client_id=..., OAuthController redirects them to /admin/login?return_to=/oauth/authorize?...
-However, OAuthController::sanitizeReturnTo on the backend validates return paths against ^/admin(/.*|\?.*)?$
-If the backend enforces this strict pattern on return_to validation, redirects back to /oauth/authorize may be stripped or reset.
-The frontend login screen (admin/src/lib/return-to.ts) safely allows both /admin/* and same-origin /oauth/authorize(\?.*)?
-Requesting backend team align sanitizeReturnTo in OAuthController to permit /oauth/authorize so users return to the OAuth consent page after signing in.
+When an unauthenticated user arrives at GET `/oauth/authorize` while logged out, the backend redirects them to `/admin/login?return_to=https%3A%2F%2F<origin>%2Foauth%2Fauthorize%3Fclient_id%3D...`.
+Notice that the backend sends an **absolute URL** (e.g. `https://bskickstarter.com/oauth/authorize?client_id=...`) rather than a relative path.
+The UI `sanitizeReturnTo` implementation (`admin/src/lib/return-to.ts`) supports both:
+1. Same-origin absolute URLs: parses with `new URL(val, window.location.origin)`, verifies `origin === window.location.origin`, checks that userinfo (`user:pass@`) is absent, and reduces to `pathname + search` before checking against the allow-list (`/admin/*` and `/oauth/authorize*`).
+2. Same-origin relative paths (`/admin/*` and `/oauth/authorize*`).
+3. Navigates to `/oauth/authorize` via full-page navigation (`window.location.assign`), since it is a server-rendered route.
+
+Backend note: GA is separately updating the backend to emit relative paths for consistency; the frontend supports both formats cleanly.

@@ -14,7 +14,7 @@ export function OAuthConsentReturnRoute() {
     setTargetUrl(safeUrl);
 
     // Automatically navigate back
-    window.location.href = safeUrl;
+    window.location.assign(safeUrl);
   }, []);
 
   return (

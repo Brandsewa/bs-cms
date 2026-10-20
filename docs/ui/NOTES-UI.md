@@ -178,11 +178,11 @@ lazy chunks from M2/M3 onward.
 - **Reset Password**: Validates token and email from query params, enforces 8-character password minimum and confirmation matching.
 - **Accept Invitation**: Validates token on mount via GET /auth/invitations/{token}, registers name and password via POST /auth/invitations/{token}/accept.
 - **Step-up Dialog**: Reusable modal for password or 2FA challenge on sensitive administrative actions (POST /auth/step-up).
-- **Return-To Sanitization (sanitizeReturnTo)**: Permits only same-origin /admin/* and /oauth/authorize* paths; rejects protocol-relative URLs (//), backslashes, schemes, and control characters.
+- **Return-To Sanitization (sanitizeReturnTo) & OAuth Flow**: Accepts both same-origin absolute URLs (as currently emitted by the backend: https://<origin>/oauth/authorize?...) and relative paths. Verifies url.origin === window.location.origin, forbids credentials (user:pass@), control characters (raw and %0d%0a), backslashes, percent-encoded traversal tokens (%2e%2e, %2f), and restricts paths to /admin/* and /oauth/authorize*. Navigates to /oauth/authorize via window.location.assign for full-page server rendering.
 
 ### 11.3 Performance & Bundle Budget
 - Code-split chunking keeps initial JS gzipped bundle well under the 200 KB budget limit (~162.7 KB total gzipped JS, well below 200 KB).
 - Zero gallery or mock code in production build (guarded by dmin/scripts/check-size.mjs).
 
 ### 11.4 Real-Browser Verification
-- 27 Playwright browser tests covering boot, axe light/dark sweeps across all components and auth/shell screens, 2FA challenge, lockout handling, return-to safety, session expiry redirects, role filtering, and 360px mobile viewport stability.
+- 28 Playwright browser tests covering boot, axe light/dark sweeps across all components and auth/shell screens, 2FA challenge, lockout handling, return-to safety with same-origin absolute OAuth consent URLs, session expiry redirects, role filtering, and 360px mobile viewport stability.
