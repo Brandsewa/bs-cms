@@ -19,4 +19,12 @@ final class ValidationException extends OperationException
     ) {
         parent::__construct($message, 422);
     }
+
+    /**
+     * @return array<string, string|list<string>>
+     */
+    public function getErrors(): array
+    {
+        return $this->errors;
+    }
 }

@@ -47,6 +47,49 @@ final class Dispatcher
         $this->operations[$name] = $operation;
     }
 
+    public function has(string $name): bool
+    {
+        return isset($this->operations[$name]);
+    }
+
+    public function getOperation(string $name, ?Context $ctx = null): Operation
+    {
+        $dummyCtx = $ctx ?? new Context(null, 'describe');
+        return $this->resolveOperation($name, $dummyCtx);
+    }
+
+    /**
+     * @return array<string, Operation>
+     */
+    public function allOperations(?Context $ctx = null): array
+    {
+        $dummyCtx = $ctx ?? new Context(null, 'describe');
+        $resolved = [];
+        foreach (array_keys($this->operations) as $name) {
+            $resolved[$name] = $this->resolveOperation($name, $dummyCtx);
+        }
+        return $resolved;
+    }
+
+    public function describe(string $name, ?Context $ctx = null): OperationMeta
+    {
+        $op = $this->getOperation($name, $ctx);
+        return $op::describe();
+    }
+
+    /**
+     * @return array<string, OperationMeta>
+     */
+    public function describeAll(?Context $ctx = null): array
+    {
+        $ops = $this->allOperations($ctx);
+        $described = [];
+        foreach ($ops as $name => $op) {
+            $described[$name] = $op::describe();
+        }
+        return $described;
+    }
+
     /**
      * @param callable(Context): bool $checker
      */

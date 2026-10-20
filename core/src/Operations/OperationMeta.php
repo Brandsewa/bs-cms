@@ -24,6 +24,8 @@ final class OperationMeta
      * @param bool $requiresStepUp True if user must have recently verified 2FA / password
      * @param string $aiPolicy Policy for AI clients/tokens: allowed | draft_only_blocked | needs_approval
      * @param string $rateLimitBucket Rate limit bucket name for this operation
+     * @param bool $isSchema True if the operation modifies or proposes schema (off by default in MCP)
+     * @param bool $openWorld True if the operation interacts with external open world network/services
      */
     public function __construct(
         public readonly string $summary,
@@ -35,7 +37,9 @@ final class OperationMeta
         public readonly bool $idempotent = false,
         public readonly bool $requiresStepUp = false,
         public readonly string $aiPolicy = self::AI_POLICY_ALLOWED,
-        public readonly string $rateLimitBucket = 'api'
+        public readonly string $rateLimitBucket = 'api',
+        public readonly bool $isSchema = false,
+        public readonly bool $openWorld = false
     ) {
     }
 }

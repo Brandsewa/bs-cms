@@ -574,7 +574,34 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
-        // 16. MCP and OAuth Controllers
+        // 16. Operations Dispatcher
+        $container->singleton(\BsCms\Operations\Dispatcher::class, function (Container $c): \BsCms\Operations\Dispatcher {
+            $dispatcher = new \BsCms\Operations\Dispatcher(
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
+                new \BsCms\Operations\JsonSchemaValidator(),
+                $c->get(AuditLogger::class)
+            );
+
+            \BsCms\Operations\OperationsRegistrar::registerAll(
+                $dispatcher,
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(\BsCms\Content\VersionManager::class),
+                $c->get(Authorizer::class),
+                $c->get(Connection::class),
+                $c->get(\BsCms\Taxonomy\TaxonomyRepository::class),
+                $c->get(\BsCms\Taxonomy\TermRepository::class),
+                $c->get(\BsCms\Media\MediaRepository::class),
+                $c->get(\BsCms\Health\SiteHealthService::class),
+                $c->get(\BsCms\Redirects\RedirectRepository::class),
+                $c->get(AuditLogger::class),
+                $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null
+            );
+
+            return $dispatcher;
+        });
+
+        // 17. MCP and OAuth Controllers
         $container->singleton(\BsCms\OAuth\OAuthController::class, function (Container $c): \BsCms\OAuth\OAuthController {
             return new \BsCms\OAuth\OAuthController(
                 $c->get(Connection::class),
@@ -589,7 +616,13 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Mcp\McpController(
                 $c->get(Connection::class),
                 $c->get(\BsCms\OAuth\OAuthController::class),
-                $c->get(ApiTokenService::class)
+                $c->get(ApiTokenService::class),
+                $c->get(\BsCms\Operations\Dispatcher::class),
+                $c->get(Authorizer::class),
+                $c->get(AuditLogger::class),
+                $c->has(\BsCms\Security\RateLimiter::class) ? $c->get(\BsCms\Security\RateLimiter::class) : null,
+                $c->has(SettingsRepository::class) ? $c->get(SettingsRepository::class) : null,
+                $c->has(Config::class) ? $c->get(Config::class) : null
             );
         });
     }

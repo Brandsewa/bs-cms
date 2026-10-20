@@ -1045,7 +1045,7 @@ final class OAuthController extends BaseController
     /**
      * Verify an access token and return token metadata.
      *
-     * @return array{valid: bool, client_id?: string, user_id?: string|int|null, user_name?: string|null, user_roles?: list<string>, role_ids?: list<string>, ai_mode?: string, scopes?: list<string>}
+     * @return array{valid: bool, grant_id?: string, client_id?: string, client_name?: string, user_id?: string|int|null, user_name?: string|null, user_roles?: list<string>, role_ids?: list<string>, grant_role_id?: string, user_role_ids?: list<string>, ai_mode?: string, scopes?: list<string>}
      */
     public function verifyAccessToken(string $token): array
     {
@@ -1064,8 +1064,8 @@ final class OAuthController extends BaseController
         $stmt = $this->connection->getPdo()->prepare("SELECT
                 at.`expires_at`, at.`revoked_at` AS token_revoked_at,
                 g.`id` AS grant_id, g.`scopes`, g.`ai_mode`, g.`revoked_at` AS grant_revoked_at,
-                cl.`client_id` AS client_string_id,
-                u.`id` AS user_id, u.`name` AS user_name,
+                cl.`client_id` AS client_string_id, cl.`name` AS client_name,
+                u.`id` AS user_id, u.`name` AS user_name, u.`status` AS user_status, u.`deleted_at` AS user_deleted_at,
                 r.`handle` AS role_handle, r.`id` AS role_id
             FROM `{$atTable}` at
             JOIN `{$grantsTable}` g ON at.`grant_id` = g.`id`
@@ -1077,25 +1077,40 @@ final class OAuthController extends BaseController
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (is_array($row)) {
+            // Check token revocation, grant revocation, and expiration
             if ($row['token_revoked_at'] === null && $row['grant_revoked_at'] === null) {
                 if (strtotime((string) $row['expires_at']) >= time()) {
-                    $roleHandle = (string) ($row['role_handle'] ?? 'viewer');
-                    $roleId = (string) ($row['role_id'] ?? $roleHandle);
-                    $roles = [$roleHandle];
-                    $rawScopes = json_decode((string) $row['scopes'], true);
-                    /** @var list<string> $scopes */
-                    $scopes = is_array($rawScopes) ? array_values(array_map('strval', $rawScopes)) : ['mcp:read', 'mcp:write'];
+                    // Check user is active and not deleted
+                    if ($row['user_id'] !== null && $row['user_deleted_at'] === null && ($row['user_status'] === null || $row['user_status'] === 'active')) {
+                        $roleHandle = (string) ($row['role_handle'] ?? 'viewer');
+                        $roleId = (string) ($row['role_id'] ?? $roleHandle);
+                        $roles = [$roleHandle];
+                        $rawScopes = json_decode((string) $row['scopes'], true);
+                        /** @var list<string> $scopes */
+                        $scopes = is_array($rawScopes) ? array_values(array_map('strval', $rawScopes)) : ['mcp:read', 'mcp:write'];
 
-                    return [
-                        'valid' => true,
-                        'client_id' => (string) $row['client_string_id'],
-                        'user_id' => (string) ($row['user_id'] ?? ''),
-                        'user_name' => (string) ($row['user_name'] ?? 'User'),
-                        'user_roles' => $roles,
-                        'role_ids' => [$roleId],
-                        'ai_mode' => (string) ($row['ai_mode'] ?? 'draft_only'),
-                        'scopes' => $scopes,
-                    ];
+                        // Query user's current live roles for permission intersection
+                        $userRolesTable = $this->connection->prefixTable('user_roles');
+                        $uStmt = $this->connection->getPdo()->prepare("SELECT `role_id` FROM `{$userRolesTable}` WHERE `user_id` = :uid");
+                        $uStmt->execute(['uid' => $row['user_id']]);
+                        /** @var list<string> $userRoleIds */
+                        $userRoleIds = array_values(array_map('strval', $uStmt->fetchAll(PDO::FETCH_COLUMN) ?: []));
+
+                        return [
+                            'valid' => true,
+                            'grant_id' => (string) $row['grant_id'],
+                            'client_id' => (string) $row['client_string_id'],
+                            'client_name' => (string) ($row['client_name'] ?? 'AI Client'),
+                            'user_id' => (string) $row['user_id'],
+                            'user_name' => (string) ($row['user_name'] ?? 'User'),
+                            'user_roles' => $roles,
+                            'role_ids' => [$roleId],
+                            'grant_role_id' => $roleId,
+                            'user_role_ids' => $userRoleIds,
+                            'ai_mode' => (string) ($row['ai_mode'] ?? 'draft_only'),
+                            'scopes' => $scopes,
+                        ];
+                    }
                 }
             }
         }
