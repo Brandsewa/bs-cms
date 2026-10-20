@@ -956,5 +956,37 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
   - External URLs, protocol-relative URLs (`//...`), and non-admin paths are rejected and safely fall back to `/admin`.
   - **Zcode UI Contract:** The login page `/admin/login` must accept `?return_to=<url-encoded-same-origin-path>` and, upon successful authentication, redirect the user back to the verified `return_to` path to complete OAuth consent.
 
+---
+
+## 15. Admin SPA Release Bundling & Front-Controller Security Architecture
+
+- **Release Bundling (`tools/build-release`):**
+  - Executes `npm run build -w admin` during the release packaging process.
+  - Copies `admin/dist/*` into `core/public/admin/` inside the release archive with `/admin/` base path.
+  - Release archive size stays at ~0.89 MB (well below the 10 MB budget).
+  - Preserves permissions (755 directories, 644 files) with zero development or test files.
+
+- **Admin Shell Front-Controller Routing (`core/public/.htaccess`, `.htaccess-mode-b`, & `index.php`):**
+  - All admin shell entry points (`/admin`, `/admin/`, and client-side deep routes like `/admin/entries/posts`) are routed through PHP front controller (`index.php`).
+  - `DirectoryIndex` is locked to `index.php` (`DirectoryIndex index.php`), and direct static access to `/admin/index.html` is redirected to `index.php` to prevent Apache/LiteSpeed from bypassing PHP security headers.
+  - Canonical redirect: `GET /admin` issues HTTP 301 to `/admin/` with full security headers.
+  - Direct static asset serving: Real physical files under `/admin/` (e.g. `/admin/theme-init.js` and `/admin/assets/*.js`, `*.css`) are served directly.
+  - Asset 404 enforcement: Missing asset paths under `/admin/assets/*` or files with file extensions return HTTP 404 (never falling through to the SPA index with 200).
+  - Vite asset caching: Vite-hashed production assets under `/admin/assets/` receive `Cache-Control: public, max-age=31536000, immutable`. Non-hashed files like `theme-init.js` and HTML shell are served fresh (`Cache-Control: no-cache`).
+
+- **Admin Content Security Policy (CSP) & Security Headers:**
+  - `Content-Security-Policy`:
+    `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
+  - **CSP Justification (`style-src 'unsafe-inline'`):** Required by React UI virtualized tables, dynamic progress indicators, and `@bs/ui` components that dynamically calculate and set element `style={{ ... }}` attributes at runtime (e.g. column widths, row translations).
+  - **CSP Strictness (`script-src 'self'`):** No `'unsafe-inline'` or `'unsafe-eval'` is permitted for scripts. The theme bootstrap script is isolated in the external asset `/admin/theme-init.js` and loaded synchronously.
+  - Additional headers sent on all admin shell responses:
+    - `X-Frame-Options: DENY` (anti-clickjacking)
+    - `X-Content-Type-Options: nosniff`
+    - `Referrer-Policy: strict-origin-when-cross-origin`
+    - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+    - `X-Robots-Tag: noindex, nofollow`
+    - `Cache-Control: no-cache` (prevents stale authentication state caching)
+
+
 
 
