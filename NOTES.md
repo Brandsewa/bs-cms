@@ -1095,6 +1095,36 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
   - `core/tests/Unit/Mcp/McpResourcesAndPromptsTest.php`: 20 unit tests, 169 assertions covering capabilities, listing, reading all 7 resources, all 4 prompts, control character rejection, path traversal rejection, oversized argument rejection, unknown argument rejection, backtick defanging, and starter/AGENTS.md file synchronization.
   - `core/tests/Integration/Mcp/McpCoreServerTest.php::testResourcesAndPromptsOverMcp`: live SQLite/MySQL kernel integration test covering full end-to-end HTTP POST flow with OAuth authentication, unauthenticated 401 challenge, resource read, null byte rejection, traversal rejection, prompt generation, unknown argument rejection, argument length limit enforcement, viewer access verification, and contributor access denial.
 
+---
+
+## 19. Crawler Bot Catalogue Verification & Phase 8.7 Deferral
+
+### Crawler Bot Token Audit (`docs/04-crawlers-and-discoverability.md`)
+- **`Meta-ExternalAgent` (Sourced / Verified):**
+  - Documented in official [Meta Web Crawlers documentation](https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/).
+  - Identified by token `Meta-ExternalAgent` (and `meta-externalagent/1.1`).
+  - Used for crawling public web content to train Meta foundation AI models. Respects `robots.txt`.
+- **`cohere-ai` (Verified Inactive):**
+  - Official [Cohere Web Crawlers policy](https://cohere.com/web-crawlers) explicitly states: *"We do not use Cohere bots or user agents for the purpose of crawling or scraping web content to train generative AI foundation models at this time."*
+  - Marked verified inactive (no active training crawler operated by Cohere).
+- **`Bytespider` (Unverified / Vendor Unpublished):**
+  - ByteDance publishes no official crawler documentation, dedicated policy page, or IP ranges on `bytedance.com`.
+  - User-agent headers in server logs reference `https://zhanzhang.toutiao.com/` and `spider-feedback@bytedance.com`.
+  - Classified officially as `unverified / vendor unpublished`.
+- **Other Vendor Documentation Links Added:**
+  - `Googlebot` & `Google-Extended`: [Google Search Central](https://developers.google.com/search/docs/crawling-indexing/googlebot) / [Google-Extended Docs](https://developers.google.com/search/docs/crawling-indexing/google-extended).
+  - `Bingbot`: [Bing Webmaster Tools](https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0) & [IP feed](https://www.bing.com/toolbox/bingbot.json).
+  - `Applebot` & `Applebot-Extended`: [Apple Support Article 119829](https://support.apple.com/en-us/119829).
+  - `CCBot`: [Common Crawl Docs](https://commoncrawl.org/ccbot) & [IP feed](https://index.commoncrawl.org/ccbot.json).
+  - `PerplexityBot`: [Perplexity Docs](https://docs.perplexity.ai/docs/perplexitybot) & [IP feed](https://www.perplexity.ai/perplexitybot.json).
+
+### Phase 8.7 Public Read-Only MCP Deferral Rationale
+- **Decision:** Defer Phase 8.7 (`/mcp/public`) to post-M8 / Phase 9.
+- **Rationale:**
+  1. **Redundancy:** The Public Content API (`GET /api/v1/public/collections/{handle}/entries` and `GET /api/v1/public/collections/{handle}/entries/{slug}`) already provides search, retrieval, ETag/304 caching, `Vary: Accept`, Markdown-for-agents (`Accept: text/markdown`), and automated `robots.txt` / `llms.txt` generation for all unauthenticated bots and crawlers.
+  2. **Attack Surface & Minimal Complexity (Ponytail Guardrail):** Adding an unauthenticated `/mcp/public` endpoint expands connection and IP rate limit attack surfaces on shared hosting before authenticated workflows are battle-tested.
+  3. **Audit Integrity:** BS CMS's core AI architecture requires authenticated provenance and safety modes (`draft_only`, `approval_required`) tied to explicit user grants. Unauthenticated MCP weakens the audit model without distinct user benefit at this stage.
+
 
 
 

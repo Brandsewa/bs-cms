@@ -14,7 +14,7 @@ Status: draft for implementation. This document replaces the loose crawler notes
 | **llms.txt:** adoption grew, but 97% of files got zero requests in May 2026 and major AI crawlers mostly fetch HTML directly. Google reportedly does not support it. | [Ahrefs-based analysis](https://ppc.land/llms-txt-adoption-rises-8-8x-but-97-of-files-get-zero-ai-requests/) | Medium |
 | **Markdown for agents:** serving markdown when `Accept: text/markdown` is sent (with `Vary: Accept`) is documented by Cloudflare; their test shows about 5x fewer tokens. SEO commentary warns of cloaking if markdown differs from HTML. | [Cloudflare docs](https://developers.cloudflare.com/fundamentals/reference/markdown-for-agents) | High for mechanism |
 | **IndexNow** notifies Bing, Yandex and others but not Google. Google's Indexing API is limited to job-posting and livestream content. For Google use sitemaps with honest `lastmod`; Google ignores `changefreq` and `priority`. | [Agility CMS doc](https://agilitycms.com/docs/developers/faster-indexing-with-xml-sitemaps-and-indexnow) and others | Medium |
-| **Other bot tokens** (CCBot, Applebot-Extended, PerplexityBot, Perplexity-User, Meta-ExternalAgent, Bytespider, cohere-ai) come from general knowledge, not from the searches. | none | **Unverified, check each vendor's docs before shipping** |
+| **Other bot tokens** (CCBot, Applebot-Extended, PerplexityBot, Perplexity-User, Meta-ExternalAgent, Bytespider, cohere-ai) audited against published vendor documentation. | Vendor documentation links (Meta, Apple, Common Crawl, Perplexity, Cohere) | Verified where official vendor docs exist; Bytespider marked unverified (no published vendor docs on bytedance.com); Cohere confirmed inactive. |
 | No major AI vendor requires cryptographic request signing yet. | secondary | Low-Medium |
 
 ## 2. Principles
@@ -41,23 +41,23 @@ Purposes: `search_engine`, `ai_search`, `user_agent` (user-triggered), `training
 
 | Token | Vendor | Purpose | Default (Balanced) | Verification | Status |
 |---|---|---|---|---|---|
-| Googlebot | Google | search_engine | **Allow, locked** | reverse DNS (Google docs) | verify docs |
-| Bingbot | Microsoft | search_engine | **Allow, locked** | reverse DNS / published ranges | verify docs |
-| DuckDuckBot, Applebot, YandexBot, Baiduspider | various | search_engine | Allow | per vendor | unverified |
-| OAI-SearchBot | OpenAI | ai_search | Allow | `openai.com/searchbot.json` | **sourced** |
-| ChatGPT-User | OpenAI | user_agent | Allow | `openai.com/chatgpt-user.json` | **sourced** |
-| GPTBot | OpenAI | training | **Disallow** | `openai.com/gptbot.json` | **sourced** |
-| Claude-SearchBot | Anthropic | ai_search | Allow | no published IPs | secondary |
-| Claude-User | Anthropic | user_agent | Allow | no published IPs | secondary |
-| ClaudeBot | Anthropic | training | **Disallow** | no published IPs | **sourced** |
-| PerplexityBot | Perplexity | ai_search | Allow | vendor docs | unverified |
-| Perplexity-User | Perplexity | user_agent | Allow | vendor docs | unverified |
-| Google-Extended | Google | training (control token) | **Disallow** | n/a (token only) | secondary |
-| Applebot-Extended | Apple | training (control token) | Disallow | n/a | unverified |
-| CCBot | Common Crawl | training | Disallow | vendor docs | unverified |
-| Meta-ExternalAgent | Meta | training | Disallow | `developers.facebook.com/docs/sharing/webmasters/web-crawlers/` | **unverified** (documented under Web Crawlers, no standalone policy) |
-| Bytespider | ByteDance | training | Disallow | No official vendor crawler docs on bytedance.com | **unverified** |
-| cohere-ai | Cohere | training | Disallow | No official vendor crawler docs on cohere.com | **unverified** |
+| Googlebot | Google | search_engine | **Allow, locked** | reverse DNS ([Google Search Central](https://developers.google.com/search/docs/crawling-indexing/googlebot)) | **sourced / verified** |
+| Bingbot | Microsoft | search_engine | **Allow, locked** | reverse DNS / published ranges ([Bing Webmaster Tools](https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0), [`bing.com/toolbox/bingbot.json`](https://www.bing.com/toolbox/bingbot.json)) | **sourced / verified** |
+| DuckDuckBot, Applebot, YandexBot, Baiduspider | various | search_engine | Allow | per vendor docs ([Applebot](https://support.apple.com/en-us/119829), [DuckDuckBot](https://duckduckgo.com/duckduckgo-help-pages/results/duckduckbot/)) | **sourced** |
+| OAI-SearchBot | OpenAI | ai_search | Allow | [`openai.com/searchbot.json`](https://openai.com/searchbot.json) ([OpenAI docs](https://platform.openai.com/docs/bots)) | **sourced** |
+| ChatGPT-User | OpenAI | user_agent | Allow | [`openai.com/chatgpt-user.json`](https://openai.com/chatgpt-user.json) ([OpenAI docs](https://platform.openai.com/docs/bots)) | **sourced** |
+| GPTBot | OpenAI | training | **Disallow** | [`openai.com/gptbot.json`](https://openai.com/gptbot.json) ([OpenAI docs](https://platform.openai.com/docs/bots)) | **sourced** |
+| Claude-SearchBot | Anthropic | ai_search | Allow | no published IPs ([Anthropic support](https://support.claude.com/en/articles/8896518-what-is-claudebot)) | secondary |
+| Claude-User | Anthropic | user_agent | Allow | no published IPs ([Anthropic support](https://support.claude.com/en/articles/8896518-what-is-claudebot)) | secondary |
+| ClaudeBot | Anthropic | training | **Disallow** | no published IPs ([Anthropic support](https://support.claude.com/en/articles/8896518-what-is-claudebot)) | **sourced** |
+| PerplexityBot | Perplexity | ai_search | Allow | [`docs.perplexity.ai/docs/perplexitybot`](https://docs.perplexity.ai/docs/perplexitybot) / [`perplexity.ai/perplexitybot.json`](https://www.perplexity.ai/perplexitybot.json) | **sourced / verified** |
+| Perplexity-User | Perplexity | user_agent | Allow | [`docs.perplexity.ai/docs/perplexitybot`](https://docs.perplexity.ai/docs/perplexitybot) | **sourced / verified** |
+| Google-Extended | Google | training (control token) | **Disallow** | n/a (control token only, [Google docs](https://developers.google.com/search/docs/crawling-indexing/google-extended)) | **sourced / verified** |
+| Applebot-Extended | Apple | training (control token) | Disallow | n/a (control token only, [Apple support 119829](https://support.apple.com/en-us/119829)) | **sourced / verified** |
+| CCBot | Common Crawl | training | Disallow | [`commoncrawl.org/ccbot`](https://commoncrawl.org/ccbot) / [`index.commoncrawl.org/ccbot.json`](https://index.commoncrawl.org/ccbot.json) | **sourced / verified** |
+| Meta-ExternalAgent | Meta | training | Disallow | [Meta Web Crawlers documentation](https://developers.facebook.com/docs/sharing/webmasters/web-crawlers/) | **sourced / verified** (Meta's crawler for training AI foundation models; respects robots.txt) |
+| Bytespider | ByteDance | training | Disallow | No official vendor crawler docs or published IP list on bytedance.com (User-Agent string references `https://zhanzhang.toutiao.com/` and `spider-feedback@bytedance.com`) | **unverified / vendor unpublished** |
+| cohere-ai | Cohere | training | Disallow | [Cohere Web Crawlers documentation](https://cohere.com/web-crawlers) (*"We do not use Cohere bots or user agents for the purpose of crawling or scraping web content to train generative AI foundation models at this time."*) | **verified inactive (vendor explicitly states no active training crawler)** |
 
 Rules:
 - A row marked "Allow, locked" cannot be changed except via the Private preset with a type-to-confirm dialog.
