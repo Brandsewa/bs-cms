@@ -1,0 +1,113 @@
+name: "bs-sim-${SIM_NAME:-default}"
+
+services:
+  ols:
+    build:
+      context: ./ols
+      dockerfile: Dockerfile
+    container_name: "bs-sim-${SIM_NAME:-default}-ols"
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    volumes:
+      - web_root:/var/www/vhosts/localhost/html
+      - core_root:/var/www/vhosts/localhost/core
+    ports:
+      - "${SIM_OLS_PORT:-8881}:80"
+    networks:
+      - sim_net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    container_name: "bs-sim-${SIM_NAME:-default}-caddy"
+    restart: unless-stopped
+    environment:
+      - SIM_HTTPS_PORT=${SIM_HTTPS_PORT:-8481}
+      - SIM_HTTP_PORT=${SIM_HTTP_PORT:-8081}
+    ports:
+      - "${SIM_HTTPS_PORT:-8481}:${SIM_HTTPS_PORT:-8481}"
+      - "${SIM_HTTP_PORT:-8081}:${SIM_HTTP_PORT:-8081}"
+    networks:
+      - sim_net
+    depends_on:
+      - ols
+
+  db:
+    image: ${SIM_DB_IMAGE:-mariadb:11.8}
+    container_name: "bs-sim-${SIM_NAME:-default}-db"
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=bs_cms
+      - MYSQL_USER=bs_user
+      - MYSQL_PASSWORD=bs_password
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - sim_net
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -proot || mysqladmin ping -h localhost -uroot -proot"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  cron:
+    build:
+      context: ./ols
+      dockerfile: Dockerfile
+    container_name: "bs-sim-${SIM_NAME:-default}-cron"
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    volumes:
+      - web_root:/var/www/vhosts/localhost/html
+      - core_root:/var/www/vhosts/localhost/core
+    networks:
+      - sim_net
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Starting simulation cron runner for bs-sim-${SIM_NAME:-default}..."
+        while true; do
+          if [ -f /var/www/vhosts/localhost/core/bin/bs ]; then
+            php /var/www/vhosts/localhost/core/bin/bs jobs:run >> /var/www/vhosts/localhost/core/storage/logs/cron.log 2>&1 || true
+            php /var/www/vhosts/localhost/core/bin/bs schedule:run >> /var/www/vhosts/localhost/core/storage/logs/cron.log 2>&1 || true
+          fi
+          sleep 60
+        done
+
+  sftp:
+    build:
+      context: ./sftp
+      dockerfile: Dockerfile
+    container_name: "bs-sim-${SIM_NAME:-default}-sftp"
+    restart: unless-stopped
+    ports:
+      - "${SIM_SFTP_PORT:-9081}:22"
+    volumes:
+      - web_root:/home/u497383174/domains/bskickstarter.com/public_html
+      - core_root:/home/u497383174/domains/bskickstarter.com/core
+    networks:
+      - sim_net
+
+volumes:
+  web_root:
+    name: "bs-sim-${SIM_NAME:-default}-web"
+  core_root:
+    name: "bs-sim-${SIM_NAME:-default}-core"
+  db_data:
+    name: "bs-sim-${SIM_NAME:-default}-db"
+
+networks:
+  sim_net:
+    name: "bs-sim-${SIM_NAME:-default}-net"
