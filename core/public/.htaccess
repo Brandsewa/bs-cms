@@ -3,7 +3,7 @@
 
 Options -Indexes
 Options -MultiViews
-DirectoryIndex index.php index.html
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -21,23 +21,27 @@ DirectoryIndex index.php index.html
     RewriteCond %{REQUEST_URI} !^/index\.php$
     RewriteRule .* - [F,L]
 
-    # Admin SPA routing:
-    # 1. Serve existing files/directories directly (e.g. static assets under /admin/assets/)
-    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
+    # Block direct static access to admin/index.html (route to index.php for security headers)
+    RewriteCond %{THE_REQUEST} /admin/index\.html [NC]
+    RewriteRule ^admin/index\.html$ index.php [L,QSA]
+
+    # Serve real physical asset files under /admin/ (JS, CSS, images, fonts, theme-init.js) statically
+    RewriteCond %{REQUEST_URI} ^/admin/(assets/|.*\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|ico|webp|webmanifest|map)$) [NC]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Missing static assets under /admin/assets/ or files with extensions return 404 (never SPA index)
+    RewriteCond %{REQUEST_URI} ^/admin/assets/ [NC,OR]
+    RewriteCond %{REQUEST_URI} ^/admin/.*\.[a-zA-Z0-9]+$ [NC]
+    RewriteRule ^ - [R=404,L]
+
+    # If the requested file or directory physically exists outside /admin/ (e.g. media/), serve it directly
+    RewriteCond %{REQUEST_URI} !^/admin(/.*)?$ [NC]
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # 2. Fall back non-file requests under /admin to /admin/index.html (not to PHP)
-    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
-    RewriteRule ^admin(?:/.*)?$ admin/index.html [L]
-
-    # If the requested file or directory physically exists in public/, serve it directly
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
-
-    # Route all other requests to front controller
+    # Route all /admin paths, client-side routes, and API/OAuth/MCP requests to front controller index.php
     RewriteRule ^ index.php [L,QSA]
 </IfModule>
 
@@ -46,4 +50,9 @@ DirectoryIndex index.php index.html
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+    # Long-lived caching for Vite-hashed production assets under /admin/assets/
+    RewriteCond %{REQUEST_URI} ^/admin/assets/ [NC]
+    RewriteRule .* - [E=HASHED_ADMIN_ASSET:1]
+    Header set Cache-Control "public, max-age=31536000, immutable" env=HASHED_ADMIN_ASSET
 </IfModule>

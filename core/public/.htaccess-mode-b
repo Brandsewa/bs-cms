@@ -22,13 +22,18 @@ DirectoryIndex core/public/index.php index.php
     RewriteRule ^(storage|config|src|bin|migrations|vendor)(\/|$) - [F,L]
 
     # 4. Route direct static assets in /admin and /media to core/public/
+    RewriteCond %{REQUEST_URI} ^/admin/(assets/|.*\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|ico|webp|webmanifest|map)$) [NC]
     RewriteCond %{DOCUMENT_ROOT}/core/public%{REQUEST_URI} -f
-    RewriteRule ^(admin|media)/(.*)$ core/public/$1/$2 [L]
+    RewriteRule ^admin/(.*)$ core/public/admin/$1 [L]
 
-    # 4b. Admin SPA client-side routing fallback: route non-file requests under /admin to /admin/index.html
-    RewriteCond %{REQUEST_URI} ^/admin(/.*)?$ [NC]
-    RewriteRule ^admin(?:/.*)?$ core/public/admin/index.html [L]
+    # Missing static assets under /admin/assets/ or files with extensions return 404
+    RewriteCond %{REQUEST_URI} ^/admin/assets/ [NC,OR]
+    RewriteCond %{REQUEST_URI} ^/admin/.*\.[a-zA-Z0-9]+$ [NC]
+    RewriteRule ^ - [R=404,L]
 
-    # 5. Route all other requests to front controller inside core/public/
+    RewriteCond %{DOCUMENT_ROOT}/core/public%{REQUEST_URI} -f
+    RewriteRule ^media/(.*)$ core/public/media/$1 [L]
+
+    # 5. Route all other requests (including /admin, /admin/, and client-side routes) to front controller
     RewriteRule ^ core/public/index.php [L,QSA]
 </IfModule>

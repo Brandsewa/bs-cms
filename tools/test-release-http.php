@@ -1191,9 +1191,44 @@ if ($resOversized['status'] !== 413) {
 passTest("16e. User preferences GET/PATCH validated with 4KB cap and strict allow-list");
 
 // 17. Admin SPA bundling, client-side routing fallback, and API/OAuth route preservation
-echo "Testing 17: Admin SPA bundling, deep links, and API/OAuth route preservation...\n";
+echo "Testing 17: Admin SPA bundling, deep links, security headers, and API/OAuth route preservation...\n";
 
-// 17a. Root admin endpoint returns SPA index
+function assertAdminHeaders(array $response, string $path, bool $isRedirect = false): void {
+    $headers = $response['headers'];
+    if (($headers['x-frame-options'] ?? '') !== 'DENY') {
+        failTest("{$path} missing X-Frame-Options: DENY");
+    }
+    if (($headers['x-content-type-options'] ?? '') !== 'nosniff') {
+        failTest("{$path} missing X-Content-Type-Options: nosniff");
+    }
+    if (!str_contains($headers['referrer-policy'] ?? '', 'strict-origin-when-cross-origin')) {
+        failTest("{$path} missing Referrer-Policy: strict-origin-when-cross-origin");
+    }
+    if (!str_contains($headers['permissions-policy'] ?? '', 'camera=()')) {
+        failTest("{$path} missing Permissions-Policy header");
+    }
+    if (!str_contains($headers['x-robots-tag'] ?? '', 'noindex')) {
+        failTest("{$path} missing X-Robots-Tag: noindex");
+    }
+    if (!$isRedirect) {
+        $csp = $headers['content-security-policy'] ?? '';
+        if (!str_contains($csp, "default-src 'self'")
+            || !str_contains($csp, "script-src 'self'")
+            || !str_contains($csp, "style-src 'self' 'unsafe-inline'")
+            || !str_contains($csp, "img-src 'self' data: blob:")
+            || !str_contains($csp, "connect-src 'self'")
+            || !str_contains($csp, "frame-ancestors 'none'")
+            || !str_contains($csp, "base-uri 'self'")
+            || !str_contains($csp, "form-action 'self'")) {
+            failTest("{$path} missing required strict CSP directives, got: {$csp}");
+        }
+        if (!str_contains($headers['cache-control'] ?? '', 'no-cache')) {
+            failTest("{$path} missing Cache-Control: no-cache, got: " . ($headers['cache-control'] ?? 'none'));
+        }
+    }
+}
+
+// 17a. Root admin endpoint /admin/ returns SPA index with full security headers & strict CSP
 $resAdmin = httpRequest('GET', "{$baseUrl}/admin/");
 if ($resAdmin['status'] !== 200) {
     failTest("GET /admin/ expected 200, got {$resAdmin['status']}: {$resAdmin['body']}");
@@ -1207,18 +1242,10 @@ if (!str_contains($resAdmin['body'], '<div id="root"></div>')) {
 if (!str_contains($resAdmin['body'], 'BS CMS')) {
     failTest("GET /admin/ body missing BS CMS title");
 }
-if (($resAdmin['headers']['x-frame-options'] ?? '') !== 'DENY') {
-    failTest("GET /admin/ missing X-Frame-Options: DENY");
-}
-if (($resAdmin['headers']['x-content-type-options'] ?? '') !== 'nosniff') {
-    failTest("GET /admin/ missing X-Content-Type-Options: nosniff");
-}
-if (!str_contains($resAdmin['headers']['x-robots-tag'] ?? '', 'noindex')) {
-    failTest("GET /admin/ missing X-Robots-Tag: noindex");
-}
-passTest("17a. GET /admin/ returns 200 SPA index with text/html and security headers");
+assertAdminHeaders($resAdmin, 'GET /admin/', false);
+passTest("17a. GET /admin/ returns 200 SPA index with text/html, strict CSP, and security headers");
 
-// 17b. Deep client-side link falls back to SPA index with 200 and security headers
+// 17b. Deep client-side link /admin/entries/posts falls back to SPA index with 200 and identical headers
 $resDeepLink = httpRequest('GET', "{$baseUrl}/admin/entries/posts");
 if ($resDeepLink['status'] !== 200) {
     failTest("GET /admin/entries/posts expected 200, got {$resDeepLink['status']}: {$resDeepLink['body']}");
@@ -1229,19 +1256,47 @@ if (!str_contains($resDeepLink['headers']['content-type'] ?? '', 'text/html')) {
 if (!str_contains($resDeepLink['body'], '<div id="root"></div>')) {
     failTest("GET /admin/entries/posts body missing root container <div id=\"root\"></div>");
 }
-if (($resDeepLink['headers']['x-frame-options'] ?? '') !== 'DENY') {
-    failTest("GET /admin/entries/posts missing X-Frame-Options: DENY");
-}
-passTest("17b. Deep link GET /admin/entries/posts falls back to SPA index with 200 and security headers");
+assertAdminHeaders($resDeepLink, 'GET /admin/entries/posts', false);
+passTest("17b. Deep link GET /admin/entries/posts falls back to SPA index with 200, strict CSP, and security headers");
 
-// 17c. Static asset in /admin served directly
+// 17c. /admin (without trailing slash) returns 301 or 200 with security headers
+$resAdminBare = httpRequest('GET', "{$baseUrl}/admin");
+if ($resAdminBare['status'] !== 301 && $resAdminBare['status'] !== 200) {
+    failTest("GET /admin expected 301 or 200, got {$resAdminBare['status']}: {$resAdminBare['body']}");
+}
+if ($resAdminBare['status'] === 301) {
+    $loc = $resAdminBare['headers']['location'] ?? '';
+    if (!str_ends_with($loc, '/admin/')) {
+        failTest("GET /admin expected 301 redirect to /admin/, got: {$loc}");
+    }
+    assertAdminHeaders($resAdminBare, 'GET /admin (301)', true);
+} else {
+    assertAdminHeaders($resAdminBare, 'GET /admin (200)', false);
+}
+passTest("17c. GET /admin returns " . $resAdminBare['status'] . " with security headers");
+
+// 17d. Missing asset path under /admin/assets/ returns 404 (never SPA index)
+$resMissingAsset = httpRequest('GET', "{$baseUrl}/admin/assets/missing-asset-bundle-test.js");
+if ($resMissingAsset['status'] !== 404) {
+    failTest("GET /admin/assets/missing-asset-bundle-test.js expected 404, got {$resMissingAsset['status']}: " . substr($resMissingAsset['body'], 0, 100));
+}
+if (str_contains($resMissingAsset['body'], '<div id="root"></div>')) {
+    failTest("GET /admin/assets/missing-asset-bundle-test.js returned SPA index HTML instead of 404!");
+}
+passTest("17d. Missing asset path /admin/assets/*.js returns 404 (not SPA index)");
+
+// 17e. Static asset /admin/theme-init.js served with JavaScript content type
 $resThemeInit = httpRequest('GET', "{$baseUrl}/admin/theme-init.js");
 if ($resThemeInit['status'] !== 200) {
     failTest("GET /admin/theme-init.js expected 200, got {$resThemeInit['status']}: {$resThemeInit['body']}");
 }
-passTest("17c. Static asset /admin/theme-init.js served directly with 200");
+$themeType = $resThemeInit['headers']['content-type'] ?? '';
+if (!str_contains($themeType, 'javascript')) {
+    failTest("GET /admin/theme-init.js content-type expected javascript, got: {$themeType}");
+}
+passTest("17e. Static asset /admin/theme-init.js served directly with 200 and javascript content type");
 
-// 17d. /api/v1/openapi.json routing is unaffected (returns 200 JSON)
+// 17f. /api/v1/openapi.json routing is unaffected (returns 200 JSON)
 $resOpenApiCheck = httpRequest('GET', "{$baseUrl}/api/v1/openapi.json");
 if ($resOpenApiCheck['status'] !== 200) {
     failTest("GET /api/v1/openapi.json expected 200, got {$resOpenApiCheck['status']}");
@@ -1252,9 +1307,9 @@ if (!str_contains($resOpenApiCheck['headers']['content-type'] ?? '', 'applicatio
 if (($resOpenApiCheck['json']['openapi'] ?? '') !== '3.1.0') {
     failTest("GET /api/v1/openapi.json invalid JSON response: " . substr($resOpenApiCheck['body'], 0, 100));
 }
-passTest("17d. /api/v1/openapi.json routing is unaffected (returns 200 JSON)");
+passTest("17f. /api/v1/openapi.json routing is unaffected (returns 200 JSON)");
 
-// 17e. /oauth/authorize routing is unaffected (routed to PHP OAuthController)
+// 17g. /oauth/authorize routing is unaffected (routed to PHP OAuthController)
 $resOAuth = httpRequest('GET', "{$baseUrl}/oauth/authorize?response_type=code&client_id=nonexistent_client&redirect_uri=https://example.com/callback&code_challenge=xyz&code_challenge_method=S256");
 if ($resOAuth['status'] !== 302 && $resOAuth['status'] !== 400) {
     failTest("GET /oauth/authorize routing affected: expected 302 or 400 from OAuthController, got {$resOAuth['status']}: {$resOAuth['body']}");
@@ -1265,7 +1320,7 @@ if ($resOAuth['status'] === 302) {
         failTest("GET /oauth/authorize expected redirect to /admin/login, got {$location}");
     }
 }
-passTest("17e. /oauth/authorize routing is unaffected (routed to PHP OAuthController)");
+passTest("17g. /oauth/authorize routing is unaffected (routed to PHP OAuthController)");
 
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";
