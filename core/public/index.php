@@ -45,6 +45,82 @@ $request = $creator->fromGlobals();
 
 $uriPath = $request->getUri()->getPath();
 
+// Serve Admin SPA (CLI-server static file handling and client-side route fallback to admin/index.html)
+if ($uriPath === '/admin' || str_starts_with($uriPath, '/admin/')) {
+    // 1. Canonical redirect: /admin -> /admin/
+    if ($uriPath === '/admin') {
+        http_response_code(301);
+        header('Location: /admin/');
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        header('X-Robots-Tag: noindex, nofollow');
+        exit;
+    }
+
+    // 2. Real asset files vs missing assets (under /admin/assets/ or files with extensions)
+    $hasExtension = (bool) preg_match('/\.[a-zA-Z0-9]+$/', $uriPath);
+    $isDirectIndex = ($uriPath === '/admin/index.html');
+
+    if (!$isDirectIndex && (str_starts_with($uriPath, '/admin/assets/') || $hasExtension)) {
+        $staticFile = __DIR__ . $uriPath;
+        if (is_file($staticFile)) {
+            if (php_sapi_name() === 'cli-server') {
+                return false;
+            }
+            $ext = strtolower(pathinfo($staticFile, PATHINFO_EXTENSION));
+            $mimes = [
+                'js' => 'application/javascript; charset=utf-8',
+                'css' => 'text/css; charset=utf-8',
+                'svg' => 'image/svg+xml',
+                'png' => 'image/png',
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'ico' => 'image/x-icon',
+                'woff2' => 'font/woff2',
+                'woff' => 'font/woff',
+            ];
+            $contentType = $mimes[$ext] ?? 'application/octet-stream';
+            http_response_code(200);
+            header("Content-Type: {$contentType}");
+            header('X-Content-Type-Options: nosniff');
+            if (str_starts_with($uriPath, '/admin/assets/')) {
+                header('Cache-Control: public, max-age=31536000, immutable');
+            } else {
+                header('Cache-Control: no-cache');
+            }
+            readfile($staticFile);
+            exit;
+        }
+
+        // Missing asset: return 404, never SPA index
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: no-cache');
+        echo "Asset not found: " . htmlspecialchars($uriPath, ENT_QUOTES, 'UTF-8');
+        exit;
+    }
+
+    // 3. Extension-less client routes (e.g. /admin/, /admin/entries/posts, /admin/index.html)
+    // Serve the SPA shell index.html with full security headers
+    $adminIndex = __DIR__ . '/admin/index.html';
+    if (is_file($adminIndex)) {
+        http_response_code(200);
+        header('Content-Type: text/html; charset=utf-8');
+        header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+        header('X-Frame-Options: DENY');
+        header('X-Content-Type-Options: nosniff');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        header('X-Robots-Tag: noindex, nofollow');
+        header('Cache-Control: no-cache');
+        readfile($adminIndex);
+        exit;
+    }
+}
+
 // If not installed, route to InstallerController (except /health when testing before install if needed, or route everything before install to installer)
 if (!$isInstalled) {
     // If /health is pinged before install, handle liveness and reject non-GET with 405

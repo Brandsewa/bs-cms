@@ -228,6 +228,15 @@ jobs:
           extensions: mbstring, pdo_mysql, sodium, curl, fileinfo, zip
           coverage: none
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Build release archive
         run: bash tools/build-release 1.0.0-dev
 

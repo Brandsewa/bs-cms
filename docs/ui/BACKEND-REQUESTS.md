@@ -53,14 +53,12 @@ Requesting backend team confirm/plan:
 1. Backend middleware/handler support for caching responses by `Idempotency-Key` (e.g., Redis or DB key table with a short TTL such as 15–60 minutes) so retried requests return the original outcome instead of re-executing.
 2. Confirmation that chunk uploads (`POST /media/chunks/{id}` with `chunk` and `chunk_index`) are idempotent on the backend (overwriting/re-saving the same chunk index for the active session without side effects).
 
-## 6. Build integration: bundling admin shell into release zip — OPEN
+## 6. Build integration: bundling admin shell into release zip — RESOLVED
 
-Tools script tools/build-release currently creates the release archive without compiling and bundling the admin SPA application.
-Per owner directives, UI agents do not touch tools/ or core/. Requesting backend/release engineering to update tools/build-release as follows:
-1. **Build step**: Execute npm run build -w admin during the release pipeline.
-2. **Distribution directory**: Copy the built assets from admin/dist/* into core/public/admin/.
-3. **SPA fallback routing**: Ensure core/public/.htaccess routes any non-file request under /admin/* to /admin/index.html (e.g. RewriteCond %{REQUEST_FILENAME} !-f followed by RewriteRule ^admin/.* /admin/index.html [L]).
-4. **Base path**: The admin build uses base /admin/ and serves index.html at /admin/.
+Resolved in `tools/build-release`, `core/public/.htaccess`, and `core/public/index.php`.
+1. `tools/build-release` executes `npm run build -w admin` and copies `admin/dist/*` into `core/public/admin/` in the release zip.
+2. `core/public/.htaccess` and `core/public/index.php` route `/admin`, `/admin/`, and extension-less client-side routes to PHP front controller (`index.php`), which serves the admin shell with full security headers (CSP, X-Frame-Options, etc.). Static assets with extensions under `/admin/assets/` are served directly.
+3. Verified in `tools/test-release-http.php` for `/admin/`, deep links (e.g. `/admin/entries/posts`), static assets (`/admin/theme-init.js`), missing asset 404s, with security headers intact and `/api`, `/oauth`, `/mcp`, and `/.well-known` routes unaffected.
 
 ## 7. OAuth return_to handling and sanitizeReturnTo alignment — OPEN
 

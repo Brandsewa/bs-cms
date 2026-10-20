@@ -43,6 +43,28 @@ echo "Copying public assets..."
 cp -r "${REPO_ROOT}/core/public/"* "${BUILD_DIR}/core/public/"
 cp -r "${REPO_ROOT}/core/public/."* "${BUILD_DIR}/core/public/" 2>/dev/null || true
 
+# 2b. Build and bundle admin UI SPA into core/public/admin/
+if [ -d "${REPO_ROOT}/admin" ] && [ -f "${REPO_ROOT}/admin/package.json" ]; then
+    echo "Building admin UI (npm run build -w admin)..."
+    if [ ! -d "${REPO_ROOT}/node_modules" ]; then
+        echo "Installing npm dependencies in root..."
+        ( cd "${REPO_ROOT}" && npm ci )
+    fi
+    (
+        cd "${REPO_ROOT}"
+        npm run build -w admin
+    )
+    if [ -d "${REPO_ROOT}/admin/dist" ]; then
+        echo "Copying admin dist into core/public/admin/..."
+        mkdir -p "${BUILD_DIR}/core/public/admin"
+        cp -r "${REPO_ROOT}/admin/dist/"* "${BUILD_DIR}/core/public/admin/"
+    else
+        echo "WARNING: admin/dist was not produced by npm run build -w admin!"
+    fi
+else
+    echo "Note: admin/ directory not present on this branch; skipping admin bundle (tolerated until PR #14 lands)."
+fi
+
 # 3. Create .gitkeep in storage directories
 touch "${BUILD_DIR}/core/storage/cache/.gitkeep"
 touch "${BUILD_DIR}/core/storage/logs/.gitkeep"
