@@ -1600,4 +1600,214 @@ final class McpCoreServerTest extends TestCase
         $this->assertNotNull($dbEntry);
         $this->assertSame('published', $dbEntry['status']);
     }
+
+    public function testQueryEntriesWithHostileOrUnindexedFilterOrSortReturnsInvalidParams(): void
+    {
+        $oauth = $this->createOAuthGrantToken('usr_admin', SystemRoles::ROLE_ADMIN, 'full');
+
+        // 1. Hostile SQL injection filter key
+        $resHostileFilter = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8001,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'query_entries',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'filter' => [
+                        "title'; DROP TABLE bs_users;--" => 'x',
+                    ],
+                ],
+            ],
+        ]);
+        $jsonHostileFilter = json_decode((string) $resHostileFilter->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonHostileFilter);
+        $this->assertSame(-32602, $jsonHostileFilter['error']['code']);
+        $this->assertStringContainsString('Invalid filter field name', $jsonHostileFilter['error']['message']);
+
+        // 2. Unindexed/non-existent filter key
+        $resNonExistent = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8002,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'query_entries',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'filter' => [
+                        'completely_fake_column' => 'test',
+                    ],
+                ],
+            ],
+        ]);
+        $jsonNonExistent = json_decode((string) $resNonExistent->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonNonExistent);
+        $this->assertSame(-32602, $jsonNonExistent['error']['code']);
+        $this->assertStringContainsString('does not exist on collection', $jsonNonExistent['error']['message']);
+
+        // 3. Hostile sort key
+        $resHostileSort = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8003,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'query_entries',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'sort' => "title'; DROP TABLE--",
+                ],
+            ],
+        ]);
+        $jsonHostileSort = json_decode((string) $resHostileSort->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonHostileSort);
+        $this->assertSame(-32602, $jsonHostileSort['error']['code']);
+        $this->assertStringContainsString('Invalid sort field name', $jsonHostileSort['error']['message']);
+
+        // 4. Non-sortable sort key
+        $resNonSortable = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8004,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'query_entries',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'sort' => '-fake_sort_field',
+                ],
+            ],
+        ]);
+        $jsonNonSortable = json_decode((string) $resNonSortable->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonNonSortable);
+        $this->assertSame(-32602, $jsonNonSortable['error']['code']);
+        $this->assertStringContainsString('is not sortable', $jsonNonSortable['error']['message']);
+
+        // 5. Valid filter and sort succeeds
+        $resValid = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8005,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'query_entries',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'filter' => [
+                        'status' => 'draft',
+                    ],
+                    'sort' => '-created_at',
+                ],
+            ],
+        ]);
+        $jsonValid = json_decode((string) $resValid->getBody(), true);
+        $this->assertArrayNotHasKey('error', $jsonValid);
+        $this->assertArrayHasKey('result', $jsonValid);
+    }
+
+    public function testScheduleEntryWithPastOrInvalidDateReturnsInvalidParams(): void
+    {
+        $oauth = $this->createOAuthGrantToken('usr_admin', SystemRoles::ROLE_ADMIN, 'full');
+
+        // Create a draft entry
+        $createRes = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8010,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'create_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'title' => 'Schedule Test Entry',
+                    'slug' => 'schedule-test-entry',
+                    'status' => 'draft',
+                ],
+            ],
+        ]);
+        $createJson = json_decode((string) $createRes->getBody(), true);
+        $this->assertArrayHasKey('result', $createJson);
+        $entryId = $createJson['result']['data']['id'];
+
+        // 1. Invalid date string
+        $resInvalidDate = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8011,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'schedule_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'publish_at' => 'not-a-valid-date-format',
+                ],
+            ],
+        ]);
+        $jsonInvalidDate = json_decode((string) $resInvalidDate->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonInvalidDate);
+        $this->assertSame(-32602, $jsonInvalidDate['error']['code']);
+        $this->assertStringContainsString('valid future ISO-8601', $jsonInvalidDate['error']['message']);
+
+        // 2. Past date
+        $resPastDate = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8012,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'schedule_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'publish_at' => '2020-01-01T00:00:00Z',
+                ],
+            ],
+        ]);
+        $jsonPastDate = json_decode((string) $resPastDate->getBody(), true);
+        $this->assertArrayHasKey('error', $jsonPastDate);
+        $this->assertSame(-32602, $jsonPastDate['error']['code']);
+        $this->assertStringContainsString('must be in the future', $jsonPastDate['error']['message']);
+
+        // 3. Valid future date succeeds
+        $futureIso = gmdate('Y-m-d\TH:i:s\Z', time() + 86400);
+        $resFuture = $this->request('POST', 'https://example.com/mcp', [
+            'Content-Type' => 'application/json',
+            'Authorization' => "Bearer {$oauth['token']}",
+        ], [
+            'jsonrpc' => '2.0',
+            'id' => 8013,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'schedule_entry',
+                'arguments' => [
+                    'collection' => 'articles',
+                    'id' => $entryId,
+                    'publish_at' => $futureIso,
+                ],
+            ],
+        ]);
+        $jsonFuture = json_decode((string) $resFuture->getBody(), true);
+        $this->assertArrayNotHasKey('error', $jsonFuture);
+        $this->assertArrayHasKey('result', $jsonFuture);
+        $this->assertSame('scheduled', $jsonFuture['result']['data']['entry']['status']);
+    }
 }

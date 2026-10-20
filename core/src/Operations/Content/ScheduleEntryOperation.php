@@ -81,24 +81,42 @@ final class ScheduleEntryOperation implements Operation
         $collection = $this->registry->get($handle);
         $id = (string) ($input['id'] ?? '');
         $publishAt = (string) ($input['publish_at'] ?? '');
+
+        if ($id === '') {
+            throw new ValidationException("Entry ID is required.");
+        }
+
+        if ($publishAt === '' || strtotime($publishAt) === false) {
+            throw new ValidationException("Field 'publish_at' must be a valid future ISO-8601 date-time string.");
+        }
+
+        $targetTs = (int) strtotime($publishAt);
+        if ($targetTs <= time()) {
+            throw new ValidationException("Scheduled publication date 'publish_at' must be in the future.");
+        }
+
         $actor = $ctx->actor ?? \BsCms\Auth\Actor::anonymous();
         $userId = $actor->onBehalfOf ?? $actor->id;
 
         $body = [
             'status' => 'scheduled',
-            'scheduled_at' => $publishAt,
+            'scheduled_at' => date('Y-m-d H:i:s', $targetTs),
         ];
 
-        $updated = $this->repository->update(
-            collectionHandle: $handle,
-            id: $id,
-            input: $body,
-            changeSummary: 'Scheduled via API',
-            expectedVersion: null,
-            actorType: $actor->type,
-            actorLabel: $actor->label,
-            updatedBy: $userId
-        );
+        try {
+            $updated = $this->repository->update(
+                collectionHandle: $handle,
+                id: $id,
+                input: $body,
+                changeSummary: 'Scheduled via API',
+                expectedVersion: null,
+                actorType: $actor->type,
+                actorLabel: $actor->label,
+                updatedBy: $userId
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ValidationException($e->getMessage(), ['publish_at' => [$e->getMessage()]]);
+        }
 
         $presented = EntryPresenter::forAuthenticated(
             $updated,
