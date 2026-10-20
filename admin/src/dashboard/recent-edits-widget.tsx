@@ -1,13 +1,14 @@
 import { Card, CardHeader, CardTitle, CardContent, StatusBadge } from '@bs/ui';
+import type { EntryStatus } from '@bs/ui';
 import { FileEdit, ArrowRight } from 'lucide-react';
 
-interface RecentEditItem {
+export interface RecentEditItem {
   id: string;
   collection: string;
   title: string;
-  status: 'draft' | 'in_review' | 'scheduled' | 'published' | 'archived';
+  status: string;
   updated_at: string;
-  updated_by?: string;
+  updated_by?: string | null;
 }
 
 interface RecentEditsWidgetProps {
@@ -22,6 +23,11 @@ function formatDate(iso: string) {
   } catch {
     return iso;
   }
+}
+
+function toEntryStatus(status: string): EntryStatus {
+  const allowed: EntryStatus[] = ['draft', 'in_review', 'scheduled', 'published', 'archived', 'trashed', 'ai_created'];
+  return (allowed.includes(status as EntryStatus) ? status : 'draft') as EntryStatus;
 }
 
 export function RecentEditsWidget({ edits, className }: RecentEditsWidgetProps) {
@@ -68,7 +74,7 @@ export function RecentEditsWidget({ edits, className }: RecentEditsWidgetProps) 
                       {item.collection}
                     </td>
                     <td className="py-2.5 px-2">
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={toEntryStatus(item.status)} />
                     </td>
                     <td className="py-2.5 pl-2 text-right text-12 text-muted-foreground tabular-nums whitespace-nowrap">
                       {formatDate(item.updated_at)}

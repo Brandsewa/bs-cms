@@ -987,6 +987,14 @@ export interface Op_postSiteHealthRun {
   response: S.SiteHealthReport;
 }
 
+/** Get role-aware aggregate dashboard summary for administrative shell */
+export interface Op_getDashboard {
+  method: 'GET';
+  path: "/dashboard";
+  params: Record<string, string>;
+  response: S.DashboardResponse;
+}
+
 /** List entries for authors */
 export interface Op_getCollectionsAuthorsEntries {
   method: 'GET';
@@ -1765,6 +1773,7 @@ export interface Operations {
   "GET /public/seo/resolve": Op_getPublicSeoResolve;
   "GET /site-health": Op_getSiteHealth;
   "POST /site-health/run": Op_postSiteHealthRun;
+  "GET /dashboard": Op_getDashboard;
   "GET /collections/authors/entries": Op_getCollectionsAuthorsEntries;
   "POST /collections/authors/entries": Op_postCollectionsAuthorsEntries;
   "POST /collections/authors/entries/bulk": Op_postCollectionsAuthorsEntriesBulk;

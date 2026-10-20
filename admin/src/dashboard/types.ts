@@ -1,80 +1,6 @@
-export interface DashboardData {
-  greeting?: {
-    user_name?: string;
-    environment?: 'production' | 'staging' | string;
-  };
-  counts?: {
-    drafts?: number;
-    scheduled?: number;
-    pending_ai_changes?: number;
-  };
-  recent_edits?: Array<{
-    id: string;
-    collection: string;
-    title: string;
-    status: 'draft' | 'in_review' | 'scheduled' | 'published' | 'archived';
-    updated_at: string;
-    updated_by?: string;
-  }>;
-  drafts_waiting?: Array<{
-    id: string;
-    collection: string;
-    title: string;
-    status: 'draft';
-    updated_at: string;
-  }>;
-  scheduled_items?: Array<{
-    id: string;
-    collection: string;
-    title: string;
-    scheduled_at: string;
-  }>;
-  pending_ai_changes?: Array<{
-    id: string;
-    actor_label: string;
-    action: string;
-    target_collection?: string;
-    target_id?: string;
-    created_at: string;
-  }>;
-  site_health?: {
-    status: 'healthy' | 'warning' | 'critical';
-    total_issues: number;
-    errors: number;
-    warnings: number;
-    scanned_at?: string;
-    top_issues?: Array<{
-      rule_id: string;
-      message: string;
-      severity: 'error' | 'warn' | 'info';
-    }>;
-  };
-  recent_activity?: Array<{
-    id: string;
-    action: string;
-    actor: string;
-    target: string;
-    created_at: string;
-  }>;
-  system_status?: {
-    cron: 'healthy' | 'warning' | 'error' | 'disabled';
-    mail: 'healthy' | 'warning' | 'error' | 'unconfigured';
-    disk_usage_percent: number;
-    php_version: string;
-  };
-  onboarding?: {
-    completed: boolean;
-    dismissed?: boolean;
-    steps: {
-      create_page: boolean;
-      write_post: boolean;
-      site_details: boolean;
-      configure_email: boolean;
-      connect_astro: boolean;
-      connect_ai: boolean;
-    };
-  };
-}
+import type { DashboardResponse } from '@bs/client';
+
+export type DashboardData = DashboardResponse;
 
 export const MOCK_DASHBOARD_DATA: DashboardData = {
   greeting: {
@@ -236,5 +162,16 @@ export const EMPTY_DASHBOARD_DATA: DashboardData = {
     mail: 'healthy',
     disk_usage_percent: 0,
     php_version: '',
+  },
+  onboarding: {
+    completed: true,
+    steps: {
+      create_page: true,
+      write_post: true,
+      site_details: true,
+      configure_email: true,
+      connect_astro: true,
+      connect_ai: true,
+    },
   },
 };

@@ -1,27 +1,27 @@
 import { Card, CardHeader, CardTitle, CardContent, StatusBadge, Badge } from '@bs/ui';
 import { FileClock, Calendar, Sparkles, ArrowRight } from 'lucide-react';
 
-interface DraftItem {
+export interface DraftItem {
   id: string;
   collection: string;
   title: string;
-  status: 'draft';
+  status: string;
   updated_at: string;
 }
 
-interface ScheduledItem {
+export interface ScheduledItem {
   id: string;
   collection: string;
   title: string;
   scheduled_at: string;
 }
 
-interface PendingAiChangeItem {
+export interface PendingAiChangeItem {
   id: string;
   actor_label: string;
   action: string;
-  target_collection?: string;
-  target_id?: string;
+  target_collection?: string | null;
+  target_id?: string | null;
   created_at: string;
 }
 
