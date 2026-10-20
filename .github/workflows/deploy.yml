@@ -17,6 +17,11 @@ on:
         description: 'Optional callback token'
         required: false
         type: string
+      force_deploy:
+        description: 'Set to true to bypass safety threshold check on page count reduction'
+        required: false
+        default: 'false'
+        type: string
 
 concurrency:
   group: deploy-site
@@ -49,12 +54,22 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"status":"building"}' || true
 
+      - name: Assert No Fixtures In Production Deploy
+        run: |
+          if [ "${{ env.BS_USE_FIXTURES }}" = "1" ] || [ "${{ env.BS_USE_FIXTURES }}" = "true" ]; then
+            echo "::error::BS_USE_FIXTURES must never be set in production deploy!"
+            exit 1
+          fi
+
       - name: Build Astro site
         working-directory: starter
         run: npm run build
         env:
+          BS_CMS_URL: ${{ secrets.BS_CMS_URL }}
           CMS_URL: ${{ secrets.BS_CMS_URL }}
+          BS_BUILD_TOKEN: ${{ secrets.BS_BUILD_TOKEN }}
           BUILD_TOKEN: ${{ secrets.BS_BUILD_TOKEN }}
+          SITE_URL: ${{ secrets.SITE_URL || 'https://bskickstarter.com' }}
 
       - name: Deploy to Hostinger via rsync over SSH with CMS Safeguards
         env:
@@ -63,6 +78,7 @@ jobs:
           SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}
           SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
           DEPLOY_PATH: ${{ secrets.HOSTINGER_DEPLOY_PATH }}
+          FORCE_DEPLOY: ${{ github.event.inputs.force_deploy || 'false' }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -71,6 +87,43 @@ jobs:
           ssh-keygen -y -f ~/.ssh/id_ed25519 || echo "Warning: ssh-keygen could not parse key"
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+
+          # Safety Net: verify previous deployed manifest if present on target host
+          ssh -i /home/runner/.ssh/id_ed25519 -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            "cat $DEPLOY_PATH/deploy-manifest.json 2>/dev/null || true" > /tmp/previous-manifest.json
+
+          python3 - << 'PYEOF'
+          import json, os, sys
+
+          new_manifest_path = "starter/dist/deploy-manifest.json"
+          if not os.path.exists(new_manifest_path):
+              print("::error::New deploy manifest starter/dist/deploy-manifest.json is missing!")
+              sys.exit(1)
+
+          with open(new_manifest_path, "r", encoding="utf-8") as f:
+              new_data = json.load(f)
+
+          new_pages = new_data.get("page_count", 0)
+          print(f"Built pages for deployment: {new_pages}")
+
+          prev_manifest_path = "/tmp/previous-manifest.json"
+          if os.path.exists(prev_manifest_path) and os.path.getsize(prev_manifest_path) > 0:
+              try:
+                  with open(prev_manifest_path, "r", encoding="utf-8") as f:
+                      prev_data = json.load(f)
+                  prev_pages = prev_data.get("page_count", 0)
+                  print(f"Previous deployed pages: {prev_pages}")
+
+                  # If previous pages > 5, protect against sudden large deletions (>20% loss)
+                  if prev_pages > 5:
+                      min_allowed = int(prev_pages * 0.8)
+                      force = os.environ.get("FORCE_DEPLOY", "false").lower() in ("true", "1")
+                      if new_pages < min_allowed and not force:
+                          print(f"::error::Safety net aborted deploy: build produced {new_pages} pages, which is a reduction of more than 20% from previous {prev_pages} pages. Set force_deploy=true to override.")
+                          sys.exit(1)
+              except Exception as e:
+                  print(f"No valid previous deploy-manifest.json found ({e}). Proceeding with deployment.")
+          PYEOF
 
           # Rsync changed files with strict excludes protecting CMS core files from deletion:
           # Note: -c (--checksum) skips files based on 128-bit checksum instead of mtime/size,

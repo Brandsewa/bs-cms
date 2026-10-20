@@ -1,8 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCanonicalUrl } from '../lib/bs';
 ---
 
-<BaseLayout title="Home | BS CMS">
+<BaseLayout title="Home | BS CMS" canonical={getCanonicalUrl('/')}>
   <h1>Welcome to BS CMS Starter</h1>
   <p>This is the static starter site built with Astro.</p>
   <ul>

@@ -1,29 +1,54 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-
+import { renderToHtml, renderToMarkdown } from '@bs/renderer';
+import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
 export async function getStaticPaths() {
-  const posts = Array.from({ length: 200 }, (_, i) => ({
-    id: i + 1,
-    slug: `post-${i + 1}`,
-    title: `Benchmark Post Title ${i + 1}`,
-    content: (i + 1 === 42)
-      ? 'This post was updated for the one-post change delta deploy verification benchmark.'
-      : `This is the body content for benchmark post ${i + 1}. It contains realistic markdown text and paragraphs to measure Astro build latency across a 200-page static site.`
-  }));
+  const entries = await loadCollectionEntries('posts');
 
-  return posts.map((post) => ({
-    params: { slug: post.slug },
-    props: { post }
-  }));
+  return entries.map((entry: any) => {
+    // Render using @bs/renderer
+    const doc = entry.body && typeof entry.body === 'object' ? entry.body : {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: String(entry.content || entry.title || '') }] }],
+    };
+
+    const html = renderToHtml(doc as any);
+    const markdown = renderToMarkdown(doc as any);
+
+    return {
+      params: { slug: entry.slug },
+      props: {
+        post: {
+          ...entry,
+          renderedHtml: html,
+          renderedMarkdown: markdown,
+        },
+      },
+    };
+  });
 }
 
-const { post } = Astro.props;
+const { post } = Astro.props as any;
 ---
 
-<BaseLayout title={`${post.title} | BS CMS`}>
+<BaseLayout
+  title={`${post.title} | BS CMS`}
+  description={post.excerpt || `Read ${post.title} on BS CMS.`}
+  canonical={getCanonicalUrl(`/blog/${post.slug}/`)}
+  structuredData={post.structured_data}
+  robots={post.seo?.robots}
+>
   <article>
     <h1>{post.title}</h1>
-    <p>{post.content}</p>
-    <a href="/">Back to Home</a>
+    {post.published_at && (
+      <p class="post-meta">
+        <time datetime={post.published_at}>{new Date(post.published_at).toLocaleDateString()}</time>
+      </p>
+    )}
+    <div class="post-content" set:html={post.renderedHtml} />
+    <hr />
+    <nav aria-label="Breadcrumb">
+      <a href="/blog">&larr; Back to all posts</a>
+    </nav>
   </article>
 </BaseLayout>

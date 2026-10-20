@@ -30,6 +30,7 @@ dist/
 /build/
 /starter/dist/
 starter/.astro/
+starter/.cache/
 /coverage/
 /tools/dist/
 *.tsbuildinfo

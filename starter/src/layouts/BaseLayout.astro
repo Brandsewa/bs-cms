@@ -1,23 +1,90 @@
 ---
+import '../styles/tokens.css';
+import { escapeJsonLd, escapeAttr, getCanonicalUrl, getSiteMetadata } from '../lib/bs';
+
 interface Props {
   title: string;
   description?: string;
+  canonical?: string;
+  structuredData?: unknown;
+  robots?: {
+    noindex?: boolean;
+    nofollow?: boolean;
+  };
 }
 
-const { title, description = 'BS CMS Starter' } = Astro.props;
+const siteMeta = await getSiteMetadata();
+
+const {
+  title,
+  description = siteMeta.description,
+  canonical = getCanonicalUrl(Astro.url.pathname),
+  structuredData,
+  robots,
+} = Astro.props;
+
+// Ensure structured_data canonical IDs and URLs align with our site URL policy if present
+let resolvedStructuredData = structuredData;
+if (structuredData && typeof structuredData === 'object') {
+  const jsonStr = JSON.stringify(structuredData);
+  // Replace any http://localhost:4321 references with the canonical SITE_URL
+  const canonicalStr = jsonStr.replace(/http:\/\/localhost:4321/g, canonical.replace(/\/+$/, ''));
+  resolvedStructuredData = JSON.parse(canonicalStr);
+}
+
+const safeDescription = escapeAttr(description);
+
+const robotsContent = [
+  robots?.noindex ? 'noindex' : 'index',
+  robots?.nofollow ? 'nofollow' : 'follow',
+  'max-image-preview:large',
+].join(', ');
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
+    <meta name="description" content={safeDescription} />
+    <meta name="robots" content={robotsContent} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- Open Graph & Twitter -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={safeDescription} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={safeDescription} />
+
+    {resolvedStructuredData && (
+      <script
+        type="application/ld+json"
+        is:inline
+        set:html={escapeJsonLd(resolvedStructuredData)}
+      />
+    )}
   </head>
   <body>
+    <header>
+      <nav aria-label="Main Navigation">
+        <a href="/">Home</a>
+        <a href="/blog">Blog</a>
+      </nav>
+    </header>
+
     <main>
       <slot />
     </main>
+
+    <footer>
+      <p>&copy; {new Date().getFullYear()} BS CMS. Zero Node daemons in production.</p>
+    </footer>
+
+    <!-- Embed activation loader conforming to CSP script-src 'self' -->
+    <script src="/embed.js" is:inline></script>
   </body>
 </html>
