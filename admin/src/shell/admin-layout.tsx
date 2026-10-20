@@ -50,6 +50,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
       <AppSidebar
+        className='shrink-0 hidden md:flex'
         groups={ADMIN_SIDEBAR_GROUPS}
         hasPermission={hasPermission}
         activeId={activeId}
