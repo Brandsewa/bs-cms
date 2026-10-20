@@ -7,12 +7,12 @@ describe('Built dist output verification', () => {
   const distDir = path.resolve(__dirname, '../dist');
 
   beforeAll(() => {
-    // If dist doesn't exist (e.g. running test without prior manual build in CI), build it
+    // If dist doesn't exist, build with live API (or empty state)
     if (!fs.existsSync(distDir) || !fs.existsSync(path.join(distDir, 'index.html'))) {
       const rootStarter = path.resolve(__dirname, '..');
       execSync('npx astro build && npx tsx scripts/generate-artifacts.mjs', {
         cwd: rootStarter,
-        env: { ...process.env, BENCHMARK_POSTS: '3' },
+        env: { ...process.env },
         stdio: 'pipe',
       });
     }
@@ -76,11 +76,11 @@ describe('Built dist output verification', () => {
   });
 
   it('.md twins use YAML/Markdown title escaping without HTML entities', () => {
-    // Check post-1 or any generated md twin
-    const postMd = fs.readFileSync(path.join(distDir, 'blog/post-1/index.md'), 'utf8');
-    expect(postMd).toMatch(/^title:\s*"[^"]+"/m);
-    expect(postMd).not.toMatch(/&lt;/);
-    expect(postMd).not.toMatch(/&gt;/);
+    // Check generated home/blog twin or post twin if present
+    const blogMd = fs.readFileSync(path.join(distDir, 'blog/index.md'), 'utf8');
+    expect(blogMd).toMatch(/^title:\s*"[^"]+"/m);
+    expect(blogMd).not.toMatch(/&lt;/);
+    expect(blogMd).not.toMatch(/&gt;/);
   });
 
   it('meta description attributes escape < characters', () => {

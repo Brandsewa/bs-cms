@@ -1,73 +1,19 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { renderToHtml, renderToMarkdown } from '@bs/renderer';
-import { cmsClient, getCanonicalUrl } from '../../lib/bs';
+import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
 export async function getStaticPaths() {
-  let entries: any[] = [];
-  try {
-    const list = await cmsClient.fetchAllEntries('posts');
-    // Fetch full post details (with seo_resolved and structured_data) for each post
-    entries = await Promise.all(
-      list.map(async (item) => {
-        try {
-          const res = (await cmsClient.fetchEntry('posts', item.slug)) as any;
-          const full = res && res.data ? res.data : res;
-          return full || item;
-        } catch {
-          return item;
-        }
-      })
-    );
-  } catch (err) {
-    console.warn('[Astro build] Could not fetch live entries, falling back to local benchmark data:', err);
-  }
+  const entries = await loadCollectionEntries('posts');
 
-  if (!entries || entries.length === 0) {
-    const postCount = parseInt(process.env.BENCHMARK_POSTS || '200', 10);
-    entries = Array.from({ length: postCount }, (_, i) => ({
-      id: `01BENCH${String(i + 1).padStart(6, '0')}`,
-      slug: `post-${i + 1}`,
-      title: `Benchmark Post Title ${i + 1}`,
-      published_at: '2026-10-19T10:00:00Z',
-      updated_at: '2026-10-19T10:00:00Z',
-      body: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: (i + 1 === 42)
-                  ? 'This post was updated for the one-post change delta deploy verification benchmark.'
-                  : `This is the body content for benchmark post ${i + 1}. Rendered with canonical @bs/renderer schema v1.`,
-              },
-            ],
-          },
-          {
-            type: 'callout',
-            attrs: { variant: 'tip', title: 'Static Publishing' },
-            content: [
-              {
-                type: 'paragraph',
-                content: [{ type: 'text', text: 'HTML and Markdown twins share the exact same parsed AST.' }],
-              },
-            ],
-          },
-        ],
-      },
-    }));
-  }
-
-  return entries.map((entry) => {
+  return entries.map((entry: any) => {
     // Render using @bs/renderer
     const doc = entry.body && typeof entry.body === 'object' ? entry.body : {
       type: 'doc',
       content: [{ type: 'paragraph', content: [{ type: 'text', text: String(entry.content || entry.title || '') }] }],
     };
 
-    const html = renderToHtml(doc);
-    const markdown = renderToMarkdown(doc);
+    const html = renderToHtml(doc as any);
+    const markdown = renderToMarkdown(doc as any);
 
     return {
       params: { slug: entry.slug },
@@ -82,7 +28,7 @@ export async function getStaticPaths() {
   });
 }
 
-const { post } = Astro.props;
+const { post } = Astro.props as any;
 ---
 
 <BaseLayout

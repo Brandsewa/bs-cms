@@ -9,11 +9,49 @@ const siteUrl = (process.env.SITE_URL || 'https://bskickstarter.com').replace(/\
 const cmsUrl = (process.env.BS_CMS_URL || 'https://bskickstarter.com').replace(/\/+$/, '');
 const buildToken = process.env.BS_BUILD_TOKEN || '';
 
+const useFixtures = process.env.BS_USE_FIXTURES === '1' || process.env.BS_USE_FIXTURES === 'true';
+
 const client = new CmsBuildClient({
   baseUrl: cmsUrl,
   buildToken: buildToken || undefined,
   cacheDir: '.cache/bs-cms',
 });
+
+function getBenchmarkFixtures(count = 200) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `01BENCH${String(i + 1).padStart(6, '0')}`,
+    slug: `post-${i + 1}`,
+    title: `Benchmark Post Title ${i + 1}`,
+    published_at: '2026-10-19T10:00:00Z',
+    updated_at: '2026-10-19T10:00:00Z',
+    body: {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: (i + 1 === 42)
+                ? 'This post was updated for the one-post change delta deploy verification benchmark.'
+                : `This is the body content for benchmark post ${i + 1}. Rendered with canonical @bs/renderer schema v1.`,
+            },
+          ],
+        },
+        {
+          type: 'callout',
+          attrs: { variant: 'tip', title: 'Static Publishing' },
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'HTML and Markdown twins share the exact same parsed AST.' }],
+            },
+          ],
+        },
+      ],
+    },
+  }));
+}
 
 /**
  * Escapes strings safely for YAML double-quoted scalar values.
@@ -54,58 +92,27 @@ async function main() {
   }
 
   let entries = [];
-  try {
-    const list = await client.fetchAllEntries('posts');
-    entries = await Promise.all(
-      list.map(async (item) => {
-        try {
-          const res = await client.fetchEntry('posts', item.slug);
-          const full = res && res.data ? res.data : res;
-          return full || item;
-        } catch {
-          return item;
-        }
-      })
-    );
-  } catch (err) {
-    console.warn('[generate-artifacts] Could not fetch live entries from CMS:', err);
-  }
-
-  if (!entries || entries.length === 0) {
+  if (useFixtures) {
     const postCount = parseInt(process.env.BENCHMARK_POSTS || '200', 10);
-    entries = Array.from({ length: postCount }, (_, i) => ({
-      id: `01BENCH${String(i + 1).padStart(6, '0')}`,
-      slug: `post-${i + 1}`,
-      title: `Benchmark Post Title ${i + 1}`,
-      published_at: '2026-10-19T10:00:00Z',
-      updated_at: '2026-10-19T10:00:00Z',
-      body: {
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: (i + 1 === 42)
-                  ? 'This post was updated for the one-post change delta deploy verification benchmark.'
-                  : `This is the body content for benchmark post ${i + 1}. Rendered with canonical @bs/renderer schema v1.`,
-              },
-            ],
-          },
-          {
-            type: 'callout',
-            attrs: { variant: 'tip', title: 'Static Publishing' },
-            content: [
-              {
-                type: 'paragraph',
-                content: [{ type: 'text', text: 'HTML and Markdown twins share the exact same parsed AST.' }],
-              },
-            ],
-          },
-        ],
-      },
-    }));
+    entries = getBenchmarkFixtures(postCount);
+  } else {
+    try {
+      const list = await client.fetchAllEntries('posts');
+      entries = await Promise.all(
+        list.map(async (item) => {
+          try {
+            const res = await client.fetchEntry('posts', item.slug);
+            const full = res && res.data ? res.data : res;
+            return full || item;
+          } catch {
+            return item;
+          }
+        })
+      );
+    } catch (err) {
+      console.error('[generate-artifacts] Fatal error fetching live entries from CMS:', err);
+      throw err;
+    }
   }
 
   const entriesBySlug = new Map();
@@ -259,20 +266,33 @@ Generated at: ${new Date().toISOString()}
 ${fullDocs}
 `;
   fs.writeFileSync(path.join(distDir, 'llms-full.txt'), llmsFullTxt, 'utf8');
-  console.log('[Artifacts] Generated llms.txt and llms-full.txt.');
-
-  // 5. Update .htaccess connect-src dynamically from cmsUrl
-  const htaccessPath = path.join(distDir, '.htaccess');
-  if (fs.existsSync(htaccessPath)) {
-    let htaccessContent = fs.readFileSync(htaccessPath, 'utf8');
-    const connectOrigin = cmsUrl;
-    htaccessContent = htaccessContent.replace(
-      /connect-src 'self' [^;]+;/,
-      `connect-src 'self' ${connectOrigin};`
-    );
-    fs.writeFileSync(htaccessPath, htaccessContent, 'utf8');
-    console.log(`[Artifacts] Updated .htaccess connect-src to include ${connectOrigin}.`);
+  // 6. Write deploy manifest containing relative paths of all built files
+  const manifestFiles = [];
+  function recordManifest(dir) {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const full = path.join(dir, file);
+      if (fs.statSync(full).isDirectory()) {
+        recordManifest(full);
+      } else {
+        const rel = path.relative(distDir, full).replace(/\\/g, '/');
+        // Do not include the manifest itself in the list
+        if (rel !== 'deploy-manifest.json') {
+          manifestFiles.push(rel);
+        }
+      }
+    }
   }
+  recordManifest(distDir);
+  const deployManifest = {
+    generated_at: new Date().toISOString(),
+    site_url: siteUrl,
+    page_count: generatedPages.length,
+    file_count: manifestFiles.length,
+    files: manifestFiles.sort(),
+  };
+  fs.writeFileSync(path.join(distDir, 'deploy-manifest.json'), JSON.stringify(deployManifest, null, 2), 'utf8');
+  console.log(`[Artifacts] Wrote deploy-manifest.json with ${manifestFiles.length} files (${generatedPages.length} pages).`);
 }
 
 main().catch((err) => {

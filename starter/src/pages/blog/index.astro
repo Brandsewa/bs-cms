@@ -1,22 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { cmsClient, getCanonicalUrl } from '../../lib/bs';
+import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
 
-let entries: any[] = [];
-try {
-  entries = await cmsClient.fetchAllEntries('posts');
-} catch (err) {
-  console.warn('[Astro build] Could not fetch live entries:', err);
-}
-
-if (!entries || entries.length === 0) {
-  entries = Array.from({ length: 10 }, (_, i) => ({
-    id: `01BENCH${String(i + 1).padStart(6, '0')}`,
-    slug: `post-${i + 1}`,
-    title: `Benchmark Post Title ${i + 1}`,
-    excerpt: `This is the excerpt for benchmark post ${i + 1}.`,
-  }));
-}
+const entries = await loadCollectionEntries('posts');
 ---
 
 <BaseLayout
@@ -26,12 +12,16 @@ if (!entries || entries.length === 0) {
 >
   <h1>Blog</h1>
   <p>Published static articles from BS CMS.</p>
-  <ul>
-    {entries.map((entry) => (
-      <li>
-        <a href={`/blog/${entry.slug}`}>{entry.title}</a>
-        {entry.excerpt && <p>{entry.excerpt}</p>}
-      </li>
-    ))}
-  </ul>
+  {entries.length > 0 ? (
+    <ul>
+      {entries.map((entry) => (
+        <li>
+          <a href={`/blog/${entry.slug}/`}>{entry.title}</a>
+          {entry.excerpt && <p>{entry.excerpt}</p>}
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p class="empty-state">No posts have been published yet.</p>
+  )}
 </BaseLayout>
