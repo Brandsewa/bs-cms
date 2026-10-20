@@ -37,7 +37,7 @@ use Psr\Http\Message\ServerRequestInterface;
  * - Full database persistence (oauth_clients, oauth_grants, oauth_authorization_codes, oauth_access_tokens, oauth_refresh_tokens, rate_limits)
  * - Hashed token storage (SHA-256) with plaintext tokens never stored in the database
  */
-final class OAuthController extends BaseController
+class OAuthController extends BaseController
 {
     private const ROLE_RANKS = [
         SystemRoles::ROLE_OWNER => 100,

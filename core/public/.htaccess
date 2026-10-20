@@ -4,6 +4,7 @@
 Options -Indexes
 Options -MultiViews
 DirectoryIndex index.php
+DirectorySlash Off
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
