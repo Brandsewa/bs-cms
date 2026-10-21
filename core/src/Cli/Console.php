@@ -61,6 +61,9 @@ final class Console
                 'schema:apply' => $this->schemaApply($args),
                 'schema:seed' => $this->schemaSeed($args),
                 'taxonomy:recompute-counts', 'taxonomy:integrity' => $this->taxonomyRecomputeCounts($args),
+                // SPRINT-C BEGIN: Blocks Sync command
+                'blocks:sync' => $this->blocksSync($args),
+                // SPRINT-C END: Blocks Sync command
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),
@@ -480,6 +483,9 @@ final class Console
         echo "  schema:apply      Apply file-based schema changes (--dir=path, --dry-run)\n";
         echo "  schema:seed       Seed built-in collections idempotently via schema engine\n";
         echo "  taxonomy:recompute-counts Recompute cached entry counts for taxonomies (--taxonomy=<id>)\n";
+        // SPRINT-C BEGIN: Blocks Sync help
+        echo "  blocks:sync       Sync block definitions from starter to CMS storage (--dir=path)\n";
+        // SPRINT-C END: Blocks Sync help
         return 0;
     }
 
@@ -799,4 +805,27 @@ final class Console
 
         return new Connection($connConfig);
     }
+
+    // SPRINT-C BEGIN: Blocks Sync implementation
+    /**
+     * @param array<int, string> $args
+     */
+    private function blocksSync(array $args): int
+    {
+        $defaultDir = dirname($this->app->basePath()) . '/starter/src/blocks';
+        $dir = $this->parseDirArg($args, $defaultDir);
+
+        if (!is_dir($dir)) {
+            fwrite(STDERR, "Error: Blocks directory '{$dir}' does not exist.\n");
+            return 1;
+        }
+
+        $storageDir = $this->app->storagePath('blocks');
+        $registry = new \BsCms\Blocks\BlockRegistry($storageDir);
+        $count = $registry->syncFromDirectory($dir);
+
+        echo "Successfully synced {$count} blocks from '{$dir}'.\n";
+        return 0;
+    }
+    // SPRINT-C END: Blocks Sync implementation
 }

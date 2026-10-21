@@ -73,7 +73,10 @@ final class ApiRoutes
         ?AiController $ai = null,
         ?PublishingController $publishing = null,
         ?BuildTokensController $buildTokens = null,
-        ?PreviewController $preview = null
+        ?PreviewController $preview = null,
+        // SPRINT-C BEGIN: Blocks Controller param
+        ?\BsCms\Http\Controllers\BlocksController $blocks = null
+        // SPRINT-C END: Blocks Controller param
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -377,5 +380,12 @@ final class ApiRoutes
             $routes->delete('/api/v1/preview/token', [$preview, 'revokeToken']);
             $routes->get('/api/v1/preview/{collection}/{id}', [$preview, 'getDraft']);
         }
+
+        // SPRINT-C BEGIN: Blocks endpoints
+        if ($blocks !== null) {
+            $routes->get('/api/v1/blocks', [$blocks, 'list']);
+            $routes->get('/api/v1/blocks/{name}', [$blocks, 'get']);
+        }
+        // SPRINT-C END: Blocks endpoints
     }
 }

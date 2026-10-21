@@ -760,6 +760,24 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
+
+        // SPRINT-C BEGIN: Blocks Registry & Controller
+        $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
+            $storageDir = $app->storagePath('blocks');
+            $registry = new \BsCms\Blocks\BlockRegistry($storageDir);
+            $starterBlocksDir = dirname($app->basePath()) . '/starter/src/blocks';
+            if (is_dir($starterBlocksDir)) {
+                $registry->syncFromDirectory($starterBlocksDir);
+            }
+            return $registry;
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\BlocksController::class, function (Container $c): \BsCms\Http\Controllers\BlocksController {
+            return new \BsCms\Http\Controllers\BlocksController(
+                $c->get(\BsCms\Blocks\BlockRegistry::class)
+            );
+        });
+        // SPRINT-C END: Blocks Registry & Controller
     }
 
     public function boot(Container $container): void
