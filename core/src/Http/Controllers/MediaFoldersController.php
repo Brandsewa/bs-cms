@@ -63,6 +63,12 @@ class MediaFoldersController extends BaseController
             return $this->json($folder, 201);
         } catch (InvalidArgumentException $e) {
             return $this->problem(422, 'Validation Failed', $e->getMessage());
+        } catch (\PDOException $e) {
+            if ((string) $e->getCode() === '23000') {
+                return $this->problem(409, 'Conflict', 'A folder with that name already exists in this location.');
+            }
+            $this->logServerError($request, $e, 'media_folder_create');
+            return $this->problem(500, 'Internal Server Error', 'Failed to create folder.');
         } catch (Throwable $e) {
             $this->logServerError($request, $e, 'media_folder_create');
             return $this->problem(500, 'Internal Server Error', 'Failed to create folder.');
