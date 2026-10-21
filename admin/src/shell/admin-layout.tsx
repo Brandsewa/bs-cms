@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   AppSidebar,
   DropdownMenu,
@@ -34,10 +35,15 @@ import { StepUpDialog } from '../auth/step-up-dialog';
 import { ShellThemeToggle } from './theme-toggle';
 import { CommandMenu } from './command-menu';
 import { ShellBannerArea } from './banner-area';
+import { OfflineBanner } from './offline-banner';
+import { NotificationDrawerTrigger } from './notification-drawer';
+import { KeyboardShortcutsDialog, useShortcutsDialog } from './shortcuts-dialog';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const { session, logout, hasPermission: sessionHasPermission } = useSession();
   const { theme, setTheme } = useTheme();
+  const { open: shortcutsOpen, setOpen: setShortcutsOpen } = useShortcutsDialog();
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -227,6 +233,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             {/* Theme switcher toggle */}
             <ShellThemeToggle />
 
+            {/* Notification bell and slide-over drawer */}
+            <NotificationDrawerTrigger />
+
             {/* User menu dropdown with 44px touch target on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -256,6 +265,18 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                     </span>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {/* My Account link */}
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigate({ to: '/account' });
+                  }}
+                  className="gap-2 cursor-pointer"
+                >
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span>My account</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
 
                 {/* Theme selector in user menu */}
@@ -311,6 +332,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Global banner area */}
+        <OfflineBanner />
         <ShellBannerArea />
 
         {/* Workspace body */}
@@ -330,6 +352,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           setStepUpOpen(false);
         }}
       />
+
+      {/* Keyboard Shortcuts Help Dialog (Press ?) */}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }

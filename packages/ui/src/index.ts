@@ -246,6 +246,7 @@ export {
   ForbiddenState,
   NotFoundState,
   PageLoadingSkeleton,
+  PageStates,
   PageContainer,
   PageHeader,
   PageNav,

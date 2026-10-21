@@ -23,6 +23,7 @@ import {
   Laptop,
   LogOut,
   Sparkles,
+  User,
 } from 'lucide-react';
 import { ADMIN_SIDEBAR_GROUPS } from './nav-groups';
 import { useSession } from '../auth/session-context';
@@ -152,6 +153,20 @@ export function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                 </CommandGroup>
               );
             })}
+
+            <CommandSeparator />
+
+            {/* Account & Preferences */}
+            <CommandGroup heading="Account">
+              <CommandItem
+                value="My Account Profile Password 2FA"
+                onSelect={() => navigateTo('/admin/account')}
+                className="cursor-pointer"
+              >
+                <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>My account</span>
+              </CommandItem>
+            </CommandGroup>
 
             <CommandSeparator />
 

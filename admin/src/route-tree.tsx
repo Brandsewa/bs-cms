@@ -51,6 +51,13 @@ const AuditLogView = lazy(() =>
   import('./system/audit-log-view').then((m) => ({ default: m.AuditLogView }))
 );
 
+// SPRINT-D BEGIN
+// Account views (independently lazy-loaded chunks)
+const MyAccountView = lazy(() =>
+  import('./account/my-account-view').then((m) => ({ default: m.MyAccountView }))
+);
+// SPRINT-D END
+
 // Shell fallbacks & placeholders
 const ComingSoonPage = lazy(() =>
   import('./shell/coming-soon').then((m) => ({ default: m.ComingSoonPage }))
@@ -363,6 +370,21 @@ export const settingsAuditRedirectRoute = createRoute({
   },
 });
 
+// SPRINT-D BEGIN
+// User Account Route
+export const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: () => (
+    <ProtectedAdmin>
+      <RouteSuspense>
+        <MyAccountView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+// SPRINT-D END
+
 export const forbiddenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/403',
@@ -409,6 +431,7 @@ export async function buildRouteTree() {
     settingsEmailRoute,
     systemAuditRoute,
     settingsAuditRedirectRoute,
+    accountRoute,
     forbiddenRoute,
     notFoundRoute,
   ];
