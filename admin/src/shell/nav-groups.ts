@@ -1,5 +1,6 @@
 import type { SidebarGroup, SidebarItem } from '@bs/ui';
 import {
+  Activity,
   Code,
   FileText,
   FolderTree,
@@ -95,6 +96,13 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
         permission: 'settings:read',
         icon: ScrollText,
         to: '/admin/system/audit',
+      },
+      {
+        id: 'health',
+        label: 'Site Health',
+        permission: 'settings:read',
+        icon: Activity,
+        to: '/admin/system/health',
       },
       {
         id: 'developer',
