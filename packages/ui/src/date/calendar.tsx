@@ -90,7 +90,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         range_end: 'rounded-r-md bg-accent',
         selected: '[&:not(.rdp-outside)]>button:bg-primary [&:not(.rdp-outside)]>button:text-primary-foreground hover:[&:not(.rdp-outside)]>button:bg-primary hover:[&:not(.rdp-outside)]>button:text-primary-foreground',
         today: '[&>button]:font-semibold [&>button]:text-primary',
-        outside: 'opacity-40',
+        outside: 'text-muted-foreground',
         disabled: 'opacity-30',
         hidden: 'invisible',
         ...classNames,
