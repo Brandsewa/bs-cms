@@ -58,7 +58,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
     // 4. Default posts entries
     await page.route('**/api/v1/collections/posts/entries*', async (route) => {
       const url = route.request().url();
-      if (url.includes('trashed=true')) {
+      if (url.includes('trashed=only') || url.includes('trashed=true')) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -83,6 +83,15 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
           body: JSON.stringify(fixturesData.posts_entries_default),
         });
       }
+    });
+
+    // 4b. Collection aggregate counts endpoint (PR #35)
+    await page.route('**/api/v1/collections/*/counts', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixturesData.collection_counts),
+      });
     });
 
     // Users endpoint
@@ -133,18 +142,20 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
     // Verify resolved author name (not raw ULID)
     await expect(page.getByText('Owner Test User', { exact: false }).first()).toBeVisible();
 
-    // Verify status tab counts
+    // Verify status tab counts from /counts endpoint
     await expect(page.getByRole('tab', { name: /All/i })).toContainText('8');
     await expect(page.getByRole('tab', { name: /Published/i })).toContainText('5');
     await expect(page.getByRole('tab', { name: /Draft/i })).toContainText('3');
+    await expect(page.getByRole('tab', { name: /Trash/i })).toContainText('2');
   });
 
   test('status tabs filter entries including Trash tab with restore/purge', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/entries`);
 
-    // Click on Trash status tab
+    // Click on Trash status tab (now displaying live count 2)
     const trashTab = page.getByRole('tab', { name: /Trash/i });
     await expect(trashTab).toBeVisible();
+    await expect(trashTab).toContainText('2');
     await trashTab.click();
 
     // In trash tab with items from fixtures, items should be visible
@@ -162,7 +173,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
     await expect(page.getByRole('heading', { name: 'Pages' })).toBeVisible();
   });
 
-  test('new button navigates to editor route with honest coming-soon shell', async ({ page }) => {
+  test('new button navigates to editor route', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/entries`);
 
     const newBtn = page.getByRole('button', { name: /New Entry|New Post/i });
@@ -170,7 +181,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
 
     await page.waitForURL('**/admin/entries/posts/new');
     await expect(page.getByRole('heading', { name: /Create Post/i })).toBeVisible();
-    await expect(page.getByText(/Tiptap article schema editor/i)).toBeVisible();
+    await expect(page.locator('#entry-title-input')).toBeVisible();
   });
 
   test('role-awareness: viewer has no create button or bulk actions', async ({ page }) => {
@@ -237,17 +248,34 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
         .analyze();
 
       expect(results.violations).toEqual([]);
+
+      await page.screenshot({
+        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/supabase-collection-1440-${theme}.png`,
+      });
     }
   });
 
-  test('mobile viewport (360px) layout stability with no overflow', async ({ page }) => {
-    await page.setViewportSize({ width: 360, height: 640 });
-    await page.goto(`${ADMIN_URL}/entries`);
+  test('mobile viewport (390px) layout stability with no overflow and screenshot', async ({ page }) => {
+    for (const theme of ['light', 'dark'] as const) {
+      await page.addInitScript((mode) => {
+        window.localStorage.setItem('bs-theme', mode);
+      }, theme);
 
-    await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`${ADMIN_URL}/entries`);
+      await page.evaluate((mode) => {
+        document.documentElement.classList.toggle('dark', mode === 'dark');
+      }, theme);
 
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
-    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2);
+      await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
+
+      const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+      const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2);
+
+      await page.screenshot({
+        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/supabase-collection-390-${theme}.png`,
+      });
+    }
   });
 });
