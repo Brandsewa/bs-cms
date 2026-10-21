@@ -361,9 +361,9 @@ export function UsersListView() {
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card shadow-xs">
           <table className="w-full text-left text-13" data-testid="users-table">
-            <thead className="border-b border-border bg-muted/40 text-12 font-medium text-muted-foreground">
+            <thead className="border-b border-border bg-surface-200 text-12 font-medium text-foreground-lighter uppercase tracking-wider">
               <tr>
-                <th className="w-10 px-3 py-3">
+                <th className="w-10 px-3 py-2">
                   <input
                     type="checkbox"
                     aria-label="Select all users"
@@ -375,12 +375,12 @@ export function UsersListView() {
                     className="h-4 w-4 rounded border-border text-primary cursor-pointer"
                   />
                 </th>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">2FA</th>
-                <th className="px-4 py-3">Last Login</th>
-                <th className="w-16 px-4 py-3 text-right">Actions</th>
+                <th className="px-3 py-2">User</th>
+                <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">2FA</th>
+                <th className="px-3 py-2">Last Login</th>
+                <th className="w-16 px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -392,12 +392,12 @@ export function UsersListView() {
                 return (
                   <tr
                     key={u.id}
-                    className={`transition-colors hover:bg-muted/30 ${
-                      isSelected ? 'bg-muted/20' : ''
+                    className={`transition-colors hover:bg-surface-200/50 ${
+                      isSelected ? 'bg-surface-200' : ''
                     }`}
                     data-testid={`user-row-${u.id}`}
                   >
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-2">
                       <input
                         type="checkbox"
                         aria-label={`Select user ${u.name || u.email}`}
@@ -406,7 +406,7 @@ export function UsersListView() {
                         className="h-4 w-4 rounded border-border text-primary cursor-pointer"
                       />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback name={u.name || u.email} />
@@ -424,7 +424,7 @@ export function UsersListView() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
                         {u.roles.map((r) => (
                           <Badge
@@ -437,7 +437,7 @@ export function UsersListView() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <Badge
                         variant={
                           u.status === 'active'
@@ -451,15 +451,15 @@ export function UsersListView() {
                         {u.status === 'pending_invitation' ? 'Invited' : u.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <Badge variant="outline" className="text-11">
                         {u.two_factor_enabled ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 font-mono text-12 text-muted-foreground">
+                    <td className="px-3 py-2 font-mono text-12 text-foreground-muted">
                       {u.last_login_at ? u.last_login_at.slice(0, 10) : 'Never'}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button

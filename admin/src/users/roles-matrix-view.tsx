@@ -388,12 +388,12 @@ export function RolesMatrixView() {
         <CardContent className="pt-0 overflow-x-auto">
           <table className="w-full text-left text-12 border-collapse" data-testid="roles-matrix-table">
             <thead>
-              <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                <th className="sticky left-0 z-10 bg-card px-3 py-2.5 min-w-[170px] shadow-[1px_0_0_0_var(--border)]">
+              <tr className="border-b border-border bg-surface-200 font-medium text-foreground-lighter uppercase tracking-wider text-[11px]">
+                <th className="sticky left-0 z-10 bg-card px-3 py-2 min-w-[170px] shadow-[1px_0_0_0_var(--border)]">
                   Subject / Area
                 </th>
                 {roles.map((r) => (
-                  <th key={r.id} className="px-3 py-2.5 min-w-[120px]">
+                  <th key={r.id} className="px-3 py-2 min-w-[120px]">
                     <div className="font-medium text-foreground">{r.name}</div>
                     <div className="text-[10px] font-mono text-muted-foreground">{r.handle}</div>
                   </th>
@@ -402,15 +402,15 @@ export function RolesMatrixView() {
             </thead>
             <tbody className="divide-y divide-border">
               {CANONICAL_SUBJECTS.map((sub) => (
-                <tr key={sub.key} className="hover:bg-muted/20">
-                  <td className="sticky left-0 z-10 bg-card px-3 py-2.5 font-medium text-foreground shadow-[1px_0_0_0_var(--border)]">
+                <tr key={sub.key} className="hover:bg-surface-200/50 transition-colors">
+                  <td className="sticky left-0 z-10 bg-card px-3 py-2 font-medium text-foreground shadow-[1px_0_0_0_var(--border)]">
                     {sub.label}
                     <span className="block font-mono text-[10px] text-muted-foreground">{sub.key}</span>
                   </td>
                   {roles.map((r) => {
                     const perms = getSubjectPermissions(r, sub.key);
                     return (
-                      <td key={r.id} className="px-3 py-2.5">
+                      <td key={r.id} className="px-3 py-2">
                         {perms.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {perms.map((p) => (
