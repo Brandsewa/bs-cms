@@ -189,6 +189,8 @@ final class ApiRoutes
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions', [$entries, 'listVersions']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore', [$entries, 'restoreVersion']);
+            // SPRINT-C: Entries export endpoint
+            $routes->get('/api/v1/collections/{handle}/entries/export', [$entries, 'export']);
         }
 
         // 11. Singletons endpoints

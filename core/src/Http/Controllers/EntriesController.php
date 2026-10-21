@@ -925,4 +925,61 @@ class EntriesController extends BaseController
             'diff' => $diff,
         ]);
     }
+
+    /**
+     * GET /api/v1/collections/{handle}/entries/export?format=csv|json
+     */
+    public function export(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        if (!$this->registry->has($handle)) {
+            return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
+        }
+
+        $permError = $this->requirePermission($this->authorizer, $request, 'read', new Subject('collection', $handle));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $params = $request->getQueryParams();
+        $format = strtolower((string) ($params['format'] ?? 'json'));
+
+        // Query entries
+        $result = $this->repository->paginate($handle, 1, 1000, ['status' => 'any'], 'created_at', 'desc');
+        $entries = $result['data'] ?? [];
+
+        if ($format === 'csv') {
+            $stream = fopen('php://temp', 'r+');
+            if ($stream === false) {
+                return $this->problem(500, 'Export Error', 'Failed to allocate export buffer.');
+            }
+
+            fputcsv($stream, ['id', 'slug', 'title', 'status', 'published_at', 'updated_at', 'created_at']);
+            foreach ($entries as $e) {
+                fputcsv($stream, [
+                    $e['id'] ?? '',
+                    $e['slug'] ?? '',
+                    $e['title'] ?? '',
+                    $e['status'] ?? '',
+                    $e['published_at'] ?? '',
+                    $e['updated_at'] ?? '',
+                    $e['created_at'] ?? '',
+                ]);
+            }
+            rewind($stream);
+            $csvContent = stream_get_contents($stream) ?: '';
+            fclose($stream);
+
+            return new \Nyholm\Psr7\Response(200, [
+                'Content-Type' => 'text/csv; charset=utf-8',
+                'Content-Disposition' => "attachment; filename=\"{$handle}-export.csv\"",
+            ], $csvContent);
+        }
+
+        return $this->json([
+            'collection' => $handle,
+            'count' => count($entries),
+            'data' => $entries,
+        ]);
+    }
 }
