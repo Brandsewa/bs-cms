@@ -527,7 +527,7 @@ final class PublishingPipelineIntegrationTest extends TestCase
         $this->assertNotNull($successData['finished_at']);
         $this->assertSame('https://github.com/Brandsewa/bs-cms/actions/runs/123456', $successData['build_log_url']);
 
-        // 6. Replay attempt using same callback token -> 400 (Token has been burned)
+        // 6. Replay attempt using same callback token -> 400 (Token has been burned / deployment finalized)
         $resReplay = $this->request('POST', "/api/v1/deployments/{$deployId}/status", [
             'status' => 'succeeded',
         ], [
@@ -535,7 +535,7 @@ final class PublishingPipelineIntegrationTest extends TestCase
         ]);
         $this->assertSame(400, $resReplay->getStatusCode());
         $replayBody = json_decode((string) $resReplay->getBody(), true);
-        $this->assertStringContainsString('Invalid or expired callback token', $replayBody['detail']);
+        $this->assertStringContainsString('already finalized', $replayBody['detail']);
     }
 
     /**
