@@ -257,20 +257,40 @@ final class PublishingController extends BaseController
             return $this->problem(401, 'Unauthorized', 'Empty callback token.');
         }
 
-        // Check if token exists in database for ANY deployment
-        $matchedDeployId = $this->deploymentService->findDeploymentIdByCallbackToken($rawCallbackToken);
-        if ($matchedDeployId === null) {
-            return $this->problem(401, 'Unauthorized', 'Invalid or expired callback token.');
-        }
-
-        // 2. Token is valid. Now check if the target deployment exists
-        if ($deploymentId === '' || $this->deploymentService->getDeployment($deploymentId) === null) {
+        // 2. Check deployment exists first
+        $deployment = $this->deploymentService->getDeployment($deploymentId);
+        if ($deploymentId === '' || $deployment === null) {
+            // Check if token matches any deployment so unknown token returns 401
+            $matchedDeployId = $this->deploymentService->findDeploymentIdByCallbackToken($rawCallbackToken);
+            if ($matchedDeployId === null) {
+                return $this->problem(401, 'Unauthorized', 'Invalid or expired callback token.');
+            }
             return $this->problem(404, 'Not Found', 'Deployment not found.');
         }
 
-        // Verify the valid token actually belongs to this specific deployment
-        if ($matchedDeployId !== $deploymentId) {
-            return $this->problem(401, 'Unauthorized', 'Callback token does not match requested deployment.');
+        // 3. Verify token matches this specific deployment
+        if (!$this->deploymentService->verifyCallbackToken($deploymentId, $rawCallbackToken)) {
+            // If deployment is already terminal, token was burned on terminal completion
+            $currentStatus = (string) ($deployment['status'] ?? '');
+            if (in_array($currentStatus, [
+                DeploymentService::STATUS_SUCCEEDED,
+                DeploymentService::STATUS_FAILED,
+                DeploymentService::STATUS_CANCELLED,
+            ], true)) {
+                return $this->problem(400, 'Bad Request', "Deployment is already finalized in terminal state '{$currentStatus}'.");
+            }
+
+            return $this->problem(401, 'Unauthorized', 'Invalid or expired callback token.');
+        }
+
+        // 4. Check if deployment is already in a terminal state
+        $currentStatus = (string) ($deployment['status'] ?? '');
+        if (in_array($currentStatus, [
+            DeploymentService::STATUS_SUCCEEDED,
+            DeploymentService::STATUS_FAILED,
+            DeploymentService::STATUS_CANCELLED,
+        ], true)) {
+            return $this->problem(400, 'Bad Request', "Deployment is already in terminal state '{$currentStatus}'.");
         }
 
         $body = $this->getBody($request);
