@@ -87,11 +87,16 @@ final class BlockRegistry
 
     private function loadFromDisk(): void
     {
-        if (!is_dir($this->storageDir)) {
+        $this->loadDir($this->storageDir);
+    }
+
+    private function loadDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
             return;
         }
 
-        $files = glob(rtrim($this->storageDir, '/\\') . '/*.json') ?: [];
+        $files = glob(rtrim($dir, '/\\') .'/*.json') ?: [];
         foreach ($files as $file) {
             $raw = file_get_contents($file);
             if ($raw === false) {
