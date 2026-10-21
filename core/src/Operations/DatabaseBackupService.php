@@ -22,7 +22,15 @@ final class DatabaseBackupService
     public function createBackup(?string $name = null): array
     {
         if (!is_dir($this->backupsDir)) {
-            mkdir($this->backupsDir, 0755, true);
+            mkdir($this->backupsDir, 0700, true);
+        }
+        $guard = rtrim($this->backupsDir, '/\') . '/.htaccess';
+        if (!is_file($guard)) {
+            file_put_contents($guard, "Require all denied
+<IfModule !mod_authz_core.c>
+Deny from all
+</IfModule>
+");
         }
 
         $now = date('Ymd_His');
@@ -31,6 +39,9 @@ final class DatabaseBackupService
 
         $pdo = $this->connection->getPdo();
         $handle = fopen($filePath, 'w');
+        if ($handle !== false) {
+            chmod($filePath, 0600);
+        }
         if ($handle === false) {
             throw new \RuntimeException("Unable to open backup file for writing: {$filePath}");
         }
@@ -57,6 +68,7 @@ final class DatabaseBackupService
             }
 
             // Batched data dump
+            $skip = $this->generatedColumns($pdo, $table);
             $selectStmt = $pdo->prepare("SELECT * FROM `{$table}`");
             $selectStmt->execute();
 
@@ -65,12 +77,12 @@ final class DatabaseBackupService
             while ($row = $selectStmt->fetch(\PDO::FETCH_ASSOC)) {
                 $rows[] = $row;
                 if (count($rows) >= $batchSize) {
-                    $this->writeInsertBatch($handle, $table, $rows, $pdo);
+                    $this->writeInsertBatch($handle, $table, $rows, $pdo, $skip);
                     $rows = [];
                 }
             }
             if (!empty($rows)) {
-                $this->writeInsertBatch($handle, $table, $rows, $pdo);
+                $this->writeInsertBatch($handle, $table, $rows, $pdo, $skip);
             }
             fwrite($handle, "\n");
         }
@@ -123,13 +135,13 @@ final class DatabaseBackupService
      * @param resource $handle
      * @param list<array<string, mixed>> $rows
      */
-    private function writeInsertBatch($handle, string $table, array $rows, \PDO $pdo): void
+    private function writeInsertBatch($handle, string $table, array $rows, \PDO $pdo, array $skip = []): void
     {
         if (empty($rows)) {
             return;
         }
 
-        $columns = array_keys($rows[0]);
+        $columns = array_values(array_diff(array_keys($rows[0]), $skip));
         $escapedColumns = array_map(fn($c) => "`{$c}`", $columns);
         $colList = implode(', ', $escapedColumns);
 
@@ -150,5 +162,20 @@ final class DatabaseBackupService
         }
 
         fwrite($handle, "INSERT INTO `{$table}` ({$colList}) VALUES\n  " . implode(",\n  ", $valRows) . ";\n");
+    }
+
+    /**
+     * Generated (virtual/stored) columns cannot be inserted into on restore.
+     *
+     * @return list<string>
+     */
+    private function generatedColumns(\PDO $pdo, string $table): array
+    {
+        $stmt = $pdo->prepare(
+            "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND GENERATION_EXPRESSION IS NOT NULL AND GENERATION_EXPRESSION <> ''"
+        );
+        $stmt->execute([$table]);
+
+        return array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
     }
 }

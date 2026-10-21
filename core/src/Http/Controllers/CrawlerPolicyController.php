@@ -59,14 +59,9 @@ final class CrawlerPolicyController extends BaseController
             return $perm;
         }
 
-        // Require step-up authentication for sensitive crawler policy changes
-        if ($actor->type === 'user' && empty($actor->stepUpAuthenticated)) {
-            // Check step-up header if provided
-            $stepUpHeader = $request->getHeaderLine('X-Step-Up-Token');
-            if ($stepUpHeader === '') {
-                // If not provided, enforce step-up challenge
-                return $this->problem(403, 'Step-Up Required', 'Modifying crawler policy requires step-up authentication.', 'step_up_required');
-            }
+        $stepUpError = $this->requireStepUp($request);
+        if ($stepUpError !== null) {
+            return $stepUpError;
         }
 
         $body = (array) $request->getParsedBody();
@@ -89,7 +84,7 @@ final class CrawlerPolicyController extends BaseController
 
             return $this->json(['data' => $created], 201);
         } catch (\Throwable $e) {
-            return $this->problem(422, 'Validation Error', $e->getMessage());
+            return $this->problem(422, 'Validation Error', $e instanceof \InvalidArgumentException ? $e->getMessage() : 'Invalid crawler policy.');
         }
     }
 
@@ -99,6 +94,11 @@ final class CrawlerPolicyController extends BaseController
         $perm = $this->requirePermission($this->authorizer, $request, 'update', new Subject('settings', 'crawler_policy'));
         if ($perm !== null) {
             return $perm;
+        }
+
+        $stepUpError = $this->requireStepUp($request);
+        if ($stepUpError !== null) {
+            return $stepUpError;
         }
 
         $versionId = (string) ($args['id'] ?? $request->getAttribute('id', ''));
@@ -118,7 +118,7 @@ final class CrawlerPolicyController extends BaseController
 
             return $this->json(['data' => $created]);
         } catch (\Throwable $e) {
-            return $this->problem(422, 'Rollback Failed', $e->getMessage());
+            return $this->problem(422, 'Rollback Failed', 'Unable to roll back to that version.');
         }
     }
 
