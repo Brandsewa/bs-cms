@@ -760,6 +760,81 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
+
+        // SPRINT-C BEGIN: Blocks Registry & Controller
+        $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
+            $storageDir = $app->storagePath('blocks');
+            $registry = new \BsCms\Blocks\BlockRegistry($storageDir);
+            $starterBlocksDir = dirname($app->basePath()) . '/starter/src/blocks';
+            if (is_dir($starterBlocksDir)) {
+                $registry->syncFromDirectory($starterBlocksDir);
+            }
+            return $registry;
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\BlocksController::class, function (Container $c): \BsCms\Http\Controllers\BlocksController {
+            return new \BsCms\Http\Controllers\BlocksController(
+                $c->get(\BsCms\Blocks\BlockRegistry::class)
+            );
+        });
+
+        // Crawler Policy services
+        $container->singleton(\BsCms\CrawlerPolicy\RobotsGenerator::class, function (): \BsCms\CrawlerPolicy\RobotsGenerator {
+            return new \BsCms\CrawlerPolicy\RobotsGenerator();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CanaryChecker::class, function (): \BsCms\CrawlerPolicy\CanaryChecker {
+            return new \BsCms\CrawlerPolicy\CanaryChecker();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\IndexNowService::class, function (Container $c): \BsCms\CrawlerPolicy\IndexNowService {
+            return new \BsCms\CrawlerPolicy\IndexNowService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CrawlerPolicyService::class, function (Container $c) use ($app): \BsCms\CrawlerPolicy\CrawlerPolicyService {
+            $cataloguePath = $app->basePath('resources/bots.json');
+            return new \BsCms\CrawlerPolicy\CrawlerPolicyService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\CrawlerPolicy\RobotsGenerator::class),
+                $cataloguePath
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\CrawlerPolicyController::class, function (Container $c): \BsCms\Http\Controllers\CrawlerPolicyController {
+            return new \BsCms\Http\Controllers\CrawlerPolicyController(
+                $c->get(\BsCms\CrawlerPolicy\CrawlerPolicyService::class),
+                $c->get(\BsCms\CrawlerPolicy\CanaryChecker::class),
+                $c->get(\BsCms\CrawlerPolicy\IndexNowService::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Audit\AuditLogger::class)
+            );
+        });
+
+        // Backup, Updater, and Maintenance services
+        $container->singleton(\BsCms\Operations\DatabaseBackupService::class, function (Container $c) use ($app): \BsCms\Operations\DatabaseBackupService {
+            return new \BsCms\Operations\DatabaseBackupService(
+                $c->get(Connection::class),
+                $app->storagePath('backups')
+            );
+        });
+
+        $container->singleton(\BsCms\Operations\SelfUpdaterService::class, function (Container $c) use ($app): \BsCms\Operations\SelfUpdaterService {
+            return new \BsCms\Operations\SelfUpdaterService(
+                $app->storagePath(),
+                $app->basePath(),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MaintenanceController::class, function (Container $c) use ($app): \BsCms\Http\Controllers\MaintenanceController {
+            return new \BsCms\Http\Controllers\MaintenanceController(
+                $c->get(\BsCms\Operations\SelfUpdaterService::class),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class),
+                $c->get(Authorizer::class),
+                $app->storagePath()
+            );
+        });
+        // SPRINT-C END: Blocks Registry & Controller
     }
 
     public function boot(Container $container): void

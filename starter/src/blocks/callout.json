@@ -1,0 +1,12 @@
+{
+  "name": "callout",
+  "label": "Callout Box",
+  "description": "Highlighted notice with icon and variant styling",
+  "category": "content",
+  "icon": "alert-circle",
+  "fields": {
+    "variant": { "type": "string", "label": "Variant", "enum": ["info", "tip", "warning", "note"], "default": "info" },
+    "title": { "type": "string", "label": "Title", "required": false },
+    "content": { "type": "string", "label": "Message", "required": true }
+  }
+}

@@ -200,7 +200,12 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\AiController::class),
     $container->get(\BsCms\Http\Controllers\PublishingController::class),
     $container->get(\BsCms\Http\Controllers\BuildTokensController::class),
-    $container->get(\BsCms\Http\Controllers\PreviewController::class)
+    $container->get(\BsCms\Http\Controllers\PreviewController::class),
+    // SPRINT-C BEGIN: Blocks Controller wiring
+    $container->get(\BsCms\Http\Controllers\BlocksController::class),
+    $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),
+    $container->get(\BsCms\Http\Controllers\MaintenanceController::class)
+    // SPRINT-C END: Blocks Controller wiring
 );
 
 // Build middleware pipeline

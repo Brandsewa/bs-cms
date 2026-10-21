@@ -1,0 +1,10 @@
+{
+  "name": "text",
+  "label": "Rich Text Block",
+  "description": "Standard rich text or markdown paragraph",
+  "category": "content",
+  "icon": "type",
+  "fields": {
+    "content": { "type": "richtext", "label": "Content", "profile": "minimal", "required": true }
+  }
+}
