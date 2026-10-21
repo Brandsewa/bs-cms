@@ -87,14 +87,16 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
           }
         } else if (mounted) {
           // Test fallback
-          const testCols = (fallbackFixtures as any).collections as CollectionSchema[];
+          const fixturesObj = fallbackFixtures as Record<string, unknown>;
+          const testCols = fixturesObj.collections as CollectionSchema[] | undefined;
           setCollections(testCols || []);
           const found = testCols?.find((c) => c.handle === collectionHandle);
           if (found) setActiveCollection(found);
         }
       } catch {
         if (mounted) {
-          const testCols = (fallbackFixtures as any).collections as CollectionSchema[];
+          const fixturesObj = fallbackFixtures as Record<string, unknown>;
+          const testCols = fixturesObj.collections as CollectionSchema[] | undefined;
           setCollections(testCols || []);
           const found = testCols?.find((c) => c.handle === collectionHandle);
           if (found) setActiveCollection(found);
@@ -174,7 +176,8 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
               : collectionHandle === 'pages'
               ? 'pages_entries_default'
               : 'posts_entries_default';
-          const fixture = (fallbackFixtures as any)[key] as EntriesListResponse;
+          const fixturesObj = fallbackFixtures as Record<string, unknown>;
+          const fixture = fixturesObj[key] as EntriesListResponse | undefined;
           const items = fixture?.data || [];
           setEntries(items);
           setTotalRows(fixture?.meta?.pagination?.total ?? items.length);
@@ -185,18 +188,20 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
           setError({ message: problemDetail || 'Unable to load entries.' });
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const isTestMode =
         typeof window !== 'undefined' &&
         Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
 
       if (isTestMode) {
-        const fixture = (fallbackFixtures as any).posts_entries_default as EntriesListResponse;
+        const fixturesObj = fallbackFixtures as Record<string, unknown>;
+        const fixture = fixturesObj.posts_entries_default as EntriesListResponse | undefined;
         setEntries(fixture?.data || []);
         setTotalRows(fixture?.meta?.pagination?.total ?? 0);
       } else {
         setEntries([]);
-        setError({ message: err?.message || 'Network error while fetching collection entries.' });
+        const errMsg = err instanceof Error ? err.message : 'Network error while fetching collection entries.';
+        setError({ message: errMsg });
       }
     } finally {
       setLoading(false);
@@ -331,8 +336,9 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
                 } else {
                   outcome.failed.push({ row: r, reason: res.problem?.detail || 'Failed' });
                 }
-              } catch (e: any) {
-                outcome.failed.push({ row: r, reason: e.message });
+              } catch (e: unknown) {
+                const reason = e instanceof Error ? e.message : 'Error restoring entry';
+                outcome.failed.push({ row: r, reason });
               }
             }
             loadEntries();
