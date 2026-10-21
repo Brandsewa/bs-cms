@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import { Button, Input, Label } from '@bs/ui';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@bs/ui';
 import type { EntryItem } from './types';
 
 interface QuickEditFormProps {
@@ -22,8 +31,9 @@ export function QuickEditForm({ entry, onSave, onClose }: QuickEditFormProps) {
     try {
       await onSave({ title, slug, status });
       onClose?.();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to update entry');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to update entry';
+      setError(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -58,17 +68,20 @@ export function QuickEditForm({ entry, onSave, onClose }: QuickEditFormProps) {
 
       <div className="space-y-1.5">
         <Label htmlFor="quick-edit-status">Status</Label>
-        <select
-          id="quick-edit-status"
+        <Select
           value={status}
-          onChange={(e) => setStatus(e.target.value as EntryItem['status'])}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          onValueChange={(val) => setStatus(val as EntryItem['status'])}
         >
-          <option value="draft">Draft</option>
-          <option value="in_review">In Review</option>
-          <option value="published">Published</option>
-          <option value="archived">Archived</option>
-        </select>
+          <SelectTrigger id="quick-edit-status">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="in_review">In Review</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">

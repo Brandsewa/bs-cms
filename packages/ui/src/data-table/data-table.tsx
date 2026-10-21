@@ -313,7 +313,7 @@ export function DataTable<T>({
       rows = applyFilters(rows, filterDefs, activeFilters, accessorFor);
     }
     return rows;
-  }, [statusFiltered, debouncedSearch, activeFilters, filterDefs, accessorFor, columns]);
+  }, [statusFiltered, manualPagination, debouncedSearch, activeFilters, filterDefs, accessorFor, columns]);
 
   // ---- sorting -----------------------------------------------------------
   const compareValues = (a: unknown, b: unknown): number => {

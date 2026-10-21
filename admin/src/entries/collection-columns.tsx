@@ -50,11 +50,11 @@ export function buildCollectionColumns(
         accessor: (row: EntryItem) => {
           if (!row.categories) return [];
           if (Array.isArray(row.categories)) {
-            return row.categories.map((c: any) =>
-              typeof c === 'string'
-                ? { id: c, label: c }
-                : { id: c.id ?? c.name, label: c.label ?? c.name ?? c.id }
-            );
+            return row.categories.map((c: unknown) => {
+              if (typeof c === 'string') return { id: c, label: c };
+              const obj = c as { id?: string; name?: string; label?: string };
+              return { id: obj.id ?? obj.name ?? 'category', label: obj.label ?? obj.name ?? obj.id ?? 'category' };
+            });
           }
           return [];
         },
@@ -67,11 +67,11 @@ export function buildCollectionColumns(
         accessor: (row: EntryItem) => {
           if (!row.tags) return [];
           if (Array.isArray(row.tags)) {
-            return row.tags.map((t: any) =>
-              typeof t === 'string'
-                ? { id: t, label: t }
-                : { id: t.id ?? t.name, label: t.label ?? t.name ?? t.id }
-            );
+            return row.tags.map((t: unknown) => {
+              if (typeof t === 'string') return { id: t, label: t };
+              const obj = t as { id?: string; name?: string; label?: string };
+              return { id: obj.id ?? obj.name ?? 'tag', label: obj.label ?? obj.name ?? obj.id ?? 'tag' };
+            });
           }
           return [];
         },
