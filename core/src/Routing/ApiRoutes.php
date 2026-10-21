@@ -75,7 +75,8 @@ final class ApiRoutes
         ?BuildTokensController $buildTokens = null,
         ?PreviewController $preview = null,
         // SPRINT-C BEGIN: Blocks Controller param
-        ?\BsCms\Http\Controllers\BlocksController $blocks = null
+        ?\BsCms\Http\Controllers\BlocksController $blocks = null,
+        ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null
         // SPRINT-C END: Blocks Controller param
     ): void {
         // 1. Auth endpoints
@@ -385,6 +386,14 @@ final class ApiRoutes
         if ($blocks !== null) {
             $routes->get('/api/v1/blocks', [$blocks, 'list']);
             $routes->get('/api/v1/blocks/{name}', [$blocks, 'get']);
+        }
+        if ($crawlerPolicy !== null) {
+            $routes->get('/api/v1/crawler-policy', [$crawlerPolicy, 'getActive']);
+            $routes->put('/api/v1/crawler-policy', [$crawlerPolicy, 'update']);
+            $routes->get('/api/v1/crawler-policy/versions', [$crawlerPolicy, 'listVersions']);
+            $routes->post('/api/v1/crawler-policy/rollback/{id}', [$crawlerPolicy, 'rollback']);
+            $routes->post('/api/v1/crawler-policy/canary', [$crawlerPolicy, 'runCanary']);
+            $routes->post('/api/v1/crawler-policy/indexnow', [$crawlerPolicy, 'submitIndexNow']);
         }
         // SPRINT-C END: Blocks endpoints
     }

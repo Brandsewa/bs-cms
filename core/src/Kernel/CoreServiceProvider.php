@@ -777,6 +777,38 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Blocks\BlockRegistry::class)
             );
         });
+
+        // Crawler Policy services
+        $container->singleton(\BsCms\CrawlerPolicy\RobotsGenerator::class, function (): \BsCms\CrawlerPolicy\RobotsGenerator {
+            return new \BsCms\CrawlerPolicy\RobotsGenerator();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CanaryChecker::class, function (): \BsCms\CrawlerPolicy\CanaryChecker {
+            return new \BsCms\CrawlerPolicy\CanaryChecker();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\IndexNowService::class, function (Container $c): \BsCms\CrawlerPolicy\IndexNowService {
+            return new \BsCms\CrawlerPolicy\IndexNowService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CrawlerPolicyService::class, function (Container $c) use ($app): \BsCms\CrawlerPolicy\CrawlerPolicyService {
+            $cataloguePath = $app->basePath('resources/bots.json');
+            return new \BsCms\CrawlerPolicy\CrawlerPolicyService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\CrawlerPolicy\RobotsGenerator::class),
+                $cataloguePath
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\CrawlerPolicyController::class, function (Container $c): \BsCms\Http\Controllers\CrawlerPolicyController {
+            return new \BsCms\Http\Controllers\CrawlerPolicyController(
+                $c->get(\BsCms\CrawlerPolicy\CrawlerPolicyService::class),
+                $c->get(\BsCms\CrawlerPolicy\CanaryChecker::class),
+                $c->get(\BsCms\CrawlerPolicy\IndexNowService::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Audit\AuditLogger::class)
+            );
+        });
         // SPRINT-C END: Blocks Registry & Controller
     }
 
