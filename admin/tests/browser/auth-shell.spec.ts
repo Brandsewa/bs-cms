@@ -278,6 +278,28 @@ test.describe('Admin Auth & Shell Suite', () => {
   });
 
   test('permission-filtered sidebar: viewer vs owner', async ({ page }) => {
+    // Mock /me/permissions for viewer
+    await page.route('**/api/v1/me/permissions', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          actor_id: 'u2',
+          role_ids: ['r-viewer'],
+          permissions: [
+            {
+              id: 'p-viewer-collection',
+              role_id: 'r-viewer',
+              subject_type: 'collection',
+              subject_key: '*',
+              action: 'read',
+              effect: 'allow',
+            },
+          ],
+        }),
+      });
+    });
+
     // 1. Viewer session
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
@@ -286,8 +308,12 @@ test.describe('Admin Auth & Shell Suite', () => {
         body: JSON.stringify({
           status: 'authenticated',
           csrf_token: 'csrf123',
-          user: { id: 'u2', email: 'viewer@example.com', name: 'Bob Viewer', roles: ['viewer'] },
-          permissions: ['entries.read'],
+          user: {
+            id: 'u2',
+            email: 'viewer@example.com',
+            name: 'Bob Viewer',
+            roles: [{ id: 'r-viewer', handle: 'viewer', name: 'Viewer' }],
+          },
         }),
       });
     });
@@ -299,6 +325,27 @@ test.describe('Admin Auth & Shell Suite', () => {
     await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
 
     // 2. Owner session
+    await page.route('**/api/v1/me/permissions', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          actor_id: 'u1',
+          role_ids: ['r-owner'],
+          permissions: [
+            {
+              id: 'p-owner-all',
+              role_id: 'r-owner',
+              subject_type: '*',
+              subject_key: '*',
+              action: '*',
+              effect: 'allow',
+            },
+          ],
+        }),
+      });
+    });
+
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
         status: 200,
@@ -306,8 +353,12 @@ test.describe('Admin Auth & Shell Suite', () => {
         body: JSON.stringify({
           status: 'authenticated',
           csrf_token: 'csrf123',
-          user: { id: 'u1', email: 'owner@example.com', name: 'Alice Owner', roles: ['owner'] },
-          permissions: ['*'],
+          user: {
+            id: 'u1',
+            email: 'owner@example.com',
+            name: 'Alice Owner',
+            roles: [{ id: 'r-owner', handle: 'owner', name: 'Owner' }],
+          },
         }),
       });
     });
