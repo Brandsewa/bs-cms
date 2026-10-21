@@ -204,8 +204,8 @@ export { ConfirmationModal, TypeToConfirmDialog } from './feedback';
 export type { ConfirmationModalProps, TypeToConfirmDialogProps } from './feedback';
 export { MetricCard, StatusBadge, StatusDot } from './feedback';
 export type { EntryStatus, MetricCardProps, StatusDotProps } from './feedback';
-export { undoToast } from './feedback';
-export type { UndoToastOptions } from './feedback';
+export { undoToast, problemToast } from './feedback';
+export type { UndoToastOptions, ProblemDetailsLike, ProblemToastOptions } from './feedback';
 export {
   Combobox,
   type ComboboxOption,
@@ -318,3 +318,8 @@ export type {
   UploadHandlerResult,
   UserPickerProps,
 } from './pickers';
+
+// Hooks
+export { useHotkeys } from './hooks/use-hotkeys';
+export type { HotkeyItem, UseHotkeysOptions } from './hooks/use-hotkeys';
+
