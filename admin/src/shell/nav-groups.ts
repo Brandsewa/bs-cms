@@ -1,6 +1,7 @@
 import type { SidebarGroup, SidebarItem } from '@bs/ui';
 import {
   Activity,
+  ArrowLeftRight,
   Code,
   FileText,
   FolderTree,
@@ -70,6 +71,15 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
         icon: Globe,
         to: '/admin/menus',
       },
+      // SPRINT-A BEGIN
+      {
+        id: 'redirects',
+        label: 'Redirects',
+        permission: 'site:read',
+        icon: ArrowLeftRight,
+        to: '/admin/redirects',
+      },
+      // SPRINT-A END
       {
         id: 'ai',
         label: 'AI Studio',

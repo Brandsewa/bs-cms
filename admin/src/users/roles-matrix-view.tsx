@@ -27,6 +27,8 @@ import {
   Copy,
   Trash2,
   X,
+  Eye,
+  Sliders,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
@@ -92,6 +94,12 @@ export function RolesMatrixView() {
 
   // Status Banner
   const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // SPRINT-A: Preview as role & Custom role editor modal
+  const [previewRole, setPreviewRole] = useState<RoleDetail | null>(null);
+  const [editingRole, setEditingRole] = useState<RoleDetail | null>(null);
+  const [editedPermissions, setEditedPermissions] = useState<Record<string, { effect: 'allow' | 'deny' | 'inherit'; own_only?: boolean }>>({});
+  const [savingPermissions, setSavingPermissions] = useState(false);
 
   const loadRoles = async () => {
     setLoading(true);
@@ -341,6 +349,44 @@ export function RolesMatrixView() {
                 <CardContent className="pt-0 flex items-center justify-between border-t border-border/50 py-3 text-12">
                   <span className="font-mono text-muted-foreground text-11">handle: {r.handle}</span>
                   <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPreviewRole(r)}
+                      className="h-7 px-2 text-11 gap-1"
+                      title={`Preview as ${r.name}`}
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>Preview</span>
+                    </Button>
+
+                    {!isSystem && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingRole(r);
+                          const initial: Record<string, { effect: 'allow' | 'deny' | 'inherit'; own_only?: boolean }> = {};
+                          CANONICAL_SUBJECTS.forEach((sub) => {
+                            const subPerms = (r.permissions || []).filter((p) => p.subject_type === sub.key);
+                            const hasAllow = subPerms.some((p) => p.effect === 'allow');
+                            const hasDeny = subPerms.some((p) => p.effect === 'deny');
+                            const ownOnly = subPerms.some((p) => p.conditions && Object.keys(p.conditions).length > 0);
+                            initial[sub.key] = {
+                              effect: hasDeny ? 'deny' : hasAllow ? 'allow' : 'inherit',
+                              own_only: ownOnly,
+                            };
+                          });
+                          setEditedPermissions(initial);
+                        }}
+                        className="h-7 px-2 text-11 gap-1 text-primary"
+                        title={`Edit permissions for ${r.name}`}
+                      >
+                        <Sliders className="h-3 w-3" />
+                        <span>Edit</span>
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="ghost"
@@ -632,6 +678,166 @@ export function RolesMatrixView() {
           />
         </Suspense>
       ) : null}
+
+      {/* SPRINT-A: Preview As Role Modal */}
+      <Dialog open={Boolean(previewRole)} onOpenChange={(open) => !open && setPreviewRole(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Simulated Capabilities: {previewRole?.name}</DialogTitle>
+            <DialogDescription>
+              Preview of what a user assigned to <code>{previewRole?.handle}</code> can see and perform.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 max-h-80 overflow-y-auto">
+            {CANONICAL_SUBJECTS.map((sub) => {
+              if (!previewRole) return null;
+              const perms = getSubjectPermissions(previewRole, sub.key);
+              return (
+                <div key={sub.key} className="flex items-center justify-between text-12 border-b border-border/40 pb-2">
+                  <span className="font-medium text-foreground">{sub.label}</span>
+                  {perms.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {perms.map((p) => (
+                        <Badge key={p} variant="secondary" className="text-[10px]">
+                          {p}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-[11px]">Forbidden (403)</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setPreviewRole(null)}>Close Preview</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* SPRINT-A: Custom Role Permissions Editor Modal */}
+      <Dialog open={Boolean(editingRole)} onOpenChange={(open) => !open && setEditingRole(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Permissions: {editingRole?.name}</DialogTitle>
+            <DialogDescription>
+              Configure allow/deny/inherit access rules and scoped ownership restrictions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 max-h-96 overflow-y-auto">
+            {CANONICAL_SUBJECTS.map((sub) => {
+              const current = editedPermissions[sub.key] || { effect: 'inherit', own_only: false };
+              return (
+                <div key={sub.key} className="p-2.5 rounded border border-border bg-card space-y-2 text-12">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-foreground">{sub.label}</span>
+                      <code className="block text-[10px] text-muted-foreground">{sub.key}</code>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {(['inherit', 'allow', 'deny'] as const).map((eff) => (
+                        <button
+                          key={eff}
+                          type="button"
+                          onClick={() =>
+                            setEditedPermissions((prev) => ({
+                              ...prev,
+                              [sub.key]: { ...prev[sub.key], effect: eff },
+                            }))
+                          }
+                          className={`px-2 py-0.5 rounded text-11 font-mono uppercase transition-colors ${
+                            current.effect === eff
+                              ? eff === 'allow'
+                                ? 'bg-success text-success-foreground font-semibold'
+                                : eff === 'deny'
+                                ? 'bg-destructive text-destructive-foreground font-semibold'
+                                : 'bg-primary text-primary-foreground font-semibold'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          }`}
+                        >
+                          {eff}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {current.effect === 'allow' && (
+                    <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px] text-muted-foreground">
+                      <span>Restrict to own entries only</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(current.own_only)}
+                        onChange={(e) =>
+                          setEditedPermissions((prev) => ({
+                            ...prev,
+                            [sub.key]: { ...prev[sub.key], own_only: e.target.checked },
+                          }))
+                        }
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRole(null)}>
+              Cancel
+            </Button>
+            <Button
+              loading={savingPermissions}
+              onClick={async () => {
+                if (!editingRole) return;
+                setSavingPermissions(true);
+                try {
+                  const rules: any[] = [];
+                  Object.entries(editedPermissions).forEach(([subjectKey, val]) => {
+                    if (val.effect === 'allow') {
+                      rules.push({
+                        subject_type: subjectKey,
+                        subject_key: '*',
+                        action: '*',
+                        effect: 'allow',
+                        conditions: val.own_only ? { own_entries: true } : null,
+                      });
+                    } else if (val.effect === 'deny') {
+                      rules.push({
+                        subject_type: subjectKey,
+                        subject_key: '*',
+                        action: '*',
+                        effect: 'deny',
+                      });
+                    }
+                  });
+
+                  const res = await apiClient.request('PUT', `/roles/${editingRole.id}/permissions`, {
+                    permissions: rules,
+                  });
+                  if (res.ok) {
+                    setEditingRole(null);
+                    loadRoles();
+                  } else {
+                    alert('Failed to update permissions.');
+                  }
+                } catch {
+                  alert('Error saving role permissions.');
+                } finally {
+                  setSavingPermissions(false);
+                }
+              }}
+            >
+              Save Permissions
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
