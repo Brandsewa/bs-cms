@@ -677,6 +677,16 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
+        $container->singleton(\BsCms\Security\RateLimiter::class, function (Container $c): \BsCms\Security\RateLimiter {
+            return new \BsCms\Security\RateLimiter(60, 60, [], function () use ($c): ?Connection {
+                try {
+                    return $c->get(Connection::class);
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            });
+        });
+
         $container->singleton(\BsCms\Mcp\McpController::class, function (Container $c): \BsCms\Mcp\McpController {
             return new \BsCms\Mcp\McpController(
                 $c->get(Connection::class),

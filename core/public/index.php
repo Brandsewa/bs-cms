@@ -240,13 +240,7 @@ $kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware(
     $buildTokenService
 ));
 
-$limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
-    try {
-        return $container->get(Connection::class);
-    } catch (\Throwable $e) {
-        return null;
-    }
-});
+$limiter = $container->get(RateLimiter::class);
 $kernel->addMiddleware(new RateLimitMiddleware($limiter));
 
 $adminOrigin = (string) $config->get('app.url', '');
