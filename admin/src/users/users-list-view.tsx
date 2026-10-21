@@ -240,7 +240,7 @@ export function UsersListView() {
     }
   };
 
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
         <Spinner size={28} />

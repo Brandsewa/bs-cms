@@ -389,7 +389,9 @@ export function RolesMatrixView() {
           <table className="w-full text-left text-12 border-collapse" data-testid="roles-matrix-table">
             <thead>
               <tr className="border-b border-border bg-muted/40 font-medium text-muted-foreground">
-                <th className="px-3 py-2.5 min-w-[180px]">Subject / Area</th>
+                <th className="sticky left-0 z-10 bg-card px-3 py-2.5 min-w-[170px] shadow-[1px_0_0_0_var(--border)]">
+                  Subject / Area
+                </th>
                 {roles.map((r) => (
                   <th key={r.id} className="px-3 py-2.5 min-w-[120px]">
                     <div className="font-medium text-foreground">{r.name}</div>
@@ -401,7 +403,7 @@ export function RolesMatrixView() {
             <tbody className="divide-y divide-border">
               {CANONICAL_SUBJECTS.map((sub) => (
                 <tr key={sub.key} className="hover:bg-muted/20">
-                  <td className="px-3 py-2.5 font-medium text-foreground">
+                  <td className="sticky left-0 z-10 bg-card px-3 py-2.5 font-medium text-foreground shadow-[1px_0_0_0_var(--border)]">
                     {sub.label}
                     <span className="block font-mono text-[10px] text-muted-foreground">{sub.key}</span>
                   </td>

@@ -305,6 +305,51 @@ test.describe('Users and Roles Admin Screens', () => {
     expect(sessionRevoked).toBe(true);
   });
 
+  test('resets 2FA for a user from details slide-over sheet', async ({ page }) => {
+    let unlockCalled = false;
+
+    await page.route('**/api/v1/users/01M5D4V4S9Y8A6S3JM6WGNHE8P', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...userDetailFixture,
+          two_factor_enabled: true,
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/users/01M5D4V4S9Y8A6S3JM6WGNHE8P/unlock', async (route) => {
+      if (route.request().method() === 'POST') {
+        unlockCalled = true;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ status: 'user_unlocked' }),
+        });
+      } else {
+        await route.fallback();
+      }
+    });
+
+    await page.goto(`${ADMIN_URL}/users`);
+    await expect(page.locator('[data-testid="users-table"]')).toBeVisible();
+
+    const authorRow = page.locator('tr:has-text("author@example.com")');
+    await authorRow.locator('button[aria-label^="Open menu"]').click();
+    await page.click('[role="menuitem"]:has-text("View Details")');
+
+    await expect(page.locator('h2:has-text("User Details")')).toBeVisible();
+    await expect(page.locator('button:has-text("Reset 2FA Token")')).toBeVisible();
+
+    await page.click('button:has-text("Reset 2FA Token")');
+    await expect(page.locator('h2:has-text("Reset Two-Factor Authentication")')).toBeVisible();
+
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Reset 2FA' }).click();
+    await expect(page.locator('text=Two-Factor Authentication requirement reset successfully.')).toBeVisible();
+    expect(unlockCalled).toBe(true);
+  });
+
   test('suspends and reactivates user with safety confirmations', async ({ page }) => {
     let suspendCalled = false;
 
@@ -357,6 +402,12 @@ test.describe('Users and Roles Admin Screens', () => {
 
     await page.goto(`${ADMIN_URL}/users`);
     await expect(page.locator('[data-testid="users-table"]')).toBeVisible();
+
+    // Self deletion is disabled
+    const selfRow = page.locator('tr:has-text("owner@example.com")');
+    await selfRow.locator('button[aria-label^="Open menu"]').click();
+    await expect(page.locator('[role="menuitem"]:has-text("Delete User")')).toBeDisabled();
+    await page.keyboard.press('Escape');
 
     const authorRow = page.locator('tr:has-text("author@example.com")');
     await authorRow.locator('button[aria-label^="Open menu"]').click();

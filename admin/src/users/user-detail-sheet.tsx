@@ -84,8 +84,6 @@ export function UserDetailSheet({
   const loadUserDetails = async (id: string) => {
     setLoading(true);
     setError(null);
-    setActionSuccess(null);
-    setActionError(null);
 
     try {
       const res = await apiClient.request<UserDetailData>('GET', `/users/${id}`);
@@ -117,6 +115,8 @@ export function UserDetailSheet({
 
   useEffect(() => {
     if (open && userId) {
+      setActionSuccess(null);
+      setActionError(null);
       loadUserDetails(userId);
       loadSessions(userId);
     } else {

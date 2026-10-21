@@ -36,7 +36,7 @@ export function UsersLayout({ activeTab, children }: UsersLayoutProps) {
   };
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/admin/' },
+    { label: 'Admin', href: '/admin/' },
     { label: 'Users', href: '/admin/users' },
     {
       label: activeTab === 'users' ? 'Team Members' : 'Roles & Permissions',
@@ -45,12 +45,13 @@ export function UsersLayout({ activeTab, children }: UsersLayoutProps) {
 
   return (
     <PageContainer width="full" className="space-y-6">
-      <Breadcrumbs items={breadcrumbs} />
-
-      <PageHeader
-        title="Users & Roles"
-        description="Manage team members, access invitations, system role assignments, and permission boundaries."
-      />
+      <div className="space-y-1.5">
+        <Breadcrumbs items={breadcrumbs} className="text-12" />
+        <PageHeader
+          title="Users & Roles"
+          description="Manage team members, access invitations, system role assignments, and permission boundaries."
+        />
+      </div>
 
       <PageNav
         aria-label="User management sections"
