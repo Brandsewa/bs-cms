@@ -5,6 +5,7 @@ import {
   FolderTree,
   Globe,
   Image,
+  ScrollText,
   Settings,
   Sparkles,
   Users,
@@ -87,6 +88,13 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
         permission: 'users:read',
         icon: Users,
         to: '/admin/users',
+      },
+      {
+        id: 'audit',
+        label: 'Audit Log',
+        permission: 'settings:read',
+        icon: ScrollText,
+        to: '/admin/system/audit',
       },
       {
         id: 'developer',

@@ -1125,6 +1125,15 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
   2. **Attack Surface & Minimal Complexity (Ponytail Guardrail):** Adding an unauthenticated `/mcp/public` endpoint expands connection and IP rate limit attack surfaces on shared hosting before authenticated workflows are battle-tested.
   3. **Audit Integrity:** BS CMS's core AI architecture requires authenticated provenance and safety modes (`draft_only`, `approval_required`) tied to explicit user grants. Unauthenticated MCP weakens the audit model without distinct user benefit at this stage.
 
+---
+
+## 20. API Datetime Formatting & Consistency Note
+- **Database & Model Convention:** As documented in `docs/01-data-model.md`, timestamps are stored as `DATETIME(3)` in UTC across MySQL/MariaDB and SQLite.
+- **Current Serialization:** Native driver outputs and existing presenters return UTC SQL strings (e.g. `"2026-10-21 01:53:37.000"` or `"2026-10-21 01:53:37"`).
+- **Breaking Change Risk Analysis:** Changing all existing API date fields (e.g. in `EntryPresenter`, `UserPresenter`, `MediaPresenter`, `AuditEntry`, `RedirectPresenter`, `TermPresenter`) to strictly append `Z` (e.g. `"2026-10-21T01:53:37.000Z"`) would break existing consumers and integration tests asserting exact SQL timestamp formats across the backend and test suites.
+- **Client Normalization:** The admin client includes `parseApiUtcDate()` in `admin/src/lib/datetime.ts` with comprehensive unit tests (`admin/src/lib/datetime.test.ts`), safely parsing both space-separated SQL datetimes (`YYYY-MM-DD HH:mm:ss[.sss]`) and standard ISO-8601 strings into proper UTC `Date` instances. The current API wire representation is preserved for stability and full backward compatibility.
+
+
 
 
 

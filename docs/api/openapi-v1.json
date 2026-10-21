@@ -7797,6 +7797,11 @@
                             "archived"
                         ]
                     },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
                     "name": {
                         "type": "string",
                         "maxLength": 190
@@ -7846,6 +7851,11 @@
                             "archived"
                         ]
                     },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
                     "items": {
                         "type": "array",
                         "items": {
@@ -7872,6 +7882,11 @@
                             "published",
                             "archived"
                         ]
+                    },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "template": {
                         "type": "string",
@@ -7924,6 +7939,11 @@
                             "published",
                             "archived"
                         ]
+                    },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "body": {
                         "type": [
@@ -8039,6 +8059,11 @@
                             "published",
                             "archived"
                         ]
+                    },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
                     },
                     "site_name": {
                         "type": "string",

@@ -1,0 +1,1210 @@
+{
+  "items": [
+    {
+      "id": 20,
+      "request_id": "01M5EF71C92H98FQVC37YN177D",
+      "actor_type": "user",
+      "actor_id": "01M5EDS1E6S53MZAREBK0CVM51",
+      "actor_label": "owner@example.com",
+      "on_behalf_of": "01M5EDS1E6S53MZAREBK0CVM51",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS1E6S53MZAREBK0CVM51",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "127.0.0.1",
+      "user_agent": "curl/8.5.0",
+      "result": "success",
+      "created_at": "2026-10-21 05:33:45.787"
+    },
+    {
+      "id": 19,
+      "request_id": "01M5EF38MHF7MBRCA9QPN56Z4Q",
+      "actor_type": "user",
+      "actor_id": "01M5EDS1E6S53MZAREBK0CVM51",
+      "actor_label": "owner@example.com",
+      "on_behalf_of": "01M5EDS1E6S53MZAREBK0CVM51",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS1E6S53MZAREBK0CVM51",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "172.24.0.6",
+      "user_agent": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.9711",
+      "result": "success",
+      "created_at": "2026-10-21 05:31:42.167"
+    },
+    {
+      "id": 18,
+      "request_id": "01M5EDSM4GXFW3HNKTVF7HT9ZQ",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.trash",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+      "collection_key": "posts",
+      "summary": "Trashed entry 01M5EDSK9ZMT5ZVXWF6XS25H0B in posts",
+      "diff": {
+        "before": {
+          "id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+          "slug": "owner-pub-trash",
+          "title": "Owner pub trash",
+          "status": "published",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": "2026-10-21 05:08:56.000",
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 2
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:57.638"
+    },
+    {
+      "id": 17,
+      "request_id": "01M5EDSKZQQZT87A7QC66F79HY",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.trash",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK6CZBWWT26B3CPFR8S1",
+      "collection_key": "posts",
+      "summary": "Trashed entry 01M5EDSK6CZBWWT26B3CPFR8S1 in posts",
+      "diff": {
+        "before": {
+          "id": "01M5EDSK6CZBWWT26B3CPFR8S1",
+          "slug": "owner-to-trash",
+          "title": "Owner to trash",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner to trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner to trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner to trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner to trash Owner to trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:57.496"
+    },
+    {
+      "id": 16,
+      "request_id": "01M5EDSKTGXGARFH86KRJJ2B3Q",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2DF42TJV5PJP1P8WZ00",
+      "actor_label": "Contributor Test",
+      "on_behalf_of": "01M5EDS2DF42TJV5PJP1P8WZ00",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSKV0KX6T391A074HM7JF",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSKV0KX6T391A074HM7JF in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSKV0KX6T391A074HM7JF",
+          "slug": "contributor-draft-one",
+          "title": "Contributor draft one",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS2DF42TJV5PJP1P8WZ00",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Contributor draft one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Contributor draft one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Contributor draft one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Contributor draft one Contributor draft one",
+          "created_at": "2026-10-21 05:08:57.000",
+          "created_by": "01M5EDS2DF42TJV5PJP1P8WZ00",
+          "updated_at": "2026-10-21 05:08:57.000",
+          "updated_by": "01M5EDS2DF42TJV5PJP1P8WZ00",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:57.361"
+    },
+    {
+      "id": 15,
+      "request_id": "01M5EDSKPJ74RBYJYMC1QA76MR",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "actor_label": "Author Test",
+      "on_behalf_of": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSKPZNDZWEJVAM3JXS3NK",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSKPZNDZWEJVAM3JXS3NK in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSKPZNDZWEJVAM3JXS3NK",
+          "slug": "author-draft-two",
+          "title": "Author draft two",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Author draft two"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Author draft two",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Author draft two",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Author draft two Author draft two",
+          "created_at": "2026-10-21 05:08:57.000",
+          "created_by": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "updated_at": "2026-10-21 05:08:57.000",
+          "updated_by": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:57.199"
+    },
+    {
+      "id": 14,
+      "request_id": "01M5EDSKJB73JGJ89WDM815J9V",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "actor_label": "Author Test",
+      "on_behalf_of": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSKJNZX2J63RC306SY5H4",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSKJNZX2J63RC306SY5H4 in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSKJNZX2J63RC306SY5H4",
+          "slug": "author-draft-one",
+          "title": "Author draft one",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Author draft one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Author draft one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Author draft one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Author draft one Author draft one",
+          "created_at": "2026-10-21 05:08:57.000",
+          "created_by": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "updated_at": "2026-10-21 05:08:57.000",
+          "updated_by": "01M5EDS2B3WHD6YSKSWFG9M327",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:57.059"
+    },
+    {
+      "id": 13,
+      "request_id": "01M5EDSKDTKZ3DCC3VZJGPZ3MC",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.patch",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+      "collection_key": "posts",
+      "summary": "Updated entry 01M5EDSK9ZMT5ZVXWF6XS25H0B in posts",
+      "diff": {
+        "before": {
+          "id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+          "slug": "owner-pub-trash",
+          "title": "Owner pub trash",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub trash Owner pub trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        },
+        "after": {
+          "id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+          "slug": "owner-pub-trash",
+          "title": "Owner pub trash",
+          "status": "published",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": "2026-10-21 05:08:56.000",
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 2
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.921"
+    },
+    {
+      "id": 12,
+      "request_id": "01M5EDSK9KRWHVM4V40NSKN141",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSK9ZMT5ZVXWF6XS25H0B in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSK9ZMT5ZVXWF6XS25H0B",
+          "slug": "owner-pub-trash",
+          "title": "Owner pub trash",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub trash Owner pub trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.781"
+    },
+    {
+      "id": 11,
+      "request_id": "01M5EDSK5ZMGVA0EH4YBA0XQS1",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK6CZBWWT26B3CPFR8S1",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSK6CZBWWT26B3CPFR8S1 in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSK6CZBWWT26B3CPFR8S1",
+          "slug": "owner-to-trash",
+          "title": "Owner to trash",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner to trash"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner to trash",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner to trash",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner to trash Owner to trash",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.670"
+    },
+    {
+      "id": 10,
+      "request_id": "01M5EDSK1VRHZZ76ZTG83TWWCP",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSK28DC6CGW3KND07863E",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSK28DC6CGW3KND07863E in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSK28DC6CGW3KND07863E",
+          "slug": "owner-draft-one",
+          "title": "Owner draft one",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner draft one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner draft one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner draft one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner draft one Owner draft one",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.535"
+    },
+    {
+      "id": 9,
+      "request_id": "01M5EDSJXENR2JZ8YMS00HD58B",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.patch",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSJSDH8WAHJG24WT4EWF6",
+      "collection_key": "posts",
+      "summary": "Updated entry 01M5EDSJSDH8WAHJG24WT4EWF6 in posts",
+      "diff": {
+        "before": {
+          "id": "01M5EDSJSDH8WAHJG24WT4EWF6",
+          "slug": "owner-pub-two",
+          "title": "Owner pub two",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub two"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub two",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub two",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub two Owner pub two",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        },
+        "after": {
+          "id": "01M5EDSJSDH8WAHJG24WT4EWF6",
+          "slug": "owner-pub-two",
+          "title": "Owner pub two",
+          "status": "published",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": "2026-10-21 05:08:56.000",
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub two"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub two",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub two",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub two",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 2
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.389"
+    },
+    {
+      "id": 8,
+      "request_id": "01M5EDSJS0BFWR9PMDTMBCS981",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSJSDH8WAHJG24WT4EWF6",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSJSDH8WAHJG24WT4EWF6 in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSJSDH8WAHJG24WT4EWF6",
+          "slug": "owner-pub-two",
+          "title": "Owner pub two",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub two"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub two",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub two",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub two Owner pub two",
+          "created_at": "2026-10-21 05:08:56.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.251"
+    },
+    {
+      "id": 7,
+      "request_id": "01M5EDSJMA37WSEG6NF6HYJHTW",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.patch",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSJDNGHDEYSDJ9ZAQQPVD",
+      "collection_key": "posts",
+      "summary": "Updated entry 01M5EDSJDNGHDEYSDJ9ZAQQPVD in posts",
+      "diff": {
+        "before": {
+          "id": "01M5EDSJDNGHDEYSDJ9ZAQQPVD",
+          "slug": "owner-pub-one",
+          "title": "Owner pub one",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub one Owner pub one",
+          "created_at": "2026-10-21 05:08:55.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:55.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        },
+        "after": {
+          "id": "01M5EDSJDNGHDEYSDJ9ZAQQPVD",
+          "slug": "owner-pub-one",
+          "title": "Owner pub one",
+          "status": "published",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": "2026-10-21 05:08:56.000",
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub one",
+          "created_at": "2026-10-21 05:08:55.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:56.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 2
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:56.108"
+    },
+    {
+      "id": 6,
+      "request_id": "01M5EDSJD3TX343D02DATB1JP3",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "Owner Test",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "entry.create",
+      "subject_type": "collection",
+      "subject_id": "01M5EDSJDNGHDEYSDJ9ZAQQPVD",
+      "collection_key": "posts",
+      "summary": "Created entry 01M5EDSJDNGHDEYSDJ9ZAQQPVD in posts",
+      "diff": {
+        "after": {
+          "id": "01M5EDSJDNGHDEYSDJ9ZAQQPVD",
+          "slug": "owner-pub-one",
+          "title": "Owner pub one",
+          "status": "draft",
+          "locale": "en",
+          "parent_id": null,
+          "position": 0,
+          "author_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "published_at": null,
+          "scheduled_at": null,
+          "seo": null,
+          "data": {
+            "body": {
+              "type": "doc",
+              "schema_version": 1,
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Owner pub one"
+                    }
+                  ]
+                }
+              ]
+            },
+            "excerpt": "Owner pub one",
+            "reading_time": 1,
+            "_derived": {
+              "excerpt": "Owner pub one",
+              "reading_time": 1,
+              "word_count": 3,
+              "outline": [],
+              "media_ids": [],
+              "internal_links": []
+            }
+          },
+          "search_text": "Owner pub one Owner pub one",
+          "created_at": "2026-10-21 05:08:55.000",
+          "created_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "updated_at": "2026-10-21 05:08:55.000",
+          "updated_by": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+          "deleted_at": null,
+          "categories": null,
+          "tags": null,
+          "authors": null,
+          "reading_time": "1",
+          "is_featured": null,
+          "version": 1
+        }
+      },
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:55.976"
+    },
+    {
+      "id": 5,
+      "request_id": "01M5EDSJ3SB95G6B4E7ERFJV72",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2DF42TJV5PJP1P8WZ00",
+      "actor_label": "contributor-test@bskickstarter.com",
+      "on_behalf_of": "01M5EDS2DF42TJV5PJP1P8WZ00",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS2DF42TJV5PJP1P8WZ00",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:55.607"
+    },
+    {
+      "id": 4,
+      "request_id": "01M5EDSHVC9Z6PVH47D5SCHJVN",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2C8MCGN8QC3W1T4FH39",
+      "actor_label": "viewer-test@bskickstarter.com",
+      "on_behalf_of": "01M5EDS2C8MCGN8QC3W1T4FH39",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS2C8MCGN8QC3W1T4FH39",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:55.346"
+    },
+    {
+      "id": 3,
+      "request_id": "01M5EDSHHZP18WYCNSFE8Z5N47",
+      "actor_type": "user",
+      "actor_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "actor_label": "author-test@bskickstarter.com",
+      "on_behalf_of": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS2B3WHD6YSKSWFG9M327",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:55.032"
+    },
+    {
+      "id": 2,
+      "request_id": "01M5EDSFRATDEDBT8WP5YG8KGN",
+      "actor_type": "user",
+      "actor_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "actor_label": "owner-test@bskickstarter.com",
+      "on_behalf_of": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "action": "auth.login",
+      "subject_type": "user",
+      "subject_id": "01M5EDS28GSR1BS8PHGK0EZT0Y",
+      "collection_key": null,
+      "summary": "User signed in",
+      "diff": null,
+      "ip": "172.24.0.6",
+      "user_agent": "Python-urllib/3.14",
+      "result": "success",
+      "created_at": "2026-10-21 05:08:53.200"
+    },
+    {
+      "id": 1,
+      "request_id": "01M5EDS15PKZBXN8HBW0GCVMZ4",
+      "actor_type": "system",
+      "actor_id": "system",
+      "actor_label": "System Kernel",
+      "on_behalf_of": null,
+      "action": "user.created",
+      "subject_type": "user",
+      "subject_id": "01M5EDS15HRNXN02TR6AWRYJ0N",
+      "collection_key": null,
+      "summary": "Initial owner account created during installation: admin_release@example.com",
+      "diff": null,
+      "ip": null,
+      "user_agent": null,
+      "result": "success",
+      "created_at": "2026-10-21 05:08:38.198"
+    }
+  ],
+  "next_cursor": null
+}
