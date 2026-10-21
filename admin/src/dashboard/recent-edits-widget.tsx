@@ -1,6 +1,7 @@
-import { Card, CardHeader, CardTitle, CardContent, StatusBadge } from '@bs/ui';
+import { Card, CardHeader, CardTitle, CardContent, StatusBadge, RelativeTime } from '@bs/ui';
 import type { EntryStatus } from '@bs/ui';
 import { FileEdit, ArrowRight } from 'lucide-react';
+import { parseApiUtcDate } from '../lib/datetime';
 
 export interface RecentEditItem {
   id: string;
@@ -14,15 +15,6 @@ export interface RecentEditItem {
 interface RecentEditsWidgetProps {
   edits: RecentEditItem[];
   className?: string;
-}
-
-function formatDate(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
 }
 
 function toEntryStatus(status: string): EntryStatus {
@@ -60,27 +52,30 @@ export function RecentEditsWidget({ edits, className }: RecentEditsWidgetProps) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {edits.map((item) => (
-                  <tr key={item.id} className="group hover:bg-surface-100/50">
-                    <td className="py-2.5 pr-2 font-medium">
-                      <a
-                        href={`/admin/entries/${item.collection}/${item.id}`}
-                        className="text-foreground hover:text-primary hover:underline"
-                      >
-                        {item.title}
-                      </a>
-                    </td>
-                    <td className="py-2.5 px-2 text-muted-foreground capitalize">
-                      {item.collection}
-                    </td>
-                    <td className="py-2.5 px-2">
-                      <StatusBadge status={toEntryStatus(item.status)} />
-                    </td>
-                    <td className="py-2.5 pl-2 text-right text-12 text-muted-foreground tabular-nums whitespace-nowrap">
-                      {formatDate(item.updated_at)}
-                    </td>
-                  </tr>
-                ))}
+                {edits.map((item) => {
+                  const updatedDate = parseApiUtcDate(item.updated_at);
+                  return (
+                    <tr key={item.id} className="group hover:bg-surface-100/50">
+                      <td className="py-2.5 pr-2 font-medium">
+                        <a
+                          href={`/admin/entries/${item.collection}/${item.id}`}
+                          className="text-foreground hover:text-primary hover:underline"
+                        >
+                          {item.title}
+                        </a>
+                      </td>
+                      <td className="py-2.5 px-2 text-muted-foreground capitalize">
+                        {item.collection}
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <StatusBadge status={toEntryStatus(item.status)} />
+                      </td>
+                      <td className="py-2.5 pl-2 text-right text-12 text-muted-foreground tabular-nums whitespace-nowrap">
+                        {updatedDate ? <RelativeTime date={updatedDate} /> : item.updated_at}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

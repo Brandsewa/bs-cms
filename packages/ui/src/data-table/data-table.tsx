@@ -273,7 +273,7 @@ export function DataTable<T>({
   // ---- status tab filter -------------------------------------------------
   const statusColumn = columns.find((column) => column.fieldType === 'status');
   const statusFiltered = useMemo(() => {
-    if (activeStatusTab === 'all' || !statusColumn) return data;
+    if (manualPagination || activeStatusTab === 'all' || !statusColumn) return data;
     return data.filter((row) => {
       const value = statusColumn.accessor(row);
       const key =
@@ -282,7 +282,7 @@ export function DataTable<T>({
           : String(value ?? '');
       return key === activeStatusTab;
     });
-  }, [data, activeStatusTab, statusColumn]);
+  }, [data, activeStatusTab, statusColumn, manualPagination]);
 
   // ---- filters -----------------------------------------------------------
   const filterDefs = useMemo(() => filters?.defs ?? [], [filters]);
@@ -295,6 +295,7 @@ export function DataTable<T>({
   );
 
   const filtered = useMemo(() => {
+    if (manualPagination) return statusFiltered;
     let rows = statusFiltered;
     const query = debouncedSearch.trim().toLowerCase();
     if (query) {
@@ -312,7 +313,7 @@ export function DataTable<T>({
       rows = applyFilters(rows, filterDefs, activeFilters, accessorFor);
     }
     return rows;
-  }, [statusFiltered, debouncedSearch, activeFilters, filterDefs, accessorFor, columns]);
+  }, [statusFiltered, manualPagination, debouncedSearch, activeFilters, filterDefs, accessorFor, columns]);
 
   // ---- sorting -----------------------------------------------------------
   const compareValues = (a: unknown, b: unknown): number => {
@@ -839,7 +840,7 @@ export function DataTable<T>({
           onChange={(event) => setSearchInput(event.target.value)}
           placeholder={t('dataTable.searchPlaceholder')}
           aria-label={t('dataTable.searchPlaceholder')}
-          className="w-56 pl-8"
+          className="w-56 pl-9 pr-7"
         />
         {searchInput ? (
           <button
@@ -1109,7 +1110,7 @@ export function DataTable<T>({
               <thead className="sticky top-0 z-20">
                 <tr>
                   {resolvedOrder.map(renderHeaderCell)}
-                  {rowMenu ? <th scope="col" className="w-10 border-b border-border bg-card" /> : null}
+                  {rowMenu ? <th scope="col" className="w-10 border-b border-border bg-card"><span className="sr-only">{t('common.actions')}</span></th> : null}
                 </tr>
               </thead>
               {shouldVirtualize ? (

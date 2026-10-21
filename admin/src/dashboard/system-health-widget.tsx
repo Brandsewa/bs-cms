@@ -29,14 +29,8 @@ interface RecentActivityItem {
   created_at: string;
 }
 
-function formatDate(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
-}
+import { formatAdminTime } from '../lib/datetime';
+// helper replaced with formatAdminTime
 
 export function SystemAndHealthWidget({
   siteHealth,
@@ -185,7 +179,7 @@ export function SystemAndHealthWidget({
                     <span className="text-muted-foreground">{item.action}</span>
                   </div>
                   <span className="text-10 text-muted-foreground whitespace-nowrap font-mono">
-                    {formatDate(item.created_at)}
+                    {formatAdminTime(item.created_at)}
                   </span>
                 </li>
               ))}
@@ -196,3 +190,5 @@ export function SystemAndHealthWidget({
     </Card>
   );
 }
+
+

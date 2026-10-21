@@ -169,3 +169,28 @@ The backend static publishing pipeline endpoints (Step 7.4) are fully implemente
    - Live endpoint returns `{ actor_id: string; role_ids: string[]; permissions: CompiledPermissionRule[] }` where each rule includes `{ id, role_id, subject_type, subject_key, action, effect: 'allow' | 'deny', fields, conditions }`.
    - This endpoint is used by the admin layout to conditionally render navigation items according to effective user permissions (`collection`, `taxonomy`, `media`, `site`, `ai`, `users`, `settings`).
    - Requesting documentation of `GET /api/v1/me/permissions` in `docs/api/openapi-v1.json`.
+
+
+## 11. Aggregate Collection Status Counts Endpoint — OPEN
+
+1. **Motivation**:
+   - The Collection List screen displays status tabs with live counts: **All**, **Published**, **Draft**, **In review**, **Archived**, and **Trash**.
+   - Currently, the API only returns the total count for the currently requested query in `meta.pagination.total` (e.g. `GET /collections/{handle}/entries?filter[status]=published&page[size]=1`).
+   - Computing the tab badges in the UI currently requires issuing 5 to 6 parallel HTTP requests per collection navigation or tab change (`all`, `filter[status]=published`, `filter[status]=draft`, `filter[status]=in_review`, `filter[status]=archived`, `trashed=true`).
+
+2. **Requested Endpoint**:
+   - `GET /api/v1/collections/{handle}/counts`
+   - **Response Format**:
+   ```json
+   {
+     "all": 8,
+     "published": 5,
+     "draft": 3,
+     "in_review": 0,
+     "archived": 0,
+     "trash": 0
+   }
+   ```
+   - **Role Scoping**:
+     - For `owner` and `admin`: returns global counts across all entries in the collection.
+     - For `author` and `contributor`: returns counts scoped to items authored by the authenticated actor (`created_by = current_user_id`).
