@@ -282,3 +282,25 @@ In dark mode, the dashboard content and workspace panels appear slightly raised 
 #### OpenLiteSpeed Charset Handling Notice
 Under Hostinger / OpenLiteSpeed, static JavaScript assets are served as `Content-Type: text/javascript` without an explicit `charset` parameter, bypassing Apache `.htaccess` directives like `AddCharset` or `AddDefaultCharset`. 
 Therefore, **all non-ASCII glyphs (e.g., keyboard shortcuts like `\u2318` for cmd key, special arrows, and math symbols) must always be Unicode-escaped in JavaScript/TypeScript source files** to prevent client decoding mojibake.
+
+### 13.5 Cross-Cutting UI Polish Pass (M4 Polish)
+The following cross-cutting refinements have been integrated:
+1. **Unified Hotkeys Hook (`useHotkeys`)**:
+   - Single top-level `keydown` listener in `@bs/ui`.
+   - Handles single hotkeys (`Ctrl+K`, `Ctrl+S`) and 2-key sequences (`G` then `D`/`E`/`M`).
+   - Suppresses execution during input/textarea typing.
+2. **Command Menu Palette (`CommandMenu`)**:
+   - Built with the compact `cmdk` atom and Radix `Dialog`.
+   - Quick navigation routes mapped from permissions and sidebar groups.
+   - Quick create actions ("New Post", "New Page", "Upload Media").
+   - Integrated theme switching (Light / Dark / System) with active status indicators.
+3. **Problem Details Toast Helper (`problemToast`)**:
+   - Translates RFC 9457 JSON errors into user-friendly toasts.
+   - Automatically provides a "Copy Request ID" action button whenever `request_id` is present.
+4. **Global System Banner Area (`ShellBannerArea`)**:
+   - Displays real-time operational alerts (pending AI approvals, maintenance mode, deployment failures).
+5. **Shell Accessibility & Responsive Drawer**:
+   - Accessible "Skip to main content" link for keyboard users.
+   - Mobile sidebar navigation drawer (`<Sheet side="left">`) for viewports below 768px.
+   - Accessible screen reader state announcements on sidebar expand/collapse.
+

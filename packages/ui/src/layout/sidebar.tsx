@@ -205,6 +205,7 @@ export function AppSidebar({
           type="button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+          aria-expanded={!collapsed}
           aria-pressed={collapsed}
           className={cn(
             'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted transition-colors',
@@ -221,6 +222,9 @@ export function AppSidebar({
             </>
           )}
         </button>
+        <span className="sr-only" aria-live="polite">
+          {collapsed ? 'Sidebar collapsed' : 'Sidebar expanded'}
+        </span>
       </div>
     </nav>
   );
