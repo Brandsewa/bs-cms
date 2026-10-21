@@ -54,6 +54,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   });
   const [totalRows, setTotalRows] = useState<number>(0);
   const [pageCount, setPageCount] = useState<number>(1);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({
     all: 0,
     published: 0,
@@ -72,6 +73,50 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   const canPublish = !isViewer && !isContributor && (isOwner || hasPermission('collection', 'publish'));
   const canDelete = !isViewer && (isOwner || hasPermission('collection', 'delete'));
   const canUpdate = !isViewer && (isOwner || hasPermission('collection', 'update'));
+
+  // Load users map for resolving author IDs to human names
+  useEffect(() => {
+    let mounted = true;
+    async function fetchUsers() {
+      try {
+        const res = await apiClient.request<{ items?: Array<{ id: string; name: string }>; data?: { items?: Array<{ id: string; name: string }> } }>('GET', '/users');
+        if (mounted && res.ok && res.data) {
+          const list = res.data.items || res.data.data?.items || [];
+          const map: Record<string, string> = {};
+          for (const u of list) {
+            if (u.id && u.name) map[u.id] = u.name;
+          }
+          setUserMap(map);
+        } else if (mounted) {
+          const fixturesObj = fallbackFixtures as Record<string, unknown>;
+          const uFixture = fixturesObj.users as { items?: Array<{ id: string; name: string }> } | undefined;
+          if (uFixture?.items) {
+            const map: Record<string, string> = {};
+            for (const u of uFixture.items) {
+              if (u.id && u.name) map[u.id] = u.name;
+            }
+            setUserMap(map);
+          }
+        }
+      } catch {
+        if (mounted) {
+          const fixturesObj = fallbackFixtures as Record<string, unknown>;
+          const uFixture = fixturesObj.users as { items?: Array<{ id: string; name: string }> } | undefined;
+          if (uFixture?.items) {
+            const map: Record<string, string> = {};
+            for (const u of uFixture.items) {
+              if (u.id && u.name) map[u.id] = u.name;
+            }
+            setUserMap(map);
+          }
+        }
+      }
+    }
+    fetchUsers();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Load collection schema
   useEffect(() => {
@@ -156,13 +201,46 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         setPageCount(pagination?.pages ?? Math.ceil((pagination?.total ?? items.length) / pageSize));
         setLastUpdated(new Date());
 
-        // Update counts
+        // Update counts: update activeTab count and refresh counts across all tabs
         const currentCount = pagination?.total ?? items.length;
         setStatusCounts((prev) => ({
           ...prev,
           [activeTab]: currentCount,
           all: activeTab === 'all' ? currentCount : (prev['all'] ?? 0),
         }));
+
+        // Fetch counts for all other statuses in background
+        (async () => {
+          try {
+            const statuses = ['all', 'published', 'draft', 'in_review', 'archived', 'trash'] as const;
+            const countResults = await Promise.all(
+              statuses.map(async (st) => {
+                let countUrl = `/collections/${collectionHandle}/entries?page[size]=1`;
+                if (st === 'trash') {
+                  countUrl += '&trashed=true';
+                } else if (st !== 'all') {
+                  countUrl += `&filter[status]=${st}`;
+                }
+                const cRes = await apiClient.request<EntriesListResponse>('GET', countUrl);
+                if (cRes.ok) {
+                  return [st, cRes.data.meta?.pagination?.total ?? 0] as const;
+                }
+                return [st, null] as const;
+              })
+            );
+            setStatusCounts((prev) => {
+              const updated = { ...prev };
+              for (const [st, val] of countResults) {
+                if (val !== null) {
+                  updated[st] = val;
+                }
+              }
+              return updated;
+            });
+          } catch {
+            // non-fatal
+          }
+        })();
       } else {
         // Mock fallback if running in test environment
         const isTestMode =
@@ -556,7 +634,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
     ];
   }, []);
 
-  const columns = useMemo(() => buildCollectionColumns(activeCollection), [activeCollection]);
+  const columns = useMemo(() => buildCollectionColumns(activeCollection, userMap), [activeCollection, userMap]);
   const collectionLabel = activeCollection?.label_plural || collectionHandle;
 
   return (
@@ -658,3 +736,5 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
     </PageContainer>
   );
 }
+
+

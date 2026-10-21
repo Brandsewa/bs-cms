@@ -64,6 +64,18 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
           contentType: 'application/json',
           body: JSON.stringify(fixturesData.posts_entries_trash),
         });
+      } else if (url.includes('filter[status]=published')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(fixturesData.posts_entries_published),
+        });
+      } else if (url.includes('filter[status]=draft')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(fixturesData.posts_entries_draft),
+        });
       } else {
         await route.fulfill({
           status: 200,
@@ -71,6 +83,15 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
           body: JSON.stringify(fixturesData.posts_entries_default),
         });
       }
+    });
+
+    // Users endpoint
+    await page.route('**/api/v1/users*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixturesData.users),
+      });
     });
 
     // 5. Default pages entries
@@ -105,9 +126,17 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
     await expect(table.getByRole('columnheader', { name: /Updated/i })).toBeVisible();
 
     // Verify rows rendered from captured live simulation fixtures
-    await expect(page.getByText('Bulk Post 11', { exact: true })).toBeVisible();
-    await expect(page.getByText('/bulk-post-11')).toBeVisible();
-    await expect(page.getByText('Bulk Post 10', { exact: true })).toBeVisible();
+    await expect(page.getByText('Getting Started with BrandSewa', { exact: true })).toBeVisible();
+    await expect(page.getByText('/getting-started-with-brandsewa')).toBeVisible();
+    await expect(page.getByText('Accessible UI Patterns for Production', { exact: true })).toBeVisible();
+
+    // Verify resolved author name (not raw ULID)
+    await expect(page.getByText('Owner Test User', { exact: false }).first()).toBeVisible();
+
+    // Verify status tab counts
+    await expect(page.getByRole('tab', { name: /All/i })).toContainText('8');
+    await expect(page.getByRole('tab', { name: /Published/i })).toContainText('5');
+    await expect(page.getByRole('tab', { name: /Draft/i })).toContainText('3');
   });
 
   test('status tabs filter entries including Trash tab with restore/purge', async ({ page }) => {

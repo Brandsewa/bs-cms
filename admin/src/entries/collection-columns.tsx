@@ -1,12 +1,14 @@
 import type { DataTableColumn } from '@bs/ui';
 import type { EntryItem, CollectionSchema } from './types';
+import { parseApiUtcDate } from '../lib/datetime';
 
 /**
  * Builds DataTable columns based on collection schema and standard content fields.
  * Includes title (with slug), status, categories, tags, author, dates, and SEO score badge.
  */
 export function buildCollectionColumns(
-  collection: CollectionSchema | null
+  collection: CollectionSchema | null,
+  userMap?: Record<string, string>
 ): Array<DataTableColumn<EntryItem>> {
   const isPages = collection?.handle === 'pages';
 
@@ -87,9 +89,20 @@ export function buildCollectionColumns(
     fieldType: 'user',
     accessor: (row: EntryItem) => {
       if (row.authors && Array.isArray(row.authors) && row.authors.length > 0) {
-        return { id: row.authors[0]?.name ?? 'Author', label: row.authors[0]?.name ?? 'Author' };
+        const first = row.authors[0];
+        const name = first?.name ?? 'Author';
+        return { id: name, label: name };
       }
-      return { id: row.author_id ?? 'Unknown', label: row.author_id ?? 'Unknown' };
+      if (row.author_id) {
+        const resolvedName = userMap?.[row.author_id];
+        if (resolvedName) {
+          return { id: row.author_id, label: resolvedName };
+        }
+        // If userMap is available or if role cannot read users / user not found:
+        // Do NOT display raw ULID; display 'Unknown author'
+        return { id: row.author_id, label: 'Unknown author' };
+      }
+      return { id: 'unknown', label: 'Unknown author' };
     },
     width: 130,
   });
@@ -100,7 +113,7 @@ export function buildCollectionColumns(
       id: 'published_at',
       header: 'Published',
       fieldType: 'date',
-      accessor: (row: EntryItem) => (row.published_at ? new Date(row.published_at) : null),
+      accessor: (row: EntryItem) => parseApiUtcDate(row.published_at),
       sortable: true,
       width: 130,
     },
@@ -108,7 +121,7 @@ export function buildCollectionColumns(
       id: 'updated_at',
       header: 'Updated',
       fieldType: 'date',
-      accessor: (row: EntryItem) => (row.updated_at ? new Date(row.updated_at) : null),
+      accessor: (row: EntryItem) => parseApiUtcDate(row.updated_at),
       sortable: true,
       width: 130,
     }

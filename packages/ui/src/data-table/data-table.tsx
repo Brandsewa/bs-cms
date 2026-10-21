@@ -840,7 +840,7 @@ export function DataTable<T>({
           onChange={(event) => setSearchInput(event.target.value)}
           placeholder={t('dataTable.searchPlaceholder')}
           aria-label={t('dataTable.searchPlaceholder')}
-          className="w-56 pl-8"
+          className="w-56 pl-9 pr-7"
         />
         {searchInput ? (
           <button

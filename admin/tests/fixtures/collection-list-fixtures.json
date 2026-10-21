@@ -1870,99 +1870,177 @@
   "posts_entries_default": {
     "data": [
       {
-        "id": "01M5E0583S0DT2SVVPRZREWT07",
-        "slug": "bulk-post-11",
-        "title": "Bulk Post 11",
+        "id": "01M5E4SYRY671DZYK1325YM6EH",
+        "slug": "next-gen-headless-cms-architecture",
+        "title": "The Next-Gen Headless CMS Architecture",
         "status": "published",
         "locale": "en",
         "parent_id": null,
         "position": 0,
-        "author_id": "01M5E04T152QHEH0SHKJTSRSC2",
-        "published_at": "2026-10-21 01:10:38.000",
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
         "scheduled_at": null,
         "seo": null,
-        "created_at": "2026-10-21 01:10:38.000",
-        "updated_at": "2026-10-21 01:10:38.000",
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
         "categories": null,
         "tags": null,
         "authors": null,
         "reading_time": 1,
         "is_featured": null,
-        "body": {
-          "type": "doc",
-          "content": [
-            {
-              "type": "paragraph",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "Content 11"
-                }
-              ]
-            }
-          ],
-          "schema_version": 1
-        },
-        "body_markdown": "Content 11",
-        "excerpt": "Bulk Post 11",
-        "_derived": {
-          "excerpt": "Content 11",
-          "reading_time": 1,
-          "word_count": 1,
-          "outline": [],
-          "media_ids": [],
-          "internal_links": []
-        }
+        "excerpt": "The Next-Gen Headless CMS Architecture"
       },
       {
-        "id": "01M5E057T13K4E58JQ0ZFHN9FH",
-        "slug": "bulk-post-10",
-        "title": "Bulk Post 10",
+        "id": "01M5E4SYX5ZW30AZS008RPQ3WR",
+        "slug": "optimizing-performance-modern-edge",
+        "title": "Optimizing Performance on Modern Edge",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Optimizing Performance on Modern Edge"
+      },
+      {
+        "id": "01M5E4SZ0JVF79CEZPPY3V81R6",
+        "slug": "accessible-ui-patterns-production",
+        "title": "Accessible UI Patterns for Production",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Accessible UI Patterns for Production"
+      },
+      {
+        "id": "01M5E4SZ35D2GKDWP4YM3E9GRC",
+        "slug": "security-best-practices-web-services",
+        "title": "Security Best Practices in Web Services",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Security Best Practices in Web Services"
+      },
+      {
+        "id": "01M5E4SS6K2AXS3SXHFRB99G1V",
+        "slug": "getting-started-with-brandsewa",
+        "title": "Getting Started with BrandSewa",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:45.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:45.000",
+        "updated_at": "2026-10-21 02:31:45.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Getting Started with BrandSewa"
+      },
+      {
+        "id": "01M5E4SZ60NANMJ9V3GZM3894X",
+        "slug": "draft-upcoming-roadmap-q1",
+        "title": "Draft: Upcoming Roadmap for Q1",
         "status": "draft",
         "locale": "en",
         "parent_id": null,
         "position": 0,
-        "author_id": "01M5E04T152QHEH0SHKJTSRSC2",
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
         "published_at": null,
         "scheduled_at": null,
         "seo": null,
-        "created_at": "2026-10-21 01:10:38.000",
-        "updated_at": "2026-10-21 01:10:58.000",
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
         "categories": null,
         "tags": null,
         "authors": null,
         "reading_time": 1,
         "is_featured": null,
-        "body": {
-          "type": "doc",
-          "content": [
-            {
-              "type": "paragraph",
-              "content": [
-                {
-                  "type": "text",
-                  "text": "Content 10"
-                }
-              ]
-            }
-          ],
-          "schema_version": 1
-        },
-        "body_markdown": "Content 10",
-        "excerpt": "Bulk Post 10",
-        "_derived": {
-          "excerpt": "Content 10",
-          "reading_time": 1,
-          "word_count": 1,
-          "outline": [],
-          "media_ids": [],
-          "internal_links": []
-        }
+        "excerpt": "Draft: Upcoming Roadmap for Q1"
+      },
+      {
+        "id": "01M5E4SZ86HEAPJJZFTDDDECY1",
+        "slug": "draft-internationalization-deep-dive",
+        "title": "Draft: Internationalization Deep Dive",
+        "status": "draft",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": null,
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Draft: Internationalization Deep Dive"
+      },
+      {
+        "id": "01M5E4SZAASX380ZBZGFWPGQMA",
+        "slug": "draft-ai-assistant-workflows",
+        "title": "Draft: AI Assistant Workflows",
+        "status": "draft",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": null,
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Draft: AI Assistant Workflows"
       }
     ],
     "meta": {
       "pagination": {
-        "total": 2,
+        "total": 8,
         "page": 1,
         "size": 25,
         "pages": 1,
@@ -2105,5 +2183,406 @@
         "error": "Entry not found"
       }
     ]
+  },
+  "posts_entries_published": {
+    "data": [
+      {
+        "id": "01M5E4SYRY671DZYK1325YM6EH",
+        "slug": "next-gen-headless-cms-architecture",
+        "title": "The Next-Gen Headless CMS Architecture",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "The Next-Gen Headless CMS Architecture"
+      },
+      {
+        "id": "01M5E4SYX5ZW30AZS008RPQ3WR",
+        "slug": "optimizing-performance-modern-edge",
+        "title": "Optimizing Performance on Modern Edge",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Optimizing Performance on Modern Edge"
+      },
+      {
+        "id": "01M5E4SZ0JVF79CEZPPY3V81R6",
+        "slug": "accessible-ui-patterns-production",
+        "title": "Accessible UI Patterns for Production",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Accessible UI Patterns for Production"
+      },
+      {
+        "id": "01M5E4SZ35D2GKDWP4YM3E9GRC",
+        "slug": "security-best-practices-web-services",
+        "title": "Security Best Practices in Web Services",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:51.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Security Best Practices in Web Services"
+      },
+      {
+        "id": "01M5E4SS6K2AXS3SXHFRB99G1V",
+        "slug": "getting-started-with-brandsewa",
+        "title": "Getting Started with BrandSewa",
+        "status": "published",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": "2026-10-21 02:31:45.000",
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:45.000",
+        "updated_at": "2026-10-21 02:31:45.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Getting Started with BrandSewa"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "total": 5,
+        "page": 1,
+        "size": 25,
+        "pages": 1,
+        "has_more": false,
+        "next_cursor": null
+      }
+    }
+  },
+  "posts_entries_draft": {
+    "data": [
+      {
+        "id": "01M5E4SZ60NANMJ9V3GZM3894X",
+        "slug": "draft-upcoming-roadmap-q1",
+        "title": "Draft: Upcoming Roadmap for Q1",
+        "status": "draft",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": null,
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Draft: Upcoming Roadmap for Q1"
+      },
+      {
+        "id": "01M5E4SZ86HEAPJJZFTDDDECY1",
+        "slug": "draft-internationalization-deep-dive",
+        "title": "Draft: Internationalization Deep Dive",
+        "status": "draft",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": null,
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Draft: Internationalization Deep Dive"
+      },
+      {
+        "id": "01M5E4SZAASX380ZBZGFWPGQMA",
+        "slug": "draft-ai-assistant-workflows",
+        "title": "Draft: AI Assistant Workflows",
+        "status": "draft",
+        "locale": "en",
+        "parent_id": null,
+        "position": 0,
+        "author_id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "published_at": null,
+        "scheduled_at": null,
+        "seo": null,
+        "created_at": "2026-10-21 02:31:51.000",
+        "updated_at": "2026-10-21 02:31:51.000",
+        "categories": null,
+        "tags": null,
+        "authors": null,
+        "reading_time": 1,
+        "is_featured": null,
+        "excerpt": "Draft: AI Assistant Workflows"
+      }
+    ],
+    "meta": {
+      "pagination": {
+        "total": 3,
+        "page": 1,
+        "size": 25,
+        "pages": 1,
+        "has_more": false,
+        "next_cursor": null
+      }
+    }
+  },
+  "users": {
+    "items": [
+      {
+        "id": "01M5E4JEC2VQ24NWY5NR8GXRC9",
+        "email": "viewer@example.com",
+        "name": "Viewer Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000007",
+            "handle": "viewer",
+            "name": "Viewer",
+            "description": "Read-only access to content, taxonomies and media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:45.154",
+        "updated_at": "2026-10-21 02:27:45.154",
+        "last_login_at": null
+      },
+      {
+        "id": "01M5E4JEAQ9741R1Z62JN8GZQY",
+        "email": "contributor@example.com",
+        "name": "Contributor Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000006",
+            "handle": "contributor",
+            "name": "Contributor",
+            "description": "Can create drafts only and upload media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:45.111",
+        "updated_at": "2026-10-21 02:27:45.111",
+        "last_login_at": null
+      },
+      {
+        "id": "01M5E4JE98HS0XQK1K7W8PN7P2",
+        "email": "author@example.com",
+        "name": "Author Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000005",
+            "handle": "author",
+            "name": "Author",
+            "description": "Can create and edit own entries and submit for review, assign terms, and manage own media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:45.064",
+        "updated_at": "2026-10-21 02:33:02.421",
+        "last_login_at": "2026-10-21 02:33:02.421"
+      },
+      {
+        "id": "01M5E4JE7WHPAMQ9T2Y5M6AENC",
+        "email": "editor@example.com",
+        "name": "Editor Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000004",
+            "handle": "editor",
+            "name": "Editor",
+            "description": "Can edit, publish, unpublish, schedule, and soft-delete content across all collections, manage terms and media",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:45.020",
+        "updated_at": "2026-10-21 02:27:45.020",
+        "last_login_at": null
+      },
+      {
+        "id": "01M5E4JE6JN7HGJ70ASE94X8YM",
+        "email": "developer@example.com",
+        "name": "Developer Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000003",
+            "handle": "developer",
+            "name": "Developer",
+            "description": "Developer with schema, API, webhook, plugin and system management access",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:44.978",
+        "updated_at": "2026-10-21 02:27:44.978",
+        "last_login_at": null
+      },
+      {
+        "id": "01M5E4JE54K3J52S6YZ8XQ1A70",
+        "email": "admin@example.com",
+        "name": "Admin Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000002",
+            "handle": "admin",
+            "name": "Administrator",
+            "description": "Administrator with access to all content, media, site and settings except owner role management and security keys",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:44.932",
+        "updated_at": "2026-10-21 02:27:44.932",
+        "last_login_at": null
+      },
+      {
+        "id": "01M5E4JE3PYCTMSP1JKKGC34D3",
+        "email": "owner@example.com",
+        "name": "Owner Test User",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000001",
+            "handle": "owner",
+            "name": "Owner",
+            "description": "Full ownership with all permissions across all subjects",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:44.887",
+        "updated_at": "2026-10-21 02:33:20.012",
+        "last_login_at": "2026-10-21 02:33:20.012"
+      },
+      {
+        "id": "01M5E4JDSKDQQMC241RQH96P1V",
+        "email": "admin_release@example.com",
+        "name": "Release Admin",
+        "status": "active",
+        "avatar_media_id": null,
+        "locale": "en",
+        "timezone": "UTC",
+        "two_factor_enabled": false,
+        "roles": [
+          {
+            "id": "01JB0000000000000000000001",
+            "handle": "owner",
+            "name": "Owner",
+            "description": "Full ownership with all permissions across all subjects",
+            "is_system": 1,
+            "is_ai": 0,
+            "created_at": "2026-10-21 02:27:43.565",
+            "updated_at": "2026-10-21 02:27:43.565"
+          }
+        ],
+        "created_at": "2026-10-21 02:27:44.563",
+        "updated_at": "2026-10-21 02:27:44.563",
+        "last_login_at": null
+      }
+    ],
+    "next_cursor": null
   }
 }
