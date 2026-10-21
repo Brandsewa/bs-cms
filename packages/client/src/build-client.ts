@@ -82,6 +82,23 @@ export class CmsBuildClient {
   }
 
   /**
+   * Fetches public site metadata and navigation.
+   * GET /api/v1/public/site
+   */
+  async fetchSite(): Promise<{
+    site_name: string;
+    tagline?: string;
+    description?: string;
+    default_language?: string;
+    canonical_url?: string;
+    environment?: string;
+    navigation: Array<{ label: string; url: string; target?: string | null }>;
+  }> {
+    const url = `${this.baseUrl}/api/v1/public/site`;
+    return await this.fetchWithRetry(url);
+  }
+
+  /**
    * Fetches the build manifest containing routes, settings, and collection summaries.
    * Cached to disk if cacheDir is provided.
    */

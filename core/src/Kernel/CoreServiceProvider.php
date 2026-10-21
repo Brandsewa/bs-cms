@@ -776,10 +776,19 @@ final class CoreServiceProvider implements ServiceProvider
                         $data = (array) ($payload['data'] ?? []);
                         $slug = (string) ($payload['slug'] ?? ($data['slug'] ?? ''));
                         $col = (string) ($payload['collection_key'] ?? $payload['collection'] ?? 'posts');
+
+                        // Resolve URL pattern from publishing settings (defaulting to starter conventions)
+                        $pubSettings = $container->has(\BsCms\Publishing\PublishingSettingsRepository::class)
+                            ? $container->get(\BsCms\Publishing\PublishingSettingsRepository::class)->get()
+                            : [];
+                        $patterns = (array) ($pubSettings['url_patterns'] ?? []);
+                        $pattern = (string) ($patterns[$col] ?? ($col === 'pages' ? '/{slug}/' : "/blog/{slug}/"));
+
                         if ($slug !== '') {
-                            $changedUrls[] = $col === 'pages' ? "/{$slug}" : "/{$col}/{$slug}";
+                            $resolvedUrl = str_replace('{slug}', $slug, $pattern);
+                            $changedUrls[] = '/' . ltrim($resolvedUrl, '/');
                         } else {
-                            $changedUrls[] = $col === 'pages' ? '/' : "/{$col}";
+                            $changedUrls[] = $col === 'pages' ? '/' : "/blog/";
                         }
                     } elseif (str_starts_with($name, 'term.')) {
                         $tSlug = (string) ($payload['slug'] ?? '');

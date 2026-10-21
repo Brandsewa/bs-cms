@@ -88,6 +88,26 @@ if ($openApiCode -eq "200") {
     exit 1
 }
 
+# 5b. Verify /admin and /admin/login redirects preserve port and stay on origin
+Write-Host "--- 5b. Verifying /admin and /admin/login redirects preserve origin and port ---"
+$adminEffUrl = (& curl.exe -k -s -w "%{url_effective}" -o /dev/null -L --max-time 10 "$HttpsUrl/admin").Trim()
+$expectedAdminUrl = "$HttpsUrl/admin/"
+if ($adminEffUrl -eq $expectedAdminUrl) {
+    Write-Host "  [PASS] /admin redirected to $adminEffUrl (port preserved)" -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] /admin redirected to $adminEffUrl, expected $expectedAdminUrl" -ForegroundColor Red
+    exit 1
+}
+
+$loginEffUrl = (& curl.exe -k -s -w "%{url_effective}" -o /dev/null -L --max-time 10 "$HttpsUrl/admin/login").Trim()
+$expectedLoginUrl = "$HttpsUrl/admin/login"
+if ($loginEffUrl -eq $expectedLoginUrl) {
+    Write-Host "  [PASS] /admin/login remained on $loginEffUrl (origin preserved)" -ForegroundColor Green
+} else {
+    Write-Host "  [FAIL] /admin/login resolved to $loginEffUrl, expected $expectedLoginUrl" -ForegroundColor Red
+    exit 1
+}
+
 # 6. Run comprehensive live HTTP release suite inside container
 Write-Host "--- 6. Running PHP HTTP Integration & Security Suite ---" -ForegroundColor Cyan
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

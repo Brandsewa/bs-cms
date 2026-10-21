@@ -85,6 +85,26 @@ else
     exit 1
 fi
 
+# 5b. Verify /admin and /admin/login redirects preserve port and stay on origin
+echo "--- 5b. Verifying /admin and /admin/login redirects preserve origin and port ---"
+ADMIN_EFF_URL="$(curl -k -s -w "%{url_effective}" -o /dev/null -L --max-time 10 "${HTTPS_URL}/admin" | tr -d '\r\n')"
+EXPECTED_ADMIN_URL="${HTTPS_URL}/admin/"
+if [ "$ADMIN_EFF_URL" = "$EXPECTED_ADMIN_URL" ]; then
+    echo "  [PASS] /admin redirected to ${ADMIN_EFF_URL} (port preserved)"
+else
+    echo "  [FAIL] /admin redirected to ${ADMIN_EFF_URL}, expected ${EXPECTED_ADMIN_URL}"
+    exit 1
+fi
+
+LOGIN_EFF_URL="$(curl -k -s -w "%{url_effective}" -o /dev/null -L --max-time 10 "${HTTPS_URL}/admin/login" | tr -d '\r\n')"
+EXPECTED_LOGIN_URL="${HTTPS_URL}/admin/login"
+if [ "$LOGIN_EFF_URL" = "$EXPECTED_LOGIN_URL" ]; then
+    echo "  [PASS] /admin/login remained on ${LOGIN_EFF_URL} (origin preserved)"
+else
+    echo "  [FAIL] /admin/login resolved to ${LOGIN_EFF_URL}, expected ${EXPECTED_LOGIN_URL}"
+    exit 1
+fi
+
 # 6. Run comprehensive live HTTP release suite inside container
 echo "--- 6. Running PHP HTTP Integration & Security Suite ---"
 docker cp "${ROOT_DIR}/tools/test-release-http.php" "${CONTAINER}:/tmp/test-release-http.php"

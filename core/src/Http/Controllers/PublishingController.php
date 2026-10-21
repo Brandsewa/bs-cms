@@ -317,4 +317,44 @@ final class PublishingController extends BaseController
             return $this->problem(400, 'Bad Request', $e->getMessage());
         }
     }
+
+    /**
+     * Minimal "Connect the Astro frontend" status endpoint for the admin dashboard.
+     * GET /api/v1/frontend/status
+     */
+    public function frontendStatus(ServerRequestInterface $request): ResponseInterface
+    {
+        $actor = $this->getActor($request);
+        // Authorize: anyone with read access to dashboard or settings can view frontend status
+        $decision = $this->authorizer->can($actor, 'read', new Subject('dashboard', '*'));
+        if (!$decision->allowed) {
+            $decision = $this->authorizer->can($actor, 'read', new Subject('settings', 'publishing'));
+            if (!$decision->allowed) {
+                return $this->problem(403, 'Forbidden', 'Permission denied to view frontend status.');
+            }
+        }
+
+        $deployments = $this->deploymentService->listDeployments(1);
+        $lastDeployment = !empty($deployments) ? DeploymentPresenter::present($deployments[0]) : null;
+
+        $lastBuildAt = null;
+        if ($lastDeployment !== null && !empty($lastDeployment['finished_at'])) {
+            $lastBuildAt = $lastDeployment['finished_at'];
+        } elseif ($lastDeployment !== null && !empty($lastDeployment['dispatched_at'])) {
+            $lastBuildAt = $lastDeployment['dispatched_at'];
+        }
+
+        $pending = $this->deploymentService->getPendingChangesCount();
+        $config = $this->settingsRepo->get();
+        $siteUrl = (string) ($config['site_url'] ?? 'http://localhost');
+
+        return $this->json([
+            'connected' => $lastDeployment !== null || !empty($config['target_type']),
+            'target_type' => (string) ($config['target_type'] ?? 'github_actions'),
+            'last_deployment' => $lastDeployment,
+            'last_build_at' => $lastBuildAt,
+            'pending_changes_count' => $pending,
+            'site_url' => $siteUrl,
+        ]);
+    }
 }

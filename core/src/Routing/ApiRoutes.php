@@ -220,6 +220,7 @@ final class ApiRoutes
 
         // 15. Public Content endpoints
         if ($publicEntries !== null) {
+            $routes->get('/api/v1/public/site', [$publicEntries, 'site']);
             $routes->get('/api/v1/public/collections/{handle}/entries', [$publicEntries, 'list']);
             $routes->get('/api/v1/public/collections/{handle}/entries/by-slug/{slug}', [$publicEntries, 'bySlug']);
         }
@@ -352,6 +353,7 @@ final class ApiRoutes
 
         // 26. Publishing and Build Tokens endpoints
         if ($publishing !== null) {
+            $routes->get('/api/v1/frontend/status', [$publishing, 'frontendStatus']);
             $routes->get('/api/v1/settings/publishing', [$publishing, 'getSettings']);
             $routes->put('/api/v1/settings/publishing', [$publishing, 'updateSettings']);
             $routes->post('/api/v1/settings/publishing/test', [$publishing, 'testDispatch']);

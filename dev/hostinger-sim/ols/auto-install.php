@@ -48,20 +48,39 @@ if ($csrf === '') {
 }
 echo "[OK] Extracted install CSRF token: {$csrf}\n";
 
-// 2. Submit database settings
-$step2 = request('POST', "{$url}/install/database", [
-    '_csrf' => $csrf,
-    'site_url' => $siteUrl,
-    'db_host' => $dbHost,
-    'db_port' => $dbPort,
-    'db_name' => $dbName,
-    'db_user' => $dbUser,
-    'db_password' => $dbPass,
-    'db_prefix' => 'bs_',
-    'cli_php' => 'php',
-]);
+// 2. Submit database settings (with retry loop up to 60 seconds if DB is starting up)
+echo ">>> Connecting to database at {$dbHost}:{$dbPort}...\n";
+$step2 = null;
+$maxAttempts = 30; // 30 * 2s = 60s
+for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+    $step2 = request('POST', "{$url}/install/database", [
+        '_csrf' => $csrf,
+        'site_url' => $siteUrl,
+        'db_host' => $dbHost,
+        'db_port' => $dbPort,
+        'db_name' => $dbName,
+        'db_user' => $dbUser,
+        'db_password' => $dbPass,
+        'db_prefix' => 'bs_',
+        'cli_php' => 'php',
+    ]);
 
-if ($step2['status'] !== 200) {
+    if ($step2['status'] === 200) {
+        break;
+    }
+
+    // Check if error is connection-related (SQLSTATE[HY000] [2002] Connection refused)
+    if (str_contains($step2['body'], '2002') || str_contains($step2['body'], 'Connection refused') || str_contains($step2['body'], 'Failed to connect')) {
+        echo "  [WAIT] Database connection refused (attempt {$attempt}/{$maxAttempts}). Retrying in 2 seconds...\n";
+        sleep(2);
+        continue;
+    }
+
+    // If it's another error (e.g. auth failed), don't loop endlessly
+    break;
+}
+
+if ($step2 === null || $step2['status'] !== 200) {
     fwrite(STDERR, "[FAIL] /install/database returned {$step2['status']}: {$step2['body']}\n");
     exit(1);
 }

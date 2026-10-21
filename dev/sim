@@ -88,6 +88,34 @@ case "$CMD" in
         export SIM_DB_IMAGE="$DB_IMAGE"
 
         docker compose -f "${SIM_DIR}/docker-compose.yml" -p "bs-sim-${NAME}" up -d --build
+
+        # Wait for DB to become healthy and OLS to answer
+        DB_CONTAINER="bs-sim-${NAME}-db"
+        OLS_CONTAINER="bs-sim-${NAME}-ols"
+        echo ">>> Waiting for MariaDB/MySQL to become healthy..."
+        DB_READY=0
+        for i in $(seq 1 30); do
+            STATUS="$(docker inspect "${DB_CONTAINER}" --format '{{.State.Health.Status}}' 2>/dev/null || true)"
+            if [ "$STATUS" = "healthy" ]; then
+                DB_READY=1
+                break
+            fi
+            sleep 1
+        done
+        if [ "$DB_READY" -ne 1 ]; then
+            echo "Database container ${DB_CONTAINER} failed to reach healthy status within 30 seconds." >&2
+            exit 1
+        fi
+        echo ">>> Database is healthy."
+
+        echo ">>> Waiting for OpenLiteSpeed to answer..."
+        for i in $(seq 1 15); do
+            if docker exec "${OLS_CONTAINER}" /usr/local/lsws/bin/lswsctrl status 2>/dev/null | grep -q "running"; then
+                break
+            fi
+            sleep 1
+        done
+
         echo ">>> Instance '${NAME}' is running."
         ;;
 

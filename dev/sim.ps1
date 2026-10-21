@@ -55,6 +55,40 @@ switch ($Command) {
         $env:SIM_DB_IMAGE = $DbImage
 
         docker compose -f "$SimDir\docker-compose.yml" -p "bs-sim-$Name" up -d --build
+
+        # Wait for DB to become healthy and OLS to answer
+        $DbContainer = "bs-sim-$Name-db"
+        $OlsContainer = "bs-sim-$Name-ols"
+        Write-Host ">>> Waiting for MariaDB/MySQL to become healthy..." -ForegroundColor Cyan
+        $dbReady = $false
+        for ($i = 0; $i -lt 30; $i++) {
+            $status = docker inspect $DbContainer --format '{{.State.Health.Status}}' 2>$null
+            if ($status -eq "healthy") {
+                $dbReady = $true
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $dbReady) {
+            Write-Error "Database container $DbContainer failed to reach healthy status within 30 seconds."
+            exit 1
+        }
+        Write-Host ">>> Database is healthy." -ForegroundColor Green
+
+        Write-Host ">>> Waiting for OpenLiteSpeed to answer..." -ForegroundColor Cyan
+        $olsReady = $false
+        for ($i = 0; $i -lt 15; $i++) {
+            $res = docker exec $OlsContainer /usr/local/lsws/bin/lswsctrl status 2>$null
+            if ($LASTEXITCODE -eq 0 -and $res -match "running") {
+                $olsReady = $true
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+        if (-not $olsReady) {
+            Write-Host "  [WARN] OLS status check returned non-zero, continuing..." -ForegroundColor Yellow
+        }
+
         Write-Host ">>> Instance '$Name' is up." -ForegroundColor Green
     }
 

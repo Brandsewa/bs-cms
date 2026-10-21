@@ -21,6 +21,7 @@ final class PublishingSettingsPresenter
         'has_github_token',
         'webhook_url',
         'has_webhook_secret',
+        'url_patterns',
         'updated_at',
     ];
 
@@ -42,6 +43,10 @@ final class PublishingSettingsPresenter
             'has_github_token' => $hasGithubToken,
             'webhook_url' => isset($config['webhook_url']) ? (string) $config['webhook_url'] : ($config['webhook']['url'] ?? null),
             'has_webhook_secret' => $hasWebhookSecret,
+            'url_patterns' => (array) ($config['url_patterns'] ?? [
+                'posts' => '/blog/{slug}/',
+                'pages' => '/{slug}/',
+            ]),
             'updated_at' => isset($config['updated_at']) ? (string) $config['updated_at'] : null,
         ];
 

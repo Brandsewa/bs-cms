@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { loadCollectionEntries, getCanonicalUrl } from '../lib/bs';
+import { loadCollectionEntries, getCanonicalUrl, getSiteMetadata } from '../lib/bs';
+
+const siteMeta = await getSiteMetadata();
 
 let recentPosts: any[] = [];
 try {
@@ -9,17 +11,33 @@ try {
 } catch {
   // Graceful fallback for empty collection or build isolation
 }
+
+// Fetch home page from CMS pages collection if it exists
+let homePage: any = null;
+try {
+  const pages = await loadCollectionEntries('pages');
+  homePage = pages.find((p: any) => p.slug === 'home' || p.slug === 'index') || null;
+} catch {
+  // Graceful fallback
+}
+
+const title = homePage?.title ? `${homePage.title} | ${siteMeta.name}` : `${siteMeta.name} | High-Performance Static Publishing`;
+const description = homePage?.summary || siteMeta.description || 'High-performance static publishing with zero Node daemons in production.';
+const heroHeading = homePage?.title || siteMeta.tagline || 'Publishing Engineered for Speed';
+const heroSubtitle = homePage?.summary || siteMeta.description || 'BS CMS combines an ultra-lean backend with modern Astro static publishing, automatic Markdown twins for AI agents, and zero runtime Node daemons.';
 ---
 
 <BaseLayout
-  title="Home | BS CMS Starter"
-  description="High-performance static publishing with zero Node daemons in production."
+  title={title}
+  description={description}
   canonical={getCanonicalUrl('/')}
+  structuredData={homePage?.structured_data}
+  robots={homePage?.seo?.robots}
 >
   <section class="hero">
-    <h1>Publishing Engineered for Speed</h1>
+    <h1>{heroHeading}</h1>
     <p class="hero-subtitle">
-      BS CMS combines an ultra-lean backend with modern Astro static publishing, automatic Markdown twins for AI agents, and zero runtime Node daemons.
+      {heroSubtitle}
     </p>
     <div class="hero-badges">
       <span class="hero-badge">⚡ Pure Static HTML</span>

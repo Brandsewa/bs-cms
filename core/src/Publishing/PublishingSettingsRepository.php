@@ -41,11 +41,21 @@ final class PublishingSettingsRepository
                 'github_token' => '',
                 'webhook_url' => '',
                 'webhook_secret' => '',
+                'url_patterns' => [
+                    'posts' => '/blog/{slug}/',
+                    'pages' => '/{slug}/',
+                ],
                 'updated_at' => null,
             ];
         }
 
         $config = $raw;
+        if (!isset($config['url_patterns']) || !is_array($config['url_patterns'])) {
+            $config['url_patterns'] = [
+                'posts' => '/blog/{slug}/',
+                'pages' => '/{slug}/',
+            ];
+        }
 
         // Decrypt secrets if present
         if (!empty($config['github_token_encrypted']) && $this->crypto !== null) {
@@ -94,6 +104,13 @@ final class PublishingSettingsRepository
 
         $webhookUrl = isset($input['webhook_url']) ? (string) $input['webhook_url'] : (string) ($current['webhook_url'] ?? '');
 
+        $urlPatterns = isset($input['url_patterns']) && is_array($input['url_patterns'])
+            ? $input['url_patterns']
+            : ($current['url_patterns'] ?? [
+                'posts' => '/blog/{slug}/',
+                'pages' => '/{slug}/',
+            ]);
+
         // Preserve or update secrets
         $githubToken = isset($input['github_token']) && $input['github_token'] !== '' ? (string) $input['github_token'] : (string) ($current['github_token'] ?? '');
         $webhookSecret = isset($input['webhook_secret']) && $input['webhook_secret'] !== '' ? (string) $input['webhook_secret'] : (string) ($current['webhook_secret'] ?? '');
@@ -121,6 +138,7 @@ final class PublishingSettingsRepository
             'webhook_url' => $webhookUrl,
             'webhook_secret_encrypted' => $webhookSecretEncrypted,
             'has_webhook_secret' => !empty($webhookSecret),
+            'url_patterns' => $urlPatterns,
             'updated_at' => $now,
             'updated_by' => $updatedBy,
         ];

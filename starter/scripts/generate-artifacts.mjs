@@ -77,18 +77,30 @@ async function main() {
     process.exit(1);
   }
 
-  // Fetch site metadata from manifest if available
+  // Fetch site metadata from /api/v1/public/site or manifest if available
   let siteName = siteConfig.name;
   let siteDescription = siteConfig.description;
+  let navigation = [];
 
   try {
-    const manifest = await client.fetchManifest();
-    if (manifest.site) {
-      if (manifest.site.name) siteName = manifest.site.name;
-      if (manifest.site.description) siteDescription = manifest.site.description;
+    const site = await client.fetchSite();
+    if (site && site.site_name) {
+      siteName = site.site_name;
+      siteDescription = site.description || site.tagline || siteConfig.description;
+      if (Array.isArray(site.navigation)) {
+        navigation = site.navigation;
+      }
     }
-  } catch (err) {
-    console.warn('[generate-artifacts] Using local site.config.json:', err);
+  } catch {
+    try {
+      const manifest = await client.fetchManifest();
+      if (manifest.site) {
+        if (manifest.site.name) siteName = manifest.site.name;
+        if (manifest.site.description) siteDescription = manifest.site.description;
+      }
+    } catch (err) {
+      console.warn('[generate-artifacts] Using local site.config.json:', err);
+    }
   }
 
   let entries = [];
@@ -178,8 +190,9 @@ canonical: ${escapeYamlString(canonicalUrl)}
 `;
         }
 
+        const pageTitle = entry?.title || (rawRoute === '/' ? 'Home' : (rawRoute === '/blog' ? 'Blog' : rawRoute.replace(/^\//, '')));
         fs.writeFileSync(mdPath, markdownContent, 'utf8');
-        generatedPages.push({ routePath: rawRoute, canonicalUrl, title: entry?.title || 'Page', content: markdownContent });
+        generatedPages.push({ routePath: rawRoute, canonicalUrl, title: pageTitle, content: markdownContent });
       }
     }
   }
@@ -220,9 +233,9 @@ Sitemap: ${siteUrl}/sitemap.xml
   fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
   console.log('[Artifacts] Generated robots.txt (Balanced preset).');
 
-  // 3. Generate sitemap.xml with consistent trailing slashes matching canonical policy (skip 404)
+  // 3. Generate sitemap.xml with consistent trailing slashes matching canonical policy (skip 404 and preview)
   const sitemapUrls = generatedPages
-    .filter((p) => !p.routePath.includes('404'))
+    .filter((p) => !p.routePath.includes('404') && !p.routePath.includes('preview'))
     .map(
       (p) => `  <url>
     <loc>${p.canonicalUrl}</loc>
@@ -240,14 +253,31 @@ ${sitemapUrls}
   console.log('[Artifacts] Generated sitemap.xml.');
 
   // 4. Generate llms.txt & llms-full.txt
+  let mainPagesList = '';
+  if (navigation.length > 0) {
+    mainPagesList = navigation
+      .map((item) => `- [${item.label}](${getCanonicalUrl(item.url)})`)
+      .join('\n');
+  } else {
+    // Generate from discovered pages in generatedPages (excluding 404, preview, and individual blog posts)
+    const staticNavPages = generatedPages.filter(
+      (p) => !p.routePath.includes('404') && !p.routePath.includes('preview') && !p.routePath.startsWith('/blog/')
+    );
+    if (staticNavPages.length > 0) {
+      mainPagesList = staticNavPages
+        .map((p) => `- [${p.title}](${p.canonicalUrl})`)
+        .join('\n');
+    } else {
+      mainPagesList = `- [Home](${siteUrl}/)\n- [Blog](${siteUrl}/blog/)`;
+    }
+  }
+
   const llmsTxt = `# ${siteName}
 
 > ${siteDescription}
 
 ## Main Pages
-- [Home](${siteUrl}/): Site overview and welcome.
-- [Blog](${siteUrl}/blog/): Published articles.
-- [About](${siteUrl}/about/): About the project.
+${mainPagesList}
 
 ## Documentation & Links
 - Canonical site: ${siteUrl}/
