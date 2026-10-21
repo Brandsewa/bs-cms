@@ -151,7 +151,59 @@ switch ($Command) {
         & "$SimDir\test-sim.ps1" $Name $BasePort
     }
 
+    "site" {
+        $Container = "bs-sim-$Name-ols"
+        $CaddyContainer = "bs-sim-$Name-caddy"
+        $HttpsPort = 8481
+        try {
+            $portsJson = docker inspect $CaddyContainer --format '{{json .NetworkSettings.Ports}}' | ConvertFrom-Json
+            foreach ($prop in $portsJson.PSObject.Properties) {
+                if ($prop.Name -match "^(\d+)/tcp$") {
+                    $p = [int]$Matches[1]
+                    if ($p -ge 8400) {
+                        $HttpsPort = $p
+                        break
+                    }
+                }
+            }
+        } catch {}
+        $CmsUrl = "https://localhost:$HttpsPort"
+
+        Write-Host ">>> Generating build token from instance '$Name'..." -ForegroundColor Cyan
+        # Copy gen-build-token.php into container if not already present
+        docker cp "$SimDir\ols\gen-build-token.php" "$Container`:/usr/local/bin/gen-build-token.php" 2>$null
+        $Token = (docker exec $Container php /usr/local/bin/gen-build-token.php).Trim()
+        if (-not $Token -or -not ($Token.StartsWith("bsbuild_"))) {
+            Write-Error "Failed to generate build token from container $Container"
+            exit 1
+        }
+        Write-Host ">>> Obtained build token: $($Token.Substring(0, 16))..." -ForegroundColor Green
+
+        $StarterDir = Join-Path (Split-Path -Parent $ScriptDir) "starter"
+        Write-Host ">>> Building Astro starter against $CmsUrl..." -ForegroundColor Cyan
+        $env:BS_CMS_URL = $CmsUrl
+        $env:BS_BUILD_TOKEN = $Token
+        $env:SITE_URL = $CmsUrl
+        $env:NODE_TLS_REJECT_UNAUTHORIZED = "0"
+
+        Push-Location $StarterDir
+        try {
+            npm run build
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Astro starter build failed."
+                exit 1
+            }
+            Write-Host ">>> Static build complete. Starter dist is ready at $StarterDir\dist" -ForegroundColor Green
+
+            $PreviewPort = if ($Arg1) { [int]$Arg1 } else { $HttpsPort + 100 }
+            Write-Host ">>> Serving static site at http://localhost:$PreviewPort..." -ForegroundColor Cyan
+            npx astro preview --port $PreviewPort
+        } finally {
+            Pop-Location
+        }
+    }
+
     default {
-        Write-Host "Usage: .\dev\sim.ps1 [up|down|reset|deploy|logs|shell|test] <name> [arg1] [arg2]"
+        Write-Host "Usage: .\dev\sim.ps1 [up|down|reset|deploy|logs|shell|test|site] <name> [arg1] [arg2]"
     }
 }

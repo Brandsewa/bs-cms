@@ -1,0 +1,62 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { loadCollectionEntries, getCanonicalUrl } from '../lib/bs';
+
+export async function getStaticPaths() {
+  let pages: any[] = [];
+  try {
+    pages = await loadCollectionEntries('pages');
+  } catch {
+    // Fallback if pages collection is empty or not yet published
+    pages = [];
+  }
+
+  return pages.map((page: any) => ({
+    params: { slug: page.slug },
+    props: { page },
+  }));
+}
+
+const { page } = Astro.props as any;
+const blocks = Array.isArray(page.blocks) ? page.blocks : [];
+---
+
+<BaseLayout
+  title={`${page.title} | BS CMS`}
+  description={page.summary || `${page.title} on BS CMS.`}
+  canonical={getCanonicalUrl(`/${page.slug}/`)}
+  structuredData={page.structured_data}
+  robots={page.seo?.robots}
+>
+  <article class="post-detail">
+    <header class="post-header">
+      <h1>{page.title}</h1>
+      {page.summary && (
+        <p style="font-size: 1.15rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+          {page.summary}
+        </p>
+      )}
+    </header>
+
+    <div class="post-content">
+      {blocks.length > 0 ? (
+        blocks.map((block: any) => {
+          if (block.type === 'hero') {
+            return (
+              <section class="hero" style="margin: 1.5rem 0; padding: 2rem;">
+                {block.heading && <h2>{block.heading}</h2>}
+                {block.text && <p class="hero-subtitle">{block.text}</p>}
+              </section>
+            );
+          }
+          if (block.type === 'text') {
+            return <p>{block.content || block.text}</p>;
+          }
+          return null;
+        })
+      ) : (
+        <p>{page.summary || 'Content for this page.'}</p>
+      )}
+    </div>
+  </article>
+</BaseLayout>
