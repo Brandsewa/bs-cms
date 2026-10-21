@@ -28,6 +28,8 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
     for (const role of roles) {
       expect(fixtures).toHaveProperty(role);
       const data = fixtures[role];
+      expect(data).toBeDefined();
+      if (!data) throw new Error(`Missing fixture for ${role}`);
       expect(data).toHaveProperty('session');
       expect(data).toHaveProperty('permissions');
       expect(data.session.status).toBe('authenticated');
@@ -39,9 +41,13 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
   it('validates user.roles is an array of objects matching UserRole schema', () => {
     for (const role of roles) {
       const data = fixtures[role];
+      expect(data).toBeDefined();
+      if (!data) throw new Error(`Missing fixture for ${role}`);
       const userRoles = data.session.user.roles as UserRole[];
       expect(userRoles.length).toBeGreaterThan(0);
       const firstRole = userRoles[0];
+      expect(firstRole).toBeDefined();
+      if (!firstRole) throw new Error(`Empty roles for ${role}`);
       expect(firstRole).toHaveProperty('id');
       expect(firstRole).toHaveProperty('handle');
       expect(firstRole).toHaveProperty('name');
@@ -53,6 +59,8 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
   it('validates /me/permissions response contract across all roles', () => {
     for (const role of roles) {
       const data = fixtures[role];
+      expect(data).toBeDefined();
+      if (!data) throw new Error(`Missing fixture for ${role}`);
       const perms = data.permissions;
       expect(perms).toHaveProperty('actor_id');
       expect(perms).toHaveProperty('role_ids');
@@ -72,6 +80,8 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
   it('evaluates checkPermission correctly per role for sidebar items', () => {
     // Owner has access to everything
     const ownerData = fixtures['owner'];
+    expect(ownerData).toBeDefined();
+    if (!ownerData) throw new Error('Missing owner fixture');
     const ownerRoles = ownerData.session.user.roles as UserRole[];
     const ownerSession: AdminSession = {
       status: 'authenticated',
@@ -91,6 +101,8 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
 
     // Editor has content permissions, but not users or developer/settings
     const editorData = fixtures['editor'];
+    expect(editorData).toBeDefined();
+    if (!editorData) throw new Error('Missing editor fixture');
     const editorRoles = editorData.session.user.roles as UserRole[];
     const editorSession: AdminSession = {
       status: 'authenticated',
@@ -108,6 +120,8 @@ describe('Role & Permission Contract Verification against Live Fixtures', () => 
 
     // Viewer has read-only access to collection, taxonomy, and media only
     const viewerData = fixtures['viewer'];
+    expect(viewerData).toBeDefined();
+    if (!viewerData) throw new Error('Missing viewer fixture');
     const viewerRoles = viewerData.session.user.roles as UserRole[];
     const viewerSession: AdminSession = {
       status: 'authenticated',

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:sim": "vite --mode sim",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",

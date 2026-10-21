@@ -39,7 +39,9 @@ export function ProtectedAdmin({
   if (permission && !isOwner) {
     let allowed = false;
     if (permission.includes(':')) {
-      const [subject, action] = permission.split(':');
+      const parts = permission.split(':');
+      const subject = parts[0] ?? '';
+      const action = parts[1] ?? 'read';
       allowed = hasPermission(subject, action);
     } else {
       allowed = hasPermission(permission, 'read');

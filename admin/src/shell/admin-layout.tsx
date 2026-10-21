@@ -30,7 +30,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       return true;
     }
     if (permission.includes(':')) {
-      const [subject, action] = permission.split(':');
+      const parts = permission.split(':');
+      const subject = parts[0] ?? '';
+      const action = parts[1] ?? 'read';
       return sessionHasPermission(subject, action);
     }
     return sessionHasPermission(permission, 'read');
@@ -165,7 +167,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Global banner area */}
-        <BannerArea />
+        <BannerArea>{null}</BannerArea>
 
         {/* Workspace body */}
         <main className="flex-1 overflow-y-auto">

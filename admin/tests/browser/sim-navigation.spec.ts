@@ -1,7 +1,22 @@
 import { test, expect } from '@playwright/test';
 
+/**
+ * Real Simulation Admin Shell & Navigation tests.
+ *
+ * Requirements:
+ * - Requires a running local simulation (e.g. `dev\\sim.ps1 up dev 8081 mariadb11`).
+ * - Gated on the `BS_SIM_URL` environment variable: automatically skipped in CI or environments
+ *   without an active simulation.
+ * - To run locally against the simulation:
+ *     $env:BS_SIM_URL = 'https://localhost:8481'  (or 8501 for instance s3)
+ *     npm run test:browser -w admin -- tests/browser/sim-navigation.spec.ts
+ */
+const SIM_URL = process.env.BS_SIM_URL;
+
 test.describe('Real Simulation Admin Shell & Navigation', () => {
-  const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:8501';
+  test.skip(!SIM_URL, 'Skipping simulation navigation tests: BS_SIM_URL is not set.');
+
+  const BASE_URL = SIM_URL || 'https://localhost:8501';
 
   test.use({ ignoreHTTPSErrors: true });
 
