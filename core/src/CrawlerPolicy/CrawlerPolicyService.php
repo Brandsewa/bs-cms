@@ -110,6 +110,9 @@ final class CrawlerPolicyService
                 throw new \InvalidArgumentException('Each disallow path must start with "/", be at most 200 characters, and contain no spaces, control characters or "#".');
             }
         }
+        if ($preset !== 'private' && in_array('/', $paths, true)) {
+            throw new \InvalidArgumentException('Disallowing "/" for all crawlers is only allowed with the private preset.');
+        }
         $rules = $policy['bot_rules'] ?? [];
         if (!is_array($rules) || count($rules) > 200) {
             throw new \InvalidArgumentException('bot_rules must be a map of bot token to allow/disallow.');
