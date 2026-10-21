@@ -32,6 +32,9 @@ const DashboardRoute = lazy(() =>
 const MediaLibraryRoute = lazy(() =>
   import('./media').then((m) => ({ default: m.MediaLibraryRoute }))
 );
+const TaxonomiesRoute = lazy(() =>
+  import('./taxonomies').then((m) => ({ default: m.TaxonomiesRoute }))
+);
 // SPRINT-B END
 const SettingsLayout = lazy(() =>
   import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
@@ -212,10 +215,9 @@ export const taxonomiesRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="taxonomies:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Taxonomies & Categories"
-          description="Hierarchical tags, categories, and organizational vocabularies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <TaxonomiesRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
