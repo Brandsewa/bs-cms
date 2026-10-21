@@ -223,10 +223,12 @@ export const SiteHealthView: FC = () => {
 
       {/* Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Overall Status"
-          value={
-            loading ? (
+        <Card className="p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground-lighter">Overall Status</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {loading ? (
               '-'
             ) : data?.summary.status === 'healthy' ? (
               <span className="text-success-text flex items-center gap-1.5 text-16 font-semibold">
@@ -243,41 +245,55 @@ export const SiteHealthView: FC = () => {
                 <XCircle className="h-3.5 w-3.5 mr-1" />
                 Critical
               </Badge>
-            )
-          }
-          hint={
-            data?.scanned_at
+            )}
+          </p>
+          <p className="mt-1.5 text-xs text-foreground-light font-medium">
+            {data?.scanned_at
               ? `Last scan: ${formatAdminDate(data.scanned_at, {
                   month: 'short',
                   day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
                 })}`
-              : 'Never scanned'
-          }
-          loading={loading}
-        />
+              : 'Never scanned'}
+          </p>
+        </Card>
 
-        <MetricCard
-          label="Critical Errors"
-          value={loading ? '-' : String(data?.summary.errors ?? 0)}
-          hint="Issues requiring immediate attention"
-          loading={loading}
-        />
+        <Card className="p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground-lighter">Critical Errors</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {loading ? '-' : String(data?.summary.errors ?? 0)}
+          </p>
+          <p className="mt-1.5 text-xs text-foreground-light font-medium">
+            Issues requiring immediate attention
+          </p>
+        </Card>
 
-        <MetricCard
-          label="Warnings"
-          value={loading ? '-' : String(data?.summary.warnings ?? 0)}
-          hint="SEO or structural improvements"
-          loading={loading}
-        />
+        <Card className="p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground-lighter">Warnings</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {loading ? '-' : String(data?.summary.warnings ?? 0)}
+          </p>
+          <p className="mt-1.5 text-xs text-foreground-light font-medium">
+            SEO or structural improvements
+          </p>
+        </Card>
 
-        <MetricCard
-          label="Rules Evaluated"
-          value={loading ? '-' : String(data?.rules_checked ?? 15)}
-          hint="Content, SEO, technical & GEO checks"
-          loading={loading}
-        />
+        <Card className="p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground-lighter">Rules Evaluated</p>
+          </div>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {loading ? '-' : String(data?.rules_checked ?? 15)}
+          </p>
+          <p className="mt-1.5 text-xs text-foreground-light font-medium">
+            Content, SEO, technical & GEO checks
+          </p>
+        </Card>
       </div>
 
       {/* Issues Section */}
@@ -458,17 +474,13 @@ export const SiteHealthView: FC = () => {
                     {/* Direct entity edit link if entry or collection */}
                     {issue.entity_type === 'entry' && issue.entity_id && (
                       <div className="flex items-center justify-end pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="h-7 text-11"
+                        <a
+                          href={`/admin/entries/${issue.entity_id}`}
+                          className="inline-flex items-center gap-1 text-12 font-medium text-foreground hover:underline"
                         >
-                          <a href={`/admin/entries/${issue.entity_id}`}>
-                            <span>Edit entry</span>
-                            <ExternalLink className="h-3 w-3 ml-1" />
-                          </a>
-                        </Button>
+                          <span>Edit entry</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
                       </div>
                     )}
                   </CardContent>
