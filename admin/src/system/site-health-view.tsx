@@ -10,7 +10,6 @@ import {
   CardTitle,
   Badge,
   EmptyState,
-  MetricCard,
   PageContainer,
   PageHeader,
   Progress,
