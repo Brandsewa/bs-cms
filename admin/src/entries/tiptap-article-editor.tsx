@@ -21,6 +21,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '@bs/ui';
+import { CalloutNode, FaqNode, KeyFactsNode, ButtonNode } from './tiptap-directive-nodes';
 
 export interface TiptapArticleEditorProps {
   value?: unknown;
@@ -60,6 +61,10 @@ export function TiptapArticleEditor({
           class: 'rounded-md my-4 max-w-full',
         },
       }),
+      CalloutNode,
+      FaqNode,
+      KeyFactsNode,
+      ButtonNode,
     ],
     content: (value as Record<string, unknown> | string) || {
       type: 'doc',
@@ -127,6 +132,7 @@ export function TiptapArticleEditor({
       >
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleBold().run()}
           disabled={!editor.can().chain().focus().toggleBold().run()}
           aria-label="Bold"
@@ -141,6 +147,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           disabled={!editor.can().chain().focus().toggleItalic().run()}
           aria-label="Italic"
@@ -155,6 +162,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleStrike().run()}
           disabled={!editor.can().chain().focus().toggleStrike().run()}
           aria-label="Strikethrough"
@@ -169,6 +177,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleCode().run()}
           disabled={!editor.can().chain().focus().toggleCode().run()}
           aria-label="Inline code"
@@ -185,6 +194,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           aria-label="Heading 2"
           aria-pressed={editor.isActive('heading', { level: 2 })}
@@ -198,6 +208,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           aria-label="Heading 3"
           aria-pressed={editor.isActive('heading', { level: 3 })}
@@ -211,6 +222,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
           aria-label="Heading 4"
           aria-pressed={editor.isActive('heading', { level: 4 })}
@@ -226,6 +238,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           aria-label="Bullet list"
           aria-pressed={editor.isActive('bulletList')}
@@ -239,6 +252,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           aria-label="Numbered list"
           aria-pressed={editor.isActive('orderedList')}
@@ -252,6 +266,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           aria-label="Blockquote"
           aria-pressed={editor.isActive('blockquote')}
@@ -265,6 +280,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
           aria-label="Horizontal rule"
           className="inline-flex h-8 w-8 items-center justify-center rounded-md text-xs font-medium transition-colors hover:bg-surface-200 hover:text-foreground"
@@ -277,6 +293,7 @@ export function TiptapArticleEditor({
         {/* Callout Directives */}
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => insertDirective('note')}
           aria-label="Insert Note callout"
           title="Insert Note callout"
@@ -288,6 +305,7 @@ export function TiptapArticleEditor({
 
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => insertDirective('warning')}
           aria-label="Insert Warning callout"
           title="Insert Warning callout"
@@ -300,6 +318,7 @@ export function TiptapArticleEditor({
         <div className="ml-auto flex items-center gap-0.5">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             aria-label="Undo"
@@ -309,6 +328,7 @@ export function TiptapArticleEditor({
           </button>
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
             aria-label="Redo"

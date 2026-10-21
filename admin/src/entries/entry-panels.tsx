@@ -140,7 +140,7 @@ export function PublishPanel({
             onClick={() => onSave()}
             className="w-full justify-center"
           >
-            {saving ? 'Saving...' : 'Save changes'}
+            {saving ? 'Saving...' : status === 'published' ? 'Update' : 'Save Draft'}
           </Button>
 
           {status !== 'draft' ? (

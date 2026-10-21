@@ -55,6 +55,15 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
       });
     });
 
+    // 3b. Single collection schema for editor route
+    await page.route('**/api/v1/collections/posts', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixturesData.collections_posts),
+      });
+    });
+
     // 4. Default posts entries
     await page.route('**/api/v1/collections/posts/entries*', async (route) => {
       const url = route.request().url();

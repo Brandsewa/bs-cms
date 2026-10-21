@@ -154,7 +154,7 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
     // Verify Publishing Panel
     await expect(page.getByText('Publishing', { exact: true })).toBeVisible();
     await expect(page.getByText('v2')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Update' })).toBeVisible();
 
     // Verify SEO Panel & SERP Preview
     await expect(page.getByText('SEO & Metadata')).toBeVisible();
@@ -173,6 +173,98 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
     await titleInput.fill('My Autonomous Post');
     const slugInput = page.getByLabel('URL slug');
     await expect(slugInput).toHaveValue('my-autonomous-post');
+  });
+
+  test('maintains focus when toggling marks mid-sentence and saves bold mark without losing text', async ({ page }) => {
+    let capturedBodyPayload: any = null;
+    // Unroute previous route handler and register dynamic PUT listener
+    await page.unroute('**/api/v1/collections/posts/entries/01M5E0583S0DT2SVVPRZREWT01');
+    await page.route('**/api/v1/collections/posts/entries/01M5E0583S0DT2SVVPRZREWT01', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: '01M5E0583S0DT2SVVPRZREWT01',
+            slug: 'getting-started-with-bs-cms',
+            title: 'Getting Started with BS CMS',
+            status: 'published',
+            locale: 'en',
+            author_id: 'u1',
+            published_at: '2026-10-21 03:05:50.000',
+            version: 2,
+            excerpt: 'Learn how to publish articles with BS CMS.',
+            seo: {
+              title: 'Getting Started with BS CMS | BrandSewa',
+              description: 'Official guide to publishing static sites and managing blog posts.',
+            },
+            body: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Welcome to BS CMS.' }],
+                },
+              ],
+            },
+          }),
+        });
+      } else if (route.request().method() === 'PUT') {
+        const json = JSON.parse(route.request().postData() || '{}');
+        capturedBodyPayload = json.body;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: '01M5E0583S0DT2SVVPRZREWT01',
+            title: json.title,
+            status: json.status,
+            version: 3,
+          }),
+        });
+      }
+    });
+
+    await page.goto(`${ADMIN_URL}/entries/posts/01M5E0583S0DT2SVVPRZREWT01`);
+    await expect(page.getByRole('heading', { name: /Edit Post/i })).toBeVisible();
+
+    const editorLocator = page.locator('.tiptap');
+    await editorLocator.click();
+    // Select all existing text and delete
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Backspace');
+
+    // Type initial phrase
+    await page.keyboard.type('Second paragraph with ');
+
+    // Click Bold toolbar button
+    const boldButton = page.getByRole('button', { name: 'Bold' });
+    await boldButton.click();
+
+    // Type bold text
+    await page.keyboard.type('bold text');
+
+    // Click Bold toolbar button again to toggle off
+    await boldButton.click();
+
+    // Type remaining phrase
+    await page.keyboard.type(' and a <script>alert(1)</script> literal.');
+
+    // Save changes using top bar button
+    await page.getByRole('button', { name: 'Save Draft' }).first().click();
+
+    // Verify PUT request payload contains bold marks and all text intact
+    await expect.poll(() => capturedBodyPayload).toBeTruthy();
+    const paragraphs = capturedBodyPayload.content.filter((n: any) => n.type === 'paragraph');
+    const firstP = paragraphs[0];
+    expect(firstP).toBeTruthy();
+
+    const boldNode = firstP.content.find((n: any) => n.text === 'bold text');
+    expect(boldNode).toBeTruthy();
+    expect(boldNode.marks).toEqual([{ type: 'bold' }]);
+
+    const fullText = firstP.content.map((n: any) => n.text).join('');
+    expect(fullText).toBe('Second paragraph with bold text and a <script>alert(1)</script> literal.');
   });
 
   test('axe light and dark accessibility clean for Entry Editor', async ({ page }) => {
