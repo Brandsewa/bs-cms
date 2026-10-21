@@ -99,7 +99,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <Search className="h-3.5 w-3.5" />
               <span className="text-12">Search...</span>
               <kbd className="rounded border border-border bg-surface-200 px-1.5 py-0.2 text-[10px] text-foreground-lighter">
-                ÃƒÂ¢Ã…â€™Ã‹Å“K
+                {'\u2318'}K
               </kbd>
             </Button>
 

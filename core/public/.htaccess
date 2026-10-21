@@ -1,3 +1,7 @@
+# Enforce UTF-8 charset on text and script assets
+AddDefaultCharset UTF-8
+AddCharset UTF-8 .js .css .json
+
 # BS CMS Apache / LiteSpeed Front-Controller Configuration
 # Enforces clean routing, security headers, dotfile blocking, and PHP execution restriction.
 
