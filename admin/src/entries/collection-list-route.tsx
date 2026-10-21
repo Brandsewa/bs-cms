@@ -19,6 +19,8 @@ import {
   FileEdit,
   LayoutList,
   GitBranch,
+  RotateCcw,
+  Download,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
@@ -535,7 +537,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         icon: Trash2,
         destructive: true,
         confirm: 'confirm',
-        hidden: () => !canDelete,
+        hidden: () => !canDelete || activeTab === 'trash',
         run: async (rows) => {
           const res = await apiClient.request<BulkOperationResponse>(
             'POST',
@@ -566,6 +568,60 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
             }));
           }
           loadEntries();
+          return outcome;
+        },
+      },
+      {
+        id: 'restore',
+        label: 'Restore from Trash',
+        icon: RotateCcw,
+        hidden: () => activeTab !== 'trash' || !canDelete,
+        run: async (rows) => {
+          const res = await apiClient.request<BulkOperationResponse>(
+            'POST',
+            `/collections/${collectionHandle}/entries/bulk`,
+            {
+              body: {
+                operation: 'restore',
+                ids: rows.map((r) => r.id),
+              },
+            }
+          );
+
+          const outcome: BulkActionOutcome<EntryItem> = { succeeded: [], failed: [] };
+          if (res.ok) {
+            const resMap = new Map(res.data.items.map((i) => [i.id, i]));
+            for (const r of rows) {
+              const item = resMap.get(r.id);
+              if (item?.status === 'success') {
+                outcome.succeeded.push(r);
+              } else {
+                outcome.failed.push({ row: r, reason: item?.error || 'Failed to restore' });
+              }
+            }
+          } else {
+            outcome.failed = rows.map((r) => ({
+              row: r,
+              reason: res.problem?.detail || 'Bulk restore failed',
+            }));
+          }
+          loadEntries();
+          return outcome;
+        },
+      },
+      {
+        id: 'export',
+        label: 'Export Selected (JSON)',
+        icon: Download,
+        run: async (rows) => {
+          const outcome: BulkActionOutcome<EntryItem> = { succeeded: rows, failed: [] };
+          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(rows, null, 2));
+          const dlAnchor = document.createElement('a');
+          dlAnchor.setAttribute('href', dataStr);
+          dlAnchor.setAttribute('download', `${collectionHandle}-export-${Date.now()}.json`);
+          document.body.appendChild(dlAnchor);
+          dlAnchor.click();
+          dlAnchor.remove();
           return outcome;
         },
       },
@@ -603,6 +659,12 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         label: 'Title',
         type: 'text',
         columnId: 'title',
+      },
+      {
+        id: 'category',
+        label: 'Category (Include subcategories)',
+        type: 'text',
+        columnId: 'category',
       },
       {
         id: 'status',
