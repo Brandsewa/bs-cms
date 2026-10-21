@@ -28,6 +28,11 @@ const DashboardRoute = lazy(() =>
 );
 
 // Settings views (independently lazy-loaded chunks)
+// SPRINT-B BEGIN
+const MediaLibraryRoute = lazy(() =>
+  import('./media').then((m) => ({ default: m.MediaLibraryRoute }))
+);
+// SPRINT-B END
 const SettingsLayout = lazy(() =>
   import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
 );
@@ -222,10 +227,9 @@ export const mediaRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="media:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Media Library"
-          description="Upload and inspect optimized image and document assets."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MediaLibraryRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
