@@ -1,0 +1,25 @@
+﻿{
+    "id":  "01M5D4V4S9Y8A6S3JM6WGNHE8P",
+    "email":  "author@example.com",
+    "name":  "Author Test User",
+    "status":  "active",
+    "avatar_media_id":  null,
+    "locale":  "en",
+    "timezone":  "UTC",
+    "two_factor_enabled":  false,
+    "roles":  [
+                  {
+                      "id":  "01JB0000000000000000000005",
+                      "handle":  "author",
+                      "name":  "Author",
+                      "description":  "Can create and edit own entries and submit for review, assign terms, and manage own media",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591"
+                  }
+              ],
+    "created_at":  "2026-10-20 17:13:15.817",
+    "updated_at":  "2026-10-20 17:13:15.817",
+    "last_login_at":  null
+}

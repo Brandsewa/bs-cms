@@ -1,0 +1,155 @@
+﻿{
+    "items":  [
+                  {
+                      "id":  "01M5D4V4S9Y8A6S3JM6WGNHE8P",
+                      "email":  "author@example.com",
+                      "name":  "Author Test User",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000005",
+                                        "handle":  "author",
+                                        "name":  "Author",
+                                        "description":  "Can create and edit own entries and submit for review, assign terms, and manage own media",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.817",
+                      "updated_at":  "2026-10-20 17:13:15.817",
+                      "last_login_at":  null
+                  },
+                  {
+                      "id":  "01M5D4V4R2R4AJ1PMMC4CJE2R4",
+                      "email":  "editor@example.com",
+                      "name":  "Editor Test User",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000004",
+                                        "handle":  "editor",
+                                        "name":  "Editor",
+                                        "description":  "Can edit, publish, unpublish, schedule, and soft-delete content across all collections, manage terms and media",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.778",
+                      "updated_at":  "2026-10-20 17:13:15.778",
+                      "last_login_at":  null
+                  },
+                  {
+                      "id":  "01M5D4V4PRGS7K85NR8EV75GVQ",
+                      "email":  "developer@example.com",
+                      "name":  "Developer Test User",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000003",
+                                        "handle":  "developer",
+                                        "name":  "Developer",
+                                        "description":  "Developer with schema, API, webhook, plugin and system management access",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.736",
+                      "updated_at":  "2026-10-20 17:13:15.736",
+                      "last_login_at":  null
+                  },
+                  {
+                      "id":  "01M5D4V4NE1PFWV2QDB77NA3M4",
+                      "email":  "admin@example.com",
+                      "name":  "Admin Test User",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000002",
+                                        "handle":  "admin",
+                                        "name":  "Administrator",
+                                        "description":  "Administrator with access to all content, media, site and settings except owner role management and security keys",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.694",
+                      "updated_at":  "2026-10-20 17:13:52.640",
+                      "last_login_at":  "2026-10-20 17:13:52.640"
+                  },
+                  {
+                      "id":  "01M5D4V4M48ZC1XHQP6VW8PV86",
+                      "email":  "owner@example.com",
+                      "name":  "Owner Test User",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000001",
+                                        "handle":  "owner",
+                                        "name":  "Owner",
+                                        "description":  "Full ownership with all permissions across all subjects",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.652",
+                      "updated_at":  "2026-10-21 01:14:32.690",
+                      "last_login_at":  "2026-10-21 01:14:32.690"
+                  },
+                  {
+                      "id":  "01M5D4V454P6BA3GB8TFN2BHGD",
+                      "email":  "admin_release@example.com",
+                      "name":  "Release Admin",
+                      "status":  "active",
+                      "avatar_media_id":  null,
+                      "locale":  "en",
+                      "timezone":  "UTC",
+                      "two_factor_enabled":  false,
+                      "roles":  [
+                                    {
+                                        "id":  "01JB0000000000000000000001",
+                                        "handle":  "owner",
+                                        "name":  "Owner",
+                                        "description":  "Full ownership with all permissions across all subjects",
+                                        "is_system":  1,
+                                        "is_ai":  0,
+                                        "created_at":  "2026-10-20 17:13:13.591",
+                                        "updated_at":  "2026-10-20 17:13:13.591"
+                                    }
+                                ],
+                      "created_at":  "2026-10-20 17:13:15.172",
+                      "updated_at":  "2026-10-20 17:13:15.172",
+                      "last_login_at":  null
+                  }
+              ],
+    "next_cursor":  null
+}

@@ -2,9 +2,8 @@ import React, { lazy, Suspense } from 'react';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute } from './routing';
 import { ProtectedAdmin } from './shell/protected-admin';
-import { ComingSoonPage } from './shell/coming-soon';
 
-// Code-split routes to keep the bundle size well within 200 KB gzipped
+// Code-split routes to keep the initial bundle size strictly minimal (< 200 KB gzipped)
 const LoginRoute = lazy(() => import('./auth/login').then((m) => ({ default: m.LoginRoute })));
 const ForgotPasswordRoute = lazy(() =>
   import('./auth/forgot-password').then((m) => ({ default: m.ForgotPasswordRoute }))
@@ -24,8 +23,32 @@ const CollectionListRoute = lazy(() =>
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
-const SettingsRoute = lazy(() =>
-  import('./settings/settings-route').then((m) => ({ default: m.SettingsRoute }))
+
+// Settings views (independently lazy-loaded chunks)
+const SettingsLayout = lazy(() =>
+  import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
+);
+const GeneralSettingsView = lazy(() =>
+  import('./settings/general-settings-view').then((m) => ({ default: m.GeneralSettingsView }))
+);
+const EmailSettingsView = lazy(() =>
+  import('./settings/email-settings-view').then((m) => ({ default: m.EmailSettingsView }))
+);
+
+// Users & Roles views (independently lazy-loaded chunks)
+const UsersLayout = lazy(() =>
+  import('./users/users-layout').then((m) => ({ default: m.UsersLayout }))
+);
+const UsersListView = lazy(() =>
+  import('./users/users-list-view').then((m) => ({ default: m.UsersListView }))
+);
+const RolesMatrixView = lazy(() =>
+  import('./users/roles-matrix-view').then((m) => ({ default: m.RolesMatrixView }))
+);
+
+// Shell fallbacks & placeholders
+const ComingSoonPage = lazy(() =>
+  import('./shell/coming-soon').then((m) => ({ default: m.ComingSoonPage }))
 );
 const ForbiddenRoute = lazy(() =>
   import('./shell/forbidden').then((m) => ({ default: m.ForbiddenRoute }))
@@ -81,7 +104,7 @@ export const resetPasswordRoute = createRoute({
 
 export const acceptInvitationRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/invitations/accept',
+  path: '/accept-invitation',
   component: () => (
     <RouteSuspense>
       <AcceptInvitationRoute />
@@ -91,7 +114,7 @@ export const acceptInvitationRoute = createRoute({
 
 export const oauthReturnRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/oauth/return',
+  path: '/oauth-consent-return',
   component: () => (
     <RouteSuspense>
       <OAuthConsentReturnRoute />
@@ -99,16 +122,10 @@ export const oauthReturnRoute = createRoute({
   ),
 });
 
-// Protected Shell Routes
+// Authenticated Routes
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: () => {
-    // In dev mode when requested via ?gallery=1 or /_gallery
-    if (import.meta.env.DEV && window.location.search.includes('gallery=1')) {
-      throw redirect({ to: '/_gallery' });
-    }
-  },
   component: () => (
     <ProtectedAdmin>
       <RouteSuspense>
@@ -118,6 +135,7 @@ export const indexRoute = createRoute({
   ),
 });
 
+// Content & Structure
 export const entriesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/entries',
@@ -181,11 +199,13 @@ export const taxonomiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/taxonomies',
   component: () => (
-    <ProtectedAdmin permission="taxonomy:read">
-      <ComingSoonPage
-        title="Taxonomies & Categories"
-        description="Taxonomy management and term relationships will be configurable here."
-      />
+    <ProtectedAdmin permission="taxonomies:read">
+      <RouteSuspense>
+        <ComingSoonPage
+          title="Taxonomies & Categories"
+          description="Hierarchical tags, categories, and organizational vocabularies."
+        />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
@@ -195,10 +215,12 @@ export const mediaRoute = createRoute({
   path: '/media',
   component: () => (
     <ProtectedAdmin permission="media:read">
-      <ComingSoonPage
-        title="Media Library"
-        description="Manage media assets, folders, and chunked uploads here."
-      />
+      <RouteSuspense>
+        <ComingSoonPage
+          title="Media Library"
+          description="Upload and inspect optimized image and document assets."
+        />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
@@ -207,11 +229,13 @@ export const menusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/menus',
   component: () => (
-    <ProtectedAdmin permission="site:read">
-      <ComingSoonPage
-        title="Site Navigation"
-        description="Configure menus, header/footer links, and hierarchy here."
-      />
+    <ProtectedAdmin permission="menus:read">
+      <RouteSuspense>
+        <ComingSoonPage
+          title="Site Navigation & Menus"
+          description="Structure site header, footer, and contextual navigation hierarchies."
+        />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
@@ -221,23 +245,41 @@ export const aiRoute = createRoute({
   path: '/ai',
   component: () => (
     <ProtectedAdmin permission="ai:read">
-      <ComingSoonPage
-        title="AI Studio & Pending Changes"
-        description="Review AI agent suggestions, draft reviews, and automated changes."
-      />
+      <RouteSuspense>
+        <ComingSoonPage
+          title="AI Studio & Pending Changes"
+          description="Review AI agent suggestions, draft reviews, and automated changes."
+        />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
 
+// Users & Roles Routes
 export const usersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/users',
   component: () => (
     <ProtectedAdmin permission="users:read">
-      <ComingSoonPage
-        title="User & Access Management"
-        description="Invite users, assign roles, and inspect permissions."
-      />
+      <RouteSuspense>
+        <UsersLayout activeTab="users">
+          <UsersListView />
+        </UsersLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const usersRolesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/users/roles',
+  component: () => (
+    <ProtectedAdmin permission="users:read">
+      <RouteSuspense>
+        <UsersLayout activeTab="roles">
+          <RolesMatrixView />
+        </UsersLayout>
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
@@ -247,14 +289,17 @@ export const developerRoute = createRoute({
   path: '/developer',
   component: () => (
     <ProtectedAdmin permission="settings:read">
-      <ComingSoonPage
-        title="Developer Tools"
-        description="API keys, webhooks, schema inspection, and MCP connections."
-      />
+      <RouteSuspense>
+        <ComingSoonPage
+          title="Developer Tools"
+          description="API keys, webhooks, schema inspection, and MCP connections."
+        />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
 
+// Settings Routes
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
@@ -269,7 +314,9 @@ export const settingsGeneralRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="settings.manage">
       <RouteSuspense>
-        <SettingsRoute />
+        <SettingsLayout activeTab="general">
+          <GeneralSettingsView />
+        </SettingsLayout>
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -281,7 +328,9 @@ export const settingsEmailRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="settings.manage">
       <RouteSuspense>
-        <SettingsRoute />
+        <SettingsLayout activeTab="email">
+          <EmailSettingsView />
+        </SettingsLayout>
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -326,6 +375,7 @@ export async function buildRouteTree() {
     menusRoute,
     aiRoute,
     usersRoute,
+    usersRolesRoute,
     developerRoute,
     settingsRoute,
     settingsGeneralRoute,

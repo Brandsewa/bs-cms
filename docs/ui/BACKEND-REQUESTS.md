@@ -170,7 +170,6 @@ The backend static publishing pipeline endpoints (Step 7.4) are fully implemente
    - This endpoint is used by the admin layout to conditionally render navigation items according to effective user permissions (`collection`, `taxonomy`, `media`, `site`, `ai`, `users`, `settings`).
    - Requesting documentation of `GET /api/v1/me/permissions` in `docs/api/openapi-v1.json`.
 
-
 ## 11. Aggregate Collection Status Counts Endpoint — OPEN
 
 1. **Motivation**:
@@ -194,3 +193,25 @@ The backend static publishing pipeline endpoints (Step 7.4) are fully implemente
    - **Role Scoping**:
      - For `owner` and `admin`: returns global counts across all entries in the collection.
      - For `author` and `contributor`: returns counts scoped to items authored by the authenticated actor (`created_by = current_user_id`).
+
+## 12. Users & Roles Management Screens & Simulation Testing Guidance — RESOLVED
+
+Implemented in PR (Screen b: Users & Roles) with code-split lazy routes (`admin/src/users/*`):
+1. **Simulation Accounts & Deployment Guidance**:
+   - Seeded test accounts across all roles: `owner@example.com`, `admin@example.com`, `editor@example.com`, `author@example.com`, `contributor@example.com`, `viewer@example.com`.
+   - Common test password: `TestUser2026!Secure`.
+   - When redeploying a release zip onto an existing simulation instance, always execute `dev\sim.ps1 reset <name>` first, because the database installer intentionally aborts if run against an already-installed database schema.
+2. **Endpoints Verified & Consumed**:
+   - `GET /api/v1/users`: Paginated/listed user records with roles, status, 2FA status, and `last_login_at`.
+   - `POST /api/v1/users/invite`: Invites new user with role assignment (`{ email, role_id }`). When mailer is unconfigured or in development mode, the response includes `token` directly, enabling immediate link generation in the UI dialog.
+   - `GET /api/v1/users/{id}`: Detailed user record for slide-over inspection sheet.
+   - `PATCH /api/v1/users/{id}`: Role assignment updates. Guarded against downgrading the last active owner.
+   - `POST /api/v1/users/{id}/suspend` & `POST /api/v1/users/{id}/unsuspend`: Account status toggles. Self-suspension and last active owner suspension are strictly guarded in the UI.
+   - `DELETE /api/v1/users/{id}`: Permanent deletion with `TypeToConfirmDialog` typing confirmation. Self-deletion and last active owner deletion are strictly prohibited.
+   - `GET /api/v1/users/{id}/sessions`: Active user sessions list.
+   - `DELETE /api/v1/users/{id}/sessions/{sessionId}` & `DELETE /api/v1/users/{id}/sessions`: Individual and bulk session revocation.
+   - `POST /api/v1/users/{id}/2fa/reset`: Administrator 2FA reset with confirmation.
+   - `GET /api/v1/roles`: Full list of system and custom roles with permissions matrix.
+   - `POST /api/v1/roles`: Custom role creation.
+   - `POST /api/v1/roles/{id}/clone`: Custom role cloning from system or existing custom roles.
+   - `DELETE /api/v1/roles/{id}`: Custom role deletion (system roles are immutable and deletion is disabled).

@@ -1,0 +1,1050 @@
+﻿{
+    "items":  [
+                  {
+                      "id":  "01JB0000000000000000000002",
+                      "handle":  "admin",
+                      "name":  "Administrator",
+                      "description":  "Administrator with access to all content, media, site and settings except owner role management and security keys",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2M5T1WJAFTDTRJHN5EW",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2M6PTTN7JTT4QGDS9ES",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2M7FRYNTSNQ23S2SBE9",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2M8EJQ6JRYZ78WYB01E",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2M99AYBCXMFRDXW843E",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "site",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MBRHYPJ55TYJ3V3JY8",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "redirects",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MC2NTXQHPDEEHFCH9J",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "plugins",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MDA0B58GKCGW7AB4TD",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "webhooks",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MDA0B58GKCGW7AB4TE",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "ai",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MEJ8CENQMVHBWNQF2A",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "schema",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MFXZ7PM69QA24CWSPC",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "settings",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MGSN46MH4GNAXCNDYT",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "settings",
+                                              "subject_key":  "security_keys",
+                                              "action":  "update",
+                                              "effect":  "deny",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MJMEZHGASQ1ECHYHWG",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "users",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MKQDTWED1A7SQ14FP4",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "roles",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MNBCV6MT46WYC6463H",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "roles",
+                                              "subject_key":  "owner",
+                                              "action":  "*",
+                                              "effect":  "deny",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MPFDBHW0B4C4MX531X",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "audit",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MQAGC95FSS42P3CS5K",
+                                              "role_id":  "01JB0000000000000000000002",
+                                              "subject_type":  "system",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000008",
+                      "handle":  "ai_draft",
+                      "name":  "AI Draft Agent",
+                      "description":  "AI client role: create and update drafts only, assign terms, upload media",
+                      "is_system":  1,
+                      "is_ai":  1,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2PFT02K6BV2V19T8BK8",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "status":  [
+                                                                                "draft"
+                                                                            ]
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PGAN9RMXNJ65HY0EJM",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "status":  [
+                                                                                "draft"
+                                                                            ]
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PH8STZG8EN9WVQYFN5",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PH8STZG8EN9WVQYFN6",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PJX1QD3722S0654T0P",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PK2YNF3YF06K7RNDDM",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PM3KB3PTSVEWZ9BBAN",
+                                              "role_id":  "01JB0000000000000000000008",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000009",
+                      "handle":  "ai_publisher",
+                      "name":  "AI Publisher Agent",
+                      "description":  "AI client role: create, update, publish with approval, manage terms with approval, upload media",
+                      "is_system":  1,
+                      "is_ai":  1,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2PNX8T0A542VRT6WADZ",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PPXPJJJ5K0XEQ284ZG",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PQ6QA8MY306EHE8RG2",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "publish",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PQ6QA8MY306EHE8RG3",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PR32PGE1EQW9YRQHV6",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PSBZE75QF8NKERPPRH",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PT0YGQVERE7A6BBCR1",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PV1QT4HXGHKHEZ3Q1W",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PW8GQ9KB9J0JVFV9SE",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "site",
+                                              "subject_key":  "navigation",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PX4FWP0HANZZX4V9C6",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "site",
+                                              "subject_key":  "navigation",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PYCAV7BKHPY40P3VBP",
+                                              "role_id":  "01JB0000000000000000000009",
+                                              "subject_type":  "schema",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000005",
+                      "handle":  "author",
+                      "name":  "Author",
+                      "description":  "Can create and edit own entries and submit for review, assign terms, and manage own media",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2NYAMBD0G26YKZZNV5Z",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NZG12V3CY6RQ9JC5N1",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NZG12V3CY6RQ9JC5N2",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "owner":  "self"
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P0TXE02CHD0TEX5E8Y",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P1H5R5H7M19YVZZW3X",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P2W9DKFGTB0DRXE3D9",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P3DG0RQRQ6SMX8DP54",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P3DG0RQRQ6SMX8DP55",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "owner":  "self"
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P40E83WNM4FS9XYQHQ",
+                                              "role_id":  "01JB0000000000000000000005",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "delete",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "owner":  "self"
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000006",
+                      "handle":  "contributor",
+                      "name":  "Contributor",
+                      "description":  "Can create drafts only and upload media",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2P57NDQH8W9S7BXVHQT",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "status":  [
+                                                                                "draft"
+                                                                            ]
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P6HK5PMNXMJWK04Q02",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "owner":  "self"
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P7W6XZZNR5P0QGC6B5",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  {
+                                                                 "owner":  "self",
+                                                                 "status":  [
+                                                                                "draft"
+                                                                            ]
+                                                             },
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P8TQDQHSVBHVF8K7FY",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P9HE4CT6JS2H8NWJ2N",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2P9HE4CT6JS2H8NWJ2P",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PBKTFTPZHHP31AS3GT",
+                                              "role_id":  "01JB0000000000000000000006",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000003",
+                      "handle":  "developer",
+                      "name":  "Developer",
+                      "description":  "Developer with schema, API, webhook, plugin and system management access",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2MRQB5D8A88E90GGND0",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MSGGCMVQE30SA9GB0B",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MVGGZ88MB3VNHAVKV1",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MY2BB0P3VQ0J95VRG8",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2MZJVBCZD9XP6R7NTGX",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "site",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N1618S07RN395NM3V5",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "redirects",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N236N6G2PE9Z2N8CB4",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "plugins",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N3C44HE2CD8DDDV92N",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "webhooks",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N4VEX5PWVT1H39RQKP",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "ai",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N4VEX5PWVT1H39RQKQ",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "schema",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N5KYZ97B4RQMTHW2RX",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "settings",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N65HKKS29DSS1A9VKT",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "users",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N65HKKS29DSS1A9VKV",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "roles",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N7GQB2TEMPMYFF23A8",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "audit",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2N8N97WPXMS2H1N5R75",
+                                              "role_id":  "01JB0000000000000000000003",
+                                              "subject_type":  "system",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000004",
+                      "handle":  "editor",
+                      "name":  "Editor",
+                      "description":  "Can edit, publish, unpublish, schedule, and soft-delete content across all collections, manage terms and media",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2N9FPTY5KHEFYYP62ZF",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NQBPYER8VGM5HDKA91",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "create",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NQBPYER8VGM5HDKA92",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NR759J2ZX952VAS2EH",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "publish",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NSN5XEDM9R0CAX1M12",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "unpublish",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NSN5XEDM9R0CAX1M13",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "schedule",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NTBNHKYHE5ZJRKZV8B",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "delete",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NVBZ0V14JCV8VVB75Z",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NVBZ0V14JCV8VVB760",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NWAPH4SFBY22CNYZA7",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NWAPH4SFBY22CNYZA8",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "site",
+                                              "subject_key":  "navigation",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2NX690CYNEDRMVP5TV3",
+                                              "role_id":  "01JB0000000000000000000004",
+                                              "subject_type":  "site",
+                                              "subject_key":  "navigation",
+                                              "action":  "update",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000001",
+                      "handle":  "owner",
+                      "name":  "Owner",
+                      "description":  "Full ownership with all permissions across all subjects",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2M3ZN0YY2VYZKGD7KHX",
+                                              "role_id":  "01JB0000000000000000000001",
+                                              "subject_type":  "*",
+                                              "subject_key":  "*",
+                                              "action":  "*",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  },
+                  {
+                      "id":  "01JB0000000000000000000007",
+                      "handle":  "viewer",
+                      "name":  "Viewer",
+                      "description":  "Read-only access to content, taxonomies and media",
+                      "is_system":  1,
+                      "is_ai":  0,
+                      "created_at":  "2026-10-20 17:13:13.591",
+                      "updated_at":  "2026-10-20 17:13:13.591",
+                      "permissions":  [
+                                          {
+                                              "id":  "01M5D4V2PC624TMNP4JP2K3CBQ",
+                                              "role_id":  "01JB0000000000000000000007",
+                                              "subject_type":  "collection",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PD0177BS15H2XV79P0",
+                                              "role_id":  "01JB0000000000000000000007",
+                                              "subject_type":  "taxonomy",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PEGB507X4T98EW49HD",
+                                              "role_id":  "01JB0000000000000000000007",
+                                              "subject_type":  "term",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          },
+                                          {
+                                              "id":  "01M5D4V2PEGB507X4T98EW49HE",
+                                              "role_id":  "01JB0000000000000000000007",
+                                              "subject_type":  "media",
+                                              "subject_key":  "*",
+                                              "action":  "read",
+                                              "effect":  "allow",
+                                              "fields":  null,
+                                              "conditions":  null,
+                                              "created_at":  "2026-10-20 17:13:13.591"
+                                          }
+                                      ]
+                  }
+              ]
+}
