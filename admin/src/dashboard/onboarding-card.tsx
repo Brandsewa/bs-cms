@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Checkbox, Progress } from '@bs/ui';
 import { ChevronRight, X } from 'lucide-react';
 
@@ -11,6 +11,7 @@ export interface OnboardingCardProps {
     connect_astro: boolean;
     connect_ai: boolean;
   };
+  userId?: string;
   onDismiss?: () => void;
   className?: string;
 }
@@ -39,7 +40,7 @@ const ONBOARDING_STEP_DEFS: StepItem[] = [
     id: 'site_details',
     title: 'Review site settings',
     description: 'Configure your site title, description, and canonical URL.',
-    href: '/admin/settings/general',
+    href: '/admin/settings',
   },
   {
     id: 'configure_email',
@@ -51,18 +52,34 @@ const ONBOARDING_STEP_DEFS: StepItem[] = [
     id: 'connect_astro',
     title: 'Connect the Astro frontend',
     description: 'Link your static site build and verify automatic publishing.',
-    href: '/admin/settings/publishing',
+    href: '/admin/settings',
   },
   {
     id: 'connect_ai',
     title: 'Connect an AI assistant (MCP)',
     description: 'Configure Claude, Cursor, or ChatGPT with zero-trust permissions.',
-    href: '/admin/ai/connections',
+    href: '/admin/ai',
   },
 ];
 
-export function OnboardingChecklistCard({ steps, onDismiss, className }: OnboardingCardProps) {
+export function OnboardingChecklistCard({ steps, userId, onDismiss, className }: OnboardingCardProps) {
+  const storageKey = `bs_onboarding_dismissed_${userId || 'current'}`;
+  const [dismissed, setDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(storageKey) === 'true';
+    }
+    return false;
+  });
+
   const [localSteps, setLocalSteps] = useState(steps);
+
+  useEffect(() => {
+    setLocalSteps(steps);
+  }, [steps]);
+
+  if (dismissed) {
+    return null;
+  }
 
   const completedCount = ONBOARDING_STEP_DEFS.filter((s) => localSteps[s.id]).length;
   const totalCount = ONBOARDING_STEP_DEFS.length;
@@ -72,31 +89,37 @@ export function OnboardingChecklistCard({ steps, onDismiss, className }: Onboard
     setLocalSteps((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleDismiss = () => {
+    setDismissed(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(storageKey, 'true');
+    }
+    onDismiss?.();
+  };
+
   return (
     <Card className={className} data-testid="onboarding-checklist-card">
       <CardHeader className="flex flex-row items-start justify-between pb-2">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <CardTitle className="text-13 font-semibold text-foreground">Welcome to BS CMS — Getting Started</CardTitle>
-            <span className="rounded-full bg-surface-200 px-2 py-0.2 text-[11px] font-medium text-foreground-muted tabular-nums">
+            <span className="rounded-full bg-surface-200 px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
               {completedCount} of {totalCount} completed
             </span>
           </div>
-          <p className="text-12 text-foreground-lighter">
-            Recommended steps to launch your content operations.
+          <p className="text-12 text-muted-foreground">
+            Recommended steps to launch your content operations. Steps auto-complete as you perform tasks.
           </p>
         </div>
-        {onDismiss && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDismiss}
-            aria-label="Dismiss onboarding checklist"
-            className="h-6 w-6 p-0 text-foreground-muted hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDismiss}
+          aria-label="Dismiss onboarding checklist"
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="space-y-1">
@@ -126,12 +149,12 @@ export function OnboardingChecklistCard({ steps, onDismiss, className }: Onboard
                     <label
                       htmlFor={`step-${step.id}`}
                       className={`block text-12 font-medium cursor-pointer leading-tight ${
-                        isDone ? 'line-through text-foreground-muted' : 'text-foreground'
+                        isDone ? 'line-through text-muted-foreground' : 'text-foreground'
                       }`}
                     >
                       {step.title}
                     </label>
-                    <p className="mt-0.5 text-[11px] leading-normal text-foreground-muted line-clamp-1">
+                    <p className="mt-0.5 text-[11px] leading-normal text-muted-foreground line-clamp-1">
                       {step.description}
                     </p>
                   </div>
