@@ -47,6 +47,7 @@ final class ChunkUploadManager
 
         $meta = [
             'upload_id' => $uploadId,
+            'session_id' => $uploadId,
             'original_name' => $originalName,
             'total_chunks' => $totalChunks,
             'total_size' => $totalSize,
@@ -58,6 +59,7 @@ final class ChunkUploadManager
 
         return [
             'upload_id' => $uploadId,
+            'session_id' => $uploadId,
             'total_chunks' => $totalChunks,
             'total_size' => $totalSize,
             'chunk_size' => self::MAX_CHUNK_SIZE,
@@ -97,6 +99,7 @@ final class ChunkUploadManager
 
         return [
             'upload_id' => $uploadId,
+            'session_id' => $uploadId,
             'chunk_index' => $chunkIndex,
             'uploaded_chunks' => $status['uploaded_chunks'],
             'is_complete' => $status['is_complete'],
@@ -124,6 +127,7 @@ final class ChunkUploadManager
 
         return [
             'upload_id' => $uploadId,
+            'session_id' => $uploadId,
             'total_chunks' => $totalChunks,
             'total_size' => (int) $meta['total_size'],
             'uploaded_chunks' => $uploaded,
