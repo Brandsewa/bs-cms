@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   AppSidebar,
   DropdownMenu,
@@ -36,6 +37,7 @@ import { CommandMenu } from './command-menu';
 import { ShellBannerArea } from './banner-area';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const { session, logout, hasPermission: sessionHasPermission } = useSession();
   const { theme, setTheme } = useTheme();
   const [stepUpOpen, setStepUpOpen] = useState(false);
@@ -256,6 +258,18 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                     </span>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {/* My Account link */}
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigate({ to: '/account' });
+                  }}
+                  className="gap-2 cursor-pointer"
+                >
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span>My account</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
 
                 {/* Theme selector in user menu */}

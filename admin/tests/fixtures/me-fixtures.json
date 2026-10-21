@@ -1,0 +1,190 @@
+{
+  "profile": {
+    "id": "01M5FDVJKB43HJX670JVD9N50R",
+    "email": "owner@example.com",
+    "name": "Owner Test User",
+    "status": "active",
+    "avatar_media_id": null,
+    "locale": "en",
+    "timezone": "UTC",
+    "two_factor_enabled": false,
+    "roles": [
+      {
+        "id": "01JB0000000000000000000001",
+        "handle": "owner",
+        "name": "Owner",
+        "description": "Full ownership with all permissions across all subjects",
+        "is_system": 1,
+        "is_ai": 0,
+        "created_at": "2026-10-21 14:29:14.686",
+        "updated_at": "2026-10-21 14:29:14.686"
+      }
+    ],
+    "created_at": "2026-10-21 14:29:16.012",
+    "updated_at": "2026-10-21 15:08:13.796",
+    "last_login_at": "2026-10-21 15:08:13.796"
+  },
+  "sessions": {
+    "items": [
+      {
+        "id": "01M5FG2XK5HVKT9YF587ASANKY",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 15:08:13.797",
+        "last_seen_at": "2026-10-21 15:08:13.797",
+        "expires_at": "2026-11-04 15:08:13.797",
+        "is_current": true
+      },
+      {
+        "id": "01M5FG2DQ627967B8Y79NR34ZY",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 15:07:57.542",
+        "last_seen_at": "2026-10-21 15:07:57.542",
+        "expires_at": "2026-11-04 15:07:57.542",
+        "is_current": false
+      },
+      {
+        "id": "01M5FG0PER61PETRNPS8QA12PR",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 15:07:00.952",
+        "last_seen_at": "2026-10-21 15:07:00.952",
+        "expires_at": "2026-11-04 15:07:00.952",
+        "is_current": false
+      },
+      {
+        "id": "01M5FFRSBCE7PT95EDVWTP5WAT",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 15:02:41.772",
+        "last_seen_at": "2026-10-21 15:02:41.772",
+        "expires_at": "2026-11-04 15:02:41.772",
+        "is_current": false
+      },
+      {
+        "id": "01M5FFRDH42NNEDTBH3SQCT50T",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 15:02:29.668",
+        "last_seen_at": "2026-10-21 15:02:29.668",
+        "expires_at": "2026-11-04 15:02:29.668",
+        "is_current": false
+      },
+      {
+        "id": "01M5FFESA9AT3KEWZKHZJKRSYV",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:57:14.057",
+        "last_seen_at": "2026-10-21 14:57:14.057",
+        "expires_at": "2026-11-04 14:57:14.057",
+        "is_current": false
+      },
+      {
+        "id": "01M5FF5CABGSCG6QEM9B2JVAPK",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:52:05.835",
+        "last_seen_at": "2026-10-21 14:52:05.835",
+        "expires_at": "2026-11-04 14:52:05.835",
+        "is_current": false
+      },
+      {
+        "id": "01M5FER0Z7FFFQBXB1SAPA92NF",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:44:48.231",
+        "last_seen_at": "2026-10-21 14:44:48.231",
+        "expires_at": "2026-11-04 14:44:48.231",
+        "is_current": false
+      },
+      {
+        "id": "01M5FEQTQ0XZ5JM2X3F67XN62B",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:44:41.824",
+        "last_seen_at": "2026-10-21 14:44:41.824",
+        "expires_at": "2026-11-04 14:44:41.824",
+        "is_current": false
+      },
+      {
+        "id": "01M5FDYG5YJM842V7SAHFZ5292",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:30:51.838",
+        "last_seen_at": "2026-10-21 14:30:51.838",
+        "expires_at": "2026-11-04 14:30:51.838",
+        "is_current": false
+      },
+      {
+        "id": "01M5FDY67W2J5H8DKNPPB2ZA9H",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:30:41.660",
+        "last_seen_at": "2026-10-21 14:30:41.660",
+        "expires_at": "2026-11-04 14:30:41.660",
+        "is_current": false
+      },
+      {
+        "id": "01M5FDXVE6YXWZR2M63KMT4ZG2",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:30:30.598",
+        "last_seen_at": "2026-10-21 14:30:30.598",
+        "expires_at": "2026-11-04 14:30:30.598",
+        "is_current": false
+      },
+      {
+        "id": "01M5FDXFASDWR2RXXXZRR76MBD",
+        "user_id": "01M5FDVJKB43HJX670JVD9N50R",
+        "ip": "172.25.0.6",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+        "mfa_passed_at": null,
+        "created_at": "2026-10-21 14:30:18.202",
+        "last_seen_at": "2026-10-21 14:30:18.202",
+        "expires_at": "2026-11-04 14:30:18.202",
+        "is_current": false
+      }
+    ]
+  },
+  "preferences": {
+    "theme": "system",
+    "density": "comfortable",
+    "locale": "en"
+  },
+  "twoFactorSetup": {
+    "secret": "JBSWY3DPEHPK3PXP",
+    "otpauth_uri": "otpauth://totp/BS%20CMS:owner%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=BS%20CMS"
+  },
+  "notificationPreferences": {
+    "preferences": {
+      "email_on_login": true,
+      "email_on_role_change": true,
+      "in_app_system_alerts": true
+    }
+  }
+}
