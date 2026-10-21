@@ -381,4 +381,106 @@ test.describe('Dashboard Home Screen (v1)', () => {
     await expect(page.locator('[data-testid="recent-edits-widget"]').locator('text=My Author Story')).toBeVisible();
     await expect(page.locator('[data-testid="system-health-widget"]')).not.toBeVisible();
   });
+
+  test('dark theme renders neutral near-black gray and light theme renders light neutral gray', async ({ page }) => {
+    const parseRgb = (str: string) => {
+      const match = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (!match) throw new Error(`Cannot parse color: ${str}`);
+      return { r: Number(match[1]), g: Number(match[2]), b: Number(match[3]) };
+    };
+
+    // 1. Dark Mode verification
+    await page.goto(`${ADMIN_URL}/`);
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('light');
+      document.documentElement.classList.add('dark');
+    });
+
+    const darkColors = await page.evaluate(() => {
+      const body = window.getComputedStyle(document.body).backgroundColor;
+      const navEl = document.querySelector('nav');
+      const sidebar = navEl ? window.getComputedStyle(navEl).backgroundColor : body;
+      const cardEl = document.querySelector('[data-testid="dashboard-metrics-row"] > div') || document.body;
+      const card = window.getComputedStyle(cardEl).backgroundColor;
+      return { body, sidebar, card };
+    });
+
+    for (const [target, colorStr] of Object.entries(darkColors)) {
+      const rgb = parseRgb(colorStr);
+      // R, G, B within 3 of each other (neutral, NOT navy hue)
+      expect(Math.abs(rgb.r - rgb.g), `${target} (dark) R and G differ by more than 3: ${colorStr}`).toBeLessThanOrEqual(3);
+      expect(Math.abs(rgb.g - rgb.b), `${target} (dark) G and B differ by more than 3: ${colorStr}`).toBeLessThanOrEqual(3);
+      expect(Math.abs(rgb.r - rgb.b), `${target} (dark) R and B differ by more than 3: ${colorStr}`).toBeLessThanOrEqual(3);
+      // Value below 40 (near-black)
+      expect(rgb.r, `${target} (dark) R is too bright: ${colorStr}`).toBeLessThan(40);
+      expect(rgb.g, `${target} (dark) G is too bright: ${colorStr}`).toBeLessThan(40);
+      expect(rgb.b, `${target} (dark) B is too bright: ${colorStr}`).toBeLessThan(40);
+    }
+
+    // 2. Light Mode verification
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    });
+
+    const lightColors = await page.evaluate(() => {
+      const body = window.getComputedStyle(document.body).backgroundColor;
+      const navEl = document.querySelector('nav');
+      const sidebar = navEl ? window.getComputedStyle(navEl).backgroundColor : body;
+      return { body, sidebar };
+    });
+
+    for (const [target, colorStr] of Object.entries(lightColors)) {
+      const rgb = parseRgb(colorStr);
+      // Neutral light gray/white (R, G, B within 4 of each other and above 240)
+      expect(Math.abs(rgb.r - rgb.g), `${target} (light) R and G differ by more than 4: ${colorStr}`).toBeLessThanOrEqual(4);
+      expect(Math.abs(rgb.g - rgb.b), `${target} (light) G and B differ by more than 4: ${colorStr}`).toBeLessThanOrEqual(4);
+      expect(rgb.r, `${target} (light) R is too dark: ${colorStr}`).toBeGreaterThan(240);
+    }
+  });
+
+  test('sidebar nav items render icon and label horizontally on one row', async ({ page }) => {
+    await page.goto(`${ADMIN_URL}/`);
+    const navLink = page.locator('nav a').first();
+    await expect(navLink).toBeVisible();
+
+    const layout = await navLink.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      const icon = el.querySelector('svg');
+      const label = el.querySelector('span.truncate');
+      const iconRect = icon ? icon.getBoundingClientRect() : null;
+      const labelRect = label ? label.getBoundingClientRect() : null;
+      return {
+        display: style.display,
+        flexDirection: style.flexDirection,
+        alignItems: style.alignItems,
+        iconY: iconRect ? iconRect.y : 0,
+        labelY: labelRect ? labelRect.y : 0,
+        iconX: iconRect ? iconRect.x : 0,
+        labelX: labelRect ? labelRect.x : 0,
+      };
+    });
+
+    expect(layout.display).toBe('flex');
+    expect(layout.flexDirection).toBe('row');
+    expect(layout.alignItems).toBe('center');
+    expect(layout.labelX).toBeGreaterThan(layout.iconX);
+    expect(Math.abs(layout.iconY - layout.labelY)).toBeLessThanOrEqual(6);
+  });
+
+  test('theme follows prefers-color-scheme by default', async ({ browser }) => {
+    const darkContext = await browser.newContext({ colorScheme: 'dark' });
+    const darkPage = await darkContext.newPage();
+    await darkPage.goto(`${ADMIN_URL}/`);
+    const isDark = await darkPage.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(isDark).toBe(true);
+    await darkContext.close();
+
+    const lightContext = await browser.newContext({ colorScheme: 'light' });
+    const lightPage = await lightContext.newPage();
+    await lightPage.goto(`${ADMIN_URL}/`);
+    const isLightDark = await lightPage.evaluate(() => document.documentElement.classList.contains('dark'));
+    expect(isLightDark).toBe(false);
+    await lightContext.close();
+  });
 });

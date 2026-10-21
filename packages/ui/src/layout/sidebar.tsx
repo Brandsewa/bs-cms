@@ -34,10 +34,10 @@ export interface AppSidebarProps {
   /** Active item id (rendered with aria-current="page"). */
   activeId?: string;
   /**
-   * Renders the item as a link — screens inject their router Link here.
+   * Renders the item as a link â€” screens inject their router Link here.
    * Default renders a plain anchor.
    */
-  renderLink?: (item: SidebarItem, content: ReactNode, isActive: boolean) => ReactNode;
+  renderLink?: (item: SidebarItem, content: ReactNode, isActive: boolean, className?: string) => ReactNode;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   /** localStorage key for the collapsed state (default bs-sidebar-collapsed). */
@@ -59,7 +59,7 @@ function readStoredCollapsed(key: string): boolean {
 
 /**
  * App sidebar (docs/02-ui-spec.md 2): collapsible to icons (remembers
- * state), grouped, permission-filtered — items without permission are not
+ * state), grouped, permission-filtered â€” items without permission are not
  * rendered. Screens provide `renderLink` to wire their router.
  */
 export function AppSidebar({
@@ -130,7 +130,7 @@ export function AppSidebar({
     );
     const linkNode =
       renderLink !== undefined ? (
-        renderLink(item, content, isActive)
+        renderLink(item, content, isActive, itemClassName)
       ) : (
         <a
           href={`#${item.id}`}

@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
   AppSidebar,
-  Breadcrumbs,
   BannerArea,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -65,12 +64,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         groups={ADMIN_SIDEBAR_GROUPS}
         hasPermission={hasPermission}
         activeId={activeId}
-        renderLink={(item, content, isActive) => {
+        renderLink={(item, content, isActive, className) => {
           const adminItem = item as AdminSidebarItem;
           return (
             <a
               href={adminItem.to || '#'}
               aria-current={isActive ? 'page' : undefined}
+              className={className}
             >
               {content}
             </a>
@@ -83,12 +83,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         {/* Top bar - slim Studio style header */}
         <header className="sticky top-0 z-10 flex h-11 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
-            <Breadcrumbs
-              items={[
-                { label: 'Admin', href: '/admin/' },
-                ...(activeId ? [{ label: activeId.charAt(0).toUpperCase() + activeId.slice(1) }] : []),
-              ]}
-            />
+            {/* Top bar breadcrumbs removed to prevent duplicate chrome; breadcrumbs live in PageHeader */}
           </div>
 
           <div className="flex items-center gap-2">
@@ -104,7 +99,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <Search className="h-3.5 w-3.5" />
               <span className="text-12">Search...</span>
               <kbd className="rounded border border-border bg-surface-200 px-1.5 py-0.2 text-[10px] text-foreground-lighter">
-                ⌘K
+                ÃƒÂ¢Ã…â€™Ã‹Å“K
               </kbd>
             </Button>
 
