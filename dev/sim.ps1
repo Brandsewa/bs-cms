@@ -89,6 +89,23 @@ switch ($Command) {
         $ZipBasename = Split-Path -Leaf $ZipFile
         $Container = "bs-sim-$Name-ols"
 
+        # Determine instance HTTPS site_url by inspecting caddy container port or default calculation
+        $CaddyContainer = "bs-sim-$Name-caddy"
+        $HttpsPort = 8481
+        try {
+            $portsJson = docker inspect $CaddyContainer --format '{{json .NetworkSettings.Ports}}' | ConvertFrom-Json
+            foreach ($prop in $portsJson.PSObject.Properties) {
+                if ($prop.Name -match "^(\d+)/tcp$") {
+                    $p = [int]$Matches[1]
+                    if ($p -ge 8400) {
+                        $HttpsPort = $p
+                        break
+                    }
+                }
+            }
+        } catch {}
+        $SiteUrl = "https://localhost:$HttpsPort"
+
         Write-Host ">>> Copying $ZipBasename to $Container..." -ForegroundColor Cyan
         docker cp $ZipFile "$Container`:/tmp/$ZipBasename"
         if ($LASTEXITCODE -ne 0) {
@@ -107,8 +124,8 @@ switch ($Command) {
             exit 1
         }
 
-        Write-Host ">>> Running automated web installation over HTTP..." -ForegroundColor Cyan
-        docker exec $Container php /usr/local/bin/auto-install.php http://127.0.0.1 db 3306 bs_cms bs_user bs_password
+        Write-Host ">>> Running automated web installation over HTTP with Site URL $SiteUrl..." -ForegroundColor Cyan
+        docker exec $Container php /usr/local/bin/auto-install.php http://127.0.0.1 $SiteUrl db 3306 bs_cms bs_user bs_password
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Automated installation failed."
             exit 1
