@@ -20,6 +20,9 @@ const OAuthConsentReturnRoute = lazy(() =>
 const CollectionListRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.CollectionListRoute }))
 );
+const EntryEditorRoute = lazy(() =>
+  import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
+);
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
@@ -175,10 +178,9 @@ export const entryNewRoute = createRoute({
     const params = entryNewRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:create">
-        <ComingSoonPage
-          title={`Create ${params.collection === 'pages' ? 'Page' : 'Post'}`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
@@ -191,10 +193,9 @@ export const entryEditRoute = createRoute({
     const params = entryEditRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:update">
-        <ComingSoonPage
-          title={`Edit ${params.collection === 'pages' ? 'Page' : 'Post'} (${params.id})`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
