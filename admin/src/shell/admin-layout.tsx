@@ -36,11 +36,14 @@ import { ShellThemeToggle } from './theme-toggle';
 import { CommandMenu } from './command-menu';
 import { ShellBannerArea } from './banner-area';
 import { OfflineBanner } from './offline-banner';
+import { NotificationDrawerTrigger } from './notification-drawer';
+import { KeyboardShortcutsDialog, useShortcutsDialog } from './shortcuts-dialog';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { session, logout, hasPermission: sessionHasPermission } = useSession();
   const { theme, setTheme } = useTheme();
+  const { open: shortcutsOpen, setOpen: setShortcutsOpen } = useShortcutsDialog();
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [commandMenuOpen, setCommandMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -230,6 +233,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             {/* Theme switcher toggle */}
             <ShellThemeToggle />
 
+            {/* Notification bell and slide-over drawer */}
+            <NotificationDrawerTrigger />
+
             {/* User menu dropdown with 44px touch target on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -346,6 +352,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           setStepUpOpen(false);
         }}
       />
+
+      {/* Keyboard Shortcuts Help Dialog (Press ?) */}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }
