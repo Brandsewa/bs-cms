@@ -809,6 +809,31 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Audit\AuditLogger::class)
             );
         });
+
+        // Backup, Updater, and Maintenance services
+        $container->singleton(\BsCms\Operations\DatabaseBackupService::class, function (Container $c) use ($app): \BsCms\Operations\DatabaseBackupService {
+            return new \BsCms\Operations\DatabaseBackupService(
+                $c->get(Connection::class),
+                $app->storagePath('backups')
+            );
+        });
+
+        $container->singleton(\BsCms\Operations\SelfUpdaterService::class, function (Container $c) use ($app): \BsCms\Operations\SelfUpdaterService {
+            return new \BsCms\Operations\SelfUpdaterService(
+                $app->storagePath(),
+                $app->basePath(),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MaintenanceController::class, function (Container $c) use ($app): \BsCms\Http\Controllers\MaintenanceController {
+            return new \BsCms\Http\Controllers\MaintenanceController(
+                $c->get(\BsCms\Operations\SelfUpdaterService::class),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class),
+                $c->get(Authorizer::class),
+                $app->storagePath()
+            );
+        });
         // SPRINT-C END: Blocks Registry & Controller
     }
 

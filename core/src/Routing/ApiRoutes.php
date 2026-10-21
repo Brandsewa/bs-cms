@@ -76,7 +76,8 @@ final class ApiRoutes
         ?PreviewController $preview = null,
         // SPRINT-C BEGIN: Blocks Controller param
         ?\BsCms\Http\Controllers\BlocksController $blocks = null,
-        ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null
+        ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null,
+        ?\BsCms\Http\Controllers\MaintenanceController $maintenance = null
         // SPRINT-C END: Blocks Controller param
     ): void {
         // 1. Auth endpoints
@@ -396,6 +397,12 @@ final class ApiRoutes
             $routes->post('/api/v1/crawler-policy/rollback/{id}', [$crawlerPolicy, 'rollback']);
             $routes->post('/api/v1/crawler-policy/canary', [$crawlerPolicy, 'runCanary']);
             $routes->post('/api/v1/crawler-policy/indexnow', [$crawlerPolicy, 'submitIndexNow']);
+        }
+        if ($maintenance !== null) {
+            $routes->get('/api/v1/system/maintenance', [$maintenance, 'status']);
+            $routes->post('/api/v1/system/maintenance/enable', [$maintenance, 'enable']);
+            $routes->post('/api/v1/system/maintenance/disable', [$maintenance, 'disable']);
+            $routes->post('/api/v1/system/backup', [$maintenance, 'createBackup']);
         }
         // SPRINT-C END: Blocks endpoints
     }

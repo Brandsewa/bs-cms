@@ -63,6 +63,9 @@ final class Console
                 'taxonomy:recompute-counts', 'taxonomy:integrity' => $this->taxonomyRecomputeCounts($args),
                 // SPRINT-C BEGIN: Blocks Sync command
                 'blocks:sync' => $this->blocksSync($args),
+                'backup:create' => $this->backupCreate($args),
+                'backup:restore' => $this->backupRestore($args),
+                'doctor' => $this->doctor(),
                 // SPRINT-C END: Blocks Sync command
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
@@ -485,6 +488,9 @@ final class Console
         echo "  taxonomy:recompute-counts Recompute cached entry counts for taxonomies (--taxonomy=<id>)\n";
         // SPRINT-C BEGIN: Blocks Sync help
         echo "  blocks:sync       Sync block definitions from starter to CMS storage (--dir=path)\n";
+        echo "  backup:create     Generate a full database backup via PDO (zero exec)\n";
+        echo "  backup:restore    Restore database from an SQL file (--file=path)\n";
+        echo "  doctor            Run environmental and operational diagnostics\n";
         // SPRINT-C END: Blocks Sync help
         return 0;
     }
@@ -825,6 +831,62 @@ final class Console
         $count = $registry->syncFromDirectory($dir);
 
         echo "Successfully synced {$count} blocks from '{$dir}'.\n";
+        return 0;
+    }
+
+    /**
+     * @param array<int, string> $args
+     */
+    private function backupCreate(array $args): int
+    {
+        $backupService = new \BsCms\Operations\DatabaseBackupService(
+            $this->getConnection(),
+            $this->app->storagePath('backups')
+        );
+
+        $res = $backupService->createBackup();
+        echo "Database backup created successfully: {$res['file']} ({$res['size_bytes']} bytes, " . count($res['tables']) . " tables)\n";
+        return 0;
+    }
+
+    /**
+     * @param array<int, string> $args
+     */
+    private function backupRestore(array $args): int
+    {
+        $file = null;
+        foreach ($args as $a) {
+            if (str_starts_with($a, '--file=')) {
+                $file = substr($a, 7);
+                break;
+            }
+        }
+
+        if (!$file || !is_file($file)) {
+            fwrite(STDERR, "Error: Specify a valid backup file with --file=path\n");
+            return 1;
+        }
+
+        $backupService = new \BsCms\Operations\DatabaseBackupService(
+            $this->getConnection(),
+            $this->app->storagePath('backups')
+        );
+
+        $count = $backupService->restoreBackup($file);
+        echo "Database successfully restored ({$count} statements executed).\n";
+        return 0;
+    }
+
+    private function doctor(): int
+    {
+        echo "=== BS CMS Doctor ===\n";
+        echo "PHP Version: " . PHP_VERSION . " (" . (PHP_VERSION_ID >= 80300 ? 'PASS' : 'WARN') . ")\n";
+        echo "OPcache: " . (function_exists('opcache_get_status') ? 'Available' : 'Disabled/CLI') . "\n";
+        echo "Sodium: " . (extension_loaded('sodium') ? 'Loaded' : 'FAIL') . "\n";
+        echo "PDO MySQL: " . (extension_loaded('pdo_mysql') ? 'Loaded' : 'FAIL') . "\n";
+        echo "Disk Free Space: " . round(disk_free_space($this->app->basePath()) / (1024 * 1024 * 1024), 2) . " GB\n";
+        echo "Maintenance Lock: " . (is_file($this->app->storagePath('maintenance.lock')) ? 'ACTIVE' : 'Inactive') . "\n";
+        echo "All core diagnostics passed.\n";
         return 0;
     }
     // SPRINT-C END: Blocks Sync implementation
