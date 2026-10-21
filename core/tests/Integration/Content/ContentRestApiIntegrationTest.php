@@ -418,19 +418,21 @@ final class ContentRestApiIntegrationTest extends TestCase
         $countsData = json_decode((string) $countsRes->getBody(), true);
         $this->assertSame(1, $countsData['all']); // 1 non-deleted (the duplicate)
         $this->assertSame(1, $countsData['trash']); // 1 deleted ($id)
-        $this->assertSame(1, $countsData['published']);
-        $this->assertSame(0, $countsData['draft']);
+        $this->assertSame(0, $countsData['published']);
+        $this->assertSame(1, $countsData['draft']); // duplicateEntry creates draft status
 
         $restoreReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/restore", $this->ownerActor);
         $restoreRes = $this->entriesController->restore($restoreReq, ['handle' => 'articles', 'id' => $id]);
         $this->assertSame(200, $restoreRes->getStatusCode());
 
-        // After restore: trash is 0, all is 2
+        // After restore: trash is 0, all is 2 (1 published $id + 1 draft duplicate)
         $countsAfterReq = $this->makeRequest('GET', '/api/v1/collections/articles/counts', $this->ownerActor);
         $countsAfterRes = $this->entriesController->counts($countsAfterReq, ['handle' => 'articles']);
         $countsAfterData = json_decode((string) $countsAfterRes->getBody(), true);
         $this->assertSame(2, $countsAfterData['all']);
         $this->assertSame(0, $countsAfterData['trash']);
+        $this->assertSame(1, $countsAfterData['published']);
+        $this->assertSame(1, $countsAfterData['draft']);
 
         // 8. Status transitions: unpublish, publish, archive
         $unpubReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/unpublish", $this->ownerActor, ['version' => 3]);
