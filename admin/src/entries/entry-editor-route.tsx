@@ -85,7 +85,9 @@ export function EntryEditorRoute({
       if (
         last &&
         last.type === 'paragraph' &&
-        (!last.content || last.content.length === 0 || last.content.every((c) => !c.text || !c.text.trim()))
+        (!last.content ||
+          last.content.length === 0 ||
+          last.content.every((c: any) => !c.text || !c.text.trim()))
       ) {
         content.pop();
       } else {
@@ -347,7 +349,6 @@ export function EntryEditorRoute({
     return (
       <div className="flex min-h-[400px] items-center justify-center p-6">
         <ForbiddenState
-          message="You do not have permission to access or edit entries in this collection."
           onBack={() => {
             if (window.history.length > 1) {
               window.history.back();
@@ -371,11 +372,6 @@ export function EntryEditorRoute({
     return (
       <div className="flex min-h-[400px] items-center justify-center p-6">
         <NotFoundState
-          message={
-            !schema || schemaStatusCode === 404
-              ? `Collection '${collectionHandle}' was not found.`
-              : `Entry '${entryId}' was not found in collection '${collectionHandle}'.`
-          }
           onBack={() => {
             if (window.history.length > 1) {
               window.history.back();
