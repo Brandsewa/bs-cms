@@ -24,13 +24,9 @@ final class DatabaseBackupService
         if (!is_dir($this->backupsDir)) {
             mkdir($this->backupsDir, 0700, true);
         }
-        $guard = rtrim($this->backupsDir, '/\') . '/.htaccess';
+        $guard = rtrim($this->backupsDir, '/\\') . '/.htaccess';
         if (!is_file($guard)) {
-            file_put_contents($guard, "Require all denied
-<IfModule !mod_authz_core.c>
-Deny from all
-</IfModule>
-");
+            file_put_contents($guard, "Require all denied\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
         }
 
         $now = date('Ymd_His');
