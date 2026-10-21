@@ -249,10 +249,9 @@ export function TaxonomiesRoute() {
     if (!activeTaxonomy || !mergeSourceTerm || !mergeTargetTermId) return;
     setMerging(true);
     try {
-      const res = await apiClient.request('POST', `/taxonomies/${activeTaxonomy.handle}/terms/merge`, {
+      const res = await apiClient.request('POST', `/taxonomies/${activeTaxonomy.handle}/terms/${mergeSourceTerm.id}/merge`, {
         body: {
-          source_id: mergeSourceTerm.id,
-          target_id: mergeTargetTermId,
+          target_term_id: mergeTargetTermId,
         },
       });
       if (res.ok) {
