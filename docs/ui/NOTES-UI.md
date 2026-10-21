@@ -265,3 +265,20 @@ Sources analyzed and adopted directly:
 
 ### 13.3 Attribution Notice
 In accordance with Supabase's Apache-2.0 / MIT licensing, no proprietary logos, SVG trademarks, or assets are copied. Structural CSS variables, semantic layouts, and fragment hierarchy patterns are referenced and noted in `DEPENDENCIES.md`.
+
+### 13.4 Surface Token Hierarchy & OpenLiteSpeed Charset Notice (PR 2)
+
+#### Layered Surface Hierarchy & Separation
+Supabase Studio utilizes a layered neutral surface architecture rather than flat, single-shade dark backgrounds:
+- **Base Canvas (App Background)**: `hsl(0, 0%, 9%)` (`#171717` / `rgb(23, 23, 23)`)
+- **App Sidebar Rail**: `hsl(0, 0%, 9%)` (`#171717` / `rgb(23, 23, 23)`)
+- **Raised Panel / Cards / Tables (`--surface-100` / `--card`)**: `hsl(0, 0%, 12%)` (`#1e1e1e` / `rgb(31, 31, 31)`)
+- **Active Rows / Hover States (`--surface-200`)**: `hsl(0, 0%, 15%)` (`#262626` / `rgb(38, 38, 38)`)
+- **Control Insets & Popovers (`--surface-300`)**: `hsl(0, 0%, 19%)` (`#303030` / `rgb(48, 48, 48)`)
+- **1px Border Separation (`--border`)**: `hsl(0, 0%, 15%)` (`#262626` / `rgb(38, 38, 38)`)
+
+In dark mode, the dashboard content and workspace panels appear slightly raised (`rgb(31, 31, 31)`) compared to the app/sidebar base (`rgb(23, 23, 23)`). These distinct surface layers are cleanly delineated by the subtle 1px border (`rgb(38, 38, 38)`).
+
+#### OpenLiteSpeed Charset Handling Notice
+Under Hostinger / OpenLiteSpeed, static JavaScript assets are served as `Content-Type: text/javascript` without an explicit `charset` parameter, bypassing Apache `.htaccess` directives like `AddCharset` or `AddDefaultCharset`. 
+Therefore, **all non-ASCII glyphs (e.g., keyboard shortcuts like `\u2318` for cmd key, special arrows, and math symbols) must always be Unicode-escaped in JavaScript/TypeScript source files** to prevent client decoding mojibake.
