@@ -85,3 +85,51 @@ Implemented in `core/src/Dashboard/DashboardService.php`, `core/src/Http/Control
 3. **Performance & Caching**: Fast bounded SQL queries with limits and indexed columns (`ix_c_*_updated`, `ix_c_*_status_pub`). Zero N+1 queries. Always sends `Cache-Control: no-store, no-cache, must-revalidate` (no cross-user caching).
 4. **OpenAPI Document**: Documented in `docs/api/openapi-v1.json` with `DashboardResponse` schema definition.
 
+## 9. AI Kill Switch & Status Endpoints (`POST /api/v1/ai/disconnect`, `POST /api/v1/ai/reconnect`, `GET /api/v1/ai/status`) — RESOLVED
+
+Implemented for Settings > AI management screens per Phase 8.4:
+1. `GET /api/v1/ai/status`:
+   - Returns live status of AI access:
+     ```json
+     {
+       "ai_disabled": false,
+       "active_grants_count": 2,
+       "active_ai_tokens_count": 1,
+       "pending_changes_count": 0
+     }
+     ```
+   - Accessible by authenticated admin users (`owner`, `admin`, `developer`, `editor`, `author`). Anonymous requests return 401; OAuth/MCP tokens return 403.
+2. `POST /api/v1/ai/disconnect`:
+   - "Disconnect all AI access" kill switch action.
+   - Atomic transaction revoking all active OAuth grants (`status = 'revoked'`), invalidating active access/refresh tokens, revoking active AI API tokens (`revoked_at = NOW()`), expiring/rejecting pending AI changes (`status = 'rejected'`), and persisting `ai_disabled = true`.
+   - Records `ai.disconnected` audit entry plus `oauth.grant.revoked` per revoked grant.
+   - Requires `owner` or `admin` role and step-up authentication (`mfa_passed_at` or inline password).
+   - Idempotent: repeated calls succeed safely and return revoked counts (0 if already disconnected).
+   - Response contract:
+     ```json
+     {
+       "status": "disconnected",
+       "ai_disabled": true,
+       "revoked_grants_count": 2,
+       "revoked_tokens_count": 1,
+       "expired_pending_changes_count": 0
+     }
+     ```
+3. `POST /api/v1/ai/reconnect`:
+   - Re-enables AI access (`ai_disabled = false`).
+   - Requires `owner` or `admin` role and step-up authentication.
+   - Does NOT resurrect previously revoked grants (clients must re-authorize cleanly).
+   - Response contract:
+     ```json
+     {
+       "status": "connected",
+       "ai_disabled": false
+     }
+     ```
+4. **Central Enforcement**:
+   - `AiKillSwitchGuard` and `AiKillSwitchMiddleware` intercept all `/mcp`, `/oauth/authorize`, `/oauth/token`, and `/oauth/register` requests when `ai_disabled = true`:
+     - `/mcp` returns JSON-RPC error `-32000` with message "AI access is disabled by administrator." and no data.
+     - `/oauth/*` returns HTTP 403 `access_denied`.
+     - `/oauth/revoke` is explicitly allowed through so connected clients can clean up credentials.
+
+
