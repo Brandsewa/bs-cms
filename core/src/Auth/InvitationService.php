@@ -172,7 +172,10 @@ final class InvitationService
             throw new RuntimeException("Invalid, expired, or revoked invitation token.");
         }
 
-        $this->hasher->validatePolicy($password);
+        $policyError = $this->hasher->validatePolicy($password);
+        if ($policyError !== null) {
+            throw new RuntimeException($policyError);
+        }
 
         $email = (string) $invite['email'];
         $roleId = (string) $invite['role_id'];

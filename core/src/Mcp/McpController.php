@@ -530,7 +530,7 @@ final class McpController extends BaseController
         }
 
         // 1b. Write rate limit (20 writes per minute per grant)
-        $isWriteTool = in_array($meta->action, ['create', 'update', 'delete', 'publish', 'unpublish', 'restore'], true);
+        $isWriteTool = $meta->mutates;
         if ($isWriteTool && $this->rateLimiter !== null) {
             $grantKey = (string) ($ctx->grantId ?? $actor->id ?? 'unknown');
             $writeRate = $this->rateLimiter->hit("mcp:write:{$grantKey}", 20, 60);

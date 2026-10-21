@@ -129,10 +129,9 @@ class MeController extends BaseController
             return $this->problem(401, 'Unauthorized', 'Current password is incorrect.');
         }
 
-        try {
-            $this->hasher->validatePolicy($newPassword);
-        } catch (\Throwable $e) {
-            return $this->problem(422, 'Unprocessable Content', $e->getMessage());
+        $policyError = $this->hasher->validatePolicy($newPassword);
+        if ($policyError !== null) {
+            return $this->problem(422, 'Unprocessable Content', $policyError);
         }
 
         $newHash = $this->hasher->hash($newPassword);
