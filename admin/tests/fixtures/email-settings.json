@@ -1,0 +1,11 @@
+{
+  "provider": "zoho",
+  "host": "smtp.zeptomail.com",
+  "port": 465,
+  "encryption": "tls",
+  "username": "emailapikey",
+  "from_email": "notifications@example.com",
+  "from_name": "Brand Sewa CMS",
+  "reply_to": "support@example.com",
+  "has_password": true
+}

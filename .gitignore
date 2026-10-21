@@ -42,6 +42,7 @@ starter/.cache/
 # Playwright artifacts
 test-results/
 playwright-report/
+**/screenshots/
 
 # OS and Editor
 .DS_Store
