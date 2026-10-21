@@ -80,7 +80,7 @@ final class EntryPresenter
         unset($sanitized['search_text'], $sanitized['created_by'], $sanitized['updated_by']);
 
         // Ensure deleted_at is always included as ISO UTC string or null (enabling UI to mark trashed rows when trashed=with)
-        $sanitized['deleted_at'] = isset($entry['deleted_at']) && $entry['deleted_at'] !== null
+        $sanitized['deleted_at'] = isset($entry['deleted_at'])
             ? (string) $entry['deleted_at']
             : null;
 
