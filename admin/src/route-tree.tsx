@@ -18,6 +18,9 @@ const AcceptInvitationRoute = lazy(() =>
 const OAuthConsentReturnRoute = lazy(() =>
   import('./auth/oauth-consent-return').then((m) => ({ default: m.OAuthConsentReturnRoute }))
 );
+const CollectionListRoute = lazy(() =>
+  import('./entries').then((m) => ({ default: m.CollectionListRoute }))
+);
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
@@ -120,12 +123,58 @@ export const entriesRoute = createRoute({
   path: '/entries',
   component: () => (
     <ProtectedAdmin permission="collection:read">
-      <ComingSoonPage
-        title="Entries Management"
-        description="The content collection entries list and editor are arriving in Phase 6.2."
-      />
+      <RouteSuspense>
+        <CollectionListRoute collectionHandle="posts" />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
+});
+
+export const collectionEntriesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/entries/$collection',
+  component: () => {
+    const params = collectionEntriesRoute.useParams();
+    return (
+      <ProtectedAdmin permission="collection:read">
+        <RouteSuspense>
+          <CollectionListRoute collectionHandle={params.collection} />
+        </RouteSuspense>
+      </ProtectedAdmin>
+    );
+  },
+});
+
+export const entryNewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/entries/$collection/new',
+  component: () => {
+    const params = entryNewRoute.useParams();
+    return (
+      <ProtectedAdmin permission="collection:create">
+        <ComingSoonPage
+          title={`Create ${params.collection === 'pages' ? 'Page' : 'Post'}`}
+          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
+        />
+      </ProtectedAdmin>
+    );
+  },
+});
+
+export const entryEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/entries/$collection/$id',
+  component: () => {
+    const params = entryEditRoute.useParams();
+    return (
+      <ProtectedAdmin permission="collection:update">
+        <ComingSoonPage
+          title={`Edit ${params.collection === 'pages' ? 'Page' : 'Post'} (${params.id})`}
+          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
+        />
+      </ProtectedAdmin>
+    );
+  },
 });
 
 export const taxonomiesRoute = createRoute({
@@ -269,6 +318,9 @@ export async function buildRouteTree() {
     acceptInvitationRoute,
     oauthReturnRoute,
     entriesRoute,
+    collectionEntriesRoute,
+    entryNewRoute,
+    entryEditRoute,
     taxonomiesRoute,
     mediaRoute,
     menusRoute,

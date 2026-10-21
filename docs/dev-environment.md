@@ -149,10 +149,15 @@ Ensure a local simulation instance is running (default port 8081 / HTTPS 8481):
 ```powershell
 .\dev\sim.ps1 up dev 8081 mariadb11
 ```
-Deploy the release zip once so core database tables and seed users exist:
+Build a release zip and deploy it once so core database tables and seed users exist:
 ```powershell
-.\dev\sim.ps1 deploy dev 8081
+bash tools/build-release 0.1.0
+.\dev\sim.ps1 deploy dev build\bs-cms-0.1.0.zip
 ```
+
+Seeded credentials for testing:
+- **Users**: `owner@example.com`, `admin@example.com`, `developer@example.com`, `editor@example.com`, `author@example.com`, `contributor@example.com`, `viewer@example.com`
+- **Password**: `TestUser2026!Secure`
 
 ### 2. Run the Vite Dev Proxy
 In your terminal, start the UI dev server:
