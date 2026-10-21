@@ -91,6 +91,50 @@ class EntriesController extends BaseController
     }
 
     /**
+     * Aggregate collection counts per status and trash.
+     *
+     * @param array<string, mixed> $args
+     */
+    public function counts(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        if (!$this->registry->has($handle)) {
+            return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
+        }
+
+        $actor = $this->getActor($request);
+        $userId = $actor->onBehalfOf ?? $actor->id;
+
+        // Check permissions: test unrestricted first, then owner=self
+        $unrestricted = $this->authorizer->can($actor, 'read', new Subject('collection', $handle), [
+            'author_id' => '00000000000000000000000000',
+            'created_by' => '00000000000000000000000000',
+        ])->allowed;
+
+        $ownerOnly = false;
+        if (!$unrestricted) {
+            $ownerAllowed = $this->authorizer->can($actor, 'read', new Subject('collection', $handle), [
+                'author_id' => $userId,
+                'created_by' => $userId,
+            ])->allowed;
+
+            if (!$ownerAllowed) {
+                return $this->problem(403, 'Forbidden', "You do not have permission to read collection '{$handle}'.");
+            }
+            $ownerOnly = true;
+        }
+
+        try {
+            $counts = $this->repository->getCounts($handle, $userId, $ownerOnly);
+            return $this->json($counts);
+        } catch (Throwable $e) {
+            $this->logServerError($request, $e, 'EntriesController::counts');
+            $msg = ($e instanceof \PDOException) ? 'A database error occurred while aggregating counts.' : $e->getMessage();
+            return $this->problem(500, 'Query Error', $msg);
+        }
+    }
+
+    /**
      * @param array<string, mixed> $args
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface

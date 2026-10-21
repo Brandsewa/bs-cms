@@ -23,7 +23,8 @@ final class QueryOptions
         public readonly array $populate = [],
         public readonly bool $includeTrashed = false,
         public readonly ?string $ownerFilter = null,
-        public readonly bool $includeDescendants = false
+        public readonly bool $includeDescendants = false,
+        public readonly string $trashed = 'exclude'
     ) {
     }
 }

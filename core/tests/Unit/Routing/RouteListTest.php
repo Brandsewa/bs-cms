@@ -192,6 +192,7 @@ final class RouteListTest extends TestCase
             'POST /api/v1/schema/plan',
             'POST /api/v1/schema/apply/{change_id}',
             'GET /api/v1/schema/changes',
+            'GET /api/v1/collections/{handle}/counts',
             'GET /api/v1/collections/{handle}/entries',
             'POST /api/v1/collections/{handle}/entries',
             'POST /api/v1/collections/{handle}/entries/bulk',

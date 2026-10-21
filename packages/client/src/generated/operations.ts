@@ -995,6 +995,27 @@ export interface Op_getDashboard {
   response: S.DashboardResponse;
 }
 
+/** Aggregate counts for authors entries by status and trash */
+export interface Op_getCollectionsAuthorsCounts {
+  method: 'GET';
+  path: "/collections/authors/counts";
+  params: Record<string, string>;
+  response: {
+    /** Count of non-deleted entries */
+  "all": number;
+    /** Count of published entries */
+  "published": number;
+    /** Count of draft entries */
+  "draft": number;
+    /** Count of in-review entries */
+  "in_review": number;
+    /** Count of archived entries */
+  "archived": number;
+    /** Count of soft-deleted entries */
+  "trash": number;
+};
+}
+
 /** List entries for authors */
 export interface Op_getCollectionsAuthorsEntries {
   method: 'GET';
@@ -1005,6 +1026,7 @@ export interface Op_getCollectionsAuthorsEntries {
     "sort"?: string;
     "page[size]"?: number;
     "page[after]"?: string;
+    "trashed"?: "exclude" | "only" | "with" | "true" | "false";
   };
   response: {
   "items": Array<S.AuthorsEntry>;
@@ -1234,6 +1256,27 @@ export interface Op_patchSingletonsNavigation {
   response: S.NavigationEntry;
 }
 
+/** Aggregate counts for pages entries by status and trash */
+export interface Op_getCollectionsPagesCounts {
+  method: 'GET';
+  path: "/collections/pages/counts";
+  params: Record<string, string>;
+  response: {
+    /** Count of non-deleted entries */
+  "all": number;
+    /** Count of published entries */
+  "published": number;
+    /** Count of draft entries */
+  "draft": number;
+    /** Count of in-review entries */
+  "in_review": number;
+    /** Count of archived entries */
+  "archived": number;
+    /** Count of soft-deleted entries */
+  "trash": number;
+};
+}
+
 /** List entries for pages */
 export interface Op_getCollectionsPagesEntries {
   method: 'GET';
@@ -1244,6 +1287,7 @@ export interface Op_getCollectionsPagesEntries {
     "sort"?: string;
     "page[size]"?: number;
     "page[after]"?: string;
+    "trashed"?: "exclude" | "only" | "with" | "true" | "false";
   };
   response: {
   "items": Array<S.PagesEntry>;
@@ -1449,6 +1493,27 @@ export interface Op_getPublicCollectionsPagesEntriesBySlugBySlug {
   response: S.PagesEntry;
 }
 
+/** Aggregate counts for posts entries by status and trash */
+export interface Op_getCollectionsPostsCounts {
+  method: 'GET';
+  path: "/collections/posts/counts";
+  params: Record<string, string>;
+  response: {
+    /** Count of non-deleted entries */
+  "all": number;
+    /** Count of published entries */
+  "published": number;
+    /** Count of draft entries */
+  "draft": number;
+    /** Count of in-review entries */
+  "in_review": number;
+    /** Count of archived entries */
+  "archived": number;
+    /** Count of soft-deleted entries */
+  "trash": number;
+};
+}
+
 /** List entries for posts */
 export interface Op_getCollectionsPostsEntries {
   method: 'GET';
@@ -1459,6 +1524,7 @@ export interface Op_getCollectionsPostsEntries {
     "sort"?: string;
     "page[size]"?: number;
     "page[after]"?: string;
+    "trashed"?: "exclude" | "only" | "with" | "true" | "false";
   };
   response: {
   "items": Array<S.PostsEntry>;
@@ -1774,6 +1840,7 @@ export interface Operations {
   "GET /site-health": Op_getSiteHealth;
   "POST /site-health/run": Op_postSiteHealthRun;
   "GET /dashboard": Op_getDashboard;
+  "GET /collections/authors/counts": Op_getCollectionsAuthorsCounts;
   "GET /collections/authors/entries": Op_getCollectionsAuthorsEntries;
   "POST /collections/authors/entries": Op_postCollectionsAuthorsEntries;
   "POST /collections/authors/entries/bulk": Op_postCollectionsAuthorsEntriesBulk;
@@ -1796,6 +1863,7 @@ export interface Operations {
   "GET /singletons/navigation": Op_getSingletonsNavigation;
   "PUT /singletons/navigation": Op_putSingletonsNavigation;
   "PATCH /singletons/navigation": Op_patchSingletonsNavigation;
+  "GET /collections/pages/counts": Op_getCollectionsPagesCounts;
   "GET /collections/pages/entries": Op_getCollectionsPagesEntries;
   "POST /collections/pages/entries": Op_postCollectionsPagesEntries;
   "POST /collections/pages/entries/bulk": Op_postCollectionsPagesEntriesBulk;
@@ -1815,6 +1883,7 @@ export interface Operations {
   "GET /collections/pages/entries/{id}/versions": Op_getCollectionsPagesEntriesByIdVersions;
   "GET /public/collections/pages/entries": Op_getPublicCollectionsPagesEntries;
   "GET /public/collections/pages/entries/by-slug/{slug}": Op_getPublicCollectionsPagesEntriesBySlugBySlug;
+  "GET /collections/posts/counts": Op_getCollectionsPostsCounts;
   "GET /collections/posts/entries": Op_getCollectionsPostsEntries;
   "POST /collections/posts/entries": Op_postCollectionsPostsEntries;
   "POST /collections/posts/entries/bulk": Op_postCollectionsPostsEntriesBulk;

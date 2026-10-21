@@ -213,4 +213,42 @@ final class QueryParserTest extends TestCase
 
         $this->parser->parse($request, $this->collection);
     }
+
+    public function testParsesTrashedParameterModes(): void
+    {
+        // 1. Default (omitted) -> exclude
+        $req1 = new ServerRequest('GET', '/api/v1/collections/posts/entries');
+        $opts1 = $this->parser->parse($req1, $this->collection);
+        $this->assertSame('exclude', $opts1->trashed);
+        $this->assertFalse($opts1->includeTrashed);
+
+        // 2. trashed=only -> only soft-deleted
+        $req2 = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))->withQueryParams(['trashed' => 'only']);
+        $opts2 = $this->parser->parse($req2, $this->collection);
+        $this->assertSame('only', $opts2->trashed);
+        $this->assertTrue($opts2->includeTrashed);
+
+        // 3. trashed=with -> both
+        $req3 = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))->withQueryParams(['trashed' => 'with']);
+        $opts3 = $this->parser->parse($req3, $this->collection);
+        $this->assertSame('with', $opts3->trashed);
+        $this->assertTrue($opts3->includeTrashed);
+
+        // 4. trashed=true / trashed=1 -> compatibility alias for 'with'
+        $req4 = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))->withQueryParams(['trashed' => 'true']);
+        $opts4 = $this->parser->parse($req4, $this->collection);
+        $this->assertSame('with', $opts4->trashed);
+        $this->assertTrue($opts4->includeTrashed);
+
+        $req5 = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))->withQueryParams(['trashed' => '1']);
+        $opts5 = $this->parser->parse($req5, $this->collection);
+        $this->assertSame('with', $opts5->trashed);
+        $this->assertTrue($opts5->includeTrashed);
+
+        // 5. trashed=exclude / false / 0
+        $req6 = (new ServerRequest('GET', '/api/v1/collections/posts/entries'))->withQueryParams(['trashed' => 'exclude']);
+        $opts6 = $this->parser->parse($req6, $this->collection);
+        $this->assertSame('exclude', $opts6->trashed);
+        $this->assertFalse($opts6->includeTrashed);
+    }
 }

@@ -161,6 +161,7 @@ final class ApiRoutes
 
         // 10. Entries & Bulk endpoints
         if ($entries !== null) {
+            $routes->get('/api/v1/collections/{handle}/counts', [$entries, 'counts']);
             $routes->get('/api/v1/collections/{handle}/entries', [$entries, 'list']);
             $routes->post('/api/v1/collections/{handle}/entries', [$entries, 'create']);
             if ($bulkEntries !== null) {
