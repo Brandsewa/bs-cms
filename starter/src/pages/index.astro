@@ -1,12 +1,66 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCanonicalUrl } from '../lib/bs';
+import { loadCollectionEntries, getCanonicalUrl } from '../lib/bs';
+
+let recentPosts: any[] = [];
+try {
+  const posts = await loadCollectionEntries('posts');
+  recentPosts = posts.slice(0, 3);
+} catch {
+  // Graceful fallback for empty collection or build isolation
+}
 ---
 
-<BaseLayout title="Home | BS CMS" canonical={getCanonicalUrl('/')}>
-  <h1>Welcome to BS CMS Starter</h1>
-  <p>This is the static starter site built with Astro.</p>
-  <ul>
-    <li><a href="/blog/post-1">Blog Post 1</a></li>
-  </ul>
+<BaseLayout
+  title="Home | BS CMS Starter"
+  description="High-performance static publishing with zero Node daemons in production."
+  canonical={getCanonicalUrl('/')}
+>
+  <section class="hero">
+    <h1>Publishing Engineered for Speed</h1>
+    <p class="hero-subtitle">
+      BS CMS combines an ultra-lean backend with modern Astro static publishing, automatic Markdown twins for AI agents, and zero runtime Node daemons.
+    </p>
+    <div class="hero-badges">
+      <span class="hero-badge">⚡ Pure Static HTML</span>
+      <span class="hero-badge">📄 Canonical .md Twins</span>
+      <span class="hero-badge">🤖 llms.txt & IndexNow</span>
+      <span class="hero-badge">🔒 Hardened CSP</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent Articles</h2>
+    {recentPosts.length > 0 ? (
+      <div class="posts-grid">
+        {recentPosts.map((entry) => (
+          <article class="post-card">
+            <h3 class="post-card-title">
+              <a href={`/blog/${entry.slug}/`}>{entry.title}</a>
+            </h3>
+            {entry.published_at && (
+              <div class="post-card-meta">
+                <time datetime={entry.published_at}>
+                  {new Date(entry.published_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </time>
+                {entry.reading_time && <span> &bull; {entry.reading_time} min read</span>}
+              </div>
+            )}
+            {entry.excerpt && <p class="post-card-excerpt">{entry.excerpt}</p>}
+            <a href={`/blog/${entry.slug}/`} class="post-card-link">
+              Read article &rarr;
+            </a>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-state">
+        <p>No articles published yet. Publish content in BS CMS to see it appear here!</p>
+      </div>
+    )}
+  </section>
 </BaseLayout>

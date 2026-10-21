@@ -7,21 +7,45 @@ const entries = await loadCollectionEntries('posts');
 
 <BaseLayout
   title="Blog | BS CMS"
-  description="Latest articles and benchmarks."
+  description="Latest articles, updates, and benchmarks from BS CMS."
   canonical={getCanonicalUrl('/blog/')}
 >
-  <h1>Blog</h1>
-  <p>Published static articles from BS CMS.</p>
+  <header style="margin-bottom: 2rem;">
+    <h1>Blog</h1>
+    <p style="color: var(--color-text-secondary); font-size: 1.1rem;">
+      Published static articles, engineering insights, and benchmark reports.
+    </p>
+  </header>
+
   {entries.length > 0 ? (
-    <ul>
+    <div class="posts-grid">
       {entries.map((entry) => (
-        <li>
-          <a href={`/blog/${entry.slug}/`}>{entry.title}</a>
-          {entry.excerpt && <p>{entry.excerpt}</p>}
-        </li>
+        <article class="post-card">
+          <h2 class="post-card-title">
+            <a href={`/blog/${entry.slug}/`}>{entry.title}</a>
+          </h2>
+          {entry.published_at && (
+            <div class="post-card-meta">
+              <time datetime={entry.published_at}>
+                {new Date(entry.published_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </time>
+              {entry.reading_time && <span> &bull; {entry.reading_time} min read</span>}
+            </div>
+          )}
+          {entry.excerpt && <p class="post-card-excerpt">{entry.excerpt}</p>}
+          <a href={`/blog/${entry.slug}/`} class="post-card-link">
+            Read article &rarr;
+          </a>
+        </article>
       ))}
-    </ul>
+    </div>
   ) : (
-    <p class="empty-state">No posts have been published yet.</p>
+    <div class="empty-state">
+      <p>No posts have been published yet.</p>
+    </div>
   )}
 </BaseLayout>

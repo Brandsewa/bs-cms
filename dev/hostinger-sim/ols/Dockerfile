@@ -10,3 +10,4 @@ COPY docker.conf /usr/local/lsws/conf/templates/docker.conf
 COPY extract.php /usr/local/bin/extract.php
 COPY auto-install.php /usr/local/bin/auto-install.php
 COPY seed-users.php /usr/local/bin/seed-users.php
+COPY gen-build-token.php /usr/local/bin/gen-build-token.php
