@@ -35,6 +35,9 @@ const MediaLibraryRoute = lazy(() =>
 const TaxonomiesRoute = lazy(() =>
   import('./taxonomies').then((m) => ({ default: m.TaxonomiesRoute }))
 );
+const MenusRoute = lazy(() =>
+  import('./menus').then((m) => ({ default: m.MenusRoute }))
+);
 // SPRINT-B END
 const SettingsLayout = lazy(() =>
   import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
@@ -243,10 +246,9 @@ export const menusRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="menus:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Site Navigation & Menus"
-          description="Structure site header, footer, and contextual navigation hierarchies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MenusRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
