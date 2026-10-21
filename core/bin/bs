@@ -9,8 +9,13 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use BsCms\Cli\Console;
 use BsCms\Kernel\Application;
+use BsCms\Kernel\CoreServiceProvider;
 
 $app = new Application(dirname(__DIR__));
+if ($app->isInstalled()) {
+    $app->register(new CoreServiceProvider($app));
+    $app->boot();
+}
 $console = new Console($app);
 
 $exitCode = $console->run($argv);

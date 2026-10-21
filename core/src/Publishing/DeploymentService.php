@@ -399,6 +399,40 @@ final class DeploymentService
     }
 
     /**
+     * Find deployment ID by raw callback token.
+     * Returns deployment ID if token matches, or null if invalid.
+     */
+    public function findDeploymentIdByCallbackToken(string $rawCallbackToken): ?string
+    {
+        $hash = hash('sha256', $rawCallbackToken);
+        $table = $this->connection->prefixTable('deployments');
+        $stmt = $this->connection->getPdo()->prepare(
+            "SELECT `id` FROM `{$table}` WHERE `callback_token_hash` = ? LIMIT 1"
+        );
+        $stmt->execute([$hash]);
+        $val = $stmt->fetchColumn();
+        return is_string($val) && $val !== '' ? $val : null;
+    }
+
+    /**
+     * Verify if callback token is valid for a specific deployment.
+     */
+    public function verifyCallbackToken(string $deploymentId, string $rawCallbackToken): bool
+    {
+        $hash = hash('sha256', $rawCallbackToken);
+        $table = $this->connection->prefixTable('deployments');
+        $stmt = $this->connection->getPdo()->prepare(
+            "SELECT `callback_token_hash` FROM `{$table}` WHERE `id` = ? LIMIT 1"
+        );
+        $stmt->execute([$deploymentId]);
+        $storedHash = $stmt->fetchColumn();
+        if (!is_string($storedHash) || $storedHash === '') {
+            return false;
+        }
+        return hash_equals($storedHash, $hash);
+    }
+
+    /**
      * Get deployment by ID.
      *
      * @return array<string, mixed>|null

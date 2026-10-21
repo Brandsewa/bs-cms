@@ -5,13 +5,14 @@ declare(strict_types=1);
 // dev/hostinger-sim/ols/auto-install.php: Automates database install & test user setup.
 
 $url = $argv[1] ?? 'http://127.0.0.1';
-$dbHost = $argv[2] ?? 'db';
-$dbPort = $argv[3] ?? '3306';
-$dbName = $argv[4] ?? 'bs_cms';
-$dbUser = $argv[5] ?? 'bs_user';
-$dbPass = $argv[6] ?? 'bs_password';
+$siteUrl = $argv[2] ?? $url;
+$dbHost = $argv[3] ?? 'db';
+$dbPort = $argv[4] ?? '3306';
+$dbName = $argv[5] ?? 'bs_cms';
+$dbUser = $argv[6] ?? 'bs_user';
+$dbPass = $argv[7] ?? 'bs_password';
 
-echo "=== Automating BS CMS Web Installation against {$url} ===\n";
+echo "=== Automating BS CMS Web Installation against {$url} (site_url: {$siteUrl}) ===\n";
 
 function request(string $method, string $targetUrl, array $data = []): array {
     $ch = curl_init();
@@ -50,7 +51,7 @@ echo "[OK] Extracted install CSRF token: {$csrf}\n";
 // 2. Submit database settings
 $step2 = request('POST', "{$url}/install/database", [
     '_csrf' => $csrf,
-    'site_url' => $url,
+    'site_url' => $siteUrl,
     'db_host' => $dbHost,
     'db_port' => $dbPort,
     'db_name' => $dbName,

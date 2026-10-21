@@ -64,9 +64,53 @@ final class PublishingController extends BaseController
         }
 
         if (isset($body['webhook_url']) && $body['webhook_url'] !== '') {
-            $parsed = parse_url((string) $body['webhook_url']);
-            if ($parsed === false || !in_array(strtolower($parsed['scheme'] ?? ''), ['http', 'https'], true)) {
-                return $this->problem(422, 'Unprocessable Content', 'Webhook URL must be a valid HTTP or HTTPS URL.');
+            $webhookUrl = trim((string) $body['webhook_url']);
+            $parsed = parse_url($webhookUrl);
+            if ($parsed === false || empty($parsed['host'])) {
+                return $this->problem(422, 'Unprocessable Content', 'Webhook URL must be a valid HTTPS URL.');
+            }
+
+            // Require https only
+            if (strtolower($parsed['scheme'] ?? '') !== 'https') {
+                return $this->problem(422, 'Unprocessable Content', 'Webhook URL must use the HTTPS scheme.');
+            }
+
+            // Reject userinfo/credentials
+            if (isset($parsed['user']) || isset($parsed['pass'])) {
+                return $this->problem(422, 'Unprocessable Content', 'Webhook URL must not contain embedded credentials.');
+            }
+
+            // Require standard ports: null, 443, or 8443
+            $port = $parsed['port'] ?? null;
+            if ($port !== null && $port !== 443 && $port !== 8443) {
+                return $this->problem(422, 'Unprocessable Content', 'Webhook URL port must be 443 or 8443.');
+            }
+
+            $host = strtolower(trim($parsed['host'], '[]'));
+
+            // Reject localhost / loopback / private names and IP literals
+            if (
+                $host === 'localhost' ||
+                str_ends_with($host, '.localhost') ||
+                str_ends_with($host, '.local') ||
+                str_ends_with($host, '.internal') ||
+                str_ends_with($host, '.lan') ||
+                $host === '127.0.0.1' ||
+                $host === '::1' ||
+                $host === '0.0.0.0'
+            ) {
+                return $this->problem(422, 'Unprocessable Content', 'Webhook URL cannot point to localhost or private domains.');
+            }
+
+            // If host is an IP literal, validate public routable IP
+            if (filter_var($host, FILTER_VALIDATE_IP)) {
+                $flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
+                if (!filter_var($host, FILTER_VALIDATE_IP, $flags)) {
+                    return $this->problem(422, 'Unprocessable Content', "Webhook URL cannot point to private or reserved IP address '{$host}'.");
+                }
+                if (str_starts_with($host, '169.254.') || str_starts_with($host, '127.')) {
+                    return $this->problem(422, 'Unprocessable Content', "Webhook URL cannot point to link-local or loopback IP '{$host}'.");
+                }
             }
         }
 
@@ -106,10 +150,15 @@ final class PublishingController extends BaseController
                     'User-Agent' => 'BS-CMS-Publishing-Test',
                 ]);
 
+                $isSuccess = $resp['status'] >= 200 && $resp['status'] < 300;
+                $message = $isSuccess
+                    ? 'Test webhook delivered successfully.'
+                    : "Webhook delivery failed with HTTP {$resp['status']}.";
+
                 return $this->json([
-                    'success' => $resp['status'] >= 200 && $resp['status'] < 300,
+                    'success' => $isSuccess,
                     'status_code' => $resp['status'],
-                    'message' => 'Test webhook delivered.',
+                    'message' => $message,
                 ]);
             } catch (Throwable $e) {
                 return $this->problem(400, 'Bad Request', "Webhook test failed: {$e->getMessage()}");
@@ -196,10 +245,8 @@ final class PublishingController extends BaseController
     public function updateDeploymentStatus(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
         $deploymentId = (string) ($args['id'] ?? $request->getAttribute('id', ''));
-        if ($deploymentId === '') {
-            return $this->problem(404, 'Not Found', 'Deployment not found.');
-        }
 
+        // 1. Verify Authorization header and token
         $authHeader = $request->getHeaderLine('Authorization');
         if (!str_starts_with($authHeader, 'Bearer ')) {
             return $this->problem(401, 'Unauthorized', 'Callback token required in Authorization header.');
@@ -208,6 +255,22 @@ final class PublishingController extends BaseController
         $rawCallbackToken = trim(substr($authHeader, 7));
         if ($rawCallbackToken === '') {
             return $this->problem(401, 'Unauthorized', 'Empty callback token.');
+        }
+
+        // Check if token exists in database for ANY deployment
+        $matchedDeployId = $this->deploymentService->findDeploymentIdByCallbackToken($rawCallbackToken);
+        if ($matchedDeployId === null) {
+            return $this->problem(401, 'Unauthorized', 'Invalid or expired callback token.');
+        }
+
+        // 2. Token is valid. Now check if the target deployment exists
+        if ($deploymentId === '' || $this->deploymentService->getDeployment($deploymentId) === null) {
+            return $this->problem(404, 'Not Found', 'Deployment not found.');
+        }
+
+        // Verify the valid token actually belongs to this specific deployment
+        if ($matchedDeployId !== $deploymentId) {
+            return $this->problem(401, 'Unauthorized', 'Callback token does not match requested deployment.');
         }
 
         $body = $this->getBody($request);
