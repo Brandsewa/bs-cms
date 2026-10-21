@@ -27,8 +27,13 @@ const {
 let resolvedStructuredData = structuredData;
 if (structuredData && typeof structuredData === 'object') {
   const jsonStr = JSON.stringify(structuredData);
-  // Replace any http://localhost:4321 references with the canonical SITE_URL
-  const canonicalStr = jsonStr.replace(/http:\/\/localhost:4321/g, canonical.replace(/\/+$/, ''));
+  const targetSiteUrl = canonical.replace(/\/+$/, '');
+  // Replace dev/cms/internal host references in structured data with the canonical public SITE_URL
+  const canonicalStr = jsonStr
+    .replace(/http:\/\/localhost:\d+/g, targetSiteUrl)
+    .replace(/https:\/\/localhost:\d+/g, targetSiteUrl)
+    .replace(/http:\/\/127\.0\.0\.1:\d+/g, targetSiteUrl)
+    .replace(/https:\/\/127\.0\.0\.1:\d+/g, targetSiteUrl);
   resolvedStructuredData = JSON.parse(canonicalStr);
 }
 
@@ -70,9 +75,16 @@ const robotsContent = [
   </head>
   <body>
     <header>
-      <nav aria-label="Main Navigation">
-        <a href="/">Home</a>
-        <a href="/blog">Blog</a>
+      <nav class="site-nav" aria-label="Main Navigation">
+        <a href="/" class="site-brand">
+          <span>{siteMeta.name}</span>
+          <span class="badge">Static</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/blog">Blog</a></li>
+          <li><a href="/about">About</a></li>
+        </ul>
       </nav>
     </header>
 
@@ -81,7 +93,14 @@ const robotsContent = [
     </main>
 
     <footer>
-      <p>&copy; {new Date().getFullYear()} BS CMS. Zero Node daemons in production.</p>
+      <div class="footer-content">
+        <p>&copy; {new Date().getFullYear()} {siteMeta.name}. Zero Node daemons in production.</p>
+        <div class="footer-links">
+          <a href="/llms.txt">llms.txt</a>
+          <a href="/sitemap.xml">Sitemap</a>
+          <a href="/robots.txt">Robots</a>
+        </div>
+      </div>
     </footer>
 
     <!-- Embed activation loader conforming to CSP script-src 'self' -->

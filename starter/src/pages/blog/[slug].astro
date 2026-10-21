@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { renderToHtml, renderToMarkdown } from '@bs/renderer';
 import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
+
 export async function getStaticPaths() {
   const entries = await loadCollectionEntries('posts');
 
@@ -38,17 +39,26 @@ const { post } = Astro.props as any;
   structuredData={post.structured_data}
   robots={post.seo?.robots}
 >
-  <article>
-    <h1>{post.title}</h1>
-    {post.published_at && (
-      <p class="post-meta">
-        <time datetime={post.published_at}>{new Date(post.published_at).toLocaleDateString()}</time>
-      </p>
-    )}
+  <article class="post-detail">
+    <header class="post-header">
+      <nav aria-label="Breadcrumb" style="margin-bottom: 1rem;">
+        <a href="/blog" style="text-decoration: none; font-size: 0.9rem;">&larr; Back to all posts</a>
+      </nav>
+      <h1>{post.title}</h1>
+      {post.published_at && (
+        <div class="post-meta">
+          <time datetime={post.published_at}>
+            {new Date(post.published_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </time>
+          {post.reading_time && <span>&bull; {post.reading_time} min read</span>}
+        </div>
+      )}
+    </header>
+
     <div class="post-content" set:html={post.renderedHtml} />
-    <hr />
-    <nav aria-label="Breadcrumb">
-      <a href="/blog">&larr; Back to all posts</a>
-    </nav>
   </article>
 </BaseLayout>

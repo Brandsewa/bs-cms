@@ -31,6 +31,7 @@ Commands:
   logs <name> [service]               View container logs (ols, caddy, db, cron, sftp)
   shell <name> [service]              Open interactive shell inside container (default: ols)
   test <name> [base-port]             Run automated HTTP smoke & API tests against local instance
+  site <name> [preview-port]          Build and preview Astro starter against simulation instance
 
 Database flavors (optional third argument to 'up'):
   mariadb11 (default): mariadb:11.8
@@ -181,6 +182,44 @@ case "$CMD" in
         export SIM_NAME="$NAME"
 
         bash "${SIM_DIR}/test-sim.sh" "$NAME" "$BASE_PORT"
+        ;;
+
+    site)
+        NAME="${1:-ga1}"
+        CONTAINER="bs-sim-${NAME}-ols"
+        CADDY_CONTAINER="bs-sim-${NAME}-caddy"
+
+        HTTPS_PORT="$(docker inspect "${CADDY_CONTAINER}" --format '{{range $p, $conf := .NetworkSettings.Ports}}{{println $p}}{{end}}' 2>/dev/null | grep -E '^8[4-9][0-9]{2}' | head -n 1 | cut -d/ -f1)"
+        if [ -z "$HTTPS_PORT" ]; then
+            HTTPS_PORT=8481
+        fi
+        CMS_URL="https://localhost:${HTTPS_PORT}"
+
+        echo ">>> Generating build token from instance '${NAME}'..."
+        docker cp "${SIM_DIR}/ols/gen-build-token.php" "${CONTAINER}:/usr/local/bin/gen-build-token.php" 2>/dev/null || true
+        TOKEN="$(docker exec "${CONTAINER}" php /usr/local/bin/gen-build-token.php | tr -d '\r\n')"
+        if [[ ! "$TOKEN" =~ ^bsbuild_ ]]; then
+            echo "Failed to generate build token from container ${CONTAINER}" >&2
+            exit 1
+        fi
+        echo ">>> Obtained build token: ${TOKEN:0:16}..."
+
+        STARTER_DIR="${ROOT_DIR}/starter"
+        PREVIEW_PORT="${2:-$((HTTPS_PORT + 100))}"
+
+        echo ">>> Building Astro starter against ${CMS_URL}..."
+        (
+            cd "${STARTER_DIR}"
+            export BS_CMS_URL="${CMS_URL}"
+            export BS_BUILD_TOKEN="${TOKEN}"
+            export SITE_URL="${CMS_URL}"
+            export NODE_TLS_REJECT_UNAUTHORIZED="0"
+
+            npm run build
+            echo ">>> Static build complete. Starter dist is ready at ${STARTER_DIR}/dist"
+            echo ">>> Serving static site at http://localhost:${PREVIEW_PORT}..."
+            npx astro preview --port "${PREVIEW_PORT}"
+        )
         ;;
 
     *)
