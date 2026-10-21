@@ -44,10 +44,21 @@ final class QueryParser
         $populate = $this->parsePopulate($params, $collectionFields);
 
         // 7. Trashed / soft delete filter
-        $includeTrashed = false;
-        if (isset($params['trashed']) && ($params['trashed'] === '1' || $params['trashed'] === 'true')) {
-            $includeTrashed = true;
+        // Supports: trashed=only (only soft-deleted), trashed=with (both deleted and non-deleted),
+        // default (or trashed=exclude): only non-deleted.
+        // For backwards compatibility: trashed=true or trashed=1 aliases 'with'.
+        $trashed = 'exclude';
+        if (isset($params['trashed'])) {
+            $rawTrashed = strtolower((string) $params['trashed']);
+            if ($rawTrashed === 'only') {
+                $trashed = 'only';
+            } elseif ($rawTrashed === 'with' || $rawTrashed === 'true' || $rawTrashed === '1') {
+                $trashed = 'with';
+            } elseif ($rawTrashed === 'exclude' || $rawTrashed === 'false' || $rawTrashed === '0') {
+                $trashed = 'exclude';
+            }
         }
+        $includeTrashed = ($trashed === 'with' || $trashed === 'only');
 
         // 8. Include descendants filter for hierarchical taxonomies
         $includeDescendants = false;
@@ -65,7 +76,8 @@ final class QueryParser
             cursor: $cursor,
             populate: $populate,
             includeTrashed: $includeTrashed,
-            includeDescendants: $includeDescendants
+            includeDescendants: $includeDescendants,
+            trashed: $trashed
         );
     }
 

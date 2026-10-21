@@ -577,7 +577,12 @@ final class EntryRepository
         $bindings = [];
 
         // 1. Soft delete filter
-        if (!$options->includeTrashed) {
+        if ($options->trashed === 'only') {
+            $whereClauses[] = "`deleted_at` IS NOT NULL";
+        } elseif ($options->trashed === 'with' || $options->includeTrashed) {
+            // Include both trashed and non-trashed: no deleted_at clause
+        } else {
+            // Default: exclude trashed entries
             $whereClauses[] = "`deleted_at` IS NULL";
         }
 
@@ -1455,5 +1460,63 @@ final class EntryRepository
                 [$mId, $mId]
             );
         }
+    }
+
+    /**
+     * Aggregate collection counts per status and trash in a single efficient query.
+     *
+     * @return array{all: int, published: int, draft: int, in_review: int, archived: int, trash: int}
+     */
+    public function getCounts(string $collectionHandle, ?string $actorId = null, bool $ownerOnly = false): array
+    {
+        $prefix = $this->connection->getPrefix();
+        $tableName = $prefix . 'c_' . $collectionHandle;
+
+        $userClause = '';
+        $bindings = [];
+        if ($ownerOnly && $actorId !== null) {
+            $userClause = " AND `author_id` = ?";
+            $bindings[] = $actorId;
+        }
+
+        // Single SQL query with conditional aggregations:
+        // - all: non-deleted entries
+        // - published: non-deleted published entries
+        // - draft: non-deleted draft entries
+        // - in_review: non-deleted in_review entries
+        // - archived: non-deleted archived entries
+        // - trash: soft-deleted entries (deleted_at IS NOT NULL)
+        $sql = "SELECT
+            COUNT(CASE WHEN `deleted_at` IS NULL THEN 1 END) AS `all_count`,
+            COUNT(CASE WHEN `deleted_at` IS NULL AND `status` = 'published' THEN 1 END) AS `published_count`,
+            COUNT(CASE WHEN `deleted_at` IS NULL AND `status` = 'draft' THEN 1 END) AS `draft_count`,
+            COUNT(CASE WHEN `deleted_at` IS NULL AND `status` = 'in_review' THEN 1 END) AS `in_review_count`,
+            COUNT(CASE WHEN `deleted_at` IS NULL AND `status` = 'archived' THEN 1 END) AS `archived_count`,
+            COUNT(CASE WHEN `deleted_at` IS NOT NULL THEN 1 END) AS `trash_count`
+            FROM `{$tableName}`
+            WHERE 1=1{$userClause}";
+
+        $stmt = $this->connection->execute($sql, $bindings);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return [
+                'all' => 0,
+                'published' => 0,
+                'draft' => 0,
+                'in_review' => 0,
+                'archived' => 0,
+                'trash' => 0,
+            ];
+        }
+
+        return [
+            'all' => (int) ($row['all_count'] ?? 0),
+            'published' => (int) ($row['published_count'] ?? 0),
+            'draft' => (int) ($row['draft_count'] ?? 0),
+            'in_review' => (int) ($row['in_review_count'] ?? 0),
+            'archived' => (int) ($row['archived_count'] ?? 0),
+            'trash' => (int) ($row['trash_count'] ?? 0),
+        ];
     }
 }

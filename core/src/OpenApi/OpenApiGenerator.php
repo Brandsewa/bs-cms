@@ -2283,6 +2283,35 @@ final class OpenApiGenerator
         }
 
         return [
+            "/collections/{$handle}/counts" => [
+                'get' => [
+                    'summary' => "Aggregate counts for {$handle} entries by status and trash",
+                    'tags' => [$tag],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Aggregate status counts',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'all' => ['type' => 'integer', 'description' => 'Count of non-deleted entries'],
+                                            'published' => ['type' => 'integer', 'description' => 'Count of published entries'],
+                                            'draft' => ['type' => 'integer', 'description' => 'Count of draft entries'],
+                                            'in_review' => ['type' => 'integer', 'description' => 'Count of in-review entries'],
+                                            'archived' => ['type' => 'integer', 'description' => 'Count of archived entries'],
+                                            'trash' => ['type' => 'integer', 'description' => 'Count of soft-deleted entries'],
+                                        ],
+                                        'required' => ['all', 'published', 'draft', 'in_review', 'archived', 'trash'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        '403' => ['description' => 'Forbidden'],
+                        '404' => ['description' => 'Collection not found'],
+                    ],
+                ],
+            ],
             "/collections/{$handle}/entries" => [
                 'get' => [
                     'summary' => "List entries for {$handle}",
@@ -2292,6 +2321,17 @@ final class OpenApiGenerator
                         ['name' => 'sort', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
                         ['name' => 'page[size]', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer', 'default' => 25]],
                         ['name' => 'page[after]', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'trashed',
+                            'in' => 'query',
+                            'required' => false,
+                            'description' => 'Filter soft-deleted entries: "exclude" (default, non-deleted only), "only" (soft-deleted only), or "with" / "true" (both).',
+                            'schema' => [
+                                'type' => 'string',
+                                'enum' => ['exclude', 'only', 'with', 'true', 'false'],
+                                'default' => 'exclude',
+                            ],
+                        ],
                     ],
                     'responses' => [
                         '200' => [

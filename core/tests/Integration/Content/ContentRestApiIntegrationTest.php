@@ -380,9 +380,57 @@ final class ContentRestApiIntegrationTest extends TestCase
         $delRes = $this->entriesController->delete($delReq, ['handle' => 'articles', 'id' => $id]);
         $this->assertSame(200, $delRes->getStatusCode());
 
+        // 7b. Test trashed filter modes: exclude (default), only, with
+        // Default excludes trashed
+        $listDefaultReq = $this->makeRequest('GET', '/api/v1/collections/articles/entries', $this->ownerActor);
+        $listDefaultRes = $this->entriesController->list($listDefaultReq, ['handle' => 'articles']);
+        $this->assertSame(200, $listDefaultRes->getStatusCode());
+        $listDefaultData = json_decode((string) $listDefaultRes->getBody(), true);
+        $this->assertCount(1, $listDefaultData['data']); // only the duplicated active entry
+        $this->assertNotSame($id, $listDefaultData['data'][0]['id']);
+
+        // trashed=only returns ONLY soft-deleted entries
+        $listOnlyReq = $this->makeRequest('GET', '/api/v1/collections/articles/entries', $this->ownerActor, [], ['trashed' => 'only']);
+        $listOnlyRes = $this->entriesController->list($listOnlyReq, ['handle' => 'articles']);
+        $this->assertSame(200, $listOnlyRes->getStatusCode());
+        $listOnlyData = json_decode((string) $listOnlyRes->getBody(), true);
+        $this->assertCount(1, $listOnlyData['data']);
+        $this->assertSame($id, $listOnlyData['data'][0]['id']);
+
+        // trashed=with returns BOTH active and soft-deleted entries
+        $listWithReq = $this->makeRequest('GET', '/api/v1/collections/articles/entries', $this->ownerActor, [], ['trashed' => 'with']);
+        $listWithRes = $this->entriesController->list($listWithReq, ['handle' => 'articles']);
+        $this->assertSame(200, $listWithRes->getStatusCode());
+        $listWithData = json_decode((string) $listWithRes->getBody(), true);
+        $this->assertCount(2, $listWithData['data']);
+
+        // trashed=true is backward-compatible alias of with
+        $listTrueReq = $this->makeRequest('GET', '/api/v1/collections/articles/entries', $this->ownerActor, [], ['trashed' => 'true']);
+        $listTrueRes = $this->entriesController->list($listTrueReq, ['handle' => 'articles']);
+        $this->assertSame(200, $listTrueRes->getStatusCode());
+        $listTrueData = json_decode((string) $listTrueRes->getBody(), true);
+        $this->assertCount(2, $listTrueData['data']);
+
+        // 7c. Test GET /api/v1/collections/{handle}/counts
+        $countsReq = $this->makeRequest('GET', '/api/v1/collections/articles/counts', $this->ownerActor);
+        $countsRes = $this->entriesController->counts($countsReq, ['handle' => 'articles']);
+        $this->assertSame(200, $countsRes->getStatusCode());
+        $countsData = json_decode((string) $countsRes->getBody(), true);
+        $this->assertSame(1, $countsData['all']); // 1 non-deleted (the duplicate)
+        $this->assertSame(1, $countsData['trash']); // 1 deleted ($id)
+        $this->assertSame(1, $countsData['published']);
+        $this->assertSame(0, $countsData['draft']);
+
         $restoreReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/restore", $this->ownerActor);
         $restoreRes = $this->entriesController->restore($restoreReq, ['handle' => 'articles', 'id' => $id]);
         $this->assertSame(200, $restoreRes->getStatusCode());
+
+        // After restore: trash is 0, all is 2
+        $countsAfterReq = $this->makeRequest('GET', '/api/v1/collections/articles/counts', $this->ownerActor);
+        $countsAfterRes = $this->entriesController->counts($countsAfterReq, ['handle' => 'articles']);
+        $countsAfterData = json_decode((string) $countsAfterRes->getBody(), true);
+        $this->assertSame(2, $countsAfterData['all']);
+        $this->assertSame(0, $countsAfterData['trash']);
 
         // 8. Status transitions: unpublish, publish, archive
         $unpubReq = $this->makeRequest('POST', "/api/v1/collections/articles/entries/{$id}/unpublish", $this->ownerActor, ['version' => 3]);
