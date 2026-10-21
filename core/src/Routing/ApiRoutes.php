@@ -365,6 +365,5 @@ final class ApiRoutes
             $routes->post('/api/v1/tokens/build', [$buildTokens, 'create']);
             $routes->delete('/api/v1/tokens/build/{id}', [$buildTokens, 'revoke']);
         }
-        }
     }
 }
