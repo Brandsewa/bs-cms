@@ -37,6 +37,34 @@ test.describe('Command Menu & Global Hotkeys', () => {
         }),
       });
     });
+
+    // AI status mock (real endpoint)
+    await page.route('**/api/v1/ai/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ai_disabled: false,
+          active_grants_count: 1,
+          active_ai_tokens_count: 1,
+          pending_changes_count: 1,
+        }),
+      });
+    });
+
+    // Frontend status mock (real endpoint)
+    await page.route('**/api/v1/frontend/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          connected: true,
+          target_type: 'github_actions',
+          last_deployment: { status: 'succeeded' },
+          pending_changes_count: 0,
+        }),
+      });
+    });
   });
 
   test('opens command menu via Ctrl+K and button click, filters items, and displays theme options', async ({

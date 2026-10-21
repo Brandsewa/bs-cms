@@ -125,12 +125,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   useHotkeys(hotkeys);
 
-  const sidebarContent = (
+  const renderSidebar = (isMobile = false) => (
     <AppSidebar
       className="shrink-0 h-full border-r border-border bg-background"
       groups={ADMIN_SIDEBAR_GROUPS}
       hasPermission={hasPermission}
       activeId={activeId}
+      showCollapseButton={!isMobile}
       renderLink={(item, content, isActive, className) => {
         const adminItem = item as AdminSidebarItem;
         return (
@@ -159,7 +160,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
       {/* Desktop Sidebar */}
       <div className="hidden md:flex shrink-0">
-        {sidebarContent}
+        {renderSidebar(false)}
       </div>
 
       {/* Mobile Sidebar Drawer (<768px) */}
@@ -169,7 +170,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Main administration navigation</SheetDescription>
           </SheetHeader>
-          {sidebarContent}
+          {renderSidebar(true)}
         </SheetContent>
       </Sheet>
 
@@ -178,11 +179,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         {/* Top bar - slim Studio style header */}
         <header className="sticky top-0 z-10 flex h-11 items-center justify-between border-b border-border bg-background px-3 sm:px-6">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Mobile menu trigger (<768px) */}
+            {/* Mobile menu trigger (<768px) with accessible 44px touch target */}
             <Button
               variant="ghost"
               size="sm"
-              className="flex md:hidden h-8 w-8 p-0"
+              className="flex md:hidden h-8 w-8 min-h-[44px] min-w-[44px] p-0"
               onClick={() => setMobileDrawerOpen(true)}
               aria-label="Open navigation menu"
             >
@@ -196,7 +197,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Search command menu trigger */}
             <Button
               variant="outline"
@@ -212,11 +213,11 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               </kbd>
             </Button>
 
-            {/* Mobile search icon button (<640px) */}
+            {/* Mobile search icon button (<640px) with accessible 44px touch target */}
             <Button
               variant="ghost"
               size="sm"
-              className="flex sm:hidden h-8 w-8 p-0"
+              className="flex sm:hidden h-8 w-8 min-h-[44px] min-w-[44px] p-0"
               onClick={() => setCommandMenuOpen(true)}
               aria-label="Search and quick actions"
             >
@@ -226,13 +227,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             {/* Theme switcher toggle */}
             <ShellThemeToggle />
 
-            {/* User menu dropdown */}
+            {/* User menu dropdown with 44px touch target on mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex h-7 items-center gap-1.5 px-1.5 hover:bg-surface-200"
+                  className="flex h-7 items-center gap-1.5 px-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 hover:bg-surface-200"
                   aria-label="User menu"
                 >
                   <div className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-surface-200 text-foreground">
