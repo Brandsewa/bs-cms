@@ -936,17 +936,28 @@ class EntriesController extends BaseController
             return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
         }
 
-        $permError = $this->requirePermission($this->authorizer, $request, 'read', new Subject('collection', $handle));
-        if ($permError !== null) {
-            return $permError;
-        }
-
         $params = $request->getQueryParams();
         $format = strtolower((string) ($params['format'] ?? 'json'));
+        if (!in_array($format, ['csv', 'json'], true)) {
+            return $this->problem(422, 'Validation Error', "Unsupported export format '{$format}'.");
+        }
 
-        // Query entries
-        $result = $this->repository->paginate($handle, 1, 1000, ['status' => 'any'], 'created_at', 'desc');
-        $entries = $result['data'] ?? [];
+        // Reuse list() so permission checks, owner scoping and presentation stay identical.
+        $entries = [];
+        for ($page = 1; $page <= 10; $page++) {
+            $resp = $this->list($request->withQueryParams(['limit' => 100, 'page' => $page]), $args);
+            if ($resp->getStatusCode() !== 200) {
+                return $resp;
+            }
+            $decoded = json_decode((string) $resp->getBody(), true);
+            $rows = is_array($decoded) ? ($decoded['data'] ?? []) : [];
+            foreach ($rows as $row) {
+                $entries[] = $row;
+            }
+            if (count($rows) < 100) {
+                break;
+            }
+        }
 
         if ($format === 'csv') {
             $stream = fopen('php://temp', 'r+');
@@ -954,16 +965,20 @@ class EntriesController extends BaseController
                 return $this->problem(500, 'Export Error', 'Failed to allocate export buffer.');
             }
 
+            $safe = static function (mixed $v): string {
+                $v = (string) ($v ?? '');
+                return $v !== '' && strpbrk($v[0], "=+-@	") !== false ? "'" . $v : $v;
+            };
             fputcsv($stream, ['id', 'slug', 'title', 'status', 'published_at', 'updated_at', 'created_at']);
             foreach ($entries as $e) {
                 fputcsv($stream, [
-                    $e['id'] ?? '',
-                    $e['slug'] ?? '',
-                    $e['title'] ?? '',
-                    $e['status'] ?? '',
-                    $e['published_at'] ?? '',
-                    $e['updated_at'] ?? '',
-                    $e['created_at'] ?? '',
+                    $safe($e['id'] ?? ''),
+                    $safe($e['slug'] ?? ''),
+                    $safe($e['title'] ?? ''),
+                    $safe($e['status'] ?? ''),
+                    $safe($e['published_at'] ?? ''),
+                    $safe($e['updated_at'] ?? ''),
+                    $safe($e['created_at'] ?? ''),
                 ]);
             }
             rewind($stream);
