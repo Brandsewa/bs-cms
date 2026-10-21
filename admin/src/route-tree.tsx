@@ -50,6 +50,9 @@ const RolesMatrixView = lazy(() =>
 const AuditLogView = lazy(() =>
   import('./system/audit-log-view').then((m) => ({ default: m.AuditLogView }))
 );
+const SiteHealthView = lazy(() =>
+  import('./system/site-health-view').then((m) => ({ default: m.SiteHealthView }))
+);
 
 // Shell fallbacks & placeholders
 const ComingSoonPage = lazy(() =>
@@ -354,12 +357,33 @@ export const systemAuditRoute = createRoute({
   ),
 });
 
+export const systemHealthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/health',
+  component: () => (
+    <ProtectedAdmin permission="site:health">
+      <RouteSuspense>
+        <SiteHealthView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
 // Redirect /settings/audit to /system/audit for dashboard and legacy link compatibility
 export const settingsAuditRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/audit',
   beforeLoad: () => {
     throw redirect({ to: '/system/audit' });
+  },
+});
+
+// Redirect /settings/health to /system/health for dashboard and legacy link compatibility
+export const settingsHealthRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/health',
+  beforeLoad: () => {
+    throw redirect({ to: '/system/health' });
   },
 });
 
@@ -409,6 +433,8 @@ export async function buildRouteTree() {
     settingsEmailRoute,
     systemAuditRoute,
     settingsAuditRedirectRoute,
+    systemHealthRoute,
+    settingsHealthRedirectRoute,
     forbiddenRoute,
     notFoundRoute,
   ];
