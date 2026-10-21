@@ -7,6 +7,7 @@ namespace BsCms\Http\Controllers;
 use BsCms\Auth\Actor;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
+use BsCms\Database\Connection;
 use BsCms\Publishing\DeploymentPresenter;
 use BsCms\Publishing\DeploymentService;
 use BsCms\Publishing\PublishingSettingsPresenter;
@@ -22,7 +23,8 @@ final class PublishingController extends BaseController
         private readonly PublishingSettingsRepository $settingsRepo,
         private readonly DeploymentService $deploymentService,
         private readonly Authorizer $authorizer,
-        private readonly HttpClient $httpClient
+        private readonly HttpClient $httpClient,
+        private readonly ?Connection $connection = null
     ) {
     }
 
@@ -346,7 +348,29 @@ final class PublishingController extends BaseController
 
         $pending = $this->deploymentService->getPendingChangesCount();
         $config = $this->settingsRepo->get();
-        $siteUrl = (string) ($config['site_url'] ?? 'http://localhost');
+
+        // Resolve canonical site URL from settings, or null if not configured
+        $siteUrl = null;
+        if (!empty($config['site_url'])) {
+            $siteUrl = (string) $config['site_url'];
+        } elseif ($this->connection !== null) {
+            try {
+                $prefix = $this->connection->getPrefix();
+                $stmt = $this->connection->execute("SELECT `data` FROM `{$prefix}c_site_settings` LIMIT 1");
+                $siteRow = $stmt->fetch();
+                if ($siteRow && !empty($siteRow['data'])) {
+                    $siteData = is_string($siteRow['data']) ? json_decode($siteRow['data'], true) : $siteRow['data'];
+                    if (is_array($siteData)) {
+                        $candidate = (string) ($siteData['canonical_base_url'] ?? ($siteData['canonical_url'] ?? ''));
+                        if (trim($candidate) !== '') {
+                            $siteUrl = trim($candidate);
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                // Table might not exist yet; default to null
+            }
+        }
 
         return $this->json([
             'connected' => $lastDeployment !== null || !empty($config['target_type']),

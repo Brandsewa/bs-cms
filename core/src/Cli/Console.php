@@ -253,6 +253,14 @@ final class Console
             }
         }
 
+        // 3. Purge expired preview tokens
+        if ($container->has(\BsCms\Publishing\PreviewTokenService::class)) {
+            $purged = $container->get(\BsCms\Publishing\PreviewTokenService::class)->purgeExpired();
+            if ($purged > 0) {
+                echo "Purged {$purged} expired preview token(s).\n";
+            }
+        }
+
         echo "Schedule run completed.\n";
         return 0;
     }

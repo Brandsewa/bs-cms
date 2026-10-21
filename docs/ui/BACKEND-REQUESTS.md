@@ -215,3 +215,55 @@ Implemented in PR (Screen b: Users & Roles) with code-split lazy routes (`admin/
    - `POST /api/v1/roles`: Custom role creation.
    - `POST /api/v1/roles/{id}/clone`: Custom role cloning from system or existing custom roles.
    - `DELETE /api/v1/roles/{id}`: Custom role deletion (system roles are immutable and deletion is disabled).
+
+## 13. Preview Button in Entry Editor & Dashboard Frontend Status Widget — RESOLVED
+
+Implemented in Step 7.6 (`bs-cms-phase7`):
+1. **Preview Button in Entry Editor**:
+   - **Endpoint**: `POST /api/v1/preview/token`
+   - **Request Body**: `{ "collection": "posts", "id": "<entry_id>" }`
+   - **Authorization**: Requires `update` permission on the entry (contributors and authors can only generate preview tokens for their own drafts; editors, admins, and owners can generate preview tokens for any draft; viewers receive 403 Forbidden).
+   - **Response** (HTTP 201):
+     ```json
+     {
+       "token": "bsprev_...",
+       "expires_at": "2026-10-21 12:30:00.000",
+       "collection": "posts",
+       "entry_id": "<entry_id>",
+       "preview_url": "/preview/?collection=posts&id=<entry_id>&token=bsprev_...&path=%2Fblog%2Fslug%2F"
+     }
+     ```
+   - **Active Token Cap & Rate Limit**: Capped at 10 active tokens per entry and 20 active tokens per user. Exceeding returns HTTP 429 Too Many Requests.
+   - **Revocation**:
+     - **Endpoint**: `DELETE /api/v1/preview/token` with `{ "token": "bsprev_..." }`
+     - Permitted for the token creator or an admin/owner; other callers receive 403 Forbidden.
+   - **Draft Rendering Endpoint**:
+     - **Endpoint**: `GET /api/v1/preview/{collection}/{id}?token=bsprev_...`
+     - Returns draft data with `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow, noarchive`.
+2. **Dashboard Frontend Status Widget ("Connect the Astro frontend")**:
+   - **Endpoint**: `GET /api/v1/frontend/status`
+   - **Authorization**: Read access to `dashboard:*` or `settings:publishing`.
+   - **Response** (HTTP 200):
+     ```json
+     {
+       "connected": true,
+       "target_type": "github_actions",
+       "last_deployment": {
+         "id": "<ulid>",
+         "trigger_type": "event",
+         "status": "succeeded",
+         "target": "github_actions",
+         "changed_urls": ["/blog/my-post/"],
+         "requested_by": null,
+         "dispatched_at": "2026-10-21 12:00:00.000",
+         "finished_at": "2026-10-21 12:01:30.000",
+         "build_log_url": "https://github.com/.../actions/runs/...",
+         "error": null,
+         "created_at": "2026-10-21 11:59:55.000"
+       },
+       "last_build_at": "2026-10-21 12:01:30.000",
+       "pending_changes_count": 0,
+       "site_url": "https://brandsewa.com"
+     }
+     ```
+   - Note: `site_url` returns the configured canonical URL, or `null` if unconfigured.

@@ -1133,6 +1133,42 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
 - **Breaking Change Risk Analysis:** Changing all existing API date fields (e.g. in `EntryPresenter`, `UserPresenter`, `MediaPresenter`, `AuditEntry`, `RedirectPresenter`, `TermPresenter`) to strictly append `Z` (e.g. `"2026-10-21T01:53:37.000Z"`) would break existing consumers and integration tests asserting exact SQL timestamp formats across the backend and test suites.
 - **Client Normalization:** The admin client includes `parseApiUtcDate()` in `admin/src/lib/datetime.ts` with comprehensive unit tests (`admin/src/lib/datetime.test.ts`), safely parsing both space-separated SQL datetimes (`YYYY-MM-DD HH:mm:ss[.sss]`) and standard ISO-8601 strings into proper UTC `Date` instances. The current API wire representation is preserved for stability and full backward compatibility.
 
+---
+
+## 21. Step 7.6: Draft Preview Mode & Frontend Status
+
+### 1. Preview Token Lifecycle & Authorization
+- **Token Generation (`POST /api/v1/preview/token`):**
+  - Prefix: `bsprev_` followed by 48 hex characters (24 cryptographically secure random bytes).
+  - Storage: `preview_tokens` table with SHA-256 hash (`token_hash`), `collection_id`, `entry_id`, `created_by`, `expires_at`, `created_at`.
+  - **TTL**: 30 minutes (1,800 seconds).
+  - **Authorization**: Bound strictly to `update` permission on the specific entry:
+    - Viewers receive 403 Forbidden.
+    - Contributors and Authors can only generate tokens for their own drafts (`owner: self` condition). Attempting to generate a token for another author's draft yields 403 Forbidden.
+    - Editors, Admins, and Owners can generate preview tokens for any entry.
+  - **Burst Capping**:
+    - Maximum 10 active tokens per entry (`MAX_ACTIVE_PER_ENTRY = 10`).
+    - Maximum 20 active tokens per user (`MAX_ACTIVE_PER_USER = 20`).
+    - Exceeding caps throws an exception handled as HTTP 429 Too Many Requests.
+  - **Response (HTTP 201):** Returns `token`, `expires_at`, `collection`, `entry_id`, and `preview_url` (e.g. `/preview/?collection=posts&id=...&token=...&path=...`).
+- **Draft Retrieval (`GET /api/v1/preview/{collection}/{id}?token=bsprev_...`):**
+  - Requires matching unexpired preview token in query parameter `?token=`.
+  - Missing token yields 401 Unauthorized; invalid, expired, or mismatching collection/entry token yields 403 Forbidden.
+  - Returns presented draft data including `seo_resolved` and structured data.
+  - Never cacheable and never indexable: sent with `Cache-Control: no-store, no-cache, must-revalidate, private` and `X-Robots-Tag: noindex, nofollow, noarchive`.
+- **Revocation (`DELETE /api/v1/preview/token`):**
+  - Accepts token in request body or query parameter.
+  - **Revocation Authorization**: Can only be revoked by the token creator (`created_by === actor_id`) or an Admin/Owner (`isSystem()`, `ROLE_OWNER`, `ROLE_ADMIN`). Other authenticated users receive 403 Forbidden.
+  - Immediate effect: invalidated token hash is deleted from `preview_tokens`, causing subsequent draft preview requests to immediately return 403 Forbidden.
+- **Scheduled Maintenance / Expired Token Purge:**
+  - `php bin/bs schedule:run` executes `PreviewTokenService::purgeExpired()`, deleting tokens where `expires_at <= NOW()`.
+
+### 2. Frontend Status Endpoint (`GET /api/v1/frontend/status`)
+- Accessible to anyone with read permission on `dashboard:*` or `settings:publishing`.
+- **Site URL Contract**: Returns configured canonical site URL from `c_site_settings` (`canonical_base_url` or `canonical_url`) or settings, and `null` if unconfigured (never hardcodes `http://localhost`).
+- **Last Deployment Presenter**: Uses canonical `DeploymentPresenter::present()` key set: `['id', 'trigger_type', 'status', 'target', 'changed_urls', 'requested_by', 'dispatched_at', 'finished_at', 'build_log_url', 'error', 'created_at']`.
+- Provides `connected`, `target_type`, `last_deployment`, `last_build_at`, `pending_changes_count`, and `site_url` for the Admin Dashboard "Connect the Astro frontend" widget.
+
 
 
 

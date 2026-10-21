@@ -732,7 +732,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Publishing\PublishingSettingsRepository::class),
                 $c->get(\BsCms\Publishing\DeploymentService::class),
                 $c->get(Authorizer::class),
-                $c->get(\BsCms\Security\HttpClient::class)
+                $c->get(\BsCms\Security\HttpClient::class),
+                $c->get(Connection::class)
             );
         });
 

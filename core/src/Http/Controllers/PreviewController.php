@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace BsCms\Http\Controllers;
 
+use BsCms\Auth\Actor;
+use BsCms\Auth\SystemRoles;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
@@ -55,13 +57,17 @@ class PreviewController extends BaseController
             return $this->problem(404, 'Not Found', "Entry '{$entryId}' not found in '{$collectionHandle}'.");
         }
 
-        // Authorize: require read permission on the collection/entry
-        $permCheck = $this->requirePermission($this->authorizer, $request, 'read', new Subject('collection', $collectionHandle), $entry);
+        // Authorize: require edit (update) permission on the collection/entry (same as editing)
+        $permCheck = $this->requirePermission($this->authorizer, $request, 'update', new Subject('collection', $collectionHandle), $entry);
         if ($permCheck !== null) {
             return $permCheck;
         }
 
-        $tokenResult = $this->previewTokenService->generateToken($collectionId, $entryId, $actor->id);
+        try {
+            $tokenResult = $this->previewTokenService->generateToken($collectionId, $entryId, $actor->id);
+        } catch (\RuntimeException $e) {
+            return $this->problem(429, 'Too Many Requests', $e->getMessage());
+        }
 
         // Build frontend preview URL
         $pubSettings = $this->publishingSettings->get();
@@ -158,11 +164,36 @@ class PreviewController extends BaseController
             return $this->problem(422, 'Unprocessable Content', 'Token parameter is required.');
         }
 
+        $tokenRow = $this->previewTokenService->findToken($token);
+        if (!$tokenRow) {
+            return $this->json([
+                'revoked' => false,
+                'message' => 'Token not found or already revoked.',
+            ]);
+        }
+
+        // Revocation authorization: only creator or admin/owner can revoke
+        $isCreator = ((string) ($tokenRow['created_by'] ?? '')) === $actor->id;
+        $isAdminOrOwner = $this->isAdminOrOwner($actor);
+
+        if (!$isCreator && !$isAdminOrOwner) {
+            return $this->problem(403, 'Forbidden', 'Permission denied to revoke this preview token.');
+        }
+
         $revoked = $this->previewTokenService->revokeToken($token);
 
         return $this->json([
             'revoked' => $revoked,
             'message' => $revoked ? 'Preview token revoked.' : 'Token not found or already revoked.',
         ]);
+    }
+
+    private function isAdminOrOwner(Actor $actor): bool
+    {
+        return $actor->isSystem()
+            || $actor->hasRole(SystemRoles::ROLE_OWNER)
+            || $actor->hasRole(SystemRoles::ROLE_ADMIN)
+            || $actor->hasRole('owner')
+            || $actor->hasRole('admin');
     }
 }
