@@ -230,3 +230,38 @@ lazy chunks from M2/M3 onward.
   - Zero serious/critical Axe accessibility violations across light and dark modes
   - 360px mobile viewport horizontal overflow check
 - All 34 browser tests passing cleanly.
+
+---
+
+## 13. Supabase Alignment & Studio Architecture (Phase 5 Refinement)
+
+### 13.1 Background & Source of Truth
+The admin UI has been aligned to match the Supabase Studio design system (`https://supabase.com/design-system` and open-source repo `github.com/supabase/supabase`).
+Sources analyzed and adopted directly:
+- `apps/design-system/content/docs/typography.mdx` & `packages/ui/src/lib/constants.ts` (Type scale, sizing constants)
+- `apps/design-system/content/docs/color-usage.mdx`, `tailwind-classes.mdx`, `theming.mdx`
+- `packages/ui/build/css/source/semantic.css` & `packages/ui/build/css/themes/dark.css`, `light.css` (Layered surfaces, foreground levels, neutral scales)
+- `apps/design-system/content/docs/icons.mdx` (Lucide 16px default stroke 1.5, optically centered)
+- `apps/design-system/content/docs/ui-patterns/layout.mdx`, `tables.mdx` (Breadcrumbs, PageNav, sticky dense tables)
+- `apps/design-system/content/docs/fragments/*.mdx` (PageHeader, PageContainer, PageSection, PageNav, PageBreadcrumbs, MetricCard, EmptyStatePresentational, FilterBar)
+- `packages/ui/src/components/shadcn/ui/sidebar.tsx` (Studio sidebar rail: ~56px collapsed icon rail, ~224px expanded, section labels, active item styling, tooltips)
+
+### 13.2 Exact Adopted Token Values & Semantics
+
+| Token Dimension | Supabase Studio Value Adopted | Source Reference |
+|---|---|---|
+| **Font Stack** | `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` | Self-hosted system stack, CSP-compliant |
+| **Type Scale** | Default body: `text-sm` (13px / 14px), labels & meta: `text-xs` (12px), page title: `text-base` (16px, semibold), section titles: `text-sm` / `text-13` | `packages/ui/src/lib/constants.ts` (`SIZE.text`) |
+| **Control Heights** | `tiny: 26-28px`, `small: 32px`, `medium: 36px` (Studio controls are tight: buttons, inputs, selects default to 28-32px) | `packages/ui/src/lib/constants.ts` (`SIZE.height`) |
+| **Table Rows** | Dense table rows ~36px (`h-9`), sticky table headers (`bg-surface-200` / `bg-200`) with 12px uppercase meta | `apps/design-system/content/docs/ui-patterns/tables.mdx` |
+| **Icon Sizing** | Default 16px (`size={16}` or `h-4 w-4`) with `strokeWidth={1.5}` | `apps/design-system/content/docs/icons.mdx` |
+| **Corner Radius** | Base `rounded-md` ~6px (`--radius-md: 6px`, `--radius-sm: 4px`, `--radius-lg: 8px`) | `packages/ui/src/lib/raised-control-surface.ts` |
+| **Brand Hue** | Blue `221` (preserving Brand Sewa identity while adopting Supabase's neutral ramp and semantics) | `packages/ui/src/tokens.css` |
+| **Dark Neutrals** | Neutral near-black gray scale (`--background: hsl(0, 0%, 8.5%)` / `#161616`, `--surface-100: hsl(0, 0%, 11%)` / `#1c1c1c`, `--surface-200: hsl(0, 0%, 14%)`, `--surface-300: hsl(0, 0%, 17%)`) instead of navy | `packages/ui/build/css/themes/dark.css` |
+| **Light Neutrals** | Off-white surfaces (`--background: hsl(0, 0%, 99%)`, `--surface-100: hsl(0, 0%, 97%)`, `--surface-200: hsl(0, 0%, 94%)`) | `packages/ui/build/css/themes/light.css` |
+| **Foreground Levels** | `foreground` (default text ~95% L), `foreground-light` (light text), `foreground-lighter` (secondary text ~65-70% L), `foreground-muted` (muted text) | `apps/design-system/content/docs/tailwind-classes.mdx` |
+| **Borders** | Subtle 1px borders (`--border: hsla(0, 0%, 100%, 0.08)` in dark mode, `hsl(0, 0%, 88%)` in light mode; `--border-strong: hsla(0, 0%, 100%, 0.14)`) | `packages/ui/build/css/source/semantic.css` |
+| **Focus Ring** | Accessible brand-blue outline (`outline: 2px solid var(--ring); outline-offset: 2px`) | WCAG 2.2 AA compliant |
+
+### 13.3 Attribution Notice
+In accordance with Supabase's Apache-2.0 / MIT licensing, no proprietary logos, SVG trademarks, or assets are copied. Structural CSS variables, semantic layouts, and fragment hierarchy patterns are referenced and noted in `DEPENDENCIES.md`.

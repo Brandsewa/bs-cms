@@ -1,4 +1,4 @@
-export { Breadcrumbs } from './page';
+export { Breadcrumbs, PageBreadcrumbs } from './page';
 export type { BreadcrumbItem, BreadcrumbsProps } from './page';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './page';
 export { PageContainer, PageHeader, PageNav, PageSection } from './page';

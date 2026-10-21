@@ -99,6 +99,9 @@ All licences permissive (MIT unless noted). Sizes are approximate gzipped minifi
 | `vaul` | Drawer built on Radix dialog (bottom sheet) | Drag-to-dismiss not required by spec. |
 | `jest-axe` | `packages/ui/test/axe.ts` helper | Direct axe-core run with documented jsdom rule overrides. |
 
+### 4.4 Design System Attribution
+- **Supabase Design System (`github.com/supabase/supabase`)**: Licensed under Apache-2.0. Structural layout models (PageContainer, PageHeader, PageNav, PageSection), token hierarchy (layered surfaces, foreground levels, control height ratios), and Studio sidebar pattern are adapted for BS CMS. No proprietary logos, trademarks, or graphical assets were copied.
+
 Pending approval (not installed): `eslint-plugin-react-hooks` (hook dep linting; requested in PR #1).
 
 ---

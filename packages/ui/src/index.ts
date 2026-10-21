@@ -234,6 +234,7 @@ export {
   Banner,
   BannerArea,
   Breadcrumbs,
+  PageBreadcrumbs,
   Card,
   CardContent,
   CardDescription,

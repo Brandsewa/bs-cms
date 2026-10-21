@@ -43,6 +43,10 @@ export interface AppSidebarProps {
   /** localStorage key for the collapsed state (default bs-sidebar-collapsed). */
   storageKey?: string;
   className?: string;
+  /** Optional top slot for site switcher / branding */
+  header?: ReactNode;
+  /** Optional bottom slot for user profile / status */
+  footer?: ReactNode;
 }
 
 function readStoredCollapsed(key: string): boolean {
@@ -67,6 +71,8 @@ export function AppSidebar({
   onCollapsedChange,
   storageKey = 'bs-sidebar-collapsed',
   className,
+  header,
+  footer,
 }: AppSidebarProps) {
   const { t } = useI18n();
   const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(() =>
@@ -103,23 +109,24 @@ export function AppSidebar({
     const content = (
       <>
         {item.icon ? (
-          <item.icon
-            className={cn(
-              'h-4 w-4 shrink-0',
-              collapsed && 'mx-auto',
-              isActive ? 'text-primary' : 'text-muted-foreground'
-            )}
-          />
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+            <item.icon
+              className={cn(
+                'h-4 w-4 shrink-0 transition-colors',
+                isActive ? 'text-primary' : 'text-foreground-lighter'
+              )}
+            />
+          </span>
         ) : null}
         {!collapsed ? <span className="truncate">{item.label}</span> : null}
         {!collapsed && item.badge != null ? <span className="ml-auto">{item.badge}</span> : null}
       </>
     );
-    const className = cn(
-      'flex items-center gap-2 rounded-md px-2 py-1.5 text-13 text-foreground transition-colors',
-      'hover:bg-surface-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-      isActive && 'bg-accent font-medium',
-      collapsed && 'justify-center px-0'
+    const itemClassName = cn(
+      'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-13 text-foreground-light transition-colors',
+      'hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      isActive && 'bg-surface-200 text-foreground font-medium',
+      collapsed && 'h-9 w-9 justify-center px-0 mx-auto'
     );
     const linkNode =
       renderLink !== undefined ? (
@@ -127,7 +134,7 @@ export function AppSidebar({
       ) : (
         <a
           href={`#${item.id}`}
-          className={className}
+          className={itemClassName}
           aria-current={isActive ? 'page' : undefined}
           aria-label={collapsed ? item.label : undefined}
         >
@@ -140,8 +147,8 @@ export function AppSidebar({
       // The Tooltip wrapper renders its own trigger + content; nesting
       // explicit Trigger/Content inside it double-slots and throws.
       return (
-        <li key={item.id}>
-          <Tooltip content={item.label} delayDuration={200} side="right">
+        <li key={item.id} className="flex justify-center">
+          <Tooltip content={item.label} delayDuration={150} side="right">
             {linkNode}
           </Tooltip>
         </li>
@@ -154,53 +161,63 @@ export function AppSidebar({
     <nav
       aria-label={t('sidebar.groups')}
       className={cn(
-        'flex h-full flex-col gap-4 overflow-y-auto border-r border-border bg-card py-3 transition-[width] duration-[var(--duration-base)]',
-        collapsed ? 'w-14 px-1.5' : 'w-60 px-3',
+        'flex h-full flex-col gap-3 overflow-y-auto border-r border-border bg-background py-3 transition-[width] duration-[var(--duration-base)]',
+        collapsed ? 'w-14 px-2' : 'w-56 px-3',
         className
       )}
     >
-      <div className={cn('flex items-center gap-2', collapsed && 'justify-center')}>
-        <span
-          className={cn(
-            'flex h-7 w-7 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground'
-          )}
-          aria-hidden="true"
-        >
-          BS
-        </span>
-        {!collapsed ? <span className="text-sm font-semibold text-foreground">BS CMS</span> : null}
-      </div>
+      {header ? (
+        header
+      ) : (
+        <div className={cn('flex items-center gap-2.5 px-1 py-1', collapsed && 'justify-center px-0')}>
+          <span
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground shadow-xs'
+            )}
+            aria-hidden="true"
+          >
+            BS
+          </span>
+          {!collapsed ? (
+            <div className="flex flex-col min-w-0">
+              <span className="text-13 font-semibold leading-tight text-foreground truncate">BS CMS</span>
+              <span className="text-[11px] text-foreground-muted leading-tight truncate">Studio</span>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {visibleGroups.map((group) => (
-        <div key={group.id}>
+        <div key={group.id} className="space-y-1">
           {group.label && !collapsed ? (
-            <p className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="px-2.5 text-[11px] font-medium tracking-wider uppercase text-foreground-muted">
               {group.label}
             </p>
           ) : null}
-          {group.label && collapsed ? <div className="mx-2 my-2 border-t border-border" /> : null}
+          {group.label && collapsed ? <div className="mx-1 my-1.5 border-t border-border" /> : null}
           <ul className="space-y-0.5">{group.items.map(renderItem)}</ul>
         </div>
       ))}
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto space-y-2 pt-2">
+        {footer ? footer : null}
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-8 w-full items-center gap-2 rounded-md px-2 text-13 text-muted-foreground transition-colors',
+            'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted transition-colors',
             'hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            collapsed && 'justify-center px-0'
+            collapsed && 'h-8 w-8 justify-center px-0 mx-auto'
           )}
         >
           {collapsed ? (
-            <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+            <PanelLeftOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
           ) : (
             <>
-              <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
-              {t('sidebar.collapse')}
+              <PanelLeftClose className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{t('sidebar.collapse')}</span>
             </>
           )}
         </button>

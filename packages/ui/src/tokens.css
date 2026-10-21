@@ -15,6 +15,9 @@
   /* Semantic Theme - Light */
   --background: hsl(0, 0%, 100%);
   --foreground: hsl(222.2, 84%, 4.9%);
+  --foreground-light: hsl(0, 0%, 25%);
+  --foreground-lighter: hsl(0, 0%, 38%);
+  --foreground-muted: hsl(0, 0%, 42%);
 
   --surface-100: hsl(210, 20%, 98%);
   --surface-200: hsl(210, 20%, 95%);
@@ -127,6 +130,9 @@
 .dark {
   --background: hsl(222.2, 84%, 4.9%);
   --foreground: hsl(210, 40%, 98%);
+  --foreground-light: hsl(0, 0%, 82%);
+  --foreground-lighter: hsl(0, 0%, 70%);
+  --foreground-muted: hsl(0, 0%, 58%);
 
   --surface-100: hsl(217.2, 32.6%, 10%);
   --surface-200: hsl(217.2, 32.6%, 14%);

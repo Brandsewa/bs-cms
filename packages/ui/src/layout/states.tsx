@@ -19,27 +19,31 @@ export interface EmptyStateProps {
   description?: string;
   /** Primary action button (e.g. "New post", "Clear filters"). */
   action?: ReactNode;
+  children?: ReactNode;
   className?: string;
 }
 
-export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, action, children, className }: EmptyStateProps) {
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-surface-100 px-6 py-12 text-center',
+        'flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-surface-100/60 px-6 py-10 text-center',
         className
       )}
     >
       {icon ? (
-        <div className="text-muted-foreground [&_svg]:h-8 [&_svg]:w-8" aria-hidden="true">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-200 text-foreground-lighter [&_svg]:h-5 [&_svg]:w-5" aria-hidden="true">
           {icon}
         </div>
       ) : null}
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      {description ? (
-        <p className="max-w-sm text-13 text-muted-foreground">{description}</p>
-      ) : null}
-      {action ? <div className="mt-1">{action}</div> : null}
+      <div className="space-y-1">
+        <p className="text-13 font-semibold text-foreground">{title}</p>
+        {description ? (
+          <p className="max-w-sm text-13 leading-normal text-foreground-lighter">{description}</p>
+        ) : null}
+      </div>
+      {action ? <div className="mt-2">{action}</div> : null}
+      {children}
     </div>
   );
 }

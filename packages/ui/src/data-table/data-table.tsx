@@ -545,9 +545,9 @@ export function DataTable<T>({
         aria-sort={ariaSort}
         style={{ width: columnSizes[columnId] ?? column.width ?? 160, minWidth: column.minWidth }}
         className={cn(
-          'group relative select-none border-b border-border bg-card px-2 py-1.5 text-left align-middle',
+          'group relative select-none border-b border-border bg-surface-100 px-2.5 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-foreground-lighter',
           column.align === 'right' && 'text-right',
-          column.sticky && 'sticky left-0 z-10'
+          column.sticky && 'sticky left-0 z-10 bg-surface-100'
         )}
       >
         {sortable ? (
