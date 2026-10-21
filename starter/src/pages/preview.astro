@@ -1,0 +1,101 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCanonicalUrl } from '../lib/bs';
+---
+
+<BaseLayout
+  title="Preview Mode | BS CMS"
+  description="Live content preview from BS CMS."
+  canonical={getCanonicalUrl('/preview/')}
+  robots={{ noindex: true, nofollow: true }}
+>
+  <div id="preview-loading" class="empty-state" style="padding: 3rem 1rem; text-align: center;">
+    <p>⏳ Loading live preview from CMS...</p>
+  </div>
+
+  <div id="preview-error" class="empty-state" style="display: none; padding: 3rem 1rem; text-align: center; color: #dc2626;">
+    <p id="preview-error-message">Failed to load preview.</p>
+  </div>
+
+  <article id="preview-container" class="post-detail" style="display: none;">
+    <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 2rem; font-size: 0.875rem; color: #92400e;">
+      <strong>⚠️ Live Draft Preview:</strong> You are viewing unsaved or draft content retrieved via secure preview token.
+    </div>
+
+    <header class="post-header">
+      <h1 id="preview-title"></h1>
+      <div id="preview-meta" class="post-meta" style="margin-top: 0.5rem; color: var(--color-text-secondary);"></div>
+    </header>
+
+    <div id="preview-content" class="post-content" style="margin-top: 2rem;"></div>
+  </article>
+
+  <script is:inline>
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const collection = params.get('collection');
+      const id = params.get('id');
+      const token = params.get('token');
+
+      const loadingEl = document.getElementById('preview-loading');
+      const errorEl = document.getElementById('preview-error');
+      const errorMsgEl = document.getElementById('preview-error-message');
+      const containerEl = document.getElementById('preview-container');
+      const titleEl = document.getElementById('preview-title');
+      const metaEl = document.getElementById('preview-meta');
+      const contentEl = document.getElementById('preview-content');
+
+      if (!collection || !id || !token) {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorMsgEl.textContent = 'Missing required preview parameters (collection, id, token).';
+        return;
+      }
+
+      try {
+        const cmsBase = window.location.origin;
+        const res = await fetch(`${cmsBase}/api/v1/preview/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+
+        const json = await res.json();
+        const entry = json.data || {};
+
+        titleEl.textContent = entry.title || 'Untitled';
+        metaEl.textContent = `Status: ${entry.status || 'draft'} • ID: ${entry.id || id}`;
+
+        if (Array.isArray(entry.blocks) && entry.blocks.length > 0) {
+          contentEl.innerHTML = entry.blocks.map(block => {
+            if (block.type === 'hero') {
+              return `<section class="hero" style="margin: 1.5rem 0; padding: 2rem;">
+                ${block.heading ? `<h2>${block.heading}</h2>` : ''}
+                ${block.text ? `<p class="hero-subtitle">${block.text}</p>` : ''}
+              </section>`;
+            }
+            if (block.type === 'text') {
+              return `<p>${block.content || block.text || ''}</p>`;
+            }
+            return '';
+          }).join('');
+        } else if (entry.content_html) {
+          contentEl.innerHTML = entry.content_html;
+        } else if (entry.body_markdown || entry.content) {
+          contentEl.innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit;">${entry.body_markdown || entry.content}</pre>`;
+        } else if (entry.summary) {
+          contentEl.innerHTML = `<p>${entry.summary}</p>`;
+        } else {
+          contentEl.innerHTML = '<p><em>No content available in this draft.</em></p>';
+        }
+
+        loadingEl.style.display = 'none';
+        containerEl.style.display = 'block';
+      } catch (err) {
+        loadingEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        errorMsgEl.textContent = 'Preview Error: ' + (err.message || String(err));
+      }
+    })();
+  </script>
+</BaseLayout>

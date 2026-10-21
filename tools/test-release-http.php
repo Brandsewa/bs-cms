@@ -1351,6 +1351,150 @@ if ($resOAuth['status'] === 302) {
 }
 passTest("17g. /oauth/authorize routing is unaffected (routed to PHP OAuthController)");
 
+// 18. Phase 7: Draft Preview Mode & Frontend Status Endpoints
+echo "Testing 18: Step 7.6 Draft Preview & Frontend Status...\n";
+
+// 18a. Frontend Status endpoint GET /api/v1/frontend/status
+$resFrontendStatus = httpRequest('GET', "{$baseUrl}/api/v1/frontend/status", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resFrontendStatus['status'] !== 200) {
+    failTest("GET /api/v1/frontend/status expected 200, got {$resFrontendStatus['status']}: {$resFrontendStatus['body']}");
+}
+if (!isset($resFrontendStatus['json']['connected']) || !isset($resFrontendStatus['json']['target_type'])) {
+    failTest("GET /api/v1/frontend/status missing expected fields: " . json_encode($resFrontendStatus['json']));
+}
+passTest("18a. GET /api/v1/frontend/status returned connected state and metadata");
+
+// 18b. Create draft post and generate preview token
+$resCreateDraft = httpRequest('POST', "{$baseUrl}/api/v1/collections/posts/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Secret Draft Post for Preview',
+    'status' => 'draft',
+    'summary' => 'Preview test draft summary',
+    'body_markdown' => '## Markdown Preview Body Content',
+]);
+if ($resCreateDraft['status'] !== 201) {
+    failTest("Failed creating draft post: {$resCreateDraft['status']}: {$resCreateDraft['body']}");
+}
+$draftPostId = $resCreateDraft['json']['id'] ?? '';
+if ($draftPostId === '') {
+    failTest("Missing draft post id in response");
+}
+
+// Generate preview token
+$resPrevToken = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $draftPostId,
+]);
+if ($resPrevToken['status'] !== 201) {
+    failTest("POST /api/v1/preview/token expected 201, got {$resPrevToken['status']}: {$resPrevToken['body']}");
+}
+$prevToken = $resPrevToken['json']['token'] ?? '';
+$previewUrl = $resPrevToken['json']['preview_url'] ?? '';
+if ($prevToken === '' || !str_starts_with($prevToken, 'bsprev_')) {
+    failTest("Invalid preview token format: {$prevToken}");
+}
+if (!str_contains($previewUrl, '/preview/')) {
+    failTest("Invalid preview_url: {$previewUrl}");
+}
+passTest("18b. Preview token generated successfully with bsprev_ prefix and preview_url");
+
+// 18c. Public draft retrieval GET /api/v1/preview/posts/{id}?token=...
+$resGetDraft = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token={$prevToken}");
+if ($resGetDraft['status'] !== 200) {
+    failTest("GET draft preview expected 200, got {$resGetDraft['status']}: {$resGetDraft['body']}");
+}
+if (($resGetDraft['json']['data']['title'] ?? '') !== 'Secret Draft Post for Preview') {
+    failTest("GET draft preview returned incorrect data: " . json_encode($resGetDraft['json']));
+}
+// Validate preview headers: no-store, noindex
+$cacheControl = strtolower($resGetDraft['headers']['cache-control'] ?? '');
+if (!str_contains($cacheControl, 'no-store')) {
+    failTest("Draft preview endpoint missing Cache-Control: no-store header, got: {$cacheControl}");
+}
+$robotsTag = strtolower($resGetDraft['headers']['x-robots-tag'] ?? '');
+if (!str_contains($robotsTag, 'noindex')) {
+    failTest("Draft preview endpoint missing X-Robots-Tag: noindex header, got: {$robotsTag}");
+}
+passTest("18c. Public draft preview endpoint returns draft content with no-store and noindex headers");
+
+// 18d. Security & Access Control: Invalid token, mismatching entry, or missing token
+$resNoToken = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}");
+if ($resNoToken['status'] !== 401) {
+    failTest("GET draft preview without token expected 401, got {$resNoToken['status']}");
+}
+
+$resBadToken = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token=bsprev_invalidtoken12345");
+if ($resBadToken['status'] !== 403) {
+    failTest("GET draft preview with bad token expected 403, got {$resBadToken['status']}");
+}
+
+// 18e. Revocation DELETE /api/v1/preview/token
+$resRevokeToken = httpRequest('DELETE', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'token' => $prevToken,
+]);
+if ($resRevokeToken['status'] !== 200 || !($resRevokeToken['json']['revoked'] ?? false)) {
+    failTest("DELETE /api/v1/preview/token failed: " . json_encode($resRevokeToken['json']));
+}
+
+$resAfterRevoke = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token={$prevToken}");
+if ($resAfterRevoke['status'] !== 403) {
+    failTest("GET draft preview with revoked token expected 403, got {$resAfterRevoke['status']}");
+}
+passTest("18e. Preview token revocation verified (immediate 403 on revoked token)");
+
+// 18f. About Page creation and dynamic navigation appearance
+$resAboutPage = httpRequest('POST', "{$baseUrl}/api/v1/collections/pages/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'About',
+    'summary' => 'About Brand Sewa CMS',
+    'status' => 'published',
+    'show_in_nav' => true,
+    'blocks' => [
+        [
+            'type' => 'hero',
+            'heading' => 'About Brand Sewa CMS',
+            'text' => 'High performance static CMS publishing with Astro.',
+        ],
+        [
+            'type' => 'text',
+            'content' => 'BS CMS empowers developers with agent-first tooling and instant delivery.',
+        ]
+    ],
+]);
+if ($resAboutPage['status'] !== 201) {
+    failTest("POST /collections/pages/entries for About page expected 201, got {$resAboutPage['status']}: {$resAboutPage['body']}");
+}
+
+// Verify that GET /api/v1/public/site now includes About in navigation
+$resPublicSite = httpRequest('GET', "{$baseUrl}/api/v1/public/site");
+if ($resPublicSite['status'] !== 200) {
+    failTest("GET /api/v1/public/site expected 200, got {$resPublicSite['status']}");
+}
+$nav = $resPublicSite['json']['navigation'] ?? [];
+$hasAboutNav = false;
+foreach ($nav as $item) {
+    if (($item['label'] ?? '') === 'About' && ($item['url'] ?? '') === '/about/') {
+        $hasAboutNav = true;
+        break;
+    }
+}
+if (!$hasAboutNav) {
+    failTest("Published page with slug 'about' did not appear in GET /api/v1/public/site navigation: " . json_encode($nav));
+}
+passTest("18f. Dynamic 'About' page created with blocks and verified in public navigation");
+
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";
 echo "======================================================\n";

@@ -20,6 +20,7 @@ use BsCms\Http\Controllers\MediaFoldersController;
 use BsCms\Http\Controllers\NotificationsController;
 use BsCms\Http\Controllers\OpenApiController;
 use BsCms\Http\Controllers\PendingChangesController;
+use BsCms\Http\Controllers\PreviewController;
 use BsCms\Http\Controllers\PublicEntriesController;
 use BsCms\Http\Controllers\PublicSeoController;
 use BsCms\Http\Controllers\PublishingController;
@@ -71,7 +72,8 @@ final class ApiRoutes
         ?DashboardController $dashboard = null,
         ?AiController $ai = null,
         ?PublishingController $publishing = null,
-        ?BuildTokensController $buildTokens = null
+        ?BuildTokensController $buildTokens = null,
+        ?PreviewController $preview = null
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -367,6 +369,13 @@ final class ApiRoutes
             $routes->get('/api/v1/tokens/build', [$buildTokens, 'index']);
             $routes->post('/api/v1/tokens/build', [$buildTokens, 'create']);
             $routes->delete('/api/v1/tokens/build/{id}', [$buildTokens, 'revoke']);
+        }
+
+        // 27. Preview Draft endpoints
+        if ($preview !== null) {
+            $routes->post('/api/v1/preview/token', [$preview, 'createToken']);
+            $routes->delete('/api/v1/preview/token', [$preview, 'revokeToken']);
+            $routes->get('/api/v1/preview/{collection}/{id}', [$preview, 'getDraft']);
         }
     }
 }
