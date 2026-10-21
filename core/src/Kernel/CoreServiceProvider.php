@@ -760,6 +760,29 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
+
+        // SPRINT-A BEGIN
+        $container->singleton(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\SecuritySettingsController {
+            return new \BsCms\Http\Controllers\SprintA\SecuritySettingsController(
+                $c->get(\BsCms\Settings\SettingsRepository::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\QueueJobsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\QueueJobsController {
+            return new \BsCms\Http\Controllers\SprintA\QueueJobsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\AiConnectionsController {
+            return new \BsCms\Http\Controllers\SprintA\AiConnectionsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+        // SPRINT-A END
     }
 
     public function boot(Container $container): void

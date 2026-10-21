@@ -73,7 +73,12 @@ final class ApiRoutes
         ?AiController $ai = null,
         ?PublishingController $publishing = null,
         ?BuildTokensController $buildTokens = null,
-        ?PreviewController $preview = null
+        ?PreviewController $preview = null,
+        // SPRINT-A BEGIN
+        ?\BsCms\Http\Controllers\SprintA\SecuritySettingsController $securitySettings = null,
+        ?\BsCms\Http\Controllers\SprintA\QueueJobsController $queueJobs = null,
+        ?\BsCms\Http\Controllers\SprintA\AiConnectionsController $aiConnections = null
+        // SPRINT-A END
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -377,5 +382,22 @@ final class ApiRoutes
             $routes->delete('/api/v1/preview/token', [$preview, 'revokeToken']);
             $routes->get('/api/v1/preview/{collection}/{id}', [$preview, 'getDraft']);
         }
+
+        // SPRINT-A BEGIN
+        if ($securitySettings !== null) {
+            $routes->get('/api/v1/settings/security', [$securitySettings, 'getSettings']);
+            $routes->put('/api/v1/settings/security', [$securitySettings, 'updateSettings']);
+        }
+
+        if ($queueJobs !== null) {
+            $routes->get('/api/v1/jobs', [$queueJobs, 'list']);
+            $routes->post('/api/v1/jobs/{id}/retry', [$queueJobs, 'retry']);
+        }
+
+        if ($aiConnections !== null) {
+            $routes->get('/api/v1/ai/grants', [$aiConnections, 'listGrants']);
+            $routes->delete('/api/v1/ai/grants/{id}', [$aiConnections, 'revokeGrant']);
+        }
+        // SPRINT-A END
     }
 }
