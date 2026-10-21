@@ -204,3 +204,119 @@ export const ButtonNode = Node.create({
     ];
   },
 });
+
+export const EmbedNode = Node.create({
+  name: 'embed',
+  group: 'block',
+  atom: true,
+
+  addAttributes() {
+    return {
+      url: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-url') || '',
+        renderHTML: (attrs) => ({ 'data-url': attrs.url }),
+      },
+      caption: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-caption') || '',
+        renderHTML: (attrs) => ({ 'data-caption': attrs.caption }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="embed"]' }, { tag: 'figure.embed' }];
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    const url = node.attrs.url || '';
+    const caption = node.attrs.caption || '';
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        class: 'embed-block my-4 rounded-md border border-border bg-surface-100 p-4 text-center',
+        'data-type': 'embed',
+        'data-url': url,
+      }),
+      [
+        'div',
+        { class: 'text-xs text-muted-foreground flex items-center justify-center gap-2 mb-2' },
+        ['span', { class: 'font-semibold uppercase tracking-wider text-foreground' }, 'Embed (Click-to-load)'],
+        url ? `— ${url}` : '',
+      ],
+      [
+        'div',
+        { class: 'rounded bg-surface-200 border border-border/50 py-6 px-4 text-xs font-mono text-muted-foreground truncate' },
+        url || 'No embed URL provided',
+      ],
+      caption ? ['div', { class: 'text-xs text-muted-foreground mt-2 italic' }, caption] : '',
+    ];
+  },
+});
+
+export const TableBlockNode = Node.create({
+  name: 'tableBlock',
+  group: 'block',
+  atom: true,
+
+  addAttributes() {
+    return {
+      rows: {
+        default: [
+          ['Header 1', 'Header 2', 'Header 3'],
+          ['Data 1', 'Data 2', 'Data 3'],
+          ['Data 4', 'Data 5', 'Data 6'],
+        ],
+        parseHTML: (el) => {
+          try {
+            const raw = el.getAttribute('data-rows');
+            return raw ? JSON.parse(raw) : [];
+          } catch {
+            return [];
+          }
+        },
+        renderHTML: (attrs) => ({
+          'data-rows': JSON.stringify(attrs.rows || []),
+        }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="tableBlock"]' }, { tag: 'table.article-table' }];
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    const rows = (node.attrs.rows as string[][]) || [];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        class: 'table-block my-4 overflow-x-auto rounded-md border border-border',
+        'data-type': 'tableBlock',
+      }),
+      [
+        'table',
+        { class: 'w-full text-left text-xs border-collapse' },
+        [
+          'thead',
+          { class: 'bg-surface-200 border-b border-border text-foreground font-semibold' },
+          [
+            'tr',
+            {},
+            ...(rows[0] || []).map((col) => ['th', { class: 'p-2 border-r border-border last:border-r-0' }, col]),
+          ],
+        ],
+        [
+          'tbody',
+          {},
+          ...rows.slice(1).map((row) => [
+            'tr',
+            { class: 'border-b border-border last:border-b-0 hover:bg-surface-50' },
+            ...row.map((cell) => ['td', { class: 'p-2 border-r border-border last:border-r-0' }, cell]),
+          ]),
+        ],
+      ],
+    ];
+  },
+});

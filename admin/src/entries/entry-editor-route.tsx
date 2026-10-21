@@ -19,7 +19,16 @@ import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
-import { PublishPanel, SeoPanel, ConflictDialog } from './entry-panels';
+import {
+  PublishPanel,
+  SeoPanel,
+  ConflictDialog,
+  RevisionsPanel,
+  TaxonomyPanel,
+  AuthorPanel,
+  FeaturedImagePanel,
+} from './entry-panels';
+import type { MediaItem } from '../media/media-picker-modal';
 import type { CollectionSchema, EntryItem } from './types';
 
 export interface EntryEditorRouteProps {
@@ -55,6 +64,9 @@ export function EntryEditorRoute({
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
+  const [featuredImage, setFeaturedImage] = useState<MediaItem | null>(null);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [authorId, setAuthorId] = useState<string | null>(null);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [version, setVersion] = useState<number>(1);
@@ -102,19 +114,29 @@ export function EntryEditorRoute({
     let mounted = true;
     async function loadSchema() {
       try {
+        setLoadingSchema(true);
         const res = await apiClient.request<CollectionSchema>('GET', `/collections/${collectionHandle}`);
-        if (mounted) {
-          setSchemaStatusCode(res.status);
-          if (res.ok && res.data) {
-            setSchema(res.data);
+        if (!mounted) return;
+
+        if (res.ok && res.data) {
+          setSchema(res.data);
+          setSchemaStatusCode(200);
+        } else {
+          setSchemaStatusCode(res.status || 500);
+          if (res.status === 403) {
+            setErrorMessage('You do not have permission to access this collection.');
+          } else if (res.status === 404) {
+            setErrorMessage(`Collection '${collectionHandle}' does not exist.`);
           }
         }
-      } catch (err) {
-        console.error('Failed to load schema:', err);
+      } catch (err: any) {
+        if (!mounted) return;
+        setSchemaStatusCode(err?.status || 500);
       } finally {
         if (mounted) setLoadingSchema(false);
       }
     }
+
     loadSchema();
     return () => {
       mounted = false;
@@ -124,43 +146,47 @@ export function EntryEditorRoute({
   // 2. Fetch existing entry if editing
   const loadEntry = useCallback(async () => {
     if (isNew) return;
-    setLoadingEntry(true);
-    setErrorMessage(null);
     try {
+      setLoadingEntry(true);
       const res = await apiClient.request<EntryItem>('GET', `/collections/${collectionHandle}/entries/${entryId}`);
-      setEntryStatusCode(res.status);
       if (res.ok && res.data) {
         const item = res.data;
+        const itemData = (item.data || {}) as Record<string, any>;
         setTitle(item.title || '');
         setSlug(item.slug || '');
-        setStatus(item.status || 'draft');
-        setBodyContent(item.body || null);
-        setExcerpt(item.excerpt || '');
-        setMetaTitle(item.seo?.title || '');
-        setMetaDescription(item.seo?.description || '');
+        setStatus((item.status as any) || 'draft');
+        setBodyContent(item.body || itemData.body || null);
+        setExcerpt(item.excerpt || itemData.excerpt || '');
+        setMetaTitle(item.seo?.title || itemData.seo?.title || '');
+        setMetaDescription(item.seo?.description || itemData.seo?.description || '');
         setIsFeatured(Boolean(item.is_featured));
         setPublishedAt(item.published_at || null);
         setScheduledAt(item.scheduled_at || null);
         setVersion(typeof item.version === 'number' ? item.version : 1);
+        if (item.author_id) setAuthorId(item.author_id);
+        if (Array.isArray(item.category_ids)) setCategoryIds(item.category_ids as string[]);
+        if (item.featured_image) setFeaturedImage(item.featured_image as unknown as MediaItem);
 
-        initialSnapshotRef.current = JSON.stringify({
+        const snapshot = JSON.stringify({
           title: item.title || '',
           slug: item.slug || '',
           status: item.status || 'draft',
-          body: item.body || null,
-          excerpt: item.excerpt || '',
-          metaTitle: item.seo?.title || '',
-          metaDescription: item.seo?.description || '',
+          body: item.body || itemData.body || null,
+          excerpt: item.excerpt || itemData.excerpt || '',
+          metaTitle: item.seo?.title || itemData.seo?.title || '',
+          metaDescription: item.seo?.description || itemData.seo?.description || '',
           isFeatured: Boolean(item.is_featured),
+          categoryIds: item.category_ids || [],
+          authorId: item.author_id || null,
         });
+        initialSnapshotRef.current = snapshot;
         setIsDirty(false);
+        setEntryStatusCode(200);
       } else {
-        const problemMsg = !res.ok ? res.problem?.detail : undefined;
-        setErrorMessage(problemMsg || 'Could not load entry details');
+        setEntryStatusCode(res.status || 500);
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Network error while loading entry';
-      setErrorMessage(msg);
+    } catch (err: any) {
+      setEntryStatusCode(err?.status || 500);
     } finally {
       setLoadingEntry(false);
     }
@@ -181,13 +207,15 @@ export function EntryEditorRoute({
       metaTitle,
       metaDescription,
       isFeatured,
+      categoryIds,
+      authorId,
     });
     if (initialSnapshotRef.current) {
       setIsDirty(current !== initialSnapshotRef.current);
     } else if (title || slug || excerpt || bodyContent) {
       setIsDirty(true);
     }
-  }, [title, slug, status, bodyContent, excerpt, metaTitle, metaDescription, isFeatured]);
+  }, [title, slug, status, bodyContent, excerpt, metaTitle, metaDescription, isFeatured, categoryIds, authorId]);
 
   // Unsaved changes beforeunload guard
   useEffect(() => {
@@ -227,6 +255,9 @@ export function EntryEditorRoute({
         body: cleanedBody,
         excerpt: excerpt.trim(),
         is_featured: isFeatured,
+        author_id: authorId,
+        category_ids: categoryIds,
+        featured_image_id: featuredImage?.id || null,
         seo: {
           title: metaTitle.trim() || undefined,
           description: metaDescription.trim() || undefined,
@@ -250,51 +281,68 @@ export function EntryEditorRoute({
             navigate({
               to: '/entries/$collection/$id',
               params: { collection: collectionHandle, id: res.data.id },
-              replace: true,
             });
           } else {
-            const detail = res.ok === false ? res.problem?.detail || 'Failed to create entry.' : 'Failed to create entry.';
-            setErrorMessage(detail);
-            errorToast(detail);
+            const err = !res.ok ? (res as any).error?.message || 'Failed to create entry.' : 'Failed to create entry.';
+            errorToast(err);
+            setErrorMessage(err);
           }
         } else {
-          // Update (PUT) with If-Match version
-          const expectedVersion = forceVersion !== undefined ? forceVersion : version;
-          const res = await apiClient.request<EntryItem>('PUT', `/collections/${collectionHandle}/entries/${entryId}`, {
-            body: payload,
-            ifMatch: expectedVersion ? String(expectedVersion) : undefined,
-          });
+          // Update (PATCH) with If-Match concurrency header
+          const headers: Record<string, string> = {};
+          const versionToMatch = forceVersion !== undefined ? forceVersion : version;
+          if (versionToMatch) {
+            headers['If-Match'] = `"${versionToMatch}"`;
+          }
+
+          const res = await apiClient.request<EntryItem>(
+            'PATCH',
+            `/collections/${collectionHandle}/entries/${entryId}`,
+            {
+              body: payload,
+              headers,
+            }
+          );
 
           if (res.ok && res.data) {
-            successToast('Changes saved successfully.');
-            setVersion(typeof res.data.version === 'number' ? res.data.version : expectedVersion + 1);
-            setStatus(res.data.status);
-            setIsDirty(false);
-            initialSnapshotRef.current = JSON.stringify({
-              title: payload.title,
-              slug: payload.slug,
-              status: payload.status,
+            successToast('Entry saved successfully.');
+            setVersion(typeof res.data.version === 'number' ? res.data.version : version + 1);
+            setStatus(targetStatus);
+            const snapshot = JSON.stringify({
+              title: title.trim(),
+              slug: slug.trim(),
+              status: targetStatus,
               body: cleanedBody,
-              excerpt: payload.excerpt,
-              metaTitle,
-              metaDescription,
+              excerpt: excerpt.trim(),
+              metaTitle: metaTitle.trim(),
+              metaDescription: metaDescription.trim(),
               isFeatured,
+              categoryIds,
+              authorId,
             });
+            initialSnapshotRef.current = snapshot;
+            setIsDirty(false);
           } else if (res.status === 409) {
-            // HTTP 409 Conflict: another user/agent touched this entry
-            const conflictMsg = !res.ok ? res.problem?.detail : undefined;
-            setConflictDetails(conflictMsg || 'Entry was modified concurrently.');
+            // Optimistic concurrency collision
+            const conflictMsg = !res.ok ? (res as any).error?.message : undefined;
+            setConflictDetails(
+              conflictMsg ||
+                'Another user or session saved a newer revision of this entry. Please review conflicts.'
+            );
             setConflictModalOpen(true);
           } else {
-            const detail = !res.ok ? res.problem?.detail || 'Failed to update entry.' : 'Failed to update entry.';
-            setErrorMessage(detail);
-            errorToast(detail);
+            const err = !res.ok ? (res as any).error?.message || 'Failed to update entry.' : 'Failed to update entry.';
+            errorToast(err);
+            setErrorMessage(err);
           }
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Network error while saving';
-        setErrorMessage(msg);
-        errorToast('Network error while saving entry.');
+      } catch (err: any) {
+        if (err?.status === 409) {
+          setConflictDetails('A concurrency conflict occurred. The entry was modified elsewhere.');
+          setConflictModalOpen(true);
+        } else {
+          errorToast(err?.message || 'Error occurred while saving entry.');
+        }
       } finally {
         setSaving(false);
       }
@@ -302,45 +350,101 @@ export function EntryEditorRoute({
     [
       canSave,
       title,
-      slug,
       status,
       bodyContent,
+      slug,
       excerpt,
       isFeatured,
+      authorId,
+      categoryIds,
+      featuredImage,
       metaTitle,
       metaDescription,
       publishedAt,
       scheduledAt,
       isNew,
       collectionHandle,
-      navigate,
-      version,
       entryId,
+      version,
+      navigate,
     ]
   );
 
+  // Restore revision handler
+  const handleRestoreVersion = async (versionId: string) => {
+    try {
+      const res = await apiClient.request<EntryItem>(
+        'POST',
+        `/collections/${collectionHandle}/entries/${entryId}/versions/${versionId}/restore`
+      );
+      if (res.ok) {
+        successToast('Restored past version snapshot.');
+        loadEntry();
+      } else {
+        errorToast('Failed to restore selected version.');
+      }
+    } catch {
+      errorToast('Failed to restore selected version.');
+    }
+  };
+
+  // Preview token creation & launch
+  const handlePreview = async () => {
+    try {
+      const res = await apiClient.request<{ token: string; url?: string }>('POST', '/preview/token', {
+        body: {
+          collection: collectionHandle,
+          id: entryId || 'draft',
+        },
+      });
+
+      if (res.ok && res.data?.token) {
+        const previewUrl = res.data.url || `http://localhost:4321/preview?token=${res.data.token}`;
+        window.open(previewUrl, '_blank');
+      } else {
+        // Fallback preview
+        window.open(`http://localhost:4321/${collectionHandle}/${slug || 'draft'}`, '_blank');
+      }
+    } catch {
+      window.open(`http://localhost:4321/${collectionHandle}/${slug || 'draft'}`, '_blank');
+    }
+  };
+
+  const handleViewOnSite = () => {
+    window.open(`https://example.com/${collectionHandle}/${slug || ''}`, '_blank');
+  };
+
   // Hotkey listener: Ctrl+S and custom bs:save-draft event
   useEffect(() => {
-    const handleSaveDraftEvent = () => {
-      if (canSave && !saving) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
         handleSave();
       }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        handleSaveDraftEvent();
-      }
+    const handleSaveDraftEvent = () => {
+      handleSave();
     };
 
-    window.addEventListener('bs:save-draft', handleSaveDraftEvent);
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('bs:save-draft', handleSaveDraftEvent);
     return () => {
-      window.removeEventListener('bs:save-draft', handleSaveDraftEvent);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('bs:save-draft', handleSaveDraftEvent);
     };
-  }, [canSave, saving, handleSave]);
+  }, [handleSave]);
+
+  // Loading skeleton
+  if (loadingSchema || loadingEntry) {
+    return (
+      <PageContainer width="full">
+        <div className="flex items-center justify-center min-h-[300px]">
+          <Spinner className="h-8 w-8 text-primary" />
+        </div>
+      </PageContainer>
+    );
+  }
 
   const collectionLabel = schema?.label_singular || (collectionHandle === 'pages' ? 'Page' : 'Post');
 
@@ -387,110 +491,94 @@ export function EntryEditorRoute({
     );
   }
 
-  if (loadingSchema || loadingEntry) {
-    return (
-      <PageContainer data-testid="entry-editor-loading" className="flex h-96 items-center justify-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <Spinner className="h-6 w-6" />
-          <span className="text-xs">Loading {collectionLabel.toLowerCase()} editor...</span>
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
-    <PageContainer data-testid="entry-editor-page" className="space-y-6 pb-12">
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+    <PageContainer width="full" className="space-y-6">
+      {/* Top Breadcrumb & Navigation Bar */}
+      <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-3">
-          <a
-            href={`/admin/entries/${collectionHandle}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate({
-                to: '/entries/$collection',
-                params: { collection: collectionHandle },
-              });
-            }}
-            aria-label={`Back to ${schema?.label_plural || 'Entries'}`}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-surface-200 hover:text-foreground"
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate({ to: '/entries/$collection', params: { collection: collectionHandle } })}
+            className="h-8 w-8 p-0"
+            aria-label="Back to entries"
           >
             <ArrowLeft className="h-4 w-4" />
-          </a>
+          </Button>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">
-              {isNew ? `Create ${collectionLabel}` : `Edit ${collectionLabel}`}
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {schema?.label_plural || 'Content'} / {slug || 'untitled'}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                {collectionLabel}
+              </span>
+              <span className="text-xs text-muted-foreground">/</span>
+              <span className="text-sm font-semibold text-foreground">
+                {isNew ? `New ${collectionLabel}` : title || 'Untitled Entry'}
+              </span>
+              {isDirty && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Global Save Button in Header */}
         <div className="flex items-center gap-2">
           <Button
-            type="button"
-            variant="secondary"
             size="sm"
             onClick={() => handleSave()}
             disabled={saving || !canSave}
-            className="flex items-center gap-1.5"
+            className="text-xs"
           >
-            <Save className="h-3.5 w-3.5" />
-            <span>{saving ? 'Saving...' : 'Save Draft'}</span>
+            {saving ? (
+              <Spinner className="h-3.5 w-3.5 mr-1" />
+            ) : (
+              <Save className="h-3.5 w-3.5 mr-1" />
+            )}
+            Save
           </Button>
-
-          {canPublish ? (
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => handleSave('published')}
-              disabled={saving || !canSave}
-            >
-              Publish
-            </Button>
-          ) : null}
         </div>
       </div>
 
-      {/* Error alert if any */}
-      {errorMessage ? (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive-text">
+      {errorMessage && (
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive border border-destructive/20">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
-      ) : null}
+      )}
 
-      {/* Main 2-column layout: Form Body (left 8 cols) & Panels (right 4 cols) */}
+      {/* Main Form Layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column: Title & Tiptap Rich Text Story */}
+        {/* Left / Center Column: Title & Body Editor */}
         <div className="space-y-6 lg:col-span-8">
           <Card className="border-border bg-card">
             <CardContent className="p-6 space-y-4">
+              {/* Main Title Field */}
               <div className="space-y-1.5">
-                <Label htmlFor="entry-title-input" className="text-xs font-medium text-foreground-light">
-                  Title <span className="text-destructive">*</span>
+                <Label htmlFor="entry-title-input" className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
+                  {collectionLabel} Title
                 </Label>
                 <Input
                   id="entry-title-input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Enter title..."
-                  className="text-base font-medium"
-                  required
+                  placeholder={`Enter ${collectionLabel.toLowerCase()} title...`}
+                  className="text-lg font-semibold h-11"
+                  autoFocus={isNew}
                 />
               </div>
 
               {/* Tiptap Article Editor */}
               <div className="space-y-1.5 pt-2">
-                <Label className="text-xs font-medium text-foreground-light">
-                  Article Body (Tiptap Rich Text)
+                <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
+                  Content Body
                 </Label>
                 <TiptapArticleEditor
                   value={bodyContent}
-                  onChange={(json) => setBodyContent(json)}
-                  placeholder="Tell your story or craft documentation with headings, directives, and blocks..."
+                  onChange={(newJson) => setBodyContent(newJson)}
+                  placeholder="Start writing story or type / for directives..."
+                  disabled={!canSave}
                 />
               </div>
 
@@ -529,7 +617,7 @@ export function EntryEditorRoute({
           </Card>
         </div>
 
-        {/* Right Column: Publishing, Slug, SEO Panels */}
+        {/* Right Column: Publishing, Slug, Taxonomies, Revisions, Author, Featured Image */}
         <div className="space-y-6 lg:col-span-4">
           <PublishPanel
             status={status}
@@ -542,6 +630,33 @@ export function EntryEditorRoute({
             onSave={handleSave}
             saving={saving}
             canPublish={canPublish}
+            onPreview={handlePreview}
+            onViewOnSite={handleViewOnSite}
+            onSubmitForReview={() => successToast('Submitted entry for review.')}
+          />
+
+          <FeaturedImagePanel
+            featuredImage={featuredImage}
+            onSelect={setFeaturedImage}
+          />
+
+          <AuthorPanel
+            authorId={authorId}
+            onAuthorChange={setAuthorId}
+          />
+
+          <TaxonomyPanel
+            taxonomyHandle="categories"
+            taxonomyTitle="Categories"
+            selectedTermIds={categoryIds}
+            onChange={setCategoryIds}
+          />
+
+          <RevisionsPanel
+            collectionHandle={collectionHandle}
+            entryId={entryId}
+            currentVersion={version}
+            onRestoreVersion={handleRestoreVersion}
           />
 
           <SeoPanel
