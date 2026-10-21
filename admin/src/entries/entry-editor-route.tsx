@@ -171,7 +171,7 @@ export function EntryEditorRoute({
         setScheduledAt(item.scheduled_at || null);
         setVersion(typeof item.version === 'number' ? item.version : 1);
         if (item.author_id) setAuthorId(item.author_id);
-        if (Array.isArray(item.category_ids)) setCategoryIds(item.category_ids as string[]);
+        { const cats = (item as Record<string, unknown>).categories ?? item.category_ids; if (Array.isArray(cats)) setCategoryIds(cats as string[]); }
         if (item.featured_image) setFeaturedImage(item.featured_image as unknown as MediaItem);
 
         const snapshot = JSON.stringify({
@@ -183,7 +183,7 @@ export function EntryEditorRoute({
           metaTitle: item.seo?.title || itemData.seo?.title || '',
           metaDescription: item.seo?.description || itemData.seo?.description || '',
           isFeatured: Boolean(item.is_featured),
-          categoryIds: item.category_ids || [],
+          categoryIds: (((item as Record<string, unknown>).categories ?? item.category_ids) as string[] | undefined) || [],
           authorId: item.author_id || null,
         });
         initialSnapshotRef.current = snapshot;
@@ -255,22 +255,23 @@ export function EntryEditorRoute({
       const targetStatus = overrideStatus || status;
       const cleanedBody = cleanDocument(bodyContent);
 
+      const hasField = (handle: string) => Boolean(schema?.fields && (schema.fields as Record<string, unknown>)[handle]);
       const payload: Record<string, unknown> = {
         title: title.trim(),
         slug: slug.trim(),
         status: targetStatus,
-        body: cleanedBody,
-        blocks: blocksContent,
-        excerpt: excerpt.trim(),
-        is_featured: isFeatured,
         author_id: authorId,
-        category_ids: categoryIds,
-        featured_image_id: featuredImage?.id || null,
         seo: {
           title: metaTitle.trim() || undefined,
           description: metaDescription.trim() || undefined,
         },
       };
+      if (hasField('body')) payload.body = cleanedBody;
+      if (hasField('blocks')) payload.blocks = blocksContent;
+      if (hasField('excerpt')) payload.excerpt = excerpt.trim();
+      if (hasField('is_featured')) payload.is_featured = isFeatured;
+      if (hasField('categories')) payload.categories = categoryIds;
+      if (hasField('featured_image')) payload.featured_image = featuredImage?.id || null;
 
       if (publishedAt) payload.published_at = publishedAt;
       if (scheduledAt) payload.scheduled_at = scheduledAt;

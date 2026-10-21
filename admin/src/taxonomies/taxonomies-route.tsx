@@ -83,7 +83,12 @@ export function TaxonomiesRoute() {
     try {
       const res = await apiClient.request<TaxonomyItem[] | { data: TaxonomyItem[] }>('GET', '/taxonomies');
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+        const raw = (Array.isArray(res.data) ? res.data : (res.data as any).data || []) as Array<Record<string, any>>;
+        const list: TaxonomyItem[] = raw.map((t) => ({
+          ...(t as unknown as TaxonomyItem),
+          name: t.label_plural ?? t.name ?? t.handle,
+          is_hierarchical: t.hierarchical ?? t.is_hierarchical ?? false,
+        }));
         setTaxonomies(list);
         if (list.length > 0 && !activeTaxonomy) {
           setActiveTaxonomy(list[0] || null);

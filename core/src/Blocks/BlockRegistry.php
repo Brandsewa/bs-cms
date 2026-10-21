@@ -10,8 +10,12 @@ final class BlockRegistry
     private array $blocks = [];
 
     public function __construct(
-        private readonly string $storageDir
+        private readonly string $storageDir,
+        private readonly ?string $baselineDir = null
     ) {
+        if ($this->baselineDir !== null) {
+            $this->loadDir($this->baselineDir);
+        }
         $this->loadFromDisk();
     }
 

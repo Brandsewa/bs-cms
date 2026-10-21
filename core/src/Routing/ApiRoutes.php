@@ -174,6 +174,7 @@ final class ApiRoutes
             if ($bulkEntries !== null) {
                 $routes->post('/api/v1/collections/{handle}/entries/bulk', [$bulkEntries, 'bulk']);
             }
+            $routes->get('/api/v1/collections/{handle}/entries/export', [$entries, 'export']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}', [$entries, 'get']);
             $routes->put('/api/v1/collections/{handle}/entries/{id}', [$entries, 'update']);
             $routes->patch('/api/v1/collections/{handle}/entries/{id}', [$entries, 'patch']);
@@ -191,7 +192,6 @@ final class ApiRoutes
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore', [$entries, 'restoreVersion']);
             // SPRINT-C: Entries export endpoint
-            $routes->get('/api/v1/collections/{handle}/entries/export', [$entries, 'export']);
         }
 
         // 11. Singletons endpoints

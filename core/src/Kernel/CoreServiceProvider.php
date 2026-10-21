@@ -764,7 +764,7 @@ final class CoreServiceProvider implements ServiceProvider
         // SPRINT-C BEGIN: Blocks Registry & Controller
         $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
             $storageDir = $app->storagePath('blocks');
-            $registry = new \BsCms\Blocks\BlockRegistry($storageDir);
+            $registry = new \BsCms\Blocks\BlockRegistry($storageDir, $app->basePath('resources/blocks'));
             $starterBlocksDir = dirname($app->basePath()) . '/starter/src/blocks';
             if (is_dir($starterBlocksDir)) {
                 $registry->syncFromDirectory($starterBlocksDir);
