@@ -35,6 +35,7 @@ import { StepUpDialog } from '../auth/step-up-dialog';
 import { ShellThemeToggle } from './theme-toggle';
 import { CommandMenu } from './command-menu';
 import { ShellBannerArea } from './banner-area';
+import { OfflineBanner } from './offline-banner';
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -325,6 +326,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Global banner area */}
+        <OfflineBanner />
         <ShellBannerArea />
 
         {/* Workspace body */}
