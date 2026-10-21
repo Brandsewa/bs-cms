@@ -16,6 +16,7 @@ const Progress = forwardRef<ElementRef<typeof ProgressPrimitive.Root>, ProgressP
         ref={ref}
         value={value}
         data-indeterminate={indeterminate || undefined}
+        style={{ overflow: 'hidden', ...props.style }}
         className={cn(
           'relative h-1.5 w-full overflow-hidden rounded-full bg-secondary',
           className

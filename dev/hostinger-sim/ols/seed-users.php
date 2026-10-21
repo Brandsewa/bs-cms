@@ -29,7 +29,7 @@ $userRepo = new UserRepository($conn);
 $roleRepo = new RoleRepository($conn);
 $hasher = new PasswordHasher();
 
-$roles = ['owner', 'admin', 'developer', 'editor', 'author'];
+$roles = ['owner', 'admin', 'developer', 'editor', 'author', 'contributor', 'viewer'];
 $password = 'TestUser2026!Secure';
 
 echo "=== Seeding 5 System Role Test Users ===\n";

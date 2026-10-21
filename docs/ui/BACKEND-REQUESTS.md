@@ -133,3 +133,19 @@ Implemented for Settings > AI management screens per Phase 8.4:
      - `/oauth/revoke` is explicitly allowed through so connected clients can clean up credentials.
 
 
+
+
+
+## 10. User Roles Schema & /api/v1/me/permissions Alignment — OPEN
+
+1. **`User.roles` in OpenAPI Specification (`docs/api/openapi-v1.json`)**:
+   - The OpenAPI document defines `User.roles` as `Array<string>`.
+   - In the live system (`GET /api/v1/auth/session` and `GET /api/v1/users`), `user.roles` is returned as an array of full `Role` objects:
+     `Array<{ id: string; handle: string; name: string; description?: string; is_system: number; is_ai: number; created_at: string; updated_at: string }>`
+   - The UI supports both formats by deriving role handles via `roles.map(r => typeof r === 'string' ? r : r.handle)`.
+   - Requesting that the backend team update the OpenAPI schema for `User.roles` to match the real object payload (`Array<Role> | Array<string>`) so generated clients remain strictly typed without manual narrowing.
+
+2. **`GET /api/v1/me/permissions` Contract**:
+   - Live endpoint returns `{ actor_id: string; role_ids: string[]; permissions: CompiledPermissionRule[] }` where each rule includes `{ id, role_id, subject_type, subject_key, action, effect: 'allow' | 'deny', fields, conditions }`.
+   - This endpoint is used by the admin layout to conditionally render navigation items according to effective user permissions (`collection`, `taxonomy`, `media`, `site`, `ai`, `users`, `settings`).
+   - Requesting documentation of `GET /api/v1/me/permissions` in `docs/api/openapi-v1.json`.

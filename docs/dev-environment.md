@@ -136,3 +136,40 @@ Before signing off a major milestone on the live host:
 - [ ] Verify background cron runs through real hPanel scheduler.
 - [ ] Clean up any test posts, media, or temporary test users created.
 - [ ] Release deploy lock: `ssh ... 'rm -rf ~/deploy.lock'`.
+
+
+---
+
+## Fast UI Development Loop (Vite Dev Server & Hot Reload)
+
+To develop and iterate on admin screens with instant hot module replacement (HMR) against real backend data without building full release bundles:
+
+### 1. Start the Simulation Instance
+Ensure a local simulation instance is running (default port 8081 / HTTPS 8481):
+```powershell
+.\dev\sim.ps1 up dev 8081 mariadb11
+```
+Deploy the release zip once so core database tables and seed users exist:
+```powershell
+.\dev\sim.ps1 deploy dev 8081
+```
+
+### 2. Run the Vite Dev Proxy
+In your terminal, start the UI dev server:
+```powershell
+npm run dev:sim -w admin
+```
+This launches Vite on `http://localhost:5173/admin/` with HMR enabled. All backend calls (`/api`, `/oauth`, `/mcp`, `/.well-known`) are automatically proxied to `https://localhost:8481` (with `secure: false` for local self-signed TLS certificates), preserving session cookies seamlessly across requests.
+
+To target a different simulation instance or port:
+```powershell
+$env:BS_SIM_PROXY_TARGET = "https://localhost:8501"
+npm run dev:sim -w admin
+```
+
+### 3. Production Build Refresh Helper (`dev\refresh-admin.ps1`)
+When you want to test the production build inside the simulation container without a full release repackage:
+```powershell
+.\dev\refresh-admin.ps1 dev
+```
+This builds `admin/dist` and directly synchronizes the build assets into the running OpenLiteSpeed container (`bs-sim-dev-ols:/var/www/vhosts/localhost/public_html/admin/`).

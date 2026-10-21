@@ -18,6 +18,17 @@ export interface AdminSidebarGroup extends SidebarGroup {
   items: AdminSidebarItem[];
 }
 
+/**
+ * Sidebar navigation groups aligned with backend subject permission models:
+ * - entries: subject 'collection'
+ * - taxonomies: subject 'taxonomy'
+ * - media: subject 'media'
+ * - navigation: subject 'site'
+ * - ai: subject 'ai'
+ * - users: subject 'users'
+ * - developer: subject 'settings' (or 'schema')
+ * - settings: subject 'settings'
+ */
 export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
   {
     id: 'content',
@@ -26,21 +37,21 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
       {
         id: 'entries',
         label: 'Entries',
-        permission: 'entries.read',
+        permission: 'collection:read',
         icon: FileText,
         to: '/admin/entries',
       },
       {
         id: 'taxonomies',
         label: 'Taxonomies',
-        permission: 'taxonomies.read',
+        permission: 'taxonomy:read',
         icon: FolderTree,
         to: '/admin/taxonomies',
       },
       {
         id: 'media',
         label: 'Media',
-        permission: 'media.read',
+        permission: 'media:read',
         icon: Image,
         to: '/admin/media',
       },
@@ -53,14 +64,14 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
       {
         id: 'navigation',
         label: 'Navigation',
-        permission: 'menus.manage',
+        permission: 'site:read',
         icon: Globe,
         to: '/admin/menus',
       },
       {
         id: 'ai',
         label: 'AI Studio',
-        permission: 'ai.manage',
+        permission: 'ai:read',
         icon: Sparkles,
         to: '/admin/ai',
       },
@@ -73,21 +84,21 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
       {
         id: 'users',
         label: 'Users',
-        permission: 'users.manage',
+        permission: 'users:read',
         icon: Users,
         to: '/admin/users',
       },
       {
         id: 'developer',
         label: 'Developer',
-        permission: 'settings.manage',
+        permission: 'settings:read',
         icon: Code,
         to: '/admin/developer',
       },
       {
         id: 'settings',
         label: 'Settings',
-        permission: 'settings.manage',
+        permission: 'settings:read',
         icon: Settings,
         to: '/admin/settings',
       },

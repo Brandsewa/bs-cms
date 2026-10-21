@@ -10,7 +10,7 @@ export function ProtectedAdmin({
   permission?: string;
   children: ReactNode;
 }) {
-  const { session, isLoading } = useSession();
+  const { session, isLoading, hasPermission } = useSession();
 
   if (isLoading) {
     return (
@@ -33,11 +33,21 @@ export function ProtectedAdmin({
   }
 
   // Permission check
-  const roles = session.user?.roles ?? [];
-  const isOwner = roles.includes('owner') || roles.includes('admin');
+  const roleHandles = session.roleHandles ?? [];
+  const isOwner = roleHandles.includes('owner') || roleHandles.includes('admin');
+
   if (permission && !isOwner) {
-    const hasPerm = (session.permissions ?? []).includes(permission);
-    if (!hasPerm) {
+    let allowed = false;
+    if (permission.includes(':')) {
+      const parts = permission.split(':');
+      const subject = parts[0] ?? '';
+      const action = parts[1] ?? 'read';
+      allowed = hasPermission(subject, action);
+    } else {
+      allowed = hasPermission(permission, 'read');
+    }
+
+    if (!allowed) {
       return (
         <AdminLayout>
           <ForbiddenRoute />

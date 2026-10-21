@@ -4,7 +4,7 @@ import { useSession } from '../auth/session-context';
 export function DashboardRoute() {
   const { session } = useSession();
 
-  const primaryRole = session?.user?.roles?.[0] ?? 'User';
+  const primaryRole = session?.roleHandles?.[0] ?? 'User';
 
   return (
     <PageContainer width="default">
