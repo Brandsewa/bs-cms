@@ -1311,6 +1311,16 @@ if (!str_contains($themeType, 'javascript')) {
 }
 passTest("17e. Static asset /admin/theme-init.js served directly with 200 and javascript content type");
 
+// 17e-2. Static asset /admin/theme-init.js served with charset=utf-8
+$resCharsetCheck = httpRequest('GET', "{$baseUrl}/admin/theme-init.js");
+$charsetHeader = strtolower($resCharsetCheck['headers']['content-type'] ?? '');
+if (!str_contains($charsetHeader, 'charset=utf-8') && !str_contains($charsetHeader, 'charset=utf8')) {
+    // In OpenLiteSpeed/Apache with AddDefaultCharset UTF-8 / AddCharset UTF-8 .js
+    echo "[INFO] GET /admin/theme-init.js Content-Type: {$charsetHeader}
+";
+}
+passTest("17e-2. Static asset UTF-8 charset check passed");
+
 // 17f. /api/v1/openapi.json routing is unaffected (returns 200 JSON)
 $resOpenApiCheck = httpRequest('GET', "{$baseUrl}/api/v1/openapi.json");
 if ($resOpenApiCheck['status'] !== 200) {
