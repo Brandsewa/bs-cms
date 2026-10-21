@@ -229,6 +229,10 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
         }
     }
 
+    /**
+     * @param array<string, string> $headers
+     * @param mixed $body
+     */
     private function request(
         string $method,
         string $path,
@@ -462,7 +466,8 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
         $this->assertSame(302, $resAuth->getStatusCode());
         $location = $resAuth->getHeaderLine('Location');
         $queryParts = [];
-        parse_str(parse_url($location, PHP_URL_QUERY) ?? '', $queryParts);
+        $queryStr = parse_url($location, PHP_URL_QUERY);
+        parse_str(is_string($queryStr) ? $queryStr : '', $queryParts);
         $code = $queryParts['code'];
 
         // Exchange code for token
@@ -534,16 +539,26 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
         $this->assertSame(1, $discData['expired_pending_changes_count']);
 
         // Verify DB updates
-        $grantRevokedAt = $pdo->query("SELECT revoked_at FROM bs_oauth_grants LIMIT 1")->fetchColumn();
+        $stmtGrant = $pdo->query("SELECT revoked_at FROM bs_oauth_grants LIMIT 1");
+        $this->assertInstanceOf(\PDOStatement::class, $stmtGrant);
+        $grantRevokedAt = $stmtGrant->fetchColumn();
         $this->assertNotNull($grantRevokedAt);
 
-        $tokenRevokedAt = $pdo->query("SELECT revoked_at FROM bs_oauth_access_tokens WHERE token_hash = '" . hash('sha256', $accessToken) . "'")->fetchColumn();
+        $stmtToken = $pdo->query("SELECT revoked_at FROM bs_oauth_access_tokens WHERE token_hash = '" . hash('sha256', $accessToken) . "'");
+        $this->assertInstanceOf(\PDOStatement::class, $stmtToken);
+        $tokenRevokedAt = $stmtToken->fetchColumn();
         $this->assertNotNull($tokenRevokedAt);
 
-        $apiTokenRevokedAt = $pdo->query("SELECT revoked_at FROM bs_api_tokens WHERE id = '{$apiTokenId}'")->fetchColumn();
+        $stmtApi = $pdo->query("SELECT revoked_at FROM bs_api_tokens WHERE id = '{$apiTokenId}'");
+        $this->assertInstanceOf(\PDOStatement::class, $stmtApi);
+        $apiTokenRevokedAt = $stmtApi->fetchColumn();
         $this->assertNotNull($apiTokenRevokedAt);
 
-        $pendingStatus = $pdo->query("SELECT status, decision_note FROM bs_pending_changes WHERE id = '{$pendingChangeId}'")->fetch(PDO::FETCH_ASSOC);
+        $stmtPending = $pdo->query("SELECT status, decision_note FROM bs_pending_changes WHERE id = '{$pendingChangeId}'");
+        $this->assertInstanceOf(\PDOStatement::class, $stmtPending);
+        /** @var array{status: string, decision_note: string}|false $pendingStatus */
+        $pendingStatus = $stmtPending->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($pendingStatus);
         $this->assertSame('rejected', $pendingStatus['status']);
         $this->assertSame('AI access disconnected by administrator', $pendingStatus['decision_note']);
 
@@ -652,7 +667,9 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
         $this->assertFalse($recData['ai_disabled']);
 
         // Old grant is still revoked
-        $grantRevokedAfter = $pdo->query("SELECT revoked_at FROM bs_oauth_grants LIMIT 1")->fetchColumn();
+        $stmtGrantAfter = $pdo->query("SELECT revoked_at FROM bs_oauth_grants LIMIT 1");
+        $this->assertInstanceOf(\PDOStatement::class, $stmtGrantAfter);
+        $grantRevokedAfter = $stmtGrantAfter->fetchColumn();
         $this->assertNotNull($grantRevokedAfter);
 
         // Calling /mcp with old revoked token now returns 401 Unauthorized (not -32000)
@@ -701,7 +718,9 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
         ]));
 
         $location = $resAuth->getHeaderLine('Location');
-        parse_str(parse_url($location, PHP_URL_QUERY) ?? '', $q);
+        $q = [];
+        $queryStr = parse_url($location, PHP_URL_QUERY);
+        parse_str(is_string($queryStr) ? $queryStr : '', $q);
         $code = $q['code'];
 
         $resToken = $this->request('POST', '/oauth/token', [
