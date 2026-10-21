@@ -152,8 +152,15 @@ case "$CMD" in
             /usr/local/lsws/bin/lswsctrl restart
         "
 
-        echo ">>> Running automated web installation over HTTP..."
-        docker exec "${CONTAINER}" php /usr/local/bin/auto-install.php http://127.0.0.1 db 3306 bs_cms bs_user bs_password
+        # Determine HTTPS port
+        HTTPS_PORT="$(docker inspect "bs-sim-${NAME}-caddy" --format '{{range $p, $conf := .NetworkSettings.Ports}}{{println $p}}{{end}}' 2>/dev/null | grep -E '^8[4-9][0-9]{2}' | head -n 1 | cut -d/ -f1)"
+        if [ -z "$HTTPS_PORT" ]; then
+            HTTPS_PORT=8481
+        fi
+        SITE_URL="https://localhost:${HTTPS_PORT}"
+
+        echo ">>> Running automated web installation over HTTP with Site URL ${SITE_URL}..."
+        docker exec "${CONTAINER}" php /usr/local/bin/auto-install.php http://127.0.0.1 "${SITE_URL}" db 3306 bs_cms bs_user bs_password
 
         echo ">>> Seeding 5 system role test users..."
         docker exec "${CONTAINER}" php /usr/local/bin/seed-users.php

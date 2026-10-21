@@ -773,10 +773,13 @@ final class CoreServiceProvider implements ServiceProvider
 
                     // Calculate changed URL from entry slug/path if present
                     if (str_starts_with($name, 'entry.')) {
-                        $slug = (string) ($payload['slug'] ?? '');
+                        $data = (array) ($payload['data'] ?? []);
+                        $slug = (string) ($payload['slug'] ?? ($data['slug'] ?? ''));
                         $col = (string) ($payload['collection_key'] ?? $payload['collection'] ?? 'posts');
                         if ($slug !== '') {
                             $changedUrls[] = $col === 'pages' ? "/{$slug}" : "/{$col}/{$slug}";
+                        } else {
+                            $changedUrls[] = $col === 'pages' ? '/' : "/{$col}";
                         }
                     } elseif (str_starts_with($name, 'term.')) {
                         $tSlug = (string) ($payload['slug'] ?? '');
@@ -787,7 +790,11 @@ final class CoreServiceProvider implements ServiceProvider
                         $changedUrls[] = '/';
                     }
 
-                    if (!empty($changedUrls) || in_array($name, [
+                    if (empty($changedUrls)) {
+                        $changedUrls[] = '/';
+                    }
+
+                    if (in_array($name, [
                         'entry.published', 'entry.updated', 'entry.unpublished', 'entry.deleted',
                         'term.created', 'term.updated', 'term.deleted',
                         'navigation.updated', 'redirect.created', 'redirect.updated', 'redirect.deleted',

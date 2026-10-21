@@ -50,9 +50,17 @@ final class BuildTokensController extends BaseController
         }
 
         $body = $this->getBody($request);
-        $name = trim((string) ($body['name'] ?? 'Static Build Token'));
+        if (!isset($body['name']) || !is_string($body['name'])) {
+            return $this->problem(422, 'Unprocessable Content', 'Token name must be a string.');
+        }
+
+        $name = trim($body['name']);
         if ($name === '') {
-            return $this->problem(422, 'Unprocessable Content', 'Token name is required.');
+            return $this->problem(422, 'Unprocessable Content', 'Token name cannot be empty.');
+        }
+
+        if (mb_strlen($name) > 120) {
+            return $this->problem(422, 'Unprocessable Content', 'Token name cannot exceed 120 characters.');
         }
 
         $actor = $this->getActor($request);
