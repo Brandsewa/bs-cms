@@ -12,12 +12,14 @@ export {
   ErrorState,
   ForbiddenState,
   NotFoundState,
+  PageLoadingSkeleton,
 } from './states';
 export type {
   EmptyStateProps,
   ErrorStateProps,
   ForbiddenStateProps,
   NotFoundStateProps,
+  PageLoadingSkeletonProps,
 } from './states';
 export { AppSidebar } from './sidebar';
 export type {

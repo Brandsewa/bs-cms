@@ -18,7 +18,7 @@ export function ShellThemeToggle() {
     <Button
       variant="ghost"
       size="sm"
-      className="h-8 w-8 p-0"
+      className="h-8 w-8 sm:h-8 sm:w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 p-0"
       onClick={handleToggle}
       aria-label={`Current theme: ${theme}. Click to switch theme.`}
       title={`Theme: ${theme}`}

@@ -298,7 +298,7 @@ export function UsersListView() {
 
           {/* Role Filter */}
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger id="users-role-filter" className="w-[140px] text-13">
+            <SelectTrigger id="users-role-filter" aria-label="Filter by role" className="w-[140px] text-13">
               <SelectValue placeholder="All Roles" />
             </SelectTrigger>
             <SelectContent>
@@ -313,7 +313,7 @@ export function UsersListView() {
 
           {/* Status Filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger id="users-status-filter" className="w-[140px] text-13">
+            <SelectTrigger id="users-status-filter" aria-label="Filter by status" className="w-[140px] text-13">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>

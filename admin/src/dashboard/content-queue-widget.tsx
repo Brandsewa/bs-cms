@@ -116,8 +116,8 @@ export function ContentQueueWidget({
         {canReviewAi && (
           <div className="pt-2 border-t border-border/60">
             <div className="flex items-center justify-between text-12 font-medium text-muted-foreground mb-2">
-              <span className="flex items-center gap-1.5 text-ai">
-                <Sparkles className="h-3.5 w-3.5" /> Pending AI actions ({pendingAiChanges.length})
+              <span className="flex items-center gap-1.5 text-foreground font-semibold">
+                <Sparkles className="h-3.5 w-3.5 text-ai" /> Pending AI actions ({pendingAiChanges.length})
               </span>
               <a
                 href="/admin/ai/pending-changes"

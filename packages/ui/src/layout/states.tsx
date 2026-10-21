@@ -165,3 +165,22 @@ export function ForbiddenState({ onBack, onHome, className }: ForbiddenStateProp
     />
   );
 }
+
+export interface PageLoadingSkeletonProps {
+  lines?: number;
+  className?: string;
+}
+
+export function PageLoadingSkeleton({ lines = 4, className }: PageLoadingSkeletonProps) {
+  return (
+    <div className={cn('space-y-4 py-4 animate-pulse', className)} role="status" aria-label="Loading content">
+      <div className="h-7 w-1/3 rounded-sm bg-surface-200" />
+      <div className="h-4 w-2/3 rounded-sm bg-surface-200" />
+      <div className="mt-6 space-y-2">
+        {Array.from({ length: lines }, (_, i) => (
+          <div key={i} className="h-10 w-full rounded-sm bg-surface-200" />
+        ))}
+      </div>
+    </div>
+  );
+}

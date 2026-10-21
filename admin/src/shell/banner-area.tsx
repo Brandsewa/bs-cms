@@ -18,63 +18,120 @@ export interface ShellBannerAreaProps {
   onDismiss?: (id: string) => void;
 }
 
+interface AiStatusResponse {
+  ai_disabled?: boolean;
+  active_grants_count?: number;
+  active_ai_tokens_count?: number;
+  pending_changes_count?: number;
+}
+
+interface FrontendStatusResponse {
+  connected?: boolean;
+  target_type?: string;
+  last_deployment?: {
+    status?: string;
+    error?: string;
+    [key: string]: unknown;
+  } | null;
+  pending_changes_count?: number;
+}
+
 export function ShellBannerArea({ banners: controlledBanners, onDismiss }: ShellBannerAreaProps) {
   const [internalBanners, setInternalBanners] = useState<GlobalBannerItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
-    // Check for pending AI changes from dashboard endpoint if available
     let mounted = true;
-    fetch('/api/v1/dashboard', { headers: { Accept: 'application/json' } })
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.json();
-      })
-      .then((data) => {
-        if (!mounted || !data) return;
-        const pendingAi = data.counts?.pending_ai_changes ?? data.pending_ai_changes?.length ?? 0;
-        const next: GlobalBannerItem[] = [];
 
-        if (pendingAi > 0) {
-          next.push({
-            id: 'ai-pending',
-            variant: 'info',
-            message: `${pendingAi} AI change${pendingAi > 1 ? 's' : ''} pending review and approval.`,
-            action: {
-              label: 'Review in AI Studio',
-              href: '/admin/ai',
-            },
-            dismissible: true,
-          });
+    async function loadStatus() {
+      const items: GlobalBannerItem[] = [];
+
+      // 1. Fetch AI status from real endpoint GET /api/v1/ai/status
+      try {
+        const aiRes = await fetch('/api/v1/ai/status', {
+          headers: { Accept: 'application/json' },
+        });
+        if (aiRes.ok) {
+          const aiData: AiStatusResponse = await aiRes.json();
+          if (aiData.ai_disabled) {
+            items.push({
+              id: 'ai-disabled',
+              variant: 'warning',
+              message: 'AI integration is disabled (kill-switch activated).',
+              action: {
+                label: 'Manage in AI Studio',
+                href: '/admin/ai',
+              },
+              dismissible: true,
+            });
+          } else if (aiData.pending_changes_count && aiData.pending_changes_count > 0) {
+            const count = aiData.pending_changes_count;
+            items.push({
+              id: 'ai-pending',
+              variant: 'info',
+              message: `${count} AI change${count > 1 ? 's' : ''} pending review and approval.`,
+              action: {
+                label: 'Review in AI Studio',
+                href: '/admin/ai',
+              },
+              dismissible: true,
+            });
+          }
         }
+      } catch {
+        // Non-blocking
+      }
 
-        if (data.system_status?.maintenance_mode) {
-          next.push({
-            id: 'maintenance-mode',
-            variant: 'warning',
-            message: 'Maintenance mode is active. Public site visitors receive 503 Service Unavailable.',
-            dismissible: false,
-          });
+      // 2. Fetch frontend deployment status from GET /api/v1/frontend/status
+      try {
+        const feRes = await fetch('/api/v1/frontend/status', {
+          headers: { Accept: 'application/json' },
+        });
+        if (feRes.ok) {
+          const feData: FrontendStatusResponse = await feRes.json();
+          if (feData.last_deployment?.status === 'failed') {
+            items.push({
+              id: 'deploy-failed',
+              variant: 'error',
+              message: 'The last static site build or deployment failed. Check developer logs.',
+              action: {
+                label: 'View Developer Logs',
+                href: '/admin/developer',
+              },
+              dismissible: true,
+            });
+          }
         }
+      } catch {
+        // Non-blocking
+      }
 
-        if (data.site_health?.last_deploy_status === 'failed') {
-          next.push({
-            id: 'deploy-failed',
-            variant: 'error',
-            message: 'The last static site build or deployment failed. Check developer logs.',
-            action: {
-              label: 'View Developer Logs',
-              href: '/admin/developer',
-            },
-            dismissible: true,
-          });
+      // 3. Fallback check for maintenance mode via dashboard or health check if present
+      try {
+        const dashRes = await fetch('/api/v1/dashboard', {
+          headers: { Accept: 'application/json' },
+        });
+        if (dashRes.ok) {
+          const dashData = await dashRes.json();
+          if (dashData.system_status?.maintenance_mode) {
+            items.push({
+              id: 'maintenance-mode',
+              variant: 'warning',
+              message: 'Maintenance mode is active. Public site visitors receive 503 Service Unavailable.',
+              dismissible: false,
+            });
+          }
         }
+      } catch {
+        // Non-blocking
+      }
 
-        setInternalBanners(next);
-      })
-      .catch(() => {
-        // Non-blocking background check
-      });
+      if (mounted) {
+        setInternalBanners(items);
+      }
+    }
+
+    void loadStatus();
 
     return () => {
       mounted = false;

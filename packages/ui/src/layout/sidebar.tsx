@@ -47,6 +47,8 @@ export interface AppSidebarProps {
   header?: ReactNode;
   /** Optional bottom slot for user profile / status */
   footer?: ReactNode;
+  /** Whether to show the collapse toggle button (default true). Set to false on mobile drawers. */
+  showCollapseButton?: boolean;
 }
 
 function readStoredCollapsed(key: string): boolean {
@@ -73,6 +75,7 @@ export function AppSidebar({
   className,
   header,
   footer,
+  showCollapseButton = true,
 }: AppSidebarProps) {
   const { t } = useI18n();
   const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(() =>
@@ -201,7 +204,9 @@ export function AppSidebar({
 
       <div className="mt-auto space-y-2 pt-2">
         {footer ? footer : null}
-        <button
+        {showCollapseButton ? (
+          <>
+            <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
@@ -225,6 +230,8 @@ export function AppSidebar({
         <span className="sr-only" aria-live="polite">
           {collapsed ? 'Sidebar collapsed' : 'Sidebar expanded'}
         </span>
+          </>
+        ) : null}
       </div>
     </nav>
   );
