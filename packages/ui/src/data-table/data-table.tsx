@@ -1043,9 +1043,11 @@ export function DataTable<T>({
                 )}
               >
                 {tab.label}
-                <span className="rounded-full bg-surface-200 px-1.5 text-xs tabular-nums text-muted-foreground">
+                {tab.count !== undefined ? (
+                  <span className="rounded-full bg-surface-200 px-1.5 text-xs tabular-nums text-muted-foreground">
                   {tab.count}
                 </span>
+                ) : null}
               </button>
             ))}
           </div>

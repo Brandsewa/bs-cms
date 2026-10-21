@@ -1,0 +1,34 @@
+{
+  "profile": {
+    "type": "https://errors.bscms.org/unauthorized",
+    "title": "Unauthorized",
+    "status": 401,
+    "detail": "Authentication is required to access this resource.",
+    "instance": "01M5FG1VA9PFFHW4RQH8Z579E6"
+  },
+  "sessions": {
+    "type": "https://errors.bscms.org/unauthorized",
+    "title": "Unauthorized",
+    "status": 401,
+    "detail": "Authentication is required to access this resource.",
+    "instance": "01M5FG1VAVSBVD4REM6XSMRYME"
+  },
+  "preferences": {
+    "type": "https://errors.bscms.org/unauthorized",
+    "title": "Unauthorized",
+    "status": 401,
+    "detail": "Authentication is required to access this resource.",
+    "instance": "01M5FG1VA8RR862NQQSS22V58E"
+  },
+  "twoFactorSetup": {
+    "secret": "JBSWY3DPEHPK3PXP",
+    "otpauth_uri": "otpauth://totp/BS%20CMS:owner%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=BS%20CMS"
+  },
+  "notificationPreferences": {
+    "preferences": {
+      "email_on_login": true,
+      "email_on_role_change": true,
+      "in_app_system_alerts": true
+    }
+  }
+}

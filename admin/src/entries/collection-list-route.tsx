@@ -177,7 +177,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
     }
 
     if (activeTab === 'trash') {
-      queryParams.set('trashed', 'true');
+      queryParams.set('trashed', 'only');
     } else if (activeTab !== 'all') {
       queryParams.set('filter[status]', activeTab);
     }
@@ -196,49 +196,30 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
       if (res.ok) {
         const items = res.data.data || [];
         const pagination = res.data.meta?.pagination;
+
         setEntries(items);
         setTotalRows(pagination?.total ?? items.length);
         setPageCount(pagination?.pages ?? Math.ceil((pagination?.total ?? items.length) / pageSize));
         setLastUpdated(new Date());
 
-        // Update counts: update activeTab count and refresh counts across all tabs
-        const currentCount = pagination?.total ?? items.length;
-        setStatusCounts((prev) => ({
-          ...prev,
-          [activeTab]: currentCount,
-          all: activeTab === 'all' ? currentCount : (prev['all'] ?? 0),
-        }));
-
-        // Fetch counts for all other statuses in background
+        // Fetch aggregate counts in one efficient request from GET /collections/{handle}/counts
         (async () => {
           try {
-            const statuses = ['all', 'published', 'draft', 'in_review', 'archived', 'trash'] as const;
-            const countResults = await Promise.all(
-              statuses.map(async (st) => {
-                let countUrl = `/collections/${collectionHandle}/entries?page[size]=1`;
-                if (st === 'trash') {
-                  countUrl += '&trashed=true';
-                } else if (st !== 'all') {
-                  countUrl += `&filter[status]=${st}`;
-                }
-                const cRes = await apiClient.request<EntriesListResponse>('GET', countUrl);
-                if (cRes.ok) {
-                  return [st, cRes.data.meta?.pagination?.total ?? 0] as const;
-                }
-                return [st, null] as const;
-              })
+            const countsRes = await apiClient.request<Record<string, number>>(
+              'GET',
+              `/collections/${collectionHandle}/counts`
             );
-            setStatusCounts((prev) => {
-              const updated = { ...prev };
-              for (const [st, val] of countResults) {
-                if (val !== null) {
-                  updated[st] = val;
-                }
-              }
-              return updated;
-            });
+            if (countsRes.ok && countsRes.data) {
+              setStatusCounts(countsRes.data);
+            }
           } catch {
-            // non-fatal
+            // fallback: update activeTab count from current pagination
+            const currentCount = pagination?.total ?? items.length;
+            setStatusCounts((prev) => ({
+              ...prev,
+              [activeTab]: currentCount,
+              all: activeTab === 'all' ? currentCount : (prev['all'] ?? 0),
+            }));
           }
         })();
       } else {
