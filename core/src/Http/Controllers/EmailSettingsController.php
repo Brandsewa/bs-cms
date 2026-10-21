@@ -260,7 +260,7 @@ class EmailSettingsController extends BaseController
     private function loadEmailConfig(): array
     {
         $settingsTable = $this->connection->prefixTable('settings');
-        $stmt = $this->connection->getPdo()->prepare("SELECT `value` FROM `{$settingsTable}` WHERE `key` = 'mail_settings'");
+        $stmt = $this->connection->getPdo()->prepare("SELECT `value` FROM `{$settingsTable}` WHERE `handle` = 'mail_settings'");
         $stmt->execute();
         $raw = $stmt->fetchColumn();
 
@@ -297,7 +297,7 @@ class EmailSettingsController extends BaseController
         $now = Clock::sql(Clock::now());
 
         $stmt = $this->connection->getPdo()->prepare(
-            "INSERT INTO `{$settingsTable}` (`key`, `value`, `is_secret`, `updated_at`, `updated_by`)
+            "INSERT INTO `{$settingsTable}` (`handle`, `value`, `is_secret`, `updated_at`, `updated_by`)
              VALUES ('mail_settings', ?, 1, ?, ?)
              ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = VALUES(`updated_at`), `updated_by` = VALUES(`updated_by`)"
         );

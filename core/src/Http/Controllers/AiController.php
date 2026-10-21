@@ -41,6 +41,10 @@ final class AiController extends BaseController
             return $this->problem(403, 'Forbidden', 'OAuth and MCP tokens cannot access AI management.');
         }
 
+        if (!$this->isAdminOrOwner($actor)) {
+            return $this->problem(403, 'Forbidden', 'Only administrators and owners can view AI connection status.');
+        }
+
         $status = $this->aiService->getStatus();
 
         return $this->json(AiStatusPresenter::present($status), 200, [

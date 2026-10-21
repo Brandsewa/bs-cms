@@ -21,6 +21,9 @@ const OAuthConsentReturnRoute = lazy(() =>
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
+const SettingsRoute = lazy(() =>
+  import('./settings/settings-route').then((m) => ({ default: m.SettingsRoute }))
+);
 const ForbiddenRoute = lazy(() =>
   import('./shell/forbidden').then((m) => ({ default: m.ForbiddenRoute }))
 );
@@ -206,12 +209,31 @@ export const developerRoute = createRoute({
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  beforeLoad: () => {
+    throw redirect({ to: '/settings/general' });
+  },
+});
+
+export const settingsGeneralRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/general',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
-      <ComingSoonPage
-        title="Site & System Settings"
-        description="General configuration, email settings, backups, and publishing webhooks."
-      />
+    <ProtectedAdmin permission="settings.manage">
+      <RouteSuspense>
+        <SettingsRoute />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsEmailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/email',
+  component: () => (
+    <ProtectedAdmin permission="settings.manage">
+      <RouteSuspense>
+        <SettingsRoute />
+      </RouteSuspense>
     </ProtectedAdmin>
   ),
 });
@@ -254,6 +276,8 @@ export async function buildRouteTree() {
     usersRoute,
     developerRoute,
     settingsRoute,
+    settingsGeneralRoute,
+    settingsEmailRoute,
     forbiddenRoute,
     notFoundRoute,
   ];

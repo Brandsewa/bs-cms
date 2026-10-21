@@ -368,9 +368,9 @@ final class AiKillSwitchHttpIntegrationTest extends TestCase
                 'Origin' => 'https://example.com',
             ];
 
-            // Can call status
+            // Status forbidden for lower roles
             $resStatus = $this->request('GET', '/api/v1/ai/status', $headers);
-            $this->assertSame(200, $resStatus->getStatusCode(), "Role {$role} should be able to view AI status");
+            $this->assertSame(403, $resStatus->getStatusCode(), "Role {$role} must be forbidden from viewing AI status");
 
             // Disconnect forbidden
             $resDisc = $this->request('POST', '/api/v1/ai/disconnect', $headers, ['password' => $user['password']]);

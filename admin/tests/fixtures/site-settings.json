@@ -1,0 +1,21 @@
+{
+  "id": "01M5DX1CTPQPZW81RTR9BP7C8N",
+  "slug": "bs-cms",
+  "title": "Brand Sewa Central",
+  "status": "draft",
+  "locale": "en",
+  "parent_id": null,
+  "position": 0,
+  "author_id": null,
+  "published_at": null,
+  "scheduled_at": null,
+  "seo": null,
+  "created_at": "2026-10-21 00:16:06.000",
+  "updated_at": "2026-10-21 00:19:32.000",
+  "version": 4,
+  "site_name": "Brand Sewa Central",
+  "default_language": "en",
+  "environment": "production",
+  "tagline": "High performance headless CMS",
+  "canonical_base_url": "https://brandsewa.com"
+}

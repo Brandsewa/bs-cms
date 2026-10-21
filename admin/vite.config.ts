@@ -8,7 +8,7 @@ import { defineConfig } from 'vite';
 // base must be an ABSOLUTE '/admin/' in production builds: the PHP front
 // controller answers every /admin/* path with index.html (SPA fallback), so
 // relative asset URLs (./assets/…) would resolve against deep-link paths
-// (/admin/a/b/c/assets/… → 404).
+// (/admin/a/b/c/assets/… → 404). Dev runs at '/'.
 export default defineConfig(({ command, mode }) => {
   const isDevSim = mode === 'sim' || process.env.VITE_DEV_SIM === '1';
   const simTarget = process.env.BS_SIM_PROXY_TARGET || 'https://localhost:8481';
@@ -16,6 +16,9 @@ export default defineConfig(({ command, mode }) => {
   return {
     base: isDevSim ? '/admin/' : command === 'build' ? '/admin/' : '/',
     plugins: [react(), tailwindcss()],
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+    },
     server: isDevSim
       ? {
           port: 5173,
