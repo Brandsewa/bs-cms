@@ -16,7 +16,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const distAssets = join(root, 'dist', 'assets');
+const dist = join(root, 'dist');
+const distAssets = join(dist, 'assets');
 const baselinePath = join(root, 'scripts', 'size-budget.json');
 const INITIAL_BUDGET_BYTES = 200 * 1024;
 const REGRESSION_TOLERANCE = 1.05;
@@ -26,15 +27,29 @@ if (!existsSync(distAssets)) {
   process.exit(1);
 }
 
+// Initial bundle JS (app shell): scripts and modulepreloads loaded by index.html
+const indexHtmlPath = join(dist, 'index.html');
+const indexHtml = existsSync(indexHtmlPath) ? readFileSync(indexHtmlPath, 'utf8') : '';
+const initialMatches = indexHtml.match(/\/admin\/assets\/[a-zA-Z0-9_\-\.]+\.js/g) ?? [];
+const initialFiles = new Set(initialMatches.map((p) => p.replace('/admin/assets/', '')));
+
 const files = readdirSync(distAssets).filter((name) => name.endsWith('.js'));
 let totalGzipped = 0;
+let initialGzipped = 0;
 const rows = [];
 for (const name of files) {
   const raw = readFileSync(join(distAssets, name));
   const gzipped = gzipSync(raw).length;
   totalGzipped += gzipped;
-  rows.push({ name, raw: raw.length, gzipped });
+  const isInitial = initialFiles.has(name);
+  if (isInitial) {
+    initialGzipped += gzipped;
+  }
+  rows.push({ name, raw: raw.length, gzipped, isInitial });
 }
+
+// Fallback to totalGzipped if index.html is missing
+const measuredInitialGzipped = initialFiles.size > 0 ? initialGzipped : totalGzipped;
 
 // Gallery/mocks must not ship: these strings only exist in gallery code.
 const bundle = files.map((name) => readFileSync(join(distAssets, name), 'utf8')).join('\n');
@@ -48,15 +63,17 @@ if (existsSync(baselinePath)) {
 
 rows.sort((a, b) => b.gzipped - a.gzipped);
 for (const row of rows) {
-  console.log(`${row.name}  raw ${(row.raw / 1024).toFixed(1)} KB  gzip ${(row.gzipped / 1024).toFixed(1)} KB`);
+  const tag = row.isInitial ? ' (initial shell)' : ' (lazy route)';
+  console.log(`${row.name}  raw ${(row.raw / 1024).toFixed(1)} KB  gzip ${(row.gzipped / 1024).toFixed(1)} KB${tag}`);
 }
-console.log(`TOTAL gzip JS: ${(totalGzipped / 1024).toFixed(1)} KB`);
+console.log(`INITIAL SHELL gzip JS: ${(measuredInitialGzipped / 1024).toFixed(1)} KB`);
+console.log(`TOTAL (all routes) gzip JS: ${(totalGzipped / 1024).toFixed(1)} KB`);
 
 const failures = [];
 
-if (totalGzipped > INITIAL_BUDGET_BYTES) {
+if (measuredInitialGzipped > INITIAL_BUDGET_BYTES) {
   failures.push(
-    `Initial JS ${(totalGzipped / 1024).toFixed(1)} KB exceeds the 200 KB app-shell budget.`
+    `Initial JS ${(measuredInitialGzipped / 1024).toFixed(1)} KB exceeds the 200 KB app-shell budget.`
   );
 }
 
@@ -66,10 +83,10 @@ if (leaked.length > 0) {
 
 if (
   baseline.initialJsGzipBytes > 0 &&
-  totalGzipped > baseline.initialJsGzipBytes * REGRESSION_TOLERANCE
+  measuredInitialGzipped > baseline.initialJsGzipBytes * REGRESSION_TOLERANCE
 ) {
   failures.push(
-    `Initial JS regressed beyond 5%: ${(totalGzipped / 1024).toFixed(1)} KB vs baseline ` +
+    `Initial JS regressed beyond 5%: ${(measuredInitialGzipped / 1024).toFixed(1)} KB vs baseline ` +
       `${(baseline.initialJsGzipBytes / 1024).toFixed(1)} KB.`
   );
 }
@@ -77,9 +94,9 @@ if (
 if (process.argv.includes('--update')) {
   writeFileSync(
     baselinePath,
-    `${JSON.stringify({ initialJsGzipBytes: totalGzipped }, null, 2)}\n`
+    `${JSON.stringify({ initialJsGzipBytes: measuredInitialGzipped }, null, 2)}\n`
   );
-  console.log(`Baseline updated to ${totalGzipped} bytes.`);
+  console.log(`Baseline updated to ${measuredInitialGzipped} bytes.`);
   process.exit(0);
 }
 
