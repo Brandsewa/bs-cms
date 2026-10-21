@@ -73,6 +73,9 @@ final class AuthenticateMiddleware implements MiddlewareInterface
 
         // Publishing status callback endpoint (authenticates via one-time callback token)
         $this->addPublic('POST', '#^/api/v1/deployments/[^/]+/status$#');
+
+        // Draft preview content retrieval endpoint (authenticates via query token)
+        $this->addPublic('GET', '#^/api/v1/preview/[^/]+/[^/]+$#');
     }
 
     private function addPublic(string $method, string $regex): void

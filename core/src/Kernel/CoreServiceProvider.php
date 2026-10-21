@@ -732,7 +732,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Publishing\PublishingSettingsRepository::class),
                 $c->get(\BsCms\Publishing\DeploymentService::class),
                 $c->get(Authorizer::class),
-                $c->get(\BsCms\Security\HttpClient::class)
+                $c->get(\BsCms\Security\HttpClient::class),
+                $c->get(Connection::class)
             );
         });
 
@@ -740,6 +741,23 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Http\Controllers\BuildTokensController(
                 $c->get(\BsCms\Publishing\BuildTokenService::class),
                 $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Publishing\PreviewTokenService::class, function (Container $c): \BsCms\Publishing\PreviewTokenService {
+            return new \BsCms\Publishing\PreviewTokenService(
+                $c->get(Connection::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PreviewController::class, function (Container $c): \BsCms\Http\Controllers\PreviewController {
+            return new \BsCms\Http\Controllers\PreviewController(
+                $c->get(\BsCms\Schema\CollectionRegistry::class),
+                $c->get(\BsCms\Content\EntryRepository::class),
+                $c->get(\BsCms\Publishing\PreviewTokenService::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Publishing\PublishingSettingsRepository::class),
+                $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
     }

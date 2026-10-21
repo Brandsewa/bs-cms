@@ -199,7 +199,8 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\DashboardController::class),
     $container->get(\BsCms\Http\Controllers\AiController::class),
     $container->get(\BsCms\Http\Controllers\PublishingController::class),
-    $container->get(\BsCms\Http\Controllers\BuildTokensController::class)
+    $container->get(\BsCms\Http\Controllers\BuildTokensController::class),
+    $container->get(\BsCms\Http\Controllers\PreviewController::class)
 );
 
 // Build middleware pipeline

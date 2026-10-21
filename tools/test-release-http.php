@@ -1351,6 +1351,312 @@ if ($resOAuth['status'] === 302) {
 }
 passTest("17g. /oauth/authorize routing is unaffected (routed to PHP OAuthController)");
 
+// 18. Phase 7: Draft Preview Mode & Frontend Status Endpoints
+echo "Testing 18: Step 7.6 Draft Preview & Frontend Status...\n";
+
+// 18a. Frontend Status endpoint GET /api/v1/frontend/status
+$resFrontendStatus = httpRequest('GET', "{$baseUrl}/api/v1/frontend/status", [
+    'Authorization' => "Bearer {$adminToken}",
+]);
+if ($resFrontendStatus['status'] !== 200) {
+    failTest("GET /api/v1/frontend/status expected 200, got {$resFrontendStatus['status']}: {$resFrontendStatus['body']}");
+}
+if (!isset($resFrontendStatus['json']['connected']) || !isset($resFrontendStatus['json']['target_type'])) {
+    failTest("GET /api/v1/frontend/status missing expected fields: " . json_encode($resFrontendStatus['json']));
+}
+// Validate site_url field is null or string (not hardcoded http://localhost)
+if (array_key_exists('site_url', $resFrontendStatus['json'])) {
+    $su = $resFrontendStatus['json']['site_url'];
+    if ($su !== null && !is_string($su)) {
+        failTest("site_url must be string or null, got: " . var_export($su, true));
+    }
+} else {
+    failTest("GET /api/v1/frontend/status missing 'site_url' key");
+}
+// Validate exact key-set for last_deployment if present
+if ($resFrontendStatus['json']['last_deployment'] !== null) {
+    $expectedKeys = [
+        'id', 'trigger_type', 'status', 'target', 'changed_urls',
+        'requested_by', 'dispatched_at', 'finished_at', 'build_log_url',
+        'error', 'created_at',
+    ];
+    $actualKeys = array_keys($resFrontendStatus['json']['last_deployment']);
+    sort($expectedKeys);
+    sort($actualKeys);
+    if ($expectedKeys !== $actualKeys) {
+        failTest("last_deployment key-set mismatch: expected " . json_encode($expectedKeys) . ", got " . json_encode($actualKeys));
+    }
+}
+passTest("18a. GET /api/v1/frontend/status returned connected state, canonical site_url, and deployment key-set");
+
+// Helper to seed/retrieve tokens for role testing
+$createRoleToken = function (string $roleHandle, string $roleId) use ($connection, $dbConfig, $tokensTable, $now): array {
+    $usersTable = $dbConfig['prefix'] . 'users';
+    $userRolesTable = $dbConfig['prefix'] . 'user_roles';
+    $email = "{$roleHandle}_test_role@example.com";
+    $existing = $connection->getPdo()->query("SELECT `id` FROM `{$usersTable}` WHERE `email` = '{$email}'")->fetch();
+    if ($existing !== false) {
+        $uId = $existing['id'];
+    } else {
+        $uId = Ulid::generate();
+        $connection->getPdo()->prepare(
+            "INSERT INTO `{$usersTable}` (`id`, `email`, `password_hash`, `name`, `status`, `created_at`, `updated_at`) VALUES (?, ?, 'dummy_hash', ?, 'active', ?, ?)"
+        )->execute([$uId, $email, ucfirst($roleHandle) . " User", $now, $now]);
+        $connection->getPdo()->prepare(
+            "INSERT INTO `{$userRolesTable}` (`user_id`, `role_id`) VALUES (?, ?)"
+        )->execute([$uId, $roleId]);
+    }
+
+    $tPrefix = bin2hex(random_bytes(4));
+    $tSecret = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    $rawTok = "bstok_{$tPrefix}_{$tSecret}";
+    $tHash = hash('sha256', $rawTok);
+
+    $connection->getPdo()->prepare(
+        "INSERT INTO `{$tokensTable}` (`id`, `user_id`, `role_id`, `name`, `token_prefix`, `token_hash`, `scopes`, `ai_mode`, `created_at`, `expires_at`) VALUES (?, ?, NULL, ?, ?, ?, ?, 'full', ?, NULL)"
+    )->execute([Ulid::generate(), $uId, ucfirst($roleHandle) . " Token", $tPrefix, $tHash, json_encode(['*']), $now]);
+
+    return ['user_id' => $uId, 'token' => $rawTok];
+};
+
+$viewerUser = $createRoleToken('viewer', \BsCms\Auth\SystemRoles::ROLE_VIEWER);
+$contributorUser = $createRoleToken('contributor', \BsCms\Auth\SystemRoles::ROLE_CONTRIBUTOR);
+$authorUser = $createRoleToken('author', \BsCms\Auth\SystemRoles::ROLE_AUTHOR);
+
+// 18b. Create draft post and test role authorization for preview token creation
+$resCreateDraft = httpRequest('POST', "{$baseUrl}/api/v1/collections/posts/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Secret Draft Post for Preview',
+    'status' => 'draft',
+    'summary' => 'Preview test draft summary',
+    'body_markdown' => '## Markdown Preview Body Content',
+]);
+if ($resCreateDraft['status'] !== 201) {
+    failTest("Failed creating draft post: {$resCreateDraft['status']}: {$resCreateDraft['body']}");
+}
+$draftPostId = $resCreateDraft['json']['id'] ?? '';
+if ($draftPostId === '') {
+    failTest("Missing draft post id in response");
+}
+
+// 18b-1: Viewer cannot create preview token -> 403
+$resViewerCreate = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$viewerUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $draftPostId,
+]);
+if ($resViewerCreate['status'] !== 403) {
+    failTest("Viewer creating preview token expected 403, got {$resViewerCreate['status']}: {$resViewerCreate['body']}");
+}
+
+// 18b-2: Contributor cannot create preview token on someone else's draft -> 403
+$resContribCreate = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$contributorUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $draftPostId,
+]);
+if ($resContribCreate['status'] !== 403) {
+    failTest("Contributor creating preview token on someone else's draft expected 403, got {$resContribCreate['status']}");
+}
+
+// 18b-3: Author creates their own draft, can create preview token -> 201
+$resAuthorDraft = httpRequest('POST', "{$baseUrl}/api/v1/collections/posts/entries", [
+    'Authorization' => "Bearer {$authorUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'Author Draft for Preview',
+    'status' => 'draft',
+    'summary' => 'Author draft summary',
+    'body_markdown' => 'Author markdown body',
+]);
+if ($resAuthorDraft['status'] !== 201) {
+    failTest("Author failed creating own draft: {$resAuthorDraft['status']}: {$resAuthorDraft['body']}");
+}
+$authorDraftId = $resAuthorDraft['json']['id'];
+
+$resAuthorToken = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$authorUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $authorDraftId,
+]);
+if ($resAuthorToken['status'] !== 201) {
+    failTest("Author creating preview token on own draft expected 201, got {$resAuthorToken['status']}: {$resAuthorToken['body']}");
+}
+
+// 18b-4: Editor can create preview token on admin's draft -> 201
+$resEditorPrevToken = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$editorToken}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $draftPostId,
+]);
+if ($resEditorPrevToken['status'] !== 201) {
+    failTest("Editor creating preview token expected 201, got {$resEditorPrevToken['status']}: {$resEditorPrevToken['body']}");
+}
+
+// Generate preview token by admin for subsequent tests
+$resPrevToken = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'collection' => 'posts',
+    'id' => $draftPostId,
+]);
+if ($resPrevToken['status'] !== 201) {
+    failTest("POST /api/v1/preview/token expected 201, got {$resPrevToken['status']}: {$resPrevToken['body']}");
+}
+$prevToken = $resPrevToken['json']['token'] ?? '';
+$previewUrl = $resPrevToken['json']['preview_url'] ?? '';
+if ($prevToken === '' || !str_starts_with($prevToken, 'bsprev_')) {
+    failTest("Invalid preview token format: {$prevToken}");
+}
+if (!str_contains($previewUrl, '/preview/')) {
+    failTest("Invalid preview_url: {$previewUrl}");
+}
+passTest("18b. Preview token authorization verified (Viewer=403, Contributor=403, Author=201, Editor=201, Admin=201)");
+
+// 18b-5: Burst capping test (max 10 active tokens per entry)
+$burstTokens = [];
+for ($i = 0; $i < 12; ++$i) {
+    $resBurst = httpRequest('POST', "{$baseUrl}/api/v1/preview/token", [
+        'Authorization' => "Bearer {$adminToken}",
+        'Content-Type' => 'application/json',
+    ], [
+        'collection' => 'posts',
+        'id' => $draftPostId,
+    ]);
+    if ($resBurst['status'] === 429) {
+        passTest("18b-cap. Active preview token cap enforced: burst returned 429 Too Many Requests");
+        break;
+    }
+    if ($resBurst['status'] !== 201) {
+        failTest("Unexpected burst token creation error {$resBurst['status']}: {$resBurst['body']}");
+    }
+}
+
+// 18c. Public draft retrieval GET /api/v1/preview/posts/{id}?token=...
+$resGetDraft = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token={$prevToken}");
+if ($resGetDraft['status'] !== 200) {
+    failTest("GET draft preview expected 200, got {$resGetDraft['status']}: {$resGetDraft['body']}");
+}
+if (($resGetDraft['json']['data']['title'] ?? '') !== 'Secret Draft Post for Preview') {
+    failTest("GET draft preview returned incorrect data: " . json_encode($resGetDraft['json']));
+}
+// Validate preview headers: no-store, noindex
+$cacheControl = strtolower($resGetDraft['headers']['cache-control'] ?? '');
+if (!str_contains($cacheControl, 'no-store')) {
+    failTest("Draft preview endpoint missing Cache-Control: no-store header, got: {$cacheControl}");
+}
+$robotsTag = strtolower($resGetDraft['headers']['x-robots-tag'] ?? '');
+if (!str_contains($robotsTag, 'noindex')) {
+    failTest("Draft preview endpoint missing X-Robots-Tag: noindex header, got: {$robotsTag}");
+}
+passTest("18c. Public draft preview endpoint returns draft content with no-store and noindex headers");
+
+// 18d. Security & Access Control: Invalid token, mismatching entry, or missing token
+$resNoToken = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}");
+if ($resNoToken['status'] !== 401) {
+    failTest("GET draft preview without token expected 401, got {$resNoToken['status']}");
+}
+
+$resBadToken = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token=bsprev_invalidtoken12345");
+if ($resBadToken['status'] !== 403) {
+    failTest("GET draft preview with bad token expected 403, got {$resBadToken['status']}");
+}
+
+// 18e. Revocation DELETE /api/v1/preview/token with Authorization checks
+// 18e-1: Viewer attempts to revoke admin's token -> 403 Forbidden
+$resViewerRevoke = httpRequest('DELETE', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$viewerUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'token' => $prevToken,
+]);
+if ($resViewerRevoke['status'] !== 403) {
+    failTest("Viewer revoking admin token expected 403, got {$resViewerRevoke['status']}: {$resViewerRevoke['body']}");
+}
+
+// 18e-2: Author revokes their own preview token -> 200
+$authorTokStr = (string) ($resAuthorToken['json']['token'] ?? '');
+$resAuthorRevokeOwn = httpRequest('DELETE', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$authorUser['token']}",
+    'Content-Type' => 'application/json',
+], [
+    'token' => $authorTokStr,
+]);
+if ($resAuthorRevokeOwn['status'] !== 200 || !($resAuthorRevokeOwn['json']['revoked'] ?? false)) {
+    failTest("Author revoking own token expected 200, got: " . json_encode($resAuthorRevokeOwn['json']));
+}
+
+// 18e-3: Admin revokes token -> 200
+$resRevokeToken = httpRequest('DELETE', "{$baseUrl}/api/v1/preview/token", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'token' => $prevToken,
+]);
+if ($resRevokeToken['status'] !== 200 || !($resRevokeToken['json']['revoked'] ?? false)) {
+    failTest("DELETE /api/v1/preview/token failed: " . json_encode($resRevokeToken['json']));
+}
+
+$resAfterRevoke = httpRequest('GET', "{$baseUrl}/api/v1/preview/posts/{$draftPostId}?token={$prevToken}");
+if ($resAfterRevoke['status'] !== 403) {
+    failTest("GET draft preview with revoked token expected 403, got {$resAfterRevoke['status']}");
+}
+passTest("18e. Preview token revocation authorization verified (Viewer=403, Owner/Creator=200, Admin=200)");
+
+// 18f. About Page creation and dynamic navigation appearance
+$resAboutPage = httpRequest('POST', "{$baseUrl}/api/v1/collections/pages/entries", [
+    'Authorization' => "Bearer {$adminToken}",
+    'Content-Type' => 'application/json',
+], [
+    'title' => 'About',
+    'summary' => 'About Brand Sewa CMS',
+    'status' => 'published',
+    'show_in_nav' => true,
+    'blocks' => [
+        [
+            'type' => 'hero',
+            'heading' => 'About Brand Sewa CMS',
+            'text' => 'High performance static CMS publishing with Astro.',
+        ],
+        [
+            'type' => 'text',
+            'content' => 'BS CMS empowers developers with agent-first tooling and instant delivery.',
+        ]
+    ],
+]);
+if ($resAboutPage['status'] !== 201) {
+    failTest("POST /collections/pages/entries for About page expected 201, got {$resAboutPage['status']}: {$resAboutPage['body']}");
+}
+
+// Verify that GET /api/v1/public/site now includes About in navigation
+$resPublicSite = httpRequest('GET', "{$baseUrl}/api/v1/public/site");
+if ($resPublicSite['status'] !== 200) {
+    failTest("GET /api/v1/public/site expected 200, got {$resPublicSite['status']}");
+}
+$nav = $resPublicSite['json']['navigation'] ?? [];
+$hasAboutNav = false;
+foreach ($nav as $item) {
+    if (($item['label'] ?? '') === 'About' && ($item['url'] ?? '') === '/about/') {
+        $hasAboutNav = true;
+        break;
+    }
+}
+if (!$hasAboutNav) {
+    failTest("Published page with slug 'about' did not appear in GET /api/v1/public/site navigation: " . json_encode($nav));
+}
+passTest("18f. Dynamic 'About' page created with blocks and verified in public navigation");
+
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";
 echo "======================================================\n";
