@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source "../../../packages/ui/src";
 @import '@bs/ui/tokens.css';
 
 /* Class-based dark mode (tokens.css defines .dark variable values). */

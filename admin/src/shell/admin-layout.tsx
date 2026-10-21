@@ -71,7 +71,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <a
               href={adminItem.to || '#'}
               aria-current={isActive ? 'page' : undefined}
-              className="flex w-full items-center gap-2"
             >
               {content}
             </a>

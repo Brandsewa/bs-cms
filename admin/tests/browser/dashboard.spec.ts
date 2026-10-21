@@ -91,6 +91,21 @@ test.describe('Dashboard Home Screen (v1)', () => {
     await expect(metricsRow.locator('text=Scheduled for release')).toBeVisible();
     await expect(metricsRow.locator('text=Pending AI changes')).toBeVisible();
 
+    // Guard: ensure components in packages/ui (Card and Button) receive Tailwind styling in production build
+    const firstMetricCard = metricsRow.locator('> div').first();
+    const cardPadding = await firstMetricCard.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return parseFloat(style.paddingTop) || parseFloat(style.paddingLeft);
+    });
+    expect(cardPadding).toBeGreaterThan(0);
+
+    const firstButton = quickActions.locator('a, button').first();
+    const btnPadding = await firstButton.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return parseFloat(style.paddingLeft) || parseFloat(style.paddingRight);
+    });
+    expect(btnPadding).toBeGreaterThan(0);
+
     // Verify Onboarding Checklist Card
     const onboarding = page.locator('[data-testid="onboarding-checklist-card"]');
     await expect(onboarding).toBeVisible();
