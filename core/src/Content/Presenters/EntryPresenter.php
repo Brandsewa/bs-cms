@@ -79,9 +79,10 @@ final class EntryPresenter
         $sanitized = $entry;
         unset($sanitized['search_text'], $sanitized['created_by'], $sanitized['updated_by']);
 
-        if (!$viewingTrash) {
-            unset($sanitized['deleted_at']);
-        }
+        // Ensure deleted_at is always included as ISO UTC string or null (enabling UI to mark trashed rows when trashed=with)
+        $sanitized['deleted_at'] = isset($entry['deleted_at']) && $entry['deleted_at'] !== null
+            ? (string) $entry['deleted_at']
+            : null;
 
         // Unpack custom fields from data to top-level and eliminate duplicate data blob
         if (isset($sanitized['data']) && is_array($sanitized['data'])) {

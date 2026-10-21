@@ -357,6 +357,7 @@ export type AuthorsEntry = {
   "title"?: string;
   "slug"?: string;
   "status"?: "draft" | "in_review" | "scheduled" | "published" | "archived";
+  "deleted_at"?: string | null;
   "name"?: string;
   "bio"?: string;
   "job_title"?: string;
@@ -369,6 +370,7 @@ export type NavigationEntry = {
   "title"?: string;
   "slug"?: string;
   "status"?: "draft" | "in_review" | "scheduled" | "published" | "archived";
+  "deleted_at"?: string | null;
   "items"?: Array<Record<string, unknown>>;
 };
 
@@ -376,6 +378,7 @@ export type PagesEntry = {
   "title"?: string;
   "slug"?: string;
   "status"?: "draft" | "in_review" | "scheduled" | "published" | "archived";
+  "deleted_at"?: string | null;
   "template"?: "default" | "landing" | "full_width";
   "summary"?: string;
   "show_in_nav"?: boolean;
@@ -388,6 +391,7 @@ export type PostsEntry = {
   "title"?: string;
   "slug"?: string;
   "status"?: "draft" | "in_review" | "scheduled" | "published" | "archived";
+  "deleted_at"?: string | null;
   "body"?: unknown;
   "featured_image"?: unknown;
   "categories"?: unknown;
@@ -411,6 +415,7 @@ export type SiteSettingsEntry = {
   "title"?: string;
   "slug"?: string;
   "status"?: "draft" | "in_review" | "scheduled" | "published" | "archived";
+  "deleted_at"?: string | null;
   "site_name"?: string;
   "tagline"?: string;
   "default_language"?: "en";

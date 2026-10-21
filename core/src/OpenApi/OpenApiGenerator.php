@@ -3396,6 +3396,7 @@ final class OpenApiGenerator
                     'type' => 'string',
                     'enum' => ['draft', 'in_review', 'scheduled', 'published', 'archived'],
                 ],
+                'deleted_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
             ];
 
             $fields = (array) ($col['fields'] ?? []);
