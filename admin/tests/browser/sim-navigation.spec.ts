@@ -90,4 +90,40 @@ test.describe('Real Simulation Admin Shell & Navigation', () => {
       }
     });
   }
+
+  test('collection list entries page renders real entries from simulation database', async ({ page }) => {
+    // 1. Login as owner
+    await page.goto(`${BASE_URL}/admin/login?return_to=${encodeURIComponent('/admin/entries')}`);
+    await page.fill('input[type="email"]', 'owner@example.com');
+    await page.fill('input[type="password"]', 'TestUser2026!Secure');
+    await Promise.all([
+      page.waitForNavigation({ timeout: 15000 }),
+      page.click('button[type="submit"]'),
+    ]);
+
+    await page.waitForURL('**/admin/entries', { timeout: 10000 });
+
+    // 2. Verify collection title and DataTable rendered
+    await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
+    const table = page.getByRole('table', { name: 'Posts table' });
+    await expect(table).toBeVisible();
+
+    // 3. Verify columns
+    await expect(table.getByRole('columnheader', { name: /Title/i })).toBeVisible();
+    await expect(table.getByRole('columnheader', { name: /Status/i })).toBeVisible();
+
+    // 4. Verify live data row exists (e.g. Bulk Post 11 or 10 created in sim)
+    await expect(page.getByText('Bulk Post 11', { exact: true })).toBeVisible();
+
+    // 5. Switch to Pages collection
+    const pagesSwitcher = page.getByRole('button', { name: 'Pages' });
+    await expect(pagesSwitcher).toBeVisible();
+    await pagesSwitcher.click();
+
+    await page.waitForURL('**/admin/entries/pages');
+    await expect(page.getByRole('heading', { name: 'Pages' })).toBeVisible();
+    // Pages is currently empty in sim DB, so empty state is displayed honestly
+    await expect(page.getByText('No pages found')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create Page' })).toBeVisible();
+  });
 });
