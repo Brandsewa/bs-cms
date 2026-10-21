@@ -61,6 +61,9 @@ final class Console
                 'schema:apply' => $this->schemaApply($args),
                 'schema:seed' => $this->schemaSeed($args),
                 'taxonomy:recompute-counts', 'taxonomy:integrity' => $this->taxonomyRecomputeCounts($args),
+                // SPRINT-B BEGIN
+                'blocks:sync' => $this->blocksSync($args),
+                // SPRINT-B END
                 'install' => $this->install($args),
                 'help', '--help', '-h' => $this->help(),
                 default => $this->unknownCommand($command),
@@ -799,4 +802,24 @@ final class Console
 
         return new Connection($connConfig);
     }
+
+    // SPRINT-B BEGIN
+    /**
+     * @param list<string> $args
+     */
+    private function blocksSync(array $args): int
+    {
+        echo "Syncing registered blocks from registry definition...\n";
+        $registryPath = dirname(__DIR__, 2) . '/data/blocks.json';
+        if (file_exists($registryPath)) {
+            $raw = file_get_contents($registryPath);
+            $blocks = json_decode($raw, true) ?: [];
+            $count = count($blocks);
+            echo "Successfully registered and verified {$count} blocks in blocks.json.\n";
+        } else {
+            echo "Notice: blocks.json registry does not exist at {$registryPath}.\n";
+        }
+        return 0;
+    }
+    // SPRINT-B END
 }

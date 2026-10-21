@@ -17,11 +17,14 @@ import {
   Trash2,
   CheckCircle2,
   FileEdit,
+  LayoutList,
+  GitBranch,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { buildCollectionColumns } from './collection-columns';
 import { QuickEditForm } from './quick-edit-form';
+import { PagesTreeView } from './pages-tree-view';
 import type {
   CollectionSchema,
   EntryItem,
@@ -48,6 +51,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   // Pagination & Filtering state
   const [activeTab, setActiveTab] = useState<string>('all');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
   const [tableState, setTableState] = useState<DataTableState>({
     pagination: { pageIndex: 0, pageSize: 25 },
     sorting: [{ id: 'created_at', desc: true }],
@@ -615,6 +619,21 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
     ];
   }, []);
 
+  const handleMovePageHierarchy = async (entryId: string, newParentId: string | null) => {
+    try {
+      const res = await apiClient.request('PATCH', `/collections/${collectionHandle}/entries/${entryId}`, {
+        body: {
+          parent_id: newParentId,
+        },
+      });
+      if (res.ok) {
+        loadEntries();
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
   const columns = useMemo(() => buildCollectionColumns(activeCollection, userMap), [activeCollection, userMap]);
   const collectionLabel = activeCollection?.label_plural || collectionHandle;
 
@@ -650,6 +669,36 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
             </div>
           )}
 
+          {/* View Mode Toggle for Pages */}
+          {collectionHandle === 'pages' && (
+            <div className="flex rounded-lg border border-border p-1 bg-muted/40">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('tree')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === 'tree'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                <span>Hierarchy Tree</span>
+              </button>
+            </div>
+          )}
+
           {canCreate && (
             <Button
               size="sm"
@@ -665,55 +714,66 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         </div>
       </div>
 
-      {/* Main DataTable component */}
-      <DataTable<EntryItem>
-        columns={columns}
-        data={entries}
-        getRowId={(row) => row.id}
-        aria-label={`${collectionLabel} table`}
-        loading={loading}
-        error={error}
-        onRetry={loadEntries}
-        onRefresh={loadEntries}
-        lastUpdated={lastUpdated}
-        statusTabs={statusTabs}
-        bulkActions={bulkActions}
-        rowMenu={rowMenu}
-        quickEdit={canUpdate ? (row) => <QuickEditForm entry={row} onSave={(patch) => handleQuickEditSave(row.id, patch)} /> : undefined}
-        rowHref={(row) => `/admin/entries/${collectionHandle}/${row.id}`}
-        onRowOpen={(row) => {
-          window.location.assign(`/admin/entries/${collectionHandle}/${row.id}`);
-        }}
-        manualPagination={true}
-        totalRows={totalRows}
-        pageCount={pageCount}
-        state={tableState}
-        onStateChange={(patch) => setTableState((prev) => ({ ...prev, ...patch }))}
-        filters={{
-          defs: filterDefs,
-          active: activeFilters,
-          onChange: setActiveFilters,
-        }}
-        emptyState={{
-          title: `No ${collectionLabel.toLowerCase()} found`,
-          description:
-            activeTab === 'trash'
-              ? 'Trash is empty.'
-              : `Create your first ${activeCollection?.label_singular?.toLowerCase() || 'entry'} to get started.`,
-          action:
-            canCreate && activeTab !== 'trash' ? (
-              <Button
-                size="sm"
-                onClick={() => {
-                  window.location.assign(`/admin/entries/${collectionHandle}/new`);
-                }}
-              >
-                Create {activeCollection?.label_singular || 'Entry'}
-              </Button>
-            ) : undefined,
-        }}
-        storageKey={`bs_collection_${collectionHandle}`}
-      />
+      {/* Pages Tree Hierarchy View or DataTable Component */}
+      {collectionHandle === 'pages' && viewMode === 'tree' ? (
+        <PagesTreeView
+          entries={entries}
+          onMovePage={handleMovePageHierarchy}
+          onOpenPage={(page) => {
+            window.location.assign(`/admin/entries/${collectionHandle}/${page.id}`);
+          }}
+          canUpdate={canUpdate}
+        />
+      ) : (
+        <DataTable<EntryItem>
+          columns={columns}
+          data={entries}
+          getRowId={(row) => row.id}
+          aria-label={`${collectionLabel} table`}
+          loading={loading}
+          error={error}
+          onRetry={loadEntries}
+          onRefresh={loadEntries}
+          lastUpdated={lastUpdated}
+          statusTabs={statusTabs}
+          bulkActions={bulkActions}
+          rowMenu={rowMenu}
+          quickEdit={canUpdate ? (row) => <QuickEditForm entry={row} onSave={(patch) => handleQuickEditSave(row.id, patch)} /> : undefined}
+          rowHref={(row) => `/admin/entries/${collectionHandle}/${row.id}`}
+          onRowOpen={(row) => {
+            window.location.assign(`/admin/entries/${collectionHandle}/${row.id}`);
+          }}
+          manualPagination={true}
+          totalRows={totalRows}
+          pageCount={pageCount}
+          state={tableState}
+          onStateChange={(patch) => setTableState((prev) => ({ ...prev, ...patch }))}
+          filters={{
+            defs: filterDefs,
+            active: activeFilters,
+            onChange: setActiveFilters,
+          }}
+          emptyState={{
+            title: `No ${collectionLabel.toLowerCase()} found`,
+            description:
+              activeTab === 'trash'
+                ? 'Trash is empty.'
+                : `Create your first ${activeCollection?.label_singular?.toLowerCase() || 'entry'} to get started.`,
+            action:
+              canCreate && activeTab !== 'trash' ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    window.location.assign(`/admin/entries/${collectionHandle}/new`);
+                  }}
+                >
+                  Create {activeCollection?.label_singular || 'Entry'}
+                </Button>
+              ) : undefined,
+          }}
+          storageKey={`bs_collection_${collectionHandle}`}
+        />
+      )}
     </PageContainer>
   );
 }

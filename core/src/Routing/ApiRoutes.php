@@ -377,5 +377,12 @@ final class ApiRoutes
             $routes->delete('/api/v1/preview/token', [$preview, 'revokeToken']);
             $routes->get('/api/v1/preview/{collection}/{id}', [$preview, 'getDraft']);
         }
+
+        // SPRINT-B BEGIN
+        $routes->get('/api/v1/blocks', function (\Psr\Http\Message\ServerRequestInterface $request) {
+            $controller = new \BsCms\Http\Controllers\BlocksController();
+            return $controller->getBlocks($request);
+        });
+        // SPRINT-B END
     }
 }

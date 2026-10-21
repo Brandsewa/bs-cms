@@ -19,6 +19,7 @@ import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
+import { BlocksFieldEditor, type BlockInstance } from './blocks-field-editor';
 import {
   PublishPanel,
   SeoPanel,
@@ -60,6 +61,7 @@ export function EntryEditorRoute({
   const [slug, setSlug] = useState('');
   const [status, setStatus] = useState<'draft' | 'published' | 'in_review' | 'scheduled' | 'archived'>('draft');
   const [bodyContent, setBodyContent] = useState<unknown>(null);
+  const [blocksContent, setBlocksContent] = useState<BlockInstance[]>([]);
   const [excerpt, setExcerpt] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
@@ -156,6 +158,11 @@ export function EntryEditorRoute({
         setSlug(item.slug || '');
         setStatus((item.status as any) || 'draft');
         setBodyContent(item.body || itemData.body || null);
+        if (Array.isArray(item.blocks)) {
+          setBlocksContent(item.blocks as BlockInstance[]);
+        } else if (Array.isArray(itemData.blocks)) {
+          setBlocksContent(itemData.blocks as BlockInstance[]);
+        }
         setExcerpt(item.excerpt || itemData.excerpt || '');
         setMetaTitle(item.seo?.title || itemData.seo?.title || '');
         setMetaDescription(item.seo?.description || itemData.seo?.description || '');
@@ -253,6 +260,7 @@ export function EntryEditorRoute({
         slug: slug.trim(),
         status: targetStatus,
         body: cleanedBody,
+        blocks: blocksContent,
         excerpt: excerpt.trim(),
         is_featured: isFeatured,
         author_id: authorId,
@@ -569,18 +577,28 @@ export function EntryEditorRoute({
                 />
               </div>
 
-              {/* Tiptap Article Editor */}
-              <div className="space-y-1.5 pt-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
-                  Content Body
-                </Label>
-                <TiptapArticleEditor
-                  value={bodyContent}
-                  onChange={(newJson) => setBodyContent(newJson)}
-                  placeholder="Start writing story or type / for directives..."
-                  disabled={!canSave}
-                />
-              </div>
+              {/* Content Editor: Blocks for Pages or Tiptap for Posts */}
+              {collectionHandle === 'pages' ? (
+                <div className="space-y-1.5 pt-2">
+                  <BlocksFieldEditor
+                    value={blocksContent}
+                    onChange={setBlocksContent}
+                    disabled={!canSave}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5 pt-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
+                    Content Body
+                  </Label>
+                  <TiptapArticleEditor
+                    value={bodyContent}
+                    onChange={(newJson) => setBodyContent(newJson)}
+                    placeholder="Start writing story or type / for directives..."
+                    disabled={!canSave}
+                  />
+                </div>
+              )}
 
               {/* Excerpt */}
               <div className="space-y-1.5 pt-2">
