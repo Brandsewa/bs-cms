@@ -79,32 +79,37 @@ export interface MetricCardProps {
   hint?: string;
   trend?: { direction: 'up' | 'down' | 'flat'; label: string };
   loading?: boolean;
+  icon?: ReactNode;
   className?: string;
 }
 
 /**
- * Metric card for the dashboard home (docs/02-ui-spec.md 4.2): value, label,
- * hint and trend. Loading renders a skeleton sized like the content.
+ * Metric card for the dashboard home (docs/02-ui-spec.md 4.2 & Supabase Studio):
+ * value, label, hint, trend and optional icon.
+ * Sizing is compact with neutral 1px borders and high contrast.
  */
-function MetricCard({ label, value, hint, trend, loading = false, className }: MetricCardProps) {
+function MetricCard({ label, value, hint, trend, loading = false, icon, className }: MetricCardProps) {
   if (loading) {
     return (
       <div
-        className={cn('rounded-lg border border-border bg-card p-4', className)}
+        className={cn('rounded-md border border-border bg-card p-3.5', className)}
         aria-busy="true"
       >
         <Skeleton className="h-3 w-20" />
-        <Skeleton className="mt-2 h-7 w-16" />
+        <Skeleton className="mt-2 h-6 w-16" />
         <Skeleton className="mt-2 h-3 w-24" />
       </div>
     );
   }
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-4', className)}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+    <div className={cn('rounded-md border border-border bg-card p-3.5 shadow-xs transition-colors hover:border-border-strong', className)}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-foreground-lighter">{label}</p>
+        {icon ? <div className="text-foreground-muted [&_svg]:h-4 [&_svg]:w-4">{icon}</div> : null}
+      </div>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{value}</p>
       {trend || hint ? (
-        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+        <p className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground-muted">
           {trend ? (
             <span
               className={cn(

@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source "../../../packages/ui/src";
 @import '@bs/ui/tokens.css';
 
 /* Class-based dark mode (tokens.css defines .dark variable values). */
@@ -13,6 +14,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-foreground-light: var(--foreground-light);
+  --color-foreground-lighter: var(--foreground-lighter);
+  --color-foreground-muted: var(--foreground-muted);
 
   --color-surface-100: var(--surface-100);
   --color-surface-200: var(--surface-200);

@@ -231,15 +231,15 @@ export function FilterBar({ filters, active, onChange, disabled = false, classNa
         return (
           <span
             key={entry.filterId}
-            className="inline-flex max-w-64 items-center gap-1 rounded-md border border-border bg-surface-100 px-1.5 py-0.5 text-xs text-foreground"
+            className="inline-flex max-w-64 items-center gap-1.5 rounded-full border border-border bg-surface-100 px-2.5 py-0.5 text-xs text-foreground shadow-2xs"
           >
-            <span className="text-muted-foreground">{filter.label}:</span>
+            <span className="text-foreground-lighter font-medium">{filter.label}:</span>
             <span className="truncate">{describeFilter(entry.value)}</span>
             <button
               type="button"
               aria-label={`${t('common.remove')} ${filter.label}`}
               onClick={() => setFilter(entry.filterId, null)}
-              className="rounded-sm p-0.5 hover:bg-surface-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="rounded-full p-0.5 text-foreground-muted hover:bg-surface-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>

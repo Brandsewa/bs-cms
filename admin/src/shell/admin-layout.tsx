@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
   AppSidebar,
-  Breadcrumbs,
   BannerArea,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -65,13 +64,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         groups={ADMIN_SIDEBAR_GROUPS}
         hasPermission={hasPermission}
         activeId={activeId}
-        renderLink={(item, content, isActive) => {
+        renderLink={(item, content, isActive, className) => {
           const adminItem = item as AdminSidebarItem;
           return (
             <a
               href={adminItem.to || '#'}
               aria-current={isActive ? 'page' : undefined}
-              className="flex w-full items-center gap-2"
+              className={className}
             >
               {content}
             </a>
@@ -81,15 +80,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
       {/* Main column */}
       <div className="flex flex-1 flex-col min-w-0">
-        {/* Top bar */}
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
-          <div className="flex items-center gap-4 min-w-0">
-            <Breadcrumbs
-              items={[
-                { label: 'Admin', href: '/admin/' },
-                ...(activeId ? [{ label: activeId.charAt(0).toUpperCase() + activeId.slice(1) }] : []),
-              ]}
-            />
+        {/* Top bar - slim Studio style header */}
+        <header className="sticky top-0 z-10 flex h-11 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Top bar breadcrumbs removed to prevent duplicate chrome; breadcrumbs live in PageHeader */}
           </div>
 
           <div className="flex items-center gap-2">
@@ -97,15 +91,15 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             <Button
               variant="outline"
               size="sm"
-              className="hidden sm:flex items-center gap-2 text-muted-foreground"
+              className="hidden sm:flex h-7 items-center gap-2 px-2 text-foreground-lighter hover:text-foreground"
               onClick={() => {
                 // Future M4 command menu
               }}
             >
               <Search className="h-3.5 w-3.5" />
               <span className="text-12">Search...</span>
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                ⌘K
+              <kbd className="rounded border border-border bg-surface-200 px-1.5 py-0.2 text-[10px] text-foreground-lighter">
+                ÃƒÂ¢Ã…â€™Ã‹Å“K
               </kbd>
             </Button>
 
@@ -118,13 +112,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="flex items-center gap-2 px-2"
+                  className="flex h-7 items-center gap-1.5 px-1.5 hover:bg-surface-200"
                   aria-label="User menu"
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-200 text-foreground">
-                    <User className="h-4 w-4" />
+                  <div className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-surface-200 text-foreground">
+                    <User className="h-3.5 w-3.5" />
                   </div>
-                  <span className="hidden text-13 font-medium sm:inline-block">
+                  <span className="hidden text-13 font-medium sm:inline-block text-foreground">
                     {session?.user?.name ?? 'Admin'}
                   </span>
                 </Button>
