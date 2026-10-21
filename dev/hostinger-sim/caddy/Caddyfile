@@ -13,16 +13,20 @@ https://localhost:{$SIM_HTTPS_PORT:8481}, https://127.0.0.1:{$SIM_HTTPS_PORT:848
     }
 
     reverse_proxy ols:80 {
-        header_up Host {host}
+        header_up Host {http.request.hostport}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Host {http.request.hostport}
+        header_up X-Forwarded-Port {http.request.port}
     }
 }
 
 :{$SIM_HTTP_PORT:8081} {
     reverse_proxy ols:80 {
-        header_up Host {host}
+        header_up Host {http.request.hostport}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-Proto http
+        header_up X-Forwarded-Host {http.request.hostport}
+        header_up X-Forwarded-Port {http.request.port}
     }
 }

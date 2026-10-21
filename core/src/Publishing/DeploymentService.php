@@ -516,4 +516,18 @@ final class DeploymentService
             $this->indexNowService->notify($cleanUrls, $host, $indexNowKey);
         }
     }
+
+    /**
+     * Get count of pending changed URLs waiting in debounce queue.
+     */
+    public function getPendingChangesCount(): int
+    {
+        /** @var array<string, mixed>|null $pending */
+        $pending = $this->settings->get('publishing.pending_requests', null);
+        if (!is_array($pending) || empty($pending['urls']) || !is_array($pending['urls'])) {
+            return 0;
+        }
+
+        return count($pending['urls']);
+    }
 }

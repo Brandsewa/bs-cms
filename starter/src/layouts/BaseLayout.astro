@@ -81,9 +81,13 @@ const robotsContent = [
           <span class="badge">Static</span>
         </a>
         <ul class="nav-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="/blog">Blog</a></li>
-          <li><a href="/about">About</a></li>
+          {siteMeta.navigation.map((item) => (
+            <li>
+              <a href={item.url} target={item.target || undefined} rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}>
+                {item.label}
+              </a>
+            </li>
+          ))}
         </ul>
       </nav>
     </header>

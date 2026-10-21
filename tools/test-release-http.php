@@ -167,6 +167,9 @@ if (!file_exists($storageConfigFile)) {
 if (file_exists($storageConfigFile)) {
     $storageCfg = require $storageConfigFile;
     $dbConfig = $storageCfg['database'] ?? [];
+    if (!empty($storageCfg['app']['url'])) {
+        $allowedOrigin = rtrim($storageCfg['app']['url'], '/');
+    }
 } else {
     $dbConfigFile = "{$corePath}/config/database.php";
     if (!file_exists($dbConfigFile)) {
@@ -174,6 +177,7 @@ if (file_exists($storageConfigFile)) {
     }
     $dbConfig = require $dbConfigFile;
 }
+$originHeader = $allowedOrigin ?? $baseUrl;
 $connection = new Connection($dbConfig);
 
 $userRepo = new UserRepository($connection);
@@ -330,7 +334,7 @@ $twoFactor = new TwoFactorService();
 // Step 7a: Setup 2FA
 $res2faSetup = httpRequest('POST', "{$baseUrl}/api/v1/me/2fa/setup", [
     'Cookie' => "{$cookieName}={$sessionCookie}",
-    'Origin' => $baseUrl,
+    'Origin' => $originHeader,
     'X-CSRF-Token' => $csrfToken,
 ]);
 if ($res2faSetup['status'] !== 200) {
@@ -345,7 +349,7 @@ if ($secret === '') {
 $code = $twoFactor->getCode($secret);
 $res2faConfirm = httpRequest('POST', "{$baseUrl}/api/v1/me/2fa/confirm", [
     'Cookie' => "{$cookieName}={$sessionCookie}",
-    'Origin' => $baseUrl,
+    'Origin' => $originHeader,
     'X-CSRF-Token' => $csrfToken,
     'Content-Type' => 'application/json',
 ], [
@@ -365,7 +369,7 @@ if (!is_array($recoveryCodes) || count($recoveryCodes) !== 10) {
 // Step 7c: Logout
 $resLogout = httpRequest('POST', "{$baseUrl}/api/v1/auth/logout", [
     'Cookie' => "{$cookieName}={$sessionCookie}",
-    'Origin' => $baseUrl,
+    'Origin' => $originHeader,
     'X-CSRF-Token' => $csrfToken,
 ]);
 if ($resLogout['status'] !== 200) {
@@ -1106,7 +1110,7 @@ $sessCsrf = $stepUpSess['csrf_token'];
 $sessHeaders = [
     'Cookie' => "{$cookieName}={$sessCookie}",
     'X-CSRF-Token' => $sessCsrf,
-    'Origin' => $baseUrl,
+    'Origin' => $originHeader,
     'Content-Type' => 'application/json',
 ];
 

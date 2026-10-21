@@ -115,30 +115,69 @@ export function escapeJsonLd(json: unknown): string {
   return serialized.replace(/<\/script/gi, '<\\/script');
 }
 
-let cachedSiteMeta: { name: string; description: string } | null = null;
+export interface SiteMetaWithNav {
+  name: string;
+  description: string;
+  tagline: string;
+  navigation: Array<{ label: string; url: string; target?: string | null }>;
+}
+
+let cachedSiteData: SiteMetaWithNav | null = null;
 
 /**
- * Retrieves site name and description from CMS manifest if available, falling back to site.config.json.
+ * Retrieves site name, description, tagline, and navigation from CMS GET /api/v1/public/site,
+ * falling back to manifest or local site.config.json.
  */
-export async function getSiteMetadata(): Promise<{ name: string; description: string }> {
-  if (cachedSiteMeta) return cachedSiteMeta;
+export async function getSiteMetadata(): Promise<SiteMetaWithNav> {
+  if (cachedSiteData) return cachedSiteData;
+
+  try {
+    const site = await cmsClient.fetchSite();
+    if (site && site.site_name) {
+      cachedSiteData = {
+        name: site.site_name || siteConfig.name,
+        description: site.description || site.tagline || siteConfig.description,
+        tagline: site.tagline || '',
+        navigation: Array.isArray(site.navigation) && site.navigation.length > 0
+          ? site.navigation
+          : [
+              { label: 'Home', url: '/' },
+              { label: 'Blog', url: '/blog/' },
+            ],
+      };
+      return cachedSiteData;
+    }
+  } catch {
+    // Non-fatal fallback
+  }
+
   try {
     const manifest = await cmsClient.fetchManifest();
     if (manifest.site) {
-      cachedSiteMeta = {
+      cachedSiteData = {
         name: manifest.site.name || siteConfig.name,
         description: manifest.site.description || siteConfig.description,
+        tagline: '',
+        navigation: [
+          { label: 'Home', url: '/' },
+          { label: 'Blog', url: '/blog/' },
+        ],
       };
-      return cachedSiteMeta;
+      return cachedSiteData;
     }
   } catch {
     // Non-fatal, fallback to local site.config.json
   }
 
-  cachedSiteMeta = {
+  cachedSiteData = {
     name: siteConfig.name,
     description: siteConfig.description,
+    tagline: '',
+    navigation: [
+      { label: 'Home', url: '/' },
+      { label: 'Blog', url: '/blog/' },
+    ],
   };
-  return cachedSiteMeta;
+  return cachedSiteData;
 }
 

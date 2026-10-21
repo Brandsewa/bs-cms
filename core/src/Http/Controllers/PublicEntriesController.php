@@ -173,4 +173,107 @@ class PublicEntriesController extends BaseController
             'Cache-Control' => 'public, max-age=60, stale-while-revalidate=600',
         ], $body));
     }
+
+    /**
+     * Public site metadata and navigation endpoint.
+     * GET /api/v1/public/site
+     */
+    public function site(ServerRequestInterface $request): ResponseInterface
+    {
+        $prefix = $this->connection->getPrefix();
+
+        // 1. Resolve site settings
+        $siteName = 'BS CMS';
+        $tagline = '';
+        $description = '';
+        $defaultLanguage = 'en';
+        $canonicalUrl = '';
+        $environment = 'production';
+
+        try {
+            $stmt = $this->connection->execute("SELECT `data` FROM `{$prefix}c_site_settings` LIMIT 1");
+            $siteRow = $stmt->fetch();
+            if ($siteRow && !empty($siteRow['data'])) {
+                $siteData = is_string($siteRow['data']) ? json_decode($siteRow['data'], true) : $siteRow['data'];
+                if (is_array($siteData)) {
+                    $siteName = (string) ($siteData['site_name'] ?? $siteName);
+                    $tagline = (string) ($siteData['tagline'] ?? '');
+                    $description = (string) ($siteData['description'] ?? $tagline);
+                    $defaultLanguage = (string) ($siteData['default_language'] ?? 'en');
+                    $canonicalUrl = (string) ($siteData['canonical_url'] ?? '');
+                    $environment = (string) ($siteData['environment'] ?? 'production');
+                }
+            }
+        } catch (\Throwable) {
+            // Fallback to defaults if table doesn't exist yet
+        }
+
+        // 2. Resolve navigation
+        $navItems = [];
+        try {
+            // Check navigation singleton first
+            $stmtNav = $this->connection->execute("SELECT `data` FROM `{$prefix}c_navigation` LIMIT 1");
+            $navRow = $stmtNav->fetch();
+            if ($navRow && !empty($navRow['data'])) {
+                $navData = is_string($navRow['data']) ? json_decode($navRow['data'], true) : $navRow['data'];
+                if (is_array($navData) && !empty($navData['items']) && is_array($navData['items'])) {
+                    foreach ($navData['items'] as $item) {
+                        if (is_array($item) && !empty($item['label']) && !empty($item['url'])) {
+                            $navItems[] = [
+                                'label' => (string) $item['label'],
+                                'url' => (string) $item['url'],
+                                'target' => !empty($item['target']) ? '_blank' : null,
+                            ];
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Navigation singleton not available
+        }
+
+        // If navigation singleton has no items, derive from published pages
+        if (empty($navItems)) {
+            // Always include Home and Blog
+            $navItems[] = ['label' => 'Home', 'url' => '/', 'target' => null];
+            $navItems[] = ['label' => 'Blog', 'url' => '/blog/', 'target' => null];
+
+            try {
+                $stmtPages = $this->connection->execute(
+                    "SELECT `title`, `slug`, `data` FROM `{$prefix}c_pages` 
+                     WHERE `status` = 'published' AND `deleted_at` IS NULL 
+                     ORDER BY `position` ASC, `created_at` ASC"
+                );
+                $pages = $stmtPages->fetchAll();
+                foreach ($pages as $p) {
+                    $pData = is_string($p['data'] ?? null) ? json_decode($p['data'], true) : ($p['data'] ?? []);
+                    $showInNav = $pData['show_in_nav'] ?? true;
+                    // Do not duplicate home in nav if it has slug 'home' or 'index'
+                    $slug = (string) ($p['slug'] ?? '');
+                    if ($showInNav && !in_array($slug, ['home', 'index', ''], true)) {
+                        $label = !empty($pData['nav_label']) ? (string) $pData['nav_label'] : (string) ($p['title'] ?? $slug);
+                        $navItems[] = [
+                            'label' => $label,
+                            'url' => "/{$slug}/",
+                            'target' => null,
+                        ];
+                    }
+                }
+            } catch (\Throwable) {
+                // Ignore if pages table does not exist
+            }
+        }
+
+        $body = [
+            'site_name' => $siteName,
+            'tagline' => $tagline,
+            'description' => $description,
+            'default_language' => $defaultLanguage,
+            'canonical_url' => $canonicalUrl,
+            'environment' => $environment,
+            'navigation' => $navItems,
+        ];
+
+        return $this->json($body);
+    }
 }
