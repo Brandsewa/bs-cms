@@ -46,6 +46,11 @@ const RolesMatrixView = lazy(() =>
   import('./users/roles-matrix-view').then((m) => ({ default: m.RolesMatrixView }))
 );
 
+// System views (independently lazy-loaded chunks)
+const AuditLogView = lazy(() =>
+  import('./system/audit-log-view').then((m) => ({ default: m.AuditLogView }))
+);
+
 // Shell fallbacks & placeholders
 const ComingSoonPage = lazy(() =>
   import('./shell/coming-soon').then((m) => ({ default: m.ComingSoonPage }))
@@ -336,6 +341,28 @@ export const settingsEmailRoute = createRoute({
   ),
 });
 
+// System Routes
+export const systemAuditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/audit',
+  component: () => (
+    <ProtectedAdmin permission="audit:read">
+      <RouteSuspense>
+        <AuditLogView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+// Redirect /settings/audit to /system/audit for dashboard and legacy link compatibility
+export const settingsAuditRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/audit',
+  beforeLoad: () => {
+    throw redirect({ to: '/system/audit' });
+  },
+});
+
 export const forbiddenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/403',
@@ -380,6 +407,8 @@ export async function buildRouteTree() {
     settingsRoute,
     settingsGeneralRoute,
     settingsEmailRoute,
+    systemAuditRoute,
+    settingsAuditRedirectRoute,
     forbiddenRoute,
     notFoundRoute,
   ];
