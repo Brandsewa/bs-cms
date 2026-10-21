@@ -108,8 +108,9 @@ export function EntryEditorRoute({
         const problemMsg = !res.ok ? res.problem?.detail : undefined;
         setErrorMessage(problemMsg || 'Could not load entry details');
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Network error while loading entry');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error while loading entry';
+      setErrorMessage(msg);
     } finally {
       setLoadingEntry(false);
     }
@@ -190,8 +191,9 @@ export function EntryEditorRoute({
           errorToast(detail);
         }
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Network error while saving');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error while saving';
+      setErrorMessage(msg);
       errorToast('Network error while saving entry.');
     } finally {
       setSaving(false);

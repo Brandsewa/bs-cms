@@ -10,6 +10,12 @@ import {
   StatusBadge,
   type EntryStatus,
   SlugInput,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  DateTimePicker,
 } from '@bs/ui';
 import { Calendar, Clock, Globe, ShieldAlert } from 'lucide-react';
 
@@ -54,49 +60,48 @@ export function PublishPanel({
           <Label htmlFor="entry-status-select" className="text-xs font-medium text-foreground-light">
             Status
           </Label>
-          <select
-            id="entry-status-select"
+          <Select
             value={status}
-            onChange={(e) => onStatusChange(e.target.value as any)}
-            className="w-full rounded-md border border-border bg-surface-100 px-2.5 py-1.5 text-xs text-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            onValueChange={(val) => onStatusChange(val as 'draft' | 'published' | 'in_review' | 'scheduled' | 'archived')}
           >
-            <option value="draft">Draft</option>
-            <option value="in_review">In review</option>
-            <option value="published">Published</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="archived">Archived</option>
-          </select>
+            <SelectTrigger id="entry-status-select" className="w-full text-xs">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="in_review">In review</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Schedule / Published date */}
         {status === 'scheduled' ? (
           <div className="space-y-1.5">
-            <Label htmlFor="entry-scheduled-at" className="text-xs font-medium text-foreground-light flex items-center gap-1.5">
+            <Label className="text-xs font-medium text-foreground-light flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               Schedule Release
             </Label>
-            <Input
-              id="entry-scheduled-at"
-              type="datetime-local"
-              value={scheduledAt || ''}
-              onChange={(e) => onScheduledAtChange?.(e.target.value)}
-              className="text-xs"
+            <DateTimePicker
+              value={scheduledAt ? new Date(scheduledAt) : undefined}
+              onChange={(date) => onScheduledAtChange?.(date ? date.toISOString() : null)}
+              className="text-xs w-full"
             />
           </div>
         ) : null}
 
         {status === 'published' ? (
           <div className="space-y-1.5">
-            <Label htmlFor="entry-published-at" className="text-xs font-medium text-foreground-light flex items-center gap-1.5">
+            <Label className="text-xs font-medium text-foreground-light flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               Published At
             </Label>
-            <Input
-              id="entry-published-at"
-              type="datetime-local"
-              value={publishedAt || ''}
-              onChange={(e) => onPublishedAtChange?.(e.target.value)}
-              className="text-xs"
+            <DateTimePicker
+              value={publishedAt ? new Date(publishedAt) : undefined}
+              onChange={(date) => onPublishedAtChange?.(date ? date.toISOString() : null)}
+              className="text-xs w-full"
             />
           </div>
         ) : null}

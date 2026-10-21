@@ -61,7 +61,7 @@ export function TiptapArticleEditor({
         },
       }),
     ],
-    content: (value as any) || {
+    content: (value as Record<string, unknown> | string) || {
       type: 'doc',
       content: [
         {
