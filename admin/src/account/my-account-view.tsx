@@ -139,7 +139,7 @@ export function MyAccountView() {
   // Step-Up Dialog State
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [stepUpAction, setStepUpAction] = useState<
-    'email_change' | 'disable_2fa' | 'regen_recovery' | null
+    'password_change' | 'email_change' | 'disable_2fa' | 'regen_recovery' | null
   >(null);
 
   // Confirmation Modal State
@@ -259,6 +259,11 @@ export function MyAccountView() {
       });
 
       if (!res.ok) {
+        if (res.status === 403) {
+          setStepUpAction('password_change');
+          setStepUpOpen(true);
+          return;
+        }
         setPasswordError(res.problem?.detail || 'Failed to change password.');
         return;
       }
@@ -455,7 +460,9 @@ export function MyAccountView() {
 
   // Callback on successful step-up authentication
   const handleStepUpSuccess = () => {
-    if (stepUpAction === 'email_change') {
+    if (stepUpAction === 'password_change') {
+      void handleChangePassword();
+    } else if (stepUpAction === 'email_change') {
       void handleRequestEmailChange();
     } else if (stepUpAction === 'disable_2fa') {
       void handleDisable2fa();

@@ -23,6 +23,11 @@ final class MaintenanceController extends BaseController
 
     public function status(ServerRequestInterface $request): ResponseInterface
     {
+        $authError = $this->requireAuth($request);
+        if ($authError !== null) {
+            return $authError;
+        }
+
         $lockFile = rtrim($this->storageDir, '/\\') . '/maintenance.lock';
         $inMaintenance = is_file($lockFile);
         $details = null;

@@ -199,6 +199,7 @@ final class SeedSystemRoles extends Migration
             [self::ROLE_CONTRIBUTOR, 'term', '*', 'read', 'allow', null, null],
             [self::ROLE_CONTRIBUTOR, 'media', '*', 'create', 'allow', null, null],
             [self::ROLE_CONTRIBUTOR, 'media', '*', 'read', 'allow', null, null],
+            [self::ROLE_CONTRIBUTOR, 'site', 'navigation', 'read', 'allow', null, null],
 
             // 7. Viewer
             [self::ROLE_VIEWER, 'collection', '*', 'read', 'allow', null, null],
