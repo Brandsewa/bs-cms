@@ -23,6 +23,11 @@ export interface EmailLogEntry {
   created_at: string;
 }
 
+interface EmailLogResponse {
+  items: EmailLogEntry[];
+  next_cursor?: number | null;
+}
+
 export const EmailLogView: FC = () => {
   const [logs, setLogs] = useState<EmailLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +37,17 @@ export const EmailLogView: FC = () => {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.request<EmailLogEntry[]>('GET', '/email-log', {
+      const res = await apiClient.request<EmailLogResponse | EmailLogEntry[]>('GET', '/settings/email/log', {
         query: search ? { to_email: search } : undefined,
       });
       if (res.ok) {
-        setLogs(res.data);
+        if (Array.isArray(res.data)) {
+          setLogs(res.data);
+        } else if (res.data && Array.isArray(res.data.items)) {
+          setLogs(res.data.items);
+        } else {
+          setLogs([]);
+        }
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to load email logs' });
       }

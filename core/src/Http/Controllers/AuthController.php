@@ -66,6 +66,13 @@ class AuthController extends BaseController
             return $this->problem(403, 'Forbidden', (string) $result['message']);
         }
 
+        if ($result['status'] === 'requires_2fa_setup') {
+            return $this->problem(403, 'Forbidden', (string) $result['message'], null, [
+                'requires_2fa_setup' => true,
+                'user_id' => $result['user_id'] ?? null,
+            ]);
+        }
+
         if ($result['status'] === 'requires_2fa') {
             return $this->json([
                 'status' => 'requires_2fa',
