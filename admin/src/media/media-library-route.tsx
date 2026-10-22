@@ -32,7 +32,7 @@ import {
 import { apiClient } from '../lib/api';
 import { uploadChunked } from '@bs/client';
 import { MediaDetailSheet } from './media-detail-sheet';
-import type { MediaItem, MediaFolder } from './media-picker-modal';
+import { unwrapMediaList, type MediaItem, type MediaFolder } from './media-picker-modal';
 
 export function MediaLibraryRoute() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -77,7 +77,7 @@ export function MediaLibraryRoute() {
 
       const res = await apiClient.request<MediaItem[] | { data: MediaItem[] }>('GET', `/media${qs}`);
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+        const list = unwrapMediaList(res.data);
         if (mimeFilter === 'image') {
           setItems(list.filter((m: MediaItem) => m.mime_type?.startsWith('image/')));
         } else if (mimeFilter === 'document') {

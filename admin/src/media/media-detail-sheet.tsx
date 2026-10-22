@@ -25,7 +25,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
-import type { MediaItem, MediaFolder } from './media-picker-modal';
+import { normalizeMedia, type MediaItem, type MediaFolder } from './media-picker-modal';
 
 export interface MediaDetailSheetProps {
   item: MediaItem | null;
@@ -61,6 +61,8 @@ export function MediaDetailSheet({
       setFolderId(item.folder_id || null);
       if ((item as any).focal_point) {
         setFocalPoint((item as any).focal_point);
+      } else if (typeof (item as any).focal_x === 'number' && typeof (item as any).focal_y === 'number') {
+        setFocalPoint({ x: Math.round((item as any).focal_x * 100), y: Math.round((item as any).focal_y * 100) });
       } else {
         setFocalPoint({ x: 50, y: 50 });
       }
@@ -69,12 +71,19 @@ export function MediaDetailSheet({
       async function loadUsage() {
         setLoadingUsage(true);
         try {
-          const res = await apiClient.request<Array<{ id: string; title: string; collection: string }>>(
+          const res = await apiClient.request<{ usages?: Array<Record<string, any>> } | Array<Record<string, any>>>(
             'GET',
             `/media/${item?.id}/usage`
           );
-          if (res.ok && Array.isArray(res.data)) {
-            setUsageList(res.data);
+          const rows = res.ok ? (Array.isArray(res.data) ? res.data : res.data?.usages) : null;
+          if (Array.isArray(rows)) {
+            setUsageList(
+              rows.map((u) => ({
+                id: String(u.id ?? u.entry_id ?? ''),
+                title: String(u.title ?? u.entry_title ?? u.entry_id ?? 'Untitled'),
+                collection: String(u.collection ?? u.collection_handle ?? ''),
+              }))
+            );
           } else {
             setUsageList([]);
           }
@@ -98,17 +107,18 @@ export function MediaDetailSheet({
     try {
       const res = await apiClient.request<MediaItem>('PATCH', `/media/${item.id}`, {
         body: {
-          name: title.trim(),
-          alt: alt.trim(),
+          title: title.trim(),
+          alt_text: alt.trim(),
           caption: caption.trim(),
           folder_id: folderId,
-          focal_point: focalPoint,
+          focal_x: focalPoint.x / 100,
+          focal_y: focalPoint.y / 100,
         },
       });
 
       if (res.ok && res.data) {
         successToast('Media asset metadata saved.');
-        onUpdate(res.data);
+        onUpdate(normalizeMedia(res.data as Record<string, any>));
         onClose();
       } else {
         errorToast('Failed to save media metadata.');

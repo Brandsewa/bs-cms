@@ -45,6 +45,25 @@ export interface MediaItem {
   height?: number;
 }
 
+/** Map the API media shape (mime, size_bytes, alt_text, title) onto the fields the media UI renders. */
+export function normalizeMedia(raw: Record<string, any>): MediaItem {
+  return {
+    ...(raw as MediaItem),
+    mime_type: raw.mime ?? raw.mime_type,
+    size: raw.size_bytes ?? raw.size,
+    alt: raw.alt_text ?? raw.alt ?? '',
+    name: raw.title ?? raw.name,
+  };
+}
+
+/** The media list endpoint returns { items, total }; older shapes used a bare array or { data }. */
+export function unwrapMediaList(data: unknown): MediaItem[] {
+  const arr = Array.isArray(data)
+    ? data
+    : ((data as { items?: unknown[]; data?: unknown[] } | null)?.items ?? (data as { data?: unknown[] } | null)?.data ?? []);
+  return (arr as Array<Record<string, any>>).map(normalizeMedia);
+}
+
 export interface MediaFolder {
   id: string;
   name: string;
@@ -89,7 +108,7 @@ export function MediaPickerModal({
 
       const res = await apiClient.request<MediaItem[] | { data: MediaItem[] }>('GET', `/media${qs}`);
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as { data: MediaItem[] }).data || [];
+        const list = unwrapMediaList(res.data);
         // Filter by mime types if specified
         if (allowedMimeTypes.length > 0) {
           setItems(
