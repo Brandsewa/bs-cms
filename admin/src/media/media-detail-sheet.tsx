@@ -14,6 +14,11 @@ import {
   Spinner,
   errorToast,
   successToast,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@bs/ui';
 import {
   Copy,
@@ -59,10 +64,11 @@ export function MediaDetailSheet({
       setCaption(item.caption || '');
       setTitle(item.name || item.original_name || '');
       setFolderId(item.folder_id || null);
-      if ((item as any).focal_point) {
-        setFocalPoint((item as any).focal_point);
-      } else if (typeof (item as any).focal_x === 'number' && typeof (item as any).focal_y === 'number') {
-        setFocalPoint({ x: Math.round((item as any).focal_x * 100), y: Math.round((item as any).focal_y * 100) });
+      const itm = item as unknown as { focal_point?: { x: number; y: number }; focal_x?: number; focal_y?: number };
+      if (itm.focal_point) {
+        setFocalPoint(itm.focal_point);
+      } else if (typeof itm.focal_x === 'number' && typeof itm.focal_y === 'number') {
+        setFocalPoint({ x: Math.round(itm.focal_x * 100), y: Math.round(itm.focal_y * 100) });
       } else {
         setFocalPoint({ x: 50, y: 50 });
       }
@@ -71,7 +77,7 @@ export function MediaDetailSheet({
       async function loadUsage() {
         setLoadingUsage(true);
         try {
-          const res = await apiClient.request<{ usages?: Array<Record<string, any>> } | Array<Record<string, any>>>(
+          const res = await apiClient.request<{ usages?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
             'GET',
             `/media/${item?.id}/usage`
           );
@@ -118,7 +124,7 @@ export function MediaDetailSheet({
 
       if (res.ok && res.data) {
         successToast('Media asset metadata saved.');
-        onUpdate(normalizeMedia(res.data as Record<string, any>));
+        onUpdate(normalizeMedia(res.data as unknown as Record<string, unknown>));
         onClose();
       } else {
         errorToast('Failed to save media metadata.');
@@ -274,18 +280,22 @@ export function MediaDetailSheet({
             {/* Folder selection */}
             <div className="space-y-1">
               <Label className="text-xs font-medium">Folder Organization</Label>
-              <select
+              <Select
                 value={folderId || 'none'}
-                onChange={(e) => setFolderId(e.target.value === 'none' ? null : e.target.value)}
-                className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+                onValueChange={(val) => setFolderId(val === 'none' ? null : val)}
               >
-                <option value="none">Root (No Folder)</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue placeholder="Root (No Folder)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Root (No Folder)</SelectItem>
+                  {folders.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -37,7 +37,7 @@ export interface BlockFieldDefinition {
   label: string;
   type: string;
   required?: boolean;
-  default?: any;
+  default?: unknown;
   options?: string[];
   description?: string;
 }
@@ -54,8 +54,8 @@ export interface BlockDefinition {
 export interface BlockInstance {
   id: string; // unique client-side key for rendering
   type: string; // matches def.id / registry name
-  data: Record<string, any>;
-  [key: string]: any;
+  data: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface BlocksFieldEditorProps {
@@ -71,14 +71,14 @@ function normalizeRegistryBlocks(raw: unknown): BlockDefinition[] {
   let list: unknown[] = [];
   if (Array.isArray(raw)) {
     list = raw;
-  } else if (raw && typeof raw === 'object' && Array.isArray((raw as any).data)) {
-    list = (raw as any).data;
+  } else if (raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)) {
+    list = (raw as { data: unknown[] }).data;
   }
 
   const defs: BlockDefinition[] = [];
   for (const item of list) {
     if (!item || typeof item !== 'object') continue;
-    const obj = item as Record<string, any>;
+    const obj = item as Record<string, unknown>;
     const blockKey = String(obj.name || obj.id || '');
     if (!blockKey) continue;
 
@@ -106,15 +106,15 @@ function normalizeRegistryBlocks(raw: unknown): BlockDefinition[] {
         // Map of fieldName -> fieldConfig
         for (const [fName, fConf] of Object.entries(obj.fields)) {
           if (!fConf || typeof fConf !== 'object') continue;
-          const fc = fConf as Record<string, any>;
+          const fc = fConf as Record<string, unknown>;
           fields.push({
             name: fName,
-            label: fc.label || fName,
-            type: fc.type || 'text',
+            label: String(fc.label || fName),
+            type: String(fc.type || 'text'),
             required: Boolean(fc.required),
             default: fc.default,
-            options: Array.isArray(fc.options) ? fc.options : Array.isArray(fc.enum) ? fc.enum : undefined,
-            description: fc.description,
+            options: Array.isArray(fc.options) ? fc.options.map(String) : Array.isArray(fc.enum) ? fc.enum.map(String) : undefined,
+            description: fc.description ? String(fc.description) : undefined,
           });
         }
       }
@@ -210,7 +210,7 @@ export function BlocksFieldEditor({
   }, []);
 
   const handleAddBlock = (def: BlockDefinition) => {
-    const defaultData: Record<string, any> = {};
+    const defaultData: Record<string, unknown> = {};
     for (const f of def.fields) {
       defaultData[f.name] = f.default !== undefined ? f.default : '';
     }
@@ -225,7 +225,7 @@ export function BlocksFieldEditor({
     setPickerOpen(false);
   };
 
-  const handleUpdateBlockData = (index: number, fieldName: string, val: any) => {
+  const handleUpdateBlockData = (index: number, fieldName: string, val: unknown) => {
     const updated = [...value];
     const target = updated[index];
     if (target) {
@@ -341,10 +341,10 @@ export function BlocksFieldEditor({
                       {idx + 1}
                     </span>
                     <span className="text-xs font-semibold text-foreground">
-                      {blockName}
+                      {String(blockName)}
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono py-0">
-                      {blockType}
+                      {String(blockType)}
                     </Badge>
                   </div>
 
@@ -408,10 +408,10 @@ export function BlocksFieldEditor({
                             value={
                               typeof blk.data[field.name] === 'object'
                                 ? JSON.stringify(blk.data[field.name], null, 2)
-                                : blk.data[field.name] || ''
+                                : String(blk.data[field.name] ?? '')
                             }
                             onChange={(e) => {
-                              let val: any = e.target.value;
+                              let val: unknown = e.target.value;
                               if (field.name === 'items') {
                                 try {
                                   val = JSON.parse(e.target.value);
@@ -445,7 +445,7 @@ export function BlocksFieldEditor({
                         ) : (
                           <Input
                             type={field.type === 'number' ? 'number' : 'text'}
-                            value={blk.data[field.name] ?? ''}
+                            value={blk.data[field.name] !== undefined && blk.data[field.name] !== null ? String(blk.data[field.name]) : ''}
                             onChange={(e) => handleUpdateBlockData(idx, field.name, e.target.value)}
                             disabled={disabled}
                             className="text-xs h-8"
