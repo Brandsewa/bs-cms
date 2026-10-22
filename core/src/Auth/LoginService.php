@@ -32,7 +32,8 @@ final class LoginService
         private readonly AuditLogger $auditLogger,
         private readonly ?Mailer $mailer = null,
         private readonly ?TemplateRenderer $templates = null,
-        private readonly ?Crypto $crypto = null
+        private readonly ?Crypto $crypto = null,
+        private readonly ?\BsCms\Settings\SettingsRepository $settings = null
     ) {
     }
 
@@ -99,14 +100,28 @@ final class LoginService
             $failedLogins = (int) $user['failed_logins'] + 1;
             $lockedUntil = null;
 
-            if ($failedLogins >= 5) {
-                // Exponential lockout: 5 -> 60s, 6 -> 120s, 7 -> 300s, 8+ -> 900s (15 min)
-                $delaySeconds = match (true) {
-                    $failedLogins === 5 => 60,
-                    $failedLogins === 6 => 120,
-                    $failedLogins === 7 => 300,
-                    default => 900,
-                };
+            $secPolicy = [];
+            if ($this->settings !== null) {
+                try {
+                    $sec = $this->settings->get('security_settings', []);
+                    if (is_array($sec)) {
+                        $secPolicy = $sec;
+                    }
+                } catch (\Throwable) {
+                    $secPolicy = [];
+                }
+            }
+
+            $maxAttempts = isset($secPolicy['login_max_attempts']) && is_numeric($secPolicy['login_max_attempts'])
+                ? (int) $secPolicy['login_max_attempts']
+                : 5;
+            $decayMinutes = isset($secPolicy['login_decay_minutes']) && is_numeric($secPolicy['login_decay_minutes'])
+                ? (int) $secPolicy['login_decay_minutes']
+                : 15;
+
+            if ($failedLogins >= $maxAttempts) {
+                // Configured lockout decay window in minutes
+                $delaySeconds = $decayMinutes * 60;
                 $lockedUntil = Clock::sql(Clock::now()->modify("+{$delaySeconds} seconds"));
             }
 
@@ -148,6 +163,34 @@ final class LoginService
                 'user_id' => (string) $user['id'],
                 'challenge_token' => $challengeToken,
             ];
+        }
+
+        // Check if 2FA policy is enforced for this user or role
+        if ($this->settings !== null) {
+            $sec = $this->settings->get('security_settings', []);
+            $policy = $sec['two_factor_policy'] ?? 'optional';
+            $isEnforced = false;
+
+            if ($policy === 'mandatory_all') {
+                $isEnforced = true;
+            } elseif ($policy === 'mandatory_roles') {
+                $enforcedRoles = is_array($sec['two_factor_enforced_roles'] ?? null) ? $sec['two_factor_enforced_roles'] : [];
+                $userRoles = $this->users->getRoleIds((string) $user['id']);
+                foreach ($userRoles as $roleId) {
+                    if (in_array($roleId, $enforcedRoles, true)) {
+                        $isEnforced = true;
+                        break;
+                    }
+                }
+            }
+
+            if ($isEnforced) {
+                return [
+                    'status' => 'requires_2fa_setup',
+                    'message' => 'Two-factor authentication is required by administrator security policy.',
+                    'user_id' => (string) $user['id'],
+                ];
+            }
         }
 
         // Complete normal login

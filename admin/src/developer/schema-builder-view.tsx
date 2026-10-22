@@ -67,6 +67,57 @@ export interface CollectionSchema {
   relations?: Array<{ target_collection: string; relation_type: string; field_name: string }>;
 }
 
+function normalizeCollection(raw: unknown): CollectionSchema {
+  const col = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const handle = String(col.handle || '');
+  let fields: CollectionField[] = [];
+
+  if (Array.isArray(col.fields)) {
+    fields = col.fields.map((f: unknown) => {
+      const fieldObj = (f && typeof f === 'object' ? f : {}) as Record<string, unknown>;
+      return {
+        name: String(fieldObj.name || fieldObj.handle || ''),
+        label: String(fieldObj.label || fieldObj.name || fieldObj.handle || ''),
+        type: String(fieldObj.type || 'text'),
+        required: Boolean(fieldObj.required),
+        filterable: Boolean(fieldObj.filterable),
+        sortable: Boolean(fieldObj.sortable),
+        searchable: Boolean(fieldObj.searchable),
+        options: fieldObj.options,
+      };
+    });
+  } else if (col.fields && typeof col.fields === 'object') {
+    fields = Object.entries(col.fields as Record<string, unknown>).map(([fieldKey, f]) => {
+      const fieldObj = (f && typeof f === 'object' ? f : {}) as Record<string, unknown>;
+      return {
+        name: fieldKey,
+        label: String(fieldObj.label || fieldKey),
+        type: String(fieldObj.type || 'text'),
+        required: Boolean(fieldObj.required),
+        filterable: Boolean(fieldObj.filterable),
+        sortable: Boolean(fieldObj.sortable),
+        searchable: Boolean(fieldObj.searchable),
+        options: fieldObj.options,
+      };
+    });
+  }
+
+  return {
+    id: col.id ? String(col.id) : undefined,
+    handle,
+    name_singular: String(col.name_singular || handle),
+    name_plural: String(col.name_plural || `${handle}s`),
+    description: col.description ? String(col.description) : undefined,
+    icon: col.icon ? String(col.icon) : undefined,
+    route_pattern: col.route_pattern ? String(col.route_pattern) : undefined,
+    fields,
+    taxonomies: Array.isArray(col.taxonomies) ? (col.taxonomies as string[]) : [],
+    relations: Array.isArray(col.relations)
+      ? (col.relations as Array<{ target_collection: string; relation_type: string; field_name: string }>)
+      : [],
+  };
+}
+
 export const SchemaBuilderView: FC = () => {
   const [collections, setCollections] = useState<CollectionSchema[]>([]);
   const [selectedHandle, setSelectedHandle] = useState<string | null>(null);
@@ -97,16 +148,35 @@ export const SchemaBuilderView: FC = () => {
   const [applying, setApplying] = useState(false);
   const [appliedSuccess, setAppliedSuccess] = useState(false);
 
+  const loadCollectionDetail = async (handle: string) => {
+    try {
+      const res = await apiClient.request<unknown>('GET', `/collections/${handle}`);
+      if (res.ok && res.data) {
+        const normalized = normalizeCollection(res.data);
+        setCurrentSchema(normalized);
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
   const loadCollections = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.request<CollectionSchema[]>('GET', '/collections');
+      const res = await apiClient.request<unknown>('GET', '/collections');
       if (res.ok) {
-        setCollections(res.data);
-        const first = res.data[0];
+        let rawList: unknown[] = [];
+        if (Array.isArray(res.data)) {
+          rawList = res.data;
+        } else if (res.data && typeof res.data === 'object' && Array.isArray((res.data as Record<string, unknown>).items)) {
+          rawList = (res.data as { items: unknown[] }).items;
+        }
+        const normalizedList = rawList.map(normalizeCollection);
+        setCollections(normalizedList);
+        const first = normalizedList[0];
         if (first && !selectedHandle) {
           setSelectedHandle(first.handle);
-          setCurrentSchema(JSON.parse(JSON.stringify(first)));
+          loadCollectionDetail(first.handle);
         }
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to load collections' });
@@ -124,7 +194,7 @@ export const SchemaBuilderView: FC = () => {
 
   const handleSelectCollection = (col: CollectionSchema) => {
     setSelectedHandle(col.handle);
-    setCurrentSchema(JSON.parse(JSON.stringify(col)));
+    loadCollectionDetail(col.handle);
     setPlanResult(null);
     setAppliedSuccess(false);
   };

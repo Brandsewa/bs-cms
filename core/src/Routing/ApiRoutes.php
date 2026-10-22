@@ -152,6 +152,7 @@ final class ApiRoutes
         $routes->post('/api/v1/settings/email/test', [$email, 'testConnection']);
         $routes->post('/api/v1/settings/email/send-test', [$email, 'sendTestEmail']);
         $routes->get('/api/v1/email-log', [$email, 'listLogs']);
+        $routes->get('/api/v1/settings/email/log', [$email, 'listLogs']);
         $routes->post('/api/v1/email-log/{id:\d+}/resend', [$email, 'resend']);
 
         // 8. Notifications endpoints

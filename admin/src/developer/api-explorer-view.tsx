@@ -13,8 +13,18 @@ import {
 } from '@bs/ui';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 
+interface OpenApiSpec {
+  info?: {
+    title?: string;
+    version?: string;
+    description?: string;
+  };
+  paths?: Record<string, Record<string, { summary?: string; tags?: string[] }>>;
+  [key: string]: unknown;
+}
+
 export const ApiExplorerView: FC = () => {
-  const [spec, setSpec] = useState<any>(null);
+  const [spec, setSpec] = useState<OpenApiSpec | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -91,10 +101,10 @@ export const ApiExplorerView: FC = () => {
 
           <div className="divide-y divide-border rounded-md border border-border bg-card">
             {paths.map((pathKey) => {
-              const pathItem = spec.paths[pathKey];
-              const methods = Object.keys(pathItem);
+              const pathItem = spec?.paths ? spec.paths[pathKey] : undefined;
+              const methods = pathItem ? Object.keys(pathItem) : [];
               const firstMethod = methods[0];
-              const methodDetails = firstMethod ? pathItem[firstMethod] : undefined;
+              const methodDetails = pathItem && firstMethod ? pathItem[firstMethod] : undefined;
 
               return (
                 <div key={pathKey} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -75,7 +75,7 @@ final class CoreServiceProvider implements ServiceProvider
 
         // 3. Security & Hashing primitives
         $container->singleton(PasswordHasher::class, function (Container $c): PasswordHasher {
-            return new PasswordHasher();
+            return new PasswordHasher(null, null, null, $c->get(SettingsRepository::class));
         });
 
         $container->singleton(TwoFactorService::class, function (Container $c): TwoFactorService {
@@ -96,7 +96,15 @@ final class CoreServiceProvider implements ServiceProvider
         });
 
         $container->singleton(SessionManager::class, function (Container $c): SessionManager {
-            return new SessionManager($c->get(Connection::class));
+            $settings = $c->get(SettingsRepository::class);
+            $sec = $settings->get('security_settings', []);
+            $idleMinutes = isset($sec['session_idle_timeout_minutes']) && is_numeric($sec['session_idle_timeout_minutes'])
+                ? (int) $sec['session_idle_timeout_minutes']
+                : 60;
+            $absHours = isset($sec['session_absolute_lifetime_hours']) && is_numeric($sec['session_absolute_lifetime_hours'])
+                ? (int) $sec['session_absolute_lifetime_hours']
+                : 24;
+            return new SessionManager($c->get(Connection::class), $idleMinutes * 60, $absHours * 3600);
         });
 
         $container->singleton(SettingsRepository::class, function (Container $c): SettingsRepository {
@@ -145,7 +153,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->get(Mailer::class),
                 $c->get(TemplateRenderer::class),
-                $c->get(Crypto::class)
+                $c->get(Crypto::class),
+                $c->get(SettingsRepository::class)
             );
         });
 
@@ -264,7 +273,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->get(Mailer::class),
                 $c->get(TemplateRenderer::class),
-                $c->get(Crypto::class)
+                $c->get(Crypto::class),
+                $c->get(SettingsRepository::class)
             );
         });
 
@@ -775,7 +785,8 @@ final class CoreServiceProvider implements ServiceProvider
         $container->singleton(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\SecuritySettingsController {
             return new \BsCms\Http\Controllers\SprintA\SecuritySettingsController(
                 $c->get(\BsCms\Settings\SettingsRepository::class),
-                $c->get(Authorizer::class)
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Users\RoleRepository::class)
             );
         });
 
