@@ -108,8 +108,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // isLoading starts true; later refreshes update the session in place so mounted screens keep their local state.
   const fetchSession = async (): Promise<AdminSession | null> => {
-    setIsLoading(true);
     try {
       const res = await apiClient.request<{
         status: 'authenticated';

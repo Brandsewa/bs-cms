@@ -490,6 +490,7 @@ export function TaxonomyPanel({
             onClick={handleCreateTerm}
             disabled={creating || !newTermName.trim()}
             className="text-xs h-7 px-2"
+            aria-label={`Add ${taxonomyTitle.toLowerCase()}`}
           >
             <Plus className="h-3 w-3" />
           </Button>
@@ -553,7 +554,7 @@ export function AuthorPanel({ authorId, onAuthorChange }: AuthorPanelProps) {
           value={authorId || 'none'}
           onValueChange={(val) => onAuthorChange(val === 'none' ? null : val)}
         >
-          <SelectTrigger className="w-full text-xs">
+          <SelectTrigger className="w-full text-xs" aria-label="Author">
             <SelectValue placeholder="Assign author" />
           </SelectTrigger>
           <SelectContent>
@@ -688,15 +689,17 @@ export function SeoPanel({
             onChange={onSlugChange}
             source={title}
             className="text-xs"
+            aria-label="URL slug"
           />
         </div>
 
         <div className="space-y-1.5">
           <div className="flex justify-between items-center">
-            <Label className="text-xs font-medium text-foreground-light">Meta Title</Label>
+            <Label htmlFor="seo-meta-title" className="text-xs font-medium text-foreground-light">Meta Title</Label>
             <span className="text-[10px] text-muted-foreground font-mono">{metaTitle.length}/60</span>
           </div>
           <Input
+            id="seo-meta-title"
             value={metaTitle}
             onChange={(e) => onMetaTitleChange(e.target.value)}
             placeholder={title || 'Leave blank to use main title'}
@@ -707,10 +710,11 @@ export function SeoPanel({
 
         <div className="space-y-1.5">
           <div className="flex justify-between items-center">
-            <Label className="text-xs font-medium text-foreground-light">Meta Description</Label>
+            <Label htmlFor="seo-meta-desc" className="text-xs font-medium text-foreground-light">Meta Description</Label>
             <span className="text-[10px] text-muted-foreground font-mono">{metaDescription.length}/160</span>
           </div>
           <Textarea
+            id="seo-meta-desc"
             value={metaDescription}
             onChange={(e) => onMetaDescriptionChange(e.target.value)}
             placeholder="Search snippet description..."

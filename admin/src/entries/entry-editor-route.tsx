@@ -538,7 +538,7 @@ export function EntryEditorRoute({
   }
 
   return (
-    <PageContainer width="full" className="space-y-6">
+    <PageContainer width="full" className="space-y-6" data-testid="entry-editor-page">
       {/* Top Breadcrumb & Navigation Bar */}
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div className="flex items-center gap-3">
@@ -553,6 +553,7 @@ export function EntryEditorRoute({
           </Button>
           <div>
             <div className="flex items-center gap-2">
+              <h1 className="sr-only">{isNew ? `Create ${collectionLabel}` : `Edit ${collectionLabel}`}</h1>
               <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                 {collectionLabel}
               </span>

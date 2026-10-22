@@ -33,7 +33,8 @@ test('boots the app from a deep link with no failed asset requests', async ({ pa
   );
   for (const source of sources) {
     if (source && (source.endsWith('.js') || source.endsWith('.css'))) {
-      expect(source.startsWith('/admin/'), `asset ${source} must sit under /admin/`).toBe(true);
+      const pathname = new URL(source, 'http://127.0.0.1:4173').pathname;
+      expect(pathname.startsWith('/admin/'), `asset ${source} must sit under /admin/`).toBe(true);
     }
   }
 

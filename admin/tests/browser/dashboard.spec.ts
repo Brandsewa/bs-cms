@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { suppressWelcome } from './helpers';
 import { AxeBuilder } from '@axe-core/playwright';
 
 const ADMIN_URL = 'http://127.0.0.1:4173/admin';
 
 test.describe('Dashboard Home Screen (v1)', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressWelcome(page);
     // Default mock dashboard endpoint for test verification
     await page.route('**/api/v1/dashboard', async (route) => {
       await route.fulfill({

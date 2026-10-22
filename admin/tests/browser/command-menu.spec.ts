@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { suppressWelcome } from './helpers';
 
 const ADMIN_URL = 'http://127.0.0.1:4173/admin';
 
 test.describe('Command Menu & Global Hotkeys', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressWelcome(page);
     // Session mock (owner)
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({

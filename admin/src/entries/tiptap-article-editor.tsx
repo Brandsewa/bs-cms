@@ -280,7 +280,7 @@ export function TiptapArticleEditor({
   }
 
   return (
-    <div className={cn('relative rounded-md border border-border bg-card shadow-xs', className)}>
+    <div data-testid="tiptap-article-editor" className={cn('relative rounded-md border border-border bg-card shadow-xs', className)}>
       {/* Editor Control Header */}
       <div className="flex items-center justify-between border-b border-border bg-surface-100 p-1.5 flex-wrap gap-1">
         {/* Formatting actions */}

@@ -5,16 +5,28 @@ const ADMIN_URL = 'http://127.0.0.1:4173/admin';
 
 test.describe('My Account Screen (/admin/account)', () => {
   test.beforeEach(async ({ page }) => {
+    let twoFactorOn = false;
     // Mock authentication check
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          authenticated: true,
-          user: meFixtures.profile,
-          roleHandles: ['owner'],
-          permissions: ['*'],
+          status: 'authenticated',
+          csrf_token: 'csrf123',
+          user: { ...meFixtures.profile, two_factor_enabled: twoFactorOn, roles: [{ id: 'r-owner', handle: 'owner', name: 'Owner' }] },
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/me/permissions', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          actor_id: 'u1',
+          role_ids: ['r-owner'],
+          permissions: [{ id: 'p-all', role_id: 'r-owner', subject_type: '*', subject_key: '*', action: '*', effect: 'allow' }],
         }),
       });
     });
@@ -25,7 +37,7 @@ test.describe('My Account Screen (/admin/account)', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(meFixtures.profile),
+          body: JSON.stringify({ ...meFixtures.profile, two_factor_enabled: twoFactorOn }),
         });
       } else if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -84,6 +96,7 @@ test.describe('My Account Screen (/admin/account)', () => {
 
     // Mock 2FA Confirm
     await page.route('**/api/v1/me/2fa/confirm', async (route) => {
+      twoFactorOn = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -88,7 +88,7 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
             },
           }),
         });
-      } else if (route.request().method() === 'PUT') {
+      } else if (['PUT', 'PATCH'].includes(route.request().method())) {
         const headers = route.request().headers();
         const ifMatch = headers['if-match'];
         if (ifMatch === '999') {
@@ -153,11 +153,11 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
 
     // Verify Publishing Panel
     await expect(page.getByText('Publishing', { exact: true })).toBeVisible();
-    await expect(page.getByText('v2')).toBeVisible();
+    await expect(page.getByText('v2', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Update' })).toBeVisible();
 
     // Verify SEO Panel & SERP Preview
-    await expect(page.getByText('SEO & Metadata')).toBeVisible();
+    await expect(page.getByText('SEO & Discoverability')).toBeVisible();
     await expect(page.locator('#seo-meta-title')).toHaveValue('Getting Started with BS CMS | BrandSewa');
     await expect(page.locator('#seo-meta-desc')).toHaveValue('Official guide to publishing static sites and managing blog posts.');
   });
@@ -209,7 +209,7 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
             },
           }),
         });
-      } else if (route.request().method() === 'PUT') {
+      } else if (['PUT', 'PATCH'].includes(route.request().method())) {
         const json = JSON.parse(route.request().postData() || '{}');
         capturedBodyPayload = json.body;
         await route.fulfill({
@@ -288,14 +288,14 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
       expect(results.violations).toEqual([]);
 
       await page.screenshot({
-        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/entry-editor-1440-${theme}-existing.png`,
+        path: `test-results/entry-editor-1440-${theme}-existing.png`,
       });
 
       // Capture screenshot of SEO panel scrolled into view
       const seoCard = page.locator('#seo-meta-title');
       await seoCard.scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/entry-editor-1440-${theme}-seo.png`,
+        path: `test-results/entry-editor-1440-${theme}-seo.png`,
       });
 
       // Navigate to new post to capture clean editor
@@ -305,7 +305,7 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
       }, theme);
       await expect(page.getByRole('heading', { name: /Create Post/i })).toBeVisible();
       await page.screenshot({
-        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/entry-editor-1440-${theme}-new.png`,
+        path: `test-results/entry-editor-1440-${theme}-new.png`,
       });
     }
   });
@@ -329,7 +329,7 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
       expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2);
 
       await page.screenshot({
-        path: `C:/Users/razzd/.gemini/antigravity/brain/9831b937-edef-4912-a934-39e2b02285b9/entry-editor-390-${theme}.png`,
+        path: `test-results/entry-editor-390-${theme}.png`,
       });
     }
   });
