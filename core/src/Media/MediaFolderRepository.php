@@ -27,6 +27,10 @@ final class MediaFolderRepository
             throw new InvalidArgumentException("Folder name cannot be empty.");
         }
 
+        if (str_contains($name, '/') || str_contains($name, chr(92)) || mb_strlen($name) > 120) {
+            throw new InvalidArgumentException("Folder name must be at most 120 characters and cannot contain slashes.");
+        }
+
         $table = $this->connection->prefixTable('media_folders');
         $id = Ulid::generate();
         $now = Clock::sql(Clock::now());

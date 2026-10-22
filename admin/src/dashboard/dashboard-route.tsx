@@ -9,6 +9,7 @@ import { RecentEditsWidget } from './recent-edits-widget';
 import { ContentQueueWidget } from './content-queue-widget';
 import { SystemAndHealthWidget } from './system-health-widget';
 import { ShortcutsCard } from './shortcuts-card';
+import { FirstRunWelcomeDialog } from './welcome-dialog';
 
 export function DashboardRoute() {
   const { session } = useSession();
@@ -150,9 +151,13 @@ export function DashboardRoute() {
       {!onboardingDismissed && data.onboarding && !data.onboarding.completed && canCreateContent && (
         <OnboardingChecklistCard
           steps={data.onboarding.steps}
+          userId={session?.user?.id}
           onDismiss={() => setOnboardingDismissed(true)}
         />
       )}
+
+      {/* First-Run Welcome Dialog for Owners */}
+      {isOwnerOrAdmin && <FirstRunWelcomeDialog userId={session?.user?.id} />}
 
       {/* Main Widgets Grid */}
       <div className="grid gap-6 lg:grid-cols-3 min-w-0">

@@ -20,11 +20,25 @@ const OAuthConsentReturnRoute = lazy(() =>
 const CollectionListRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.CollectionListRoute }))
 );
+const EntryEditorRoute = lazy(() =>
+  import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
+);
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
 
 // Settings views (independently lazy-loaded chunks)
+// SPRINT-B BEGIN
+const MediaLibraryRoute = lazy(() =>
+  import('./media').then((m) => ({ default: m.MediaLibraryRoute }))
+);
+const TaxonomiesRoute = lazy(() =>
+  import('./taxonomies').then((m) => ({ default: m.TaxonomiesRoute }))
+);
+const MenusRoute = lazy(() =>
+  import('./menus').then((m) => ({ default: m.MenusRoute }))
+);
+// SPRINT-B END
 const SettingsLayout = lazy(() =>
   import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
 );
@@ -91,6 +105,13 @@ const AuditLogView = lazy(() =>
 const SiteHealthView = lazy(() =>
   import('./system/site-health-view').then((m) => ({ default: m.SiteHealthView }))
 );
+
+// SPRINT-D BEGIN
+// Account views (independently lazy-loaded chunks)
+const MyAccountView = lazy(() =>
+  import('./account/my-account-view').then((m) => ({ default: m.MyAccountView }))
+);
+// SPRINT-D END
 
 // Shell fallbacks & placeholders
 const ComingSoonPage = lazy(() =>
@@ -216,10 +237,9 @@ export const entryNewRoute = createRoute({
     const params = entryNewRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:create">
-        <ComingSoonPage
-          title={`Create ${params.collection === 'pages' ? 'Page' : 'Post'}`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
@@ -232,10 +252,9 @@ export const entryEditRoute = createRoute({
     const params = entryEditRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:update">
-        <ComingSoonPage
-          title={`Edit ${params.collection === 'pages' ? 'Page' : 'Post'} (${params.id})`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
@@ -247,10 +266,9 @@ export const taxonomiesRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="taxonomies:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Taxonomies & Categories"
-          description="Hierarchical tags, categories, and organizational vocabularies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <TaxonomiesRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -262,10 +280,9 @@ export const mediaRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="media:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Media Library"
-          description="Upload and inspect optimized image and document assets."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MediaLibraryRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -277,10 +294,9 @@ export const menusRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="menus:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Site Navigation & Menus"
-          description="Structure site header, footer, and contextual navigation hierarchies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MenusRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -416,6 +432,7 @@ export const settingsAuditRedirectRoute = createRoute({
   },
 });
 
+<<<<<<< HEAD
 // Redirect /settings/health to /system/health for dashboard and legacy link compatibility
 export const settingsHealthRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -575,6 +592,21 @@ export const developerApiExplorerRoute = createRoute({
 });
 // SPRINT-A END
 
+// SPRINT-D BEGIN
+// User Account Route
+export const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: () => (
+    <ProtectedAdmin>
+      <RouteSuspense>
+        <MyAccountView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+// SPRINT-D END
+
 export const forbiddenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/403',
@@ -636,6 +668,7 @@ export async function buildRouteTree() {
     settingsAuditRedirectRoute,
     systemHealthRoute,
     settingsHealthRedirectRoute,
+    accountRoute,
     forbiddenRoute,
     notFoundRoute,
   ];

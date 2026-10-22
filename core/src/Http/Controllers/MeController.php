@@ -129,10 +129,9 @@ class MeController extends BaseController
             return $this->problem(401, 'Unauthorized', 'Current password is incorrect.');
         }
 
-        try {
-            $this->hasher->validatePolicy($newPassword);
-        } catch (\Throwable $e) {
-            return $this->problem(422, 'Unprocessable Content', $e->getMessage());
+        $policyError = $this->hasher->validatePolicy($newPassword);
+        if ($policyError !== null) {
+            return $this->problem(422, 'Unprocessable Content', $policyError);
         }
 
         $newHash = $this->hasher->hash($newPassword);
@@ -461,7 +460,7 @@ class MeController extends BaseController
         $actor = $this->getActor($request);
         $settingsTable = $this->connection->prefixTable('settings');
         $stmt = $this->connection->getPdo()->prepare(
-            "SELECT `value` FROM `{$settingsTable}` WHERE `key` = ?"
+            "SELECT `value` FROM `{$settingsTable}` WHERE `handle` = ?"
         );
         $stmt->execute(["user_notif_prefs:{$actor->id}"]);
         $val = $stmt->fetchColumn();
@@ -490,7 +489,7 @@ class MeController extends BaseController
         $now = Clock::sql(Clock::now());
 
         $stmt = $this->connection->getPdo()->prepare(
-            "INSERT INTO `{$settingsTable}` (`key`, `value`, `is_secret`, `updated_at`, `updated_by`)
+            "INSERT INTO `{$settingsTable}` (`handle`, `value`, `is_secret`, `updated_at`, `updated_by`)
              VALUES (?, ?, 0, ?, ?)
              ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = VALUES(`updated_at`), `updated_by` = VALUES(`updated_by`)"
         );

@@ -2066,7 +2066,7 @@
     "data": [
       {
         "id": "01M5E0583S0DT2SVVPRZREWT07",
-        "slug": "bulk-post-11",
+        "slug": "bulk-post-11-deleted-123456",
         "title": "Bulk Post 11",
         "status": "published",
         "locale": "en",
@@ -2107,11 +2107,12 @@
           "outline": [],
           "media_ids": [],
           "internal_links": []
-        }
+        },
+        "deleted_at": "2026-10-21 03:55:40.000"
       },
       {
         "id": "01M5E057T13K4E58JQ0ZFHN9FH",
-        "slug": "bulk-post-10",
+        "slug": "bulk-post-10-deleted-123456",
         "title": "Bulk Post 10",
         "status": "draft",
         "locale": "en",
@@ -2152,7 +2153,8 @@
           "outline": [],
           "media_ids": [],
           "internal_links": []
-        }
+        },
+        "deleted_at": "2026-10-21 03:55:40.000"
       }
     ],
     "meta": {
@@ -2584,5 +2586,13 @@
       }
     ],
     "next_cursor": null
+  },
+  "collection_counts": {
+    "all": 8,
+    "published": 5,
+    "draft": 3,
+    "in_review": 0,
+    "archived": 0,
+    "trash": 2
   }
 }

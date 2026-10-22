@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Media;
 
+use InvalidArgumentException;
 use RuntimeException;
 
 final class MediaSecurity
@@ -96,14 +97,14 @@ final class MediaSecurity
                 if (file_exists($targetPath)) {
                     @unlink($targetPath);
                 }
-                throw new RuntimeException("Uploaded image could not be decoded or is malformed.");
+                throw new InvalidArgumentException("Uploaded image could not be decoded or is malformed.");
             }
 
             // Verify re-encoded image does not contain executable script tags
             $savedContent = (string) file_get_contents($targetPath);
             if (preg_match('/(<\?php|<\?=|<script|<\%|__HALT_COMPILER)/i', $savedContent)) {
                 @unlink($targetPath);
-                throw new RuntimeException("Uploaded image contains forbidden executable script payloads.");
+                throw new InvalidArgumentException("Uploaded image contains forbidden executable script payloads.");
             }
 
             return;
@@ -116,7 +117,7 @@ final class MediaSecurity
                 $chunk = fread($handle, 65536);
                 if (is_string($chunk) && preg_match('/(<\?php|<\?=|<script|<\%|__HALT_COMPILER)/i', $chunk)) {
                     fclose($handle);
-                    throw new RuntimeException("Uploaded file contains forbidden executable script tags.");
+                    throw new InvalidArgumentException("Uploaded file contains forbidden executable script tags.");
                 }
             }
             fclose($handle);

@@ -1,0 +1,29 @@
+{
+    "name": "hero",
+    "label": "Hero Section",
+    "description": "Large banner with heading, text, and call-to-action",
+    "category": "layout",
+    "icon": "layout-template",
+    "fields": {
+        "heading": {
+            "type": "string",
+            "label": "Heading",
+            "required": true
+        },
+        "text": {
+            "type": "string",
+            "label": "Text",
+            "required": false
+        },
+        "cta_label": {
+            "type": "string",
+            "label": "Button Label",
+            "required": false
+        },
+        "cta_url": {
+            "type": "string",
+            "label": "Button URL",
+            "required": false
+        }
+    }
+}

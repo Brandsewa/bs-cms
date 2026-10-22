@@ -107,7 +107,7 @@ export interface SavedView {
 export interface StatusTab {
   id: string;
   label: string;
-  count: number;
+  count?: number;
 }
 
 export type Density = 'compact' | 'default' | 'comfortable';

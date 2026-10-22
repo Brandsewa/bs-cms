@@ -135,7 +135,10 @@ final class PasswordResetService
         }
 
         // Validate password against policy
-        $this->hasher->validatePolicy($newPassword);
+        $policyError = $this->hasher->validatePolicy($newPassword);
+        if ($policyError !== null) {
+            throw new \RuntimeException($policyError);
+        }
 
         $userId = (string) $reset['user_id'];
         $user = $this->users->findById($userId);

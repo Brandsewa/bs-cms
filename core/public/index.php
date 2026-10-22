@@ -204,8 +204,13 @@ $router = new Router($routes);
     // SPRINT-A BEGIN
     $container->get(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class),
     $container->get(\BsCms\Http\Controllers\SprintA\QueueJobsController::class),
-    $container->get(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class)
+    $container->get(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class),
     // SPRINT-A END
+    // SPRINT-C BEGIN: Blocks Controller wiring
+    $container->get(\BsCms\Http\Controllers\BlocksController::class),
+    $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),
+    $container->get(\BsCms\Http\Controllers\MaintenanceController::class)
+    // SPRINT-C END: Blocks Controller wiring
 );
 
 // Build middleware pipeline
@@ -240,13 +245,7 @@ $kernel->addMiddleware(new \BsCms\Http\Middleware\AuthenticateMiddleware(
     $buildTokenService
 ));
 
-$limiter = new RateLimiter(60, 60, [], function () use ($container): ?Connection {
-    try {
-        return $container->get(Connection::class);
-    } catch (\Throwable $e) {
-        return null;
-    }
-});
+$limiter = $container->get(RateLimiter::class);
 $kernel->addMiddleware(new RateLimitMiddleware($limiter));
 
 $adminOrigin = (string) $config->get('app.url', '');

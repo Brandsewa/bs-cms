@@ -925,4 +925,76 @@ class EntriesController extends BaseController
             'diff' => $diff,
         ]);
     }
+
+    /**
+     * GET /api/v1/collections/{handle}/entries/export?format=csv|json
+     */
+    public function export(ServerRequestInterface $request, array $args = []): ResponseInterface
+    {
+        $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
+        if (!$this->registry->has($handle)) {
+            return $this->problem(404, 'Not Found', "Collection '{$handle}' not found.");
+        }
+
+        $params = $request->getQueryParams();
+        $format = strtolower((string) ($params['format'] ?? 'json'));
+        if (!in_array($format, ['csv', 'json'], true)) {
+            return $this->problem(422, 'Validation Error', "Unsupported export format '{$format}'.");
+        }
+
+        // Reuse list() so permission checks, owner scoping and presentation stay identical.
+        $entries = [];
+        for ($page = 1; $page <= 10; $page++) {
+            $resp = $this->list($request->withQueryParams(['limit' => 100, 'page' => $page]), $args);
+            if ($resp->getStatusCode() !== 200) {
+                return $resp;
+            }
+            $decoded = json_decode((string) $resp->getBody(), true);
+            $rows = is_array($decoded) ? ($decoded['data'] ?? []) : [];
+            foreach ($rows as $row) {
+                $entries[] = $row;
+            }
+            if (count($rows) < 100) {
+                break;
+            }
+        }
+
+        if ($format === 'csv') {
+            $stream = fopen('php://temp', 'r+');
+            if ($stream === false) {
+                return $this->problem(500, 'Export Error', 'Failed to allocate export buffer.');
+            }
+
+            $safe = static function (mixed $v): string {
+                $v = (string) ($v ?? '');
+                return $v !== '' && strpbrk($v[0], "=+-@	") !== false ? "'" . $v : $v;
+            };
+            fputcsv($stream, ['id', 'slug', 'title', 'status', 'published_at', 'updated_at', 'created_at']);
+            foreach ($entries as $e) {
+                fputcsv($stream, [
+                    $safe($e['id'] ?? ''),
+                    $safe($e['slug'] ?? ''),
+                    $safe($e['title'] ?? ''),
+                    $safe($e['status'] ?? ''),
+                    $safe($e['published_at'] ?? ''),
+                    $safe($e['updated_at'] ?? ''),
+                    $safe($e['created_at'] ?? ''),
+                ]);
+            }
+            rewind($stream);
+            $csvContent = stream_get_contents($stream) ?: '';
+            fclose($stream);
+
+            return new \Nyholm\Psr7\Response(200, [
+                'Content-Type' => 'text/csv; charset=utf-8',
+                'Content-Disposition' => "attachment; filename=\"{$handle}-export.csv\"",
+            ], $csvContent);
+        }
+
+        return $this->json([
+            'collection' => $handle,
+            'count' => count($entries),
+            'data' => $entries,
+        ]);
+    }
 }

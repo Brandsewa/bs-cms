@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { I18nProvider, ThemeProvider } from '@bs/ui';
 import { buildRouteTree } from './route-tree';
+import { NotFoundRoute } from './shell/not-found';
+import { ProtectedAdmin } from './shell/protected-admin';
 import { SessionProvider } from './auth/session-context';
 import './styles/main.css';
 
@@ -17,6 +19,11 @@ void buildRouteTree().then((routeTree) => {
   const router = createRouter({
     routeTree,
     basepath: '/admin',
+    defaultNotFoundComponent: () => (
+      <ProtectedAdmin>
+        <NotFoundRoute />
+      </ProtectedAdmin>
+    ),
     context: { queryClient },
   });
   const container = document.getElementById('root');

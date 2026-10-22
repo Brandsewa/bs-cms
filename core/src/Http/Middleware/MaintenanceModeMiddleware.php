@@ -31,6 +31,11 @@ final class MaintenanceModeMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        // Keep sign-in and the maintenance controls reachable so an operator can always lift the lock.
+        if ($path === '/api/v1/system/maintenance' || str_starts_with($path, '/api/v1/system/maintenance/') || str_starts_with($path, '/api/v1/auth/') || $path === '/api/v1/me') {
+            return $handler->handle($request);
+        }
+
         if (is_file($this->lockFile)) {
             $problem = ProblemDetails::create(
                 503,
