@@ -180,8 +180,8 @@ final class MigratorRollbackTest extends TestCase
             'core:202610180006_create_taxonomy_tables',
             'core:202610180007_create_media_and_redirect_tables',
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
-            'core:202610220010_update_pages_blocks_field_type_to_blocks',
             'core:202610190009_create_oauth_and_pending_changes_tables',
+            'core:202610220010_update_pages_blocks_field_type_to_blocks',
         ], $again);
         $this->assertSame($expected, $this->tables());
     }
