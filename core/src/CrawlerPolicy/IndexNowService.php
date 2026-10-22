@@ -34,7 +34,7 @@ final class IndexNowService
             'urlList' => array_values(array_unique($urls)),
         ];
 
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $endpoint = 'https://api.indexnow.org/IndexNow';
 
         $ctx = stream_context_create([
@@ -53,7 +53,7 @@ final class IndexNowService
         $error = null;
 
         $res = @file_get_contents($endpoint, false, $ctx);
-        if (isset($http_response_header)) {
+        if ($res !== false || $http_response_header !== []) {
             $statusLine = $http_response_header[0] ?? '';
             if (preg_match('/HTTP\/\S+\s+(\d+)/', $statusLine, $m)) {
                 $code = (int) $m[1];

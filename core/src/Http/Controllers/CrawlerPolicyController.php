@@ -88,6 +88,9 @@ final class CrawlerPolicyController extends BaseController
         }
     }
 
+    /**
+     * @param array<string, mixed> $args
+     */
     public function rollback(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
         $actor = $this->getActor($request);

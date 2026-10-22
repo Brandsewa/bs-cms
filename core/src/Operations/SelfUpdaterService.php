@@ -8,7 +8,7 @@ final class SelfUpdaterService
 {
     public function __construct(
         private readonly string $storageDir,
-        private readonly string $rootDir,
+        string $rootDir,
         private readonly DatabaseBackupService $backupService
     ) {
     }
@@ -70,6 +70,8 @@ final class SelfUpdaterService
 
     /**
      * Create automatic pre-update backup of database and critical code files.
+     *
+     * @return array{file: string, size_bytes: int, tables: list<string>}
      */
     public function createPreUpdateBackup(): array
     {

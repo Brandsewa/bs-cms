@@ -160,7 +160,7 @@ class OAuthController extends BaseController
 
         // 1. Enforce IP rate limit cap from configuration (default: 5 per hour)
         $ip = $this->resolveClientIp($request);
-        $rateLimitConfig = (array) ($this->config?->get('security.oauth.registration_rate_limit', []));
+        $rateLimitConfig = (array) ($this->config->get('security.oauth.registration_rate_limit', []));
         $maxRegistrations = (int) ($rateLimitConfig['limit'] ?? 5);
         $window = (int) ($rateLimitConfig['window'] ?? 3600);
 

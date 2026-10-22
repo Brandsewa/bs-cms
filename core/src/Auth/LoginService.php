@@ -175,7 +175,7 @@ final class LoginService
                 $isEnforced = true;
             } elseif ($policy === 'mandatory_roles') {
                 $enforcedRoles = is_array($sec['two_factor_enforced_roles'] ?? null) ? $sec['two_factor_enforced_roles'] : [];
-                $userRoles = $this->users->getRoleIds((string) $user['id']);
+                $userRoles = array_map(static fn (array $r): string => (string) ($r['id'] ?? ''), $this->users->getRoles((string) $user['id']));
                 foreach ($userRoles as $roleId) {
                     if (in_array($roleId, $enforcedRoles, true)) {
                         $isEnforced = true;

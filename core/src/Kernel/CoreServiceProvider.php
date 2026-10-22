@@ -273,8 +273,7 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->get(Mailer::class),
                 $c->get(TemplateRenderer::class),
-                $c->get(Crypto::class),
-                $c->get(SettingsRepository::class)
+                $c->get(Crypto::class)
             );
         });
 

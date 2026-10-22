@@ -532,7 +532,7 @@ final class McpController extends BaseController
         // 1b. Write rate limit (20 writes per minute per grant)
         $isWriteTool = $meta->mutates;
         if ($isWriteTool && $this->rateLimiter !== null) {
-            $grantKey = (string) ($ctx->grantId ?? $actor->id ?? 'unknown');
+            $grantKey = $actor->id;
             $writeRate = $this->rateLimiter->hit("mcp:write:{$grantKey}", 20, 60);
             if (!$writeRate['allowed']) {
                 $this->recordToolAudit($actor, $toolName, 'rate_limit_exceeded', $requestId, $clientIp, $userAgent);
@@ -620,7 +620,7 @@ final class McpController extends BaseController
                     'tool' => $toolName,
                     'offset' => (int) ($arguments['offset'] ?? 0) + (int) ($arguments['limit'] ?? 10),
                     'timestamp' => time(),
-                ]));
+                ], JSON_THROW_ON_ERROR));
             }
 
             $resultPayload = [

@@ -814,7 +814,7 @@ final class Console
 
     // SPRINT-C BEGIN: Blocks Sync implementation
     /**
-     * @param array<int, string> $args
+     * @param list<string> $args
      */
     private function blocksSync(array $args): int
     {

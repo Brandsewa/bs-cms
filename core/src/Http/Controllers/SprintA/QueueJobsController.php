@@ -80,6 +80,7 @@ class QueueJobsController extends BaseController
 
     /**
      * POST /api/v1/jobs/{id}/retry
+     * @param array<string, mixed> $args
      */
     public function retry(ServerRequestInterface $request, array $args = []): ResponseInterface
     {

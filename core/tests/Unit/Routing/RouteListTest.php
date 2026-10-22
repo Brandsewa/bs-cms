@@ -114,6 +114,7 @@ final class RouteListTest extends TestCase
             'PUT /api/v1/settings/email',
             'POST /api/v1/settings/email/test',
             'POST /api/v1/settings/email/send-test',
+            'GET /api/v1/settings/email/log',
             'GET /api/v1/email-log',
             'POST /api/v1/email-log/{id:\d+}/resend',
 

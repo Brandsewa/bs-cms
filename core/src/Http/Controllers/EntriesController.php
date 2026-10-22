@@ -928,6 +928,7 @@ class EntriesController extends BaseController
 
     /**
      * GET /api/v1/collections/{handle}/entries/export?format=csv|json
+     * @param array<string, mixed> $args
      */
     public function export(ServerRequestInterface $request, array $args = []): ResponseInterface
     {

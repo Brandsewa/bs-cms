@@ -7,13 +7,7 @@ namespace BsCms\CrawlerPolicy;
 final class RobotsGenerator
 {
     /**
-     * @param array{
-     *     preset: string,
-     *     bot_rules?: array<string, string>,
-     *     disallow_paths?: list<string>,
-     *     allow_paths?: list<string>,
-     *     sitemap_url?: string
-     * } $policy
+     * @param array<string, mixed> $policy
      * @param list<array<string, mixed>> $botCatalogue
      */
     public function generate(array $policy, array $botCatalogue, string $environment = 'production', int $version = 1): string
@@ -118,7 +112,7 @@ final class RobotsGenerator
     }
 
     /**
-     * @param array{preset?: string, bot_rules?: array<string, string>} $policy
+     * @param array<string, mixed> $policy
      * @return list<string> Errors
      */
     public function lint(array $policy, string $robotsTxt, string $environment = 'production'): array

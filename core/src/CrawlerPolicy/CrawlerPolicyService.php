@@ -34,7 +34,19 @@ final class CrawlerPolicyService
 
         $raw = file_get_contents($this->cataloguePath);
         $decoded = $raw !== false ? json_decode($raw, true) : null;
-        $this->catalogue = is_array($decoded) ? $decoded : [];
+        $list = [];
+        if (is_array($decoded)) {
+            foreach ($decoded as $item) {
+                if (is_array($item)) {
+                    $row = [];
+                    foreach ($item as $k => $v) {
+                        $row[(string) $k] = $v;
+                    }
+                    $list[] = $row;
+                }
+            }
+        }
+        $this->catalogue = $list;
         return $this->catalogue;
     }
 
@@ -82,7 +94,12 @@ final class CrawlerPolicyService
         $stmt = $this->connection->getPdo()->prepare("SELECT `id`, `preset`, `change_note`, `is_active`, `changed_by`, `created_at` FROM `{$table}` ORDER BY `created_at` DESC LIMIT ?");
         $stmt->bindValue(1, $limit, \PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+        $rows = [];
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     /**
@@ -177,6 +194,8 @@ final class CrawlerPolicyService
 
     /**
      * Rollback to a specific version.
+     *
+     * @return array<string, mixed>
      */
     public function rollbackTo(string $versionId, ?string $userId = null): array
     {

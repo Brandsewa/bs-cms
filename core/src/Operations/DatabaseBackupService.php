@@ -48,7 +48,7 @@ final class DatabaseBackupService
         fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n\n");
 
         $tablesStmt = $pdo->query("SHOW TABLES");
-        $tables = $tablesStmt !== false ? $tablesStmt->fetchAll(\PDO::FETCH_COLUMN) : [];
+        $tables = $tablesStmt !== false ? array_map('strval', $tablesStmt->fetchAll(\PDO::FETCH_COLUMN)) : [];
 
         foreach ($tables as $table) {
             $table = (string) $table;
@@ -111,7 +111,7 @@ final class DatabaseBackupService
         $pdo->exec("SET FOREIGN_KEY_CHECKS=0;");
 
         // Split queries safely by semicolon line breaks
-        $statements = preg_split('/;\s*[\r\n]+/', $sql);
+        $statements = preg_split('/;\s*[\r\n]+/', $sql) ?: [];
         $executed = 0;
 
         foreach ($statements as $stmt) {
@@ -130,6 +130,7 @@ final class DatabaseBackupService
     /**
      * @param resource $handle
      * @param list<array<string, mixed>> $rows
+     * @param list<string> $skip
      */
     private function writeInsertBatch($handle, string $table, array $rows, \PDO $pdo, array $skip = []): void
     {
@@ -138,7 +139,7 @@ final class DatabaseBackupService
         }
 
         $columns = array_values(array_diff(array_keys($rows[0]), $skip));
-        $escapedColumns = array_map(fn($c) => "`{$c}`", $columns);
+        $escapedColumns = array_map(fn ($c) => "`{$c}`", $columns);
         $colList = implode(', ', $escapedColumns);
 
         $valRows = [];
@@ -172,6 +173,6 @@ final class DatabaseBackupService
         );
         $stmt->execute([$table]);
 
-        return array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN));
+        return array_values(array_map('strval', $stmt->fetchAll(\PDO::FETCH_COLUMN)));
     }
 }

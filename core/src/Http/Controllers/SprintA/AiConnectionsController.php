@@ -59,6 +59,7 @@ class AiConnectionsController extends BaseController
 
     /**
      * DELETE /api/v1/ai/grants/{id}
+     * @param array<string, mixed> $args
      */
     public function revokeGrant(ServerRequestInterface $request, array $args = []): ResponseInterface
     {

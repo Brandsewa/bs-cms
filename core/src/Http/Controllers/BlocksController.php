@@ -24,6 +24,9 @@ final class BlocksController extends BaseController
         ]);
     }
 
+    /**
+     * @param array<string, mixed> $args
+     */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
         $name = (string) ($args['name'] ?? $request->getAttribute('name', ''));

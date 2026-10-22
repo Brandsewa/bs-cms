@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PageLoadingSkeleton, EmptyState, ErrorState, ForbiddenState } from '@bs/ui';
+import { PageLoadingSkeleton, EmptyState, ErrorState, ForbiddenState } from './states';
 
 export interface PageStatesProps {
   isLoading?: boolean;

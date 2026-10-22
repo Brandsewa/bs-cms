@@ -38,7 +38,7 @@ final class CanaryChecker
         ]);
 
         $raw = @file_get_contents($robotsUrl, false, $ctx);
-        if ($raw !== false && isset($http_response_header)) {
+        if ($raw !== false) {
             $statusLine = $http_response_header[0] ?? '';
             if (str_contains($statusLine, '200')) {
                 $liveRobots = $raw;
@@ -94,7 +94,7 @@ final class CanaryChecker
                 $overallStatus = 'fail';
                 break;
             }
-            if ($c['status'] === 'warn' && $overallStatus !== 'fail') {
+            if ($c['status'] === 'warn') {
                 $overallStatus = 'warning';
             }
         }
