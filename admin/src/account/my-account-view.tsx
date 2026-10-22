@@ -103,6 +103,7 @@ export function MyAccountView() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordPolicyError, setPasswordPolicyError] = useState<string | null>(null);
 
   // Email Change State
   const [newEmail, setNewEmail] = useState('');
@@ -139,7 +140,7 @@ export function MyAccountView() {
   // Step-Up Dialog State
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [stepUpAction, setStepUpAction] = useState<
-    'email_change' | 'disable_2fa' | 'regen_recovery' | null
+    'password_change' | 'email_change' | 'disable_2fa' | 'regen_recovery' | null
   >(null);
 
   // Confirmation Modal State
@@ -232,11 +233,12 @@ export function MyAccountView() {
   };
 
   // Change Password
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChangePassword = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setPasswordSaving(true);
     setPasswordSuccess(null);
     setPasswordError(null);
+    setPasswordPolicyError(null);
 
     if (newPassword !== confirmPassword) {
       setPasswordError('New password and confirmation do not match.');
@@ -245,7 +247,7 @@ export function MyAccountView() {
     }
 
     if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters long.');
+      setPasswordPolicyError('New password must be at least 8 characters long.');
       setPasswordSaving(false);
       return;
     }
@@ -259,6 +261,34 @@ export function MyAccountView() {
       });
 
       if (!res.ok) {
+        if (res.status === 403) {
+          // Check if step-up authentication is required
+          const detail = (res.problem?.detail || '').toLowerCase();
+          const title = (res.problem?.title || '').toLowerCase();
+          if (
+            detail.includes('step-up') ||
+            detail.includes('step_up') ||
+            title.includes('step-up') ||
+            title.includes('step_up') ||
+            res.status === 403
+          ) {
+            setStepUpAction('password_change');
+            setStepUpOpen(true);
+            return;
+          }
+        }
+
+        if (res.status === 422) {
+          // Password policy failure or field validation error
+          const policyMsg =
+            res.problem?.errors?.['/new_password']?.[0] ||
+            res.problem?.errors?.['new_password']?.[0] ||
+            res.problem?.detail ||
+            'Password does not meet complexity requirements.';
+          setPasswordPolicyError(policyMsg);
+          return;
+        }
+
         setPasswordError(res.problem?.detail || 'Failed to change password.');
         return;
       }
@@ -455,7 +485,9 @@ export function MyAccountView() {
 
   // Callback on successful step-up authentication
   const handleStepUpSuccess = () => {
-    if (stepUpAction === 'email_change') {
+    if (stepUpAction === 'password_change') {
+      void handleChangePassword();
+    } else if (stepUpAction === 'email_change') {
       void handleRequestEmailChange();
     } else if (stepUpAction === 'disable_2fa') {
       void handleDisable2fa();
@@ -713,18 +745,26 @@ export function MyAccountView() {
                   />
                 </FormItemLayout>
 
-                <FormItemLayout label="New Password" id="new-password">
+                <FormItemLayout
+                  label="New Password"
+                  id="new-password"
+                  error={passwordPolicyError || undefined}
+                >
                   <Input
                     id="new-password"
                     type="password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      if (passwordPolicyError) setPasswordPolicyError(null);
+                    }}
                     required
                     minLength={8}
                     autoComplete="new-password"
+                    aria-invalid={Boolean(passwordPolicyError)}
                   />
                   <p className="text-11 text-muted-foreground mt-1">
-                    Must be at least 8 characters long with a mix of letters, numbers, and symbols.
+                    Must be at least 12 characters long with a mix of letters, numbers, and symbols.
                   </p>
                 </FormItemLayout>
 
