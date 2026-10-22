@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BsCms\Media;
 
+use InvalidArgumentException;
 use RuntimeException;
 
 final class MediaSecurity
