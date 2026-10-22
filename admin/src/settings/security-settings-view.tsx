@@ -46,14 +46,14 @@ export const SecuritySettingsView: FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.request<SecuritySettings>('GET', '/settings/security');
-      if (res.ok && res.data) {
+      if (res.ok) {
         setSettings(res.data);
         setDomainsInput((res.data.allowed_email_domains || []).join(', '));
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load security settings');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load security settings' });
       }
-    } catch {
-      problemToast(500, null, 'Error connecting to security service');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error connecting to security service' });
     } finally {
       setLoading(false);
     }
@@ -78,16 +78,18 @@ export const SecuritySettingsView: FC = () => {
           .filter(Boolean),
       };
 
-      const res = await apiClient.request<SecuritySettings>('PUT', '/settings/security', payload);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<SecuritySettings>('PUT', '/settings/security', {
+        body: payload,
+      });
+      if (res.ok) {
         setSettings(res.data);
         setSavedSuccess(true);
         setTimeout(() => setSavedSuccess(false), 3000);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to save security settings');
+        problemToast(res.problem, { fallbackMessage: 'Failed to save security settings' });
       }
-    } catch {
-      problemToast(500, null, 'Error saving security settings');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error saving security settings' });
     } finally {
       setSaving(false);
     }
@@ -209,7 +211,7 @@ export const SecuritySettingsView: FC = () => {
             <Label htmlFor="two_factor_policy">Enforcement Scope</Label>
             <Select
               value={settings.two_factor_policy}
-              onValueChange={(val: any) => setSettings({ ...settings, two_factor_policy: val })}
+              onValueChange={(val) => setSettings({ ...settings, two_factor_policy: val as "optional" | "mandatory_roles" | "mandatory_all" })}
             >
               <SelectTrigger id="two_factor_policy">
                 <SelectValue placeholder="Select enforcement policy" />

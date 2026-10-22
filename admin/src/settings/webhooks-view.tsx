@@ -3,10 +3,6 @@ import {
   Badge,
   Button,
   Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -69,13 +65,13 @@ export const WebhooksView: FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.request<WebhookItem[]>('GET', '/webhooks');
-      if (res.ok && res.data) {
+      if (res.ok) {
         setWebhooks(res.data);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load webhooks');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load webhooks' });
       }
-    } catch {
-      problemToast(500, null, 'Error loading webhooks');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error loading webhooks' });
     } finally {
       setLoading(false);
     }
@@ -98,24 +94,28 @@ export const WebhooksView: FC = () => {
       };
 
       if (editingId) {
-        const res = await apiClient.request('PUT', `/webhooks/${editingId}`, payload);
+        const res = await apiClient.request('PUT', `/webhooks/${editingId}`, {
+          body: payload,
+        });
         if (res.ok) {
           setCreateOpen(false);
           loadWebhooks();
         } else {
-          problemToast(res.status, res.data as any, 'Failed to update webhook');
+          problemToast(res.problem, { fallbackMessage: 'Failed to update webhook' });
         }
       } else {
-        const res = await apiClient.request('POST', '/webhooks', payload);
+        const res = await apiClient.request('POST', '/webhooks', {
+          body: payload,
+        });
         if (res.ok) {
           setCreateOpen(false);
           loadWebhooks();
         } else {
-          problemToast(res.status, res.data as any, 'Failed to create webhook');
+          problemToast(res.problem, { fallbackMessage: 'Failed to create webhook' });
         }
       }
-    } catch {
-      problemToast(500, null, 'Error saving webhook');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error saving webhook' });
     } finally {
       setCreateLoading(false);
     }
@@ -128,23 +128,23 @@ export const WebhooksView: FC = () => {
       if (res.ok) {
         loadWebhooks();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to delete webhook');
+        problemToast(res.problem, { fallbackMessage: 'Failed to delete webhook' });
       }
-    } catch {
-      problemToast(500, null, 'Error deleting webhook');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error deleting webhook' });
     }
   };
 
   const handleTestPing = async (id: string) => {
     try {
-      const res = await apiClient.request<any>('POST', `/webhooks/${id}/test`);
+      const res = await apiClient.request<{ response_code?: number }>('POST', `/webhooks/${id}/test`);
       if (res.ok) {
         alert(`Test ping dispatched! Response code: ${res.data?.response_code ?? 'Sent'}`);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to trigger test ping');
+        problemToast(res.problem, { fallbackMessage: 'Failed to trigger test ping' });
       }
-    } catch {
-      problemToast(500, null, 'Error triggering test ping');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error triggering test ping' });
     }
   };
 
@@ -155,13 +155,13 @@ export const WebhooksView: FC = () => {
 
     try {
       const res = await apiClient.request<WebhookDelivery[]>('GET', `/webhooks/${item.id}/deliveries`);
-      if (res.ok && res.data) {
+      if (res.ok) {
         setDeliveries(res.data);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load deliveries');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load deliveries' });
       }
-    } catch {
-      problemToast(500, null, 'Error loading deliveries');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error loading deliveries' });
     } finally {
       setDeliveriesLoading(false);
     }
@@ -170,18 +170,18 @@ export const WebhooksView: FC = () => {
   const handleRetryDelivery = async (deliveryId: number) => {
     setRetryingId(deliveryId);
     try {
-      const res = await apiClient.request<any>('POST', `/deliveries/${deliveryId}/retry`);
+      const res = await apiClient.request<unknown>('POST', `/deliveries/${deliveryId}/retry`);
       if (res.ok && currentWebhook) {
         // Refresh deliveries list
         const refresh = await apiClient.request<WebhookDelivery[]>('GET', `/webhooks/${currentWebhook.id}/deliveries`);
-        if (refresh.ok && refresh.data) {
+        if (refresh.ok) {
           setDeliveries(refresh.data);
         }
-      } else {
-        problemToast(res.status, res.data as any, 'Failed to retry delivery');
+      } else if (!res.ok) {
+        problemToast(res.problem, { fallbackMessage: 'Failed to retry delivery' });
       }
-    } catch {
-      problemToast(500, null, 'Error retrying delivery');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error retrying delivery' });
     } finally {
       setRetryingId(null);
     }

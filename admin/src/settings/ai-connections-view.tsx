@@ -18,7 +18,7 @@ import {
   Label,
   Spinner,
 } from '@bs/ui';
-import { Bot, Power, Trash2, CheckCircle2, XCircle, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Bot, Power, Trash2, ShieldAlert } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
@@ -48,8 +48,8 @@ interface PendingChange {
   operation: string;
   subject_type: string;
   subject_id: string | null;
-  payload: any;
-  diff: any;
+  payload: unknown;
+  diff: unknown;
   status: 'pending' | 'approved' | 'rejected' | 'expired';
   expires_at: string;
   created_at: string;
@@ -78,14 +78,16 @@ export const AiConnectionsView: FC = () => {
       const [stRes, grRes, pcRes] = await Promise.all([
         apiClient.request<AiStatus>('GET', '/ai/status'),
         apiClient.request<{ items: AiGrant[] }>('GET', '/ai/grants'),
-        apiClient.request<{ items: PendingChange[] }>('GET', '/pending-changes?status=pending'),
+        apiClient.request<{ items: PendingChange[] }>('GET', '/pending-changes', {
+          query: { status: 'pending' },
+        }),
       ]);
 
-      if (stRes.ok && stRes.data) setStatus(stRes.data);
-      if (grRes.ok && grRes.data) setGrants(grRes.data.items || []);
-      if (pcRes.ok && pcRes.data) setPendingChanges(pcRes.data.items || []);
-    } catch {
-      problemToast(500, null, 'Error loading AI governance data');
+      if (stRes.ok) setStatus(stRes.data);
+      if (grRes.ok) setGrants(grRes.data.items || []);
+      if (pcRes.ok) setPendingChanges(pcRes.data.items || []);
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error loading AI governance data' });
     } finally {
       setLoading(false);
     }
@@ -101,8 +103,8 @@ export const AiConnectionsView: FC = () => {
 
     try {
       const endpoint = stepUpAction === 'disconnect' ? '/ai/disconnect' : '/ai/reconnect';
-      const res = await apiClient.request<any>('POST', endpoint, {
-        password: stepUpPassword,
+      const res = await apiClient.request<unknown>('POST', endpoint, {
+        body: { password: stepUpPassword },
       });
 
       if (res.ok) {
@@ -110,10 +112,10 @@ export const AiConnectionsView: FC = () => {
         setStepUpPassword('');
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Step-up authorization failed');
+        problemToast(res.problem, { fallbackMessage: 'Step-up authorization failed' });
       }
-    } catch {
-      problemToast(500, null, 'Error executing AI kill switch toggle');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error executing AI kill switch toggle' });
     } finally {
       setStepUpLoading(false);
     }
@@ -126,10 +128,10 @@ export const AiConnectionsView: FC = () => {
       if (res.ok) {
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to revoke AI grant');
+        problemToast(res.problem, { fallbackMessage: 'Failed to revoke AI grant' });
       }
-    } catch {
-      problemToast(500, null, 'Error revoking AI grant');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error revoking AI grant' });
     }
   };
 
@@ -137,17 +139,17 @@ export const AiConnectionsView: FC = () => {
     setDeciding(true);
     try {
       const res = await apiClient.request('POST', `/pending-changes/${id}/approve`, {
-        decision_note: decisionNote,
+        body: { decision_note: decisionNote },
       });
       if (res.ok) {
         setSelectedChange(null);
         setDecisionNote('');
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to approve change');
+        problemToast(res.problem, { fallbackMessage: 'Failed to approve change' });
       }
-    } catch {
-      problemToast(500, null, 'Error approving pending change');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error approving pending change' });
     } finally {
       setDeciding(false);
     }
@@ -157,17 +159,17 @@ export const AiConnectionsView: FC = () => {
     setDeciding(true);
     try {
       const res = await apiClient.request('POST', `/pending-changes/${id}/reject`, {
-        decision_note: decisionNote,
+        body: { decision_note: decisionNote },
       });
       if (res.ok) {
         setSelectedChange(null);
         setDecisionNote('');
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to reject change');
+        problemToast(res.problem, { fallbackMessage: 'Failed to reject change' });
       }
-    } catch {
-      problemToast(500, null, 'Error rejecting pending change');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error rejecting pending change' });
     } finally {
       setDeciding(false);
     }

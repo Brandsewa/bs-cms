@@ -4,15 +4,12 @@ import {
   Breadcrumbs,
   Button,
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   EmptyState,
   PageContainer,
   PageHeader,
   Spinner,
 } from '@bs/ui';
-import { CheckCircle2, XCircle, RotateCcw, Clock, AlertTriangle, Play, RefreshCw } from 'lucide-react';
+import { CheckCircle2, XCircle, RotateCcw, Clock, Play, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
@@ -46,16 +43,17 @@ export const JobsView: FC = () => {
   const loadJobs = async () => {
     setLoading(true);
     try {
-      const q = statusFilter ? `?status=${statusFilter}` : '';
-      const res = await apiClient.request<JobsListResponse>('GET', `/jobs${q}`);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<JobsListResponse>('GET', '/jobs', {
+        query: statusFilter ? { status: statusFilter } : undefined,
+      });
+      if (res.ok) {
         setJobs(res.data.items || []);
         setCounts(res.data.counts || {});
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load background jobs');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load background jobs' });
       }
-    } catch {
-      problemToast(500, null, 'Error connecting to jobs service');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error connecting to jobs service' });
     } finally {
       setLoading(false);
     }
@@ -68,14 +66,14 @@ export const JobsView: FC = () => {
   const handleRetry = async (id: number) => {
     setRetryingId(id);
     try {
-      const res = await apiClient.request<any>('POST', `/jobs/${id}/retry`);
+      const res = await apiClient.request<unknown>('POST', `/jobs/${id}/retry`);
       if (res.ok) {
         loadJobs();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to retry job');
+        problemToast(res.problem, { fallbackMessage: 'Failed to retry job' });
       }
-    } catch {
-      problemToast(500, null, 'Error retrying job');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error retrying job' });
     } finally {
       setRetryingId(null);
     }

@@ -22,7 +22,7 @@ import {
   SelectValue,
   Spinner,
 } from '@bs/ui';
-import { Globe, Rocket, Plus, Trash2, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Globe, Rocket, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
@@ -76,11 +76,11 @@ export const PublishingSettingsView: FC = () => {
         apiClient.request<Deployment[]>('GET', '/deployments'),
       ]);
 
-      if (cfgRes.ok && cfgRes.data) setConfig(cfgRes.data);
-      if (tokRes.ok && tokRes.data) setBuildTokens(tokRes.data);
-      if (depRes.ok && depRes.data) setDeployments(depRes.data);
-    } catch {
-      problemToast(500, null, 'Error loading publishing configuration');
+      if (cfgRes.ok) setConfig(cfgRes.data);
+      if (tokRes.ok) setBuildTokens(tokRes.data);
+      if (depRes.ok) setDeployments(depRes.data);
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error loading publishing configuration' });
     } finally {
       setLoading(false);
     }
@@ -95,15 +95,17 @@ export const PublishingSettingsView: FC = () => {
     if (!config) return;
     setSaving(true);
     try {
-      const res = await apiClient.request<PublishingConfig>('PUT', '/settings/publishing', config);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<PublishingConfig>('PUT', '/settings/publishing', {
+        body: config,
+      });
+      if (res.ok) {
         setConfig(res.data);
         alert('Publishing settings saved.');
       } else {
-        problemToast(res.status, res.data as any, 'Failed to save settings');
+        problemToast(res.problem, { fallbackMessage: 'Failed to save settings' });
       }
-    } catch {
-      problemToast(500, null, 'Error saving settings');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error saving settings' });
     } finally {
       setSaving(false);
     }
@@ -112,16 +114,16 @@ export const PublishingSettingsView: FC = () => {
   const handleDeployNow = async () => {
     setDeploying(true);
     try {
-      const res = await apiClient.request<any>('POST', '/deployments/trigger', {
-        reason: 'Manual dashboard deployment',
+      const res = await apiClient.request<unknown>('POST', '/deployments/trigger', {
+        body: { reason: 'Manual dashboard deployment' },
       });
       if (res.ok) {
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to trigger deployment');
+        problemToast(res.problem, { fallbackMessage: 'Failed to trigger deployment' });
       }
-    } catch {
-      problemToast(500, null, 'Error triggering deployment');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error triggering deployment' });
     } finally {
       setDeploying(false);
     }
@@ -129,15 +131,15 @@ export const PublishingSettingsView: FC = () => {
 
   const handleCreateBuildToken = async () => {
     try {
-      const res = await apiClient.request<any>('POST', '/tokens/build');
-      if (res.ok && res.data) {
+      const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens/build');
+      if (res.ok) {
         setNewTokenRaw(res.data.token || res.data.raw_token);
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to create build token');
+        problemToast(res.problem, { fallbackMessage: 'Failed to create build token' });
       }
-    } catch {
-      problemToast(500, null, 'Error creating build token');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error creating build token' });
     }
   };
 
@@ -148,10 +150,10 @@ export const PublishingSettingsView: FC = () => {
       if (res.ok) {
         loadData();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to revoke token');
+        problemToast(res.problem, { fallbackMessage: 'Failed to revoke token' });
       }
-    } catch {
-      problemToast(500, null, 'Error revoking build token');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error revoking build token' });
     }
   };
 
@@ -194,7 +196,7 @@ export const PublishingSettingsView: FC = () => {
                 <Label htmlFor="target_type">Target Provider</Label>
                 <Select
                   value={config.target_type}
-                  onValueChange={(val: any) => setConfig({ ...config, target_type: val })}
+                  onValueChange={(val) => setConfig({ ...config, target_type: val as "github_actions" | "webhook" | "manual" })}
                 >
                   <SelectTrigger id="target_type">
                     <SelectValue />

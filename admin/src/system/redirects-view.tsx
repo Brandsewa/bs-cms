@@ -7,13 +7,14 @@ import {
   type DataTableColumn,
   type DataTableFilter,
   type DataTableState,
+  type DataTableBulkAction,
+  type BulkActionOutcome,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  EmptyState,
   Input,
   Label,
   PageContainer,
@@ -35,7 +36,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
-import { formatAdminDate } from '../lib/formatters';
+import { formatAdminDate } from '../lib/datetime';
 import { problemToast } from '../lib/problem-toast';
 
 export interface RedirectItem {
@@ -69,9 +70,7 @@ export const RedirectsView: FC = () => {
     pagination: { pageIndex: 0, pageSize: 50 },
     sorting: [{ id: 'created_at', desc: true }],
     density: 'compact',
-    selectedRowIds: [],
-    filters: {},
-    globalSearch: '',
+    search: '',
   });
 
   // Dialog states
@@ -102,29 +101,29 @@ export const RedirectsView: FC = () => {
   const loadRedirects = async () => {
     setLoading(true);
     try {
-      const queryParams = new URLSearchParams();
-      queryParams.set('page', String(tableState.pagination.pageIndex + 1));
-      queryParams.set('per_page', String(tableState.pagination.pageSize));
+      const pageIndex = tableState.pagination?.pageIndex ?? 0;
+      const pageSize = tableState.pagination?.pageSize ?? 50;
+      const queryParams: Record<string, string | number> = {
+        page: pageIndex + 1,
+        per_page: pageSize,
+      };
 
-      if (tableState.globalSearch) {
-        queryParams.set('search', tableState.globalSearch);
-      }
-      if (tableState.filters?.match_type) {
-        queryParams.set('match_type', String(tableState.filters.match_type));
-      }
-      if (tableState.filters?.status_code) {
-        queryParams.set('status_code', String(tableState.filters.status_code));
+      if (tableState.search) {
+        queryParams.search = tableState.search;
       }
 
-      const res = await apiClient.request<RedirectsListResponse>('GET', `/redirects?${queryParams.toString()}`);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<RedirectsListResponse>('GET', '/redirects', {
+        query: queryParams,
+      });
+
+      if (res.ok) {
         setItems(res.data.items || []);
         setTotal(res.data.total || 0);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load redirects');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load redirects' });
       }
     } catch (err) {
-      problemToast(500, null, 'Error connecting to redirects service');
+      problemToast(err, { fallbackMessage: 'Error connecting to redirects service' });
     } finally {
       setLoading(false);
     }
@@ -133,10 +132,9 @@ export const RedirectsView: FC = () => {
   useEffect(() => {
     loadRedirects();
   }, [
-    tableState.pagination.pageIndex,
-    tableState.pagination.pageSize,
-    tableState.globalSearch,
-    tableState.filters,
+    tableState.pagination?.pageIndex,
+    tableState.pagination?.pageSize,
+    tableState.search,
   ]);
 
   // Loop & Chain Detection heuristics
@@ -150,13 +148,11 @@ export const RedirectsView: FC = () => {
     });
 
     items.forEach((item) => {
-      // Loop: from_path === to_path or reciprocal A -> B -> A
       if (item.from_path === item.to_path) {
         loopSet.add(item.id);
       } else if (fromMap.get(item.to_path) === item.from_path) {
         loopSet.add(item.id);
       } else if (fromMap.has(item.to_path)) {
-        // Chain: A -> B and B -> C
         chainSet.add(item.id);
       }
     });
@@ -172,32 +168,36 @@ export const RedirectsView: FC = () => {
 
     try {
       if (editingItem) {
-        const res = await apiClient.request<RedirectItem>('PATCH', `/redirects/${editingItem.id}`, formValues);
+        const res = await apiClient.request<RedirectItem>('PATCH', `/redirects/${editingItem.id}`, {
+          body: formValues,
+        });
         if (res.ok) {
           setDialogOpen(false);
           loadRedirects();
         } else {
-          if (res.status === 422 && (res.data as any)?.errors) {
-            setFormErrors((res.data as any).errors);
+          if (res.problem?.errors) {
+            setFormErrors(res.problem.errors);
           } else {
-            problemToast(res.status, res.data as any, 'Failed to update redirect');
+            problemToast(res.problem, { fallbackMessage: 'Failed to update redirect' });
           }
         }
       } else {
-        const res = await apiClient.request<RedirectItem>('POST', '/redirects', formValues);
+        const res = await apiClient.request<RedirectItem>('POST', '/redirects', {
+          body: formValues,
+        });
         if (res.ok) {
           setDialogOpen(false);
           loadRedirects();
         } else {
-          if (res.status === 422 && (res.data as any)?.errors) {
-            setFormErrors((res.data as any).errors);
+          if (res.problem?.errors) {
+            setFormErrors(res.problem.errors);
           } else {
-            problemToast(res.status, res.data as any, 'Failed to create redirect');
+            problemToast(res.problem, { fallbackMessage: 'Failed to create redirect' });
           }
         }
       }
-    } catch {
-      problemToast(500, null, 'An unexpected error occurred');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'An unexpected error occurred' });
     } finally {
       setDialogLoading(false);
     }
@@ -211,31 +211,40 @@ export const RedirectsView: FC = () => {
       if (res.ok) {
         loadRedirects();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to delete redirect');
+        problemToast(res.problem, { fallbackMessage: 'Failed to delete redirect' });
       }
-    } catch {
-      problemToast(500, null, 'Error deleting redirect');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error deleting redirect' });
     }
   };
 
-  // Bulk Delete
-  const handleBulkDelete = async () => {
-    const ids = tableState.selectedRowIds || [];
-    if (ids.length === 0) return;
-    if (!confirm(`Are you sure you want to delete ${ids.length} selected redirect rules?`)) return;
+  // Bulk Delete Actions for DataTable
+  const bulkActions = useMemo<Array<DataTableBulkAction<RedirectItem>>>(() => [
+    {
+      id: 'delete-selected',
+      label: 'Delete Selected',
+      destructive: true,
+      confirm: 'confirm',
+      icon: Trash2,
+      run: async (rows) => {
+        const outcome: BulkActionOutcome<RedirectItem> = { succeeded: [], failed: [] };
+        const ids = rows.map((r) => r.id);
+        const res = await apiClient.request('POST', '/redirects/bulk', {
+          body: { action: 'delete', ids },
+        });
 
-    try {
-      const res = await apiClient.request('POST', '/redirects/bulk', { action: 'delete', ids });
-      if (res.ok) {
-        setTableState((prev) => ({ ...prev, selectedRowIds: [] }));
-        loadRedirects();
-      } else {
-        problemToast(res.status, res.data as any, 'Failed to bulk delete redirects');
-      }
-    } catch {
-      problemToast(500, null, 'Error during bulk deletion');
-    }
-  };
+        if (res.ok) {
+          outcome.succeeded = rows;
+          loadRedirects();
+        } else {
+          rows.forEach((r) => {
+            outcome.failed.push({ row: r, reason: res.problem?.detail || 'Delete failed' });
+          });
+        }
+        return outcome;
+      },
+    },
+  ], []);
 
   // CSV Export
   const handleExport = () => {
@@ -249,29 +258,30 @@ export const RedirectsView: FC = () => {
     setImportResult(null);
 
     try {
-      const res = await apiClient.request<any>('POST', '/redirects/import', {
-        csv: importCsvText,
+      const res = await apiClient.request<{ total_processed?: number; created?: number; updated?: number; failed?: number; errors?: Array<{ row: number; error: string }> }>('POST', '/redirects/import', {
+        body: { csv: importCsvText },
       });
-      if (res.ok && res.data) {
+      if (res.ok) {
         setImportResult(res.data);
         loadRedirects();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to import CSV');
+        problemToast(res.problem, { fallbackMessage: 'Failed to import CSV' });
       }
-    } catch {
-      problemToast(500, null, 'Error importing CSV data');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error importing CSV data' });
     } finally {
       setImportLoading(false);
     }
   };
 
-  const columns: Array<DataTableColumn<RedirectItem>> = [
+  const columns = useMemo<Array<DataTableColumn<RedirectItem>>>(() => [
     {
       id: 'from_path',
       header: 'Source (From)',
-      accessorKey: 'from_path',
+      fieldType: 'text',
+      accessor: (row) => row.from_path,
       sortable: true,
-      cell: ({ row }) => (
+      cell: (row) => (
         <div className="flex items-center gap-2">
           <span className="font-mono text-13 font-medium text-foreground">{row.from_path}</span>
           {loops.has(row.id) && (
@@ -280,7 +290,7 @@ export const RedirectsView: FC = () => {
             </Badge>
           )}
           {chains.has(row.id) && (
-            <Badge variant="warning" className="text-[10px] py-0 px-1.5 gap-1">
+            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 gap-1 text-warning">
               <RotateCcw className="h-3 w-3" /> Chain
             </Badge>
           )}
@@ -295,11 +305,12 @@ export const RedirectsView: FC = () => {
     {
       id: 'to_path',
       header: 'Destination (To)',
-      accessorKey: 'to_path',
+      fieldType: 'text',
+      accessor: (row) => row.to_path,
       sortable: true,
-      cell: ({ row }) => (
+      cell: (row) => (
         <div className="flex items-center gap-1.5 font-mono text-13 text-muted-foreground">
-          <ArrowRight className="h-3.5 w-3.5 text-foreground-lighter" />
+          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-foreground">{row.to_path}</span>
         </div>
       ),
@@ -307,9 +318,10 @@ export const RedirectsView: FC = () => {
     {
       id: 'status_code',
       header: 'Status',
-      accessorKey: 'status_code',
+      fieldType: 'number',
+      accessor: (row) => row.status_code,
       sortable: true,
-      cell: ({ row }) => {
+      cell: (row) => {
         const isPerm = row.status_code === 301 || row.status_code === 308;
         return (
           <Badge variant={isPerm ? 'default' : 'secondary'} className="font-mono text-12">
@@ -321,17 +333,19 @@ export const RedirectsView: FC = () => {
     {
       id: 'match_type',
       header: 'Match',
-      accessorKey: 'match_type',
-      cell: ({ row }) => (
+      fieldType: 'text',
+      accessor: (row) => row.match_type,
+      cell: (row) => (
         <span className="capitalize text-12 text-muted-foreground">{row.match_type}</span>
       ),
     },
     {
       id: 'hits',
       header: 'Hits',
-      accessorKey: 'hits',
+      fieldType: 'number',
+      accessor: (row) => row.hits,
       sortable: true,
-      cell: ({ row }) => (
+      cell: (row) => (
         <div className="text-12 tabular-nums">
           <span className="font-medium text-foreground">{row.hits}</span>
           {row.last_hit_at && (
@@ -345,8 +359,10 @@ export const RedirectsView: FC = () => {
     {
       id: 'actions',
       header: '',
+      fieldType: 'text',
       align: 'right',
-      cell: ({ row }) => (
+      accessor: () => '',
+      cell: (row) => (
         <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"
@@ -380,13 +396,14 @@ export const RedirectsView: FC = () => {
         </div>
       ),
     },
-  ];
+  ], [loops, chains]);
 
   const filterDefs: DataTableFilter[] = [
     {
       id: 'match_type',
       label: 'Match Type',
-      type: 'select',
+      type: 'enum',
+      columnId: 'match_type',
       options: [
         { label: 'Exact Match', value: 'exact' },
         { label: 'Prefix Match', value: 'prefix' },
@@ -395,7 +412,8 @@ export const RedirectsView: FC = () => {
     {
       id: 'status_code',
       label: 'Status Code',
-      type: 'select',
+      type: 'enum',
+      columnId: 'status_code',
       options: [
         { label: '301 Permanent', value: '301' },
         { label: '302 Found', value: '302' },
@@ -467,43 +485,37 @@ export const RedirectsView: FC = () => {
           aria-label="Redirects Table"
           columns={columns}
           data={items}
+          getRowId={(r) => r.id}
           totalRows={total}
           state={tableState}
           onStateChange={setTableState}
-          filterDefs={filterDefs}
-          selectable
-          bulkActions={[
-            {
-              id: 'delete',
-              label: 'Delete Selected',
-              variant: 'destructive',
-              icon: Trash2,
-              onClick: handleBulkDelete,
-            },
-          ]}
-          emptyState={
-            <EmptyState
-              title="No redirects configured"
-              description="Add your first URL redirect rule or import from a CSV file."
-              action={
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setEditingItem(null);
-                    setFormValues({
-                      from_path: '',
-                      to_path: '',
-                      status_code: 301,
-                      match_type: 'exact',
-                    });
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Redirect
-                </Button>
-              }
-            />
-          }
+          filters={{
+            defs: filterDefs,
+            active: tableState.filters || [],
+            onChange: (f) => setTableState((s) => ({ ...s, filters: f })),
+          }}
+          bulkActions={bulkActions}
+          emptyState={{
+            title: 'No redirects configured',
+            description: 'Add your first URL redirect rule or import from a CSV file.',
+            action: (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingItem(null);
+                  setFormValues({
+                    from_path: '',
+                    to_path: '',
+                    status_code: 301,
+                    match_type: 'exact',
+                  });
+                  setDialogOpen(true);
+                }}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Add Redirect
+              </Button>
+            ),
+          }}
         />
       )}
 

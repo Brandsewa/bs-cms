@@ -40,6 +40,7 @@ export function SettingsLayout({ activeTab, children }: SettingsLayoutProps) {
   ];
 
   const handleTabChange = (tabId: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     navigate({ to: `/settings/${tabId}` as any });
   };
 

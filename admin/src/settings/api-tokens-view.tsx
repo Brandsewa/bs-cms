@@ -3,10 +3,6 @@ import {
   Badge,
   Button,
   Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -60,13 +56,13 @@ export const ApiTokensView: FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.request<{ items: ApiTokenItem[] }>('GET', '/tokens');
-      if (res.ok && res.data) {
+      if (res.ok) {
         setTokens(res.data.items || []);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load API tokens');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load API tokens' });
       }
-    } catch {
-      problemToast(500, null, 'Error connecting to tokens service');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error connecting to tokens service' });
     } finally {
       setLoading(false);
     }
@@ -88,15 +84,17 @@ export const ApiTokensView: FC = () => {
         expires_in_days: expiresDays ? Number(expiresDays) : null,
       };
 
-      const res = await apiClient.request<any>('POST', '/tokens', payload);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens', {
+        body: payload,
+      });
+      if (res.ok) {
         setRevealedToken(res.data.token || res.data.raw_token || 'bs_tok_' + Math.random().toString(36).substring(2));
         loadTokens();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to create API token');
+        problemToast(res.problem, { fallbackMessage: 'Failed to create API token' });
       }
-    } catch {
-      problemToast(500, null, 'Error creating API token');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error creating API token' });
     } finally {
       setCreateLoading(false);
     }
@@ -111,10 +109,10 @@ export const ApiTokensView: FC = () => {
       if (res.ok) {
         loadTokens();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to revoke token');
+        problemToast(res.problem, { fallbackMessage: 'Failed to revoke token' });
       }
-    } catch {
-      problemToast(500, null, 'Error revoking token');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error revoking token' });
     }
   };
 

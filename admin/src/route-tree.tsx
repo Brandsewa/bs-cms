@@ -432,7 +432,6 @@ export const settingsAuditRedirectRoute = createRoute({
   },
 });
 
-<<<<<<< HEAD
 // Redirect /settings/health to /system/health for dashboard and legacy link compatibility
 export const settingsHealthRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,

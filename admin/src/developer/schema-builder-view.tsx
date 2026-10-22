@@ -27,7 +27,6 @@ import {
   Spinner,
   Switch,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@bs/ui';
@@ -35,17 +34,8 @@ import {
   Database,
   Plus,
   Trash2,
-  Code,
   Eye,
   CheckCircle2,
-  FileText,
-  Type,
-  Hash,
-  ToggleLeft,
-  Calendar,
-  Image,
-  Link,
-  Layers,
   ArrowUp,
   ArrowDown,
   AlertTriangle,
@@ -61,7 +51,7 @@ export interface CollectionField {
   filterable?: boolean;
   sortable?: boolean;
   searchable?: boolean;
-  options?: any;
+  options?: unknown;
 }
 
 export interface CollectionSchema {
@@ -102,7 +92,7 @@ export const SchemaBuilderView: FC = () => {
   const [newColPlural, setNewColPlural] = useState('');
 
   // Plan / Apply
-  const [planResult, setPlanResult] = useState<any>(null);
+  const [planResult, setPlanResult] = useState<{ change_id: string; safe: boolean; sql_diff: string[]; warnings: string[] } | null>(null);
   const [planning, setPlanning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [appliedSuccess, setAppliedSuccess] = useState(false);
@@ -111,17 +101,18 @@ export const SchemaBuilderView: FC = () => {
     setLoading(true);
     try {
       const res = await apiClient.request<CollectionSchema[]>('GET', '/collections');
-      if (res.ok && res.data) {
+      if (res.ok) {
         setCollections(res.data);
-        if (res.data.length > 0 && !selectedHandle) {
-          setSelectedHandle(res.data[0].handle);
-          setCurrentSchema(JSON.parse(JSON.stringify(res.data[0])));
+        const first = res.data[0];
+        if (first && !selectedHandle) {
+          setSelectedHandle(first.handle);
+          setCurrentSchema(JSON.parse(JSON.stringify(first)));
         }
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load collections');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load collections' });
       }
-    } catch {
-      problemToast(500, null, 'Error connecting to schema service');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error connecting to schema service' });
     } finally {
       setLoading(false);
     }
@@ -175,6 +166,7 @@ export const SchemaBuilderView: FC = () => {
 
     const fields = [...currentSchema.fields];
     const [moved] = fields.splice(index, 1);
+    if (!moved) return;
     fields.splice(target, 0, moved);
     setCurrentSchema({ ...currentSchema, fields });
   };
@@ -203,8 +195,8 @@ export const SchemaBuilderView: FC = () => {
     if (!currentSchema) return;
     setPlanning(true);
     try {
-      const res = await apiClient.request<any>('POST', '/schema/plan', {
-        collection: currentSchema,
+      const res = await apiClient.request<{ change_id: string; safe: boolean; sql_diff: string[]; warnings: string[] }>('POST', '/schema/plan', {
+        body: { collection: currentSchema },
       });
       if (res.ok && res.data) {
         setPlanResult(res.data);
@@ -237,7 +229,7 @@ export const SchemaBuilderView: FC = () => {
     if (!planResult?.change_id) return;
     setApplying(true);
     try {
-      const res = await apiClient.request<any>('POST', `/schema/apply/${planResult.change_id}`);
+      const res = await apiClient.request<{ success: boolean; applied_changes: number }>('POST', `/schema/apply/${planResult.change_id}`);
       if (res.ok) {
         setAppliedSuccess(true);
         loadCollections();
@@ -324,7 +316,7 @@ export const SchemaBuilderView: FC = () => {
                       </CardDescription>
                     </div>
 
-                    <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)}>
+                    <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "fields" | "preview" | "json" | "apply")}>
                       <TabsList>
                         <TabsTrigger value="fields">Fields ({currentSchema.fields.length})</TabsTrigger>
                         <TabsTrigger value="preview">Live Preview</TabsTrigger>

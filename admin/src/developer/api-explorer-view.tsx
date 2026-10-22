@@ -4,7 +4,6 @@ import {
   Breadcrumbs,
   Button,
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -12,11 +11,10 @@ import {
   PageHeader,
   Spinner,
 } from '@bs/ui';
-import { FileCode, ExternalLink, Copy, Check } from 'lucide-react';
-import { apiClient } from '../lib/api';
+import { ExternalLink, Copy, Check } from 'lucide-react';
 
 export const ApiExplorerView: FC = () => {
-  const [spec, setSpec] = useState<any>(null);
+  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -95,6 +93,8 @@ export const ApiExplorerView: FC = () => {
             {paths.map((pathKey) => {
               const pathItem = spec.paths[pathKey];
               const methods = Object.keys(pathItem);
+              const firstMethod = methods[0];
+              const methodDetails = firstMethod ? pathItem[firstMethod] : undefined;
 
               return (
                 <div key={pathKey} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -111,20 +111,20 @@ export const ApiExplorerView: FC = () => {
                             ? 'destructive'
                             : 'outline';
                         return (
-                          <Badge key={m} variant={variant as any} className="font-mono text-[10px] font-bold">
+                          <Badge key={m} variant={variant as "default" | "secondary" | "destructive" | "outline"} className="font-mono text-[10px] font-bold">
                             {mUpper}
                           </Badge>
                         );
                       })}
                       <span className="font-mono text-13 font-semibold text-foreground">{pathKey}</span>
                     </div>
-                    {pathItem[methods[0]]?.summary && (
-                      <p className="text-12 text-muted-foreground">{pathItem[methods[0]].summary}</p>
+                    {methodDetails?.summary && (
+                      <p className="text-12 text-muted-foreground">{methodDetails.summary}</p>
                     )}
                   </div>
 
                   <span className="text-11 font-mono text-muted-foreground self-end sm:self-center">
-                    {pathItem[methods[0]]?.tags?.join(', ') || 'Core'}
+                    {methodDetails?.tags?.join(', ') || 'Core'}
                   </span>
                 </div>
               );

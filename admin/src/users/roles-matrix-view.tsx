@@ -772,12 +772,16 @@ export function RolesMatrixView() {
                       <input
                         type="checkbox"
                         checked={Boolean(current.own_only)}
-                        onChange={(e) =>
-                          setEditedPermissions((prev) => ({
-                            ...prev,
-                            [sub.key]: { ...prev[sub.key], own_only: e.target.checked },
-                          }))
-                        }
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          setEditedPermissions((prev) => {
+                            const cur = prev[sub.key] ?? { effect: 'allow' as const };
+                            return {
+                              ...prev,
+                              [sub.key]: { effect: cur.effect, own_only: isChecked },
+                            };
+                          });
+                        }}
                         className="rounded border-border text-primary focus:ring-primary"
                       />
                     </div>
@@ -797,7 +801,7 @@ export function RolesMatrixView() {
                 if (!editingRole) return;
                 setSavingPermissions(true);
                 try {
-                  const rules: any[] = [];
+                  const rules: Array<{ subject_type: string; subject_key: string; action: string; effect: string; conditions?: { own_entries: boolean } | null }> = [];
                   Object.entries(editedPermissions).forEach(([subjectKey, val]) => {
                     if (val.effect === 'allow') {
                       rules.push({
@@ -818,7 +822,7 @@ export function RolesMatrixView() {
                   });
 
                   const res = await apiClient.request('PUT', `/roles/${editingRole.id}/permissions`, {
-                    permissions: rules,
+                    body: { permissions: rules },
                   });
                   if (res.ok) {
                     setEditingRole(null);

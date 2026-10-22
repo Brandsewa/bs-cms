@@ -7,7 +7,7 @@ import {
   Input,
   Spinner,
 } from '@bs/ui';
-import { Mail, RefreshCw, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
@@ -32,15 +32,16 @@ export const EmailLogView: FC = () => {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const q = search ? `?to_email=${encodeURIComponent(search)}` : '';
-      const res = await apiClient.request<EmailLogEntry[]>('GET', `/email-log${q}`);
-      if (res.ok && res.data) {
+      const res = await apiClient.request<EmailLogEntry[]>('GET', '/email-log', {
+        query: search ? { to_email: search } : undefined,
+      });
+      if (res.ok) {
         setLogs(res.data);
       } else {
-        problemToast(res.status, res.data as any, 'Failed to load email logs');
+        problemToast(res.problem, { fallbackMessage: 'Failed to load email logs' });
       }
-    } catch {
-      problemToast(500, null, 'Error loading email logs');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error loading email logs' });
     } finally {
       setLoading(false);
     }
@@ -53,14 +54,14 @@ export const EmailLogView: FC = () => {
   const handleResend = async (id: number) => {
     setResendingId(id);
     try {
-      const res = await apiClient.request<any>('POST', `/email-log/${id}/resend`);
+      const res = await apiClient.request<unknown>('POST', `/email-log/${id}/resend`);
       if (res.ok) {
         loadLogs();
       } else {
-        problemToast(res.status, res.data as any, 'Failed to resend email');
+        problemToast(res.problem, { fallbackMessage: 'Failed to resend email' });
       }
-    } catch {
-      problemToast(500, null, 'Error resending email');
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error resending email' });
     } finally {
       setResendingId(null);
     }
