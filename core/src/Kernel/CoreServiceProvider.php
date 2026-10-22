@@ -864,7 +864,6 @@ final class CoreServiceProvider implements ServiceProvider
         $container->singleton(\BsCms\Operations\SelfUpdaterService::class, function (Container $c) use ($app): \BsCms\Operations\SelfUpdaterService {
             return new \BsCms\Operations\SelfUpdaterService(
                 $app->storagePath(),
-                $app->basePath(),
                 $c->get(\BsCms\Operations\DatabaseBackupService::class)
             );
         });

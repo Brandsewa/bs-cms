@@ -8,7 +8,6 @@ final class SelfUpdaterService
 {
     public function __construct(
         private readonly string $storageDir,
-        string $rootDir,
         private readonly DatabaseBackupService $backupService
     ) {
     }

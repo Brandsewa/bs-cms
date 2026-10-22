@@ -1092,7 +1092,7 @@ final class EntryRepository
             }
 
             // Fallback blocks validation if field handle is 'blocks' or type is blocks/json with blocks structure
-            if (($fHandle === 'blocks' || $fTypeStr === 'blocks') && $hasInput && $rawVal !== null) {
+            if ($fHandle === 'blocks' || $fTypeStr === 'blocks') {
                 $blocksType = new \BsCms\Schema\FieldTypes\BlocksType();
                 $blockErrs = $blocksType->validate($rawVal, $config, $vContext);
                 if (!empty($blockErrs)) {

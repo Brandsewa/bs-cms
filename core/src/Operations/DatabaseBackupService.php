@@ -48,7 +48,7 @@ final class DatabaseBackupService
         fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n\n");
 
         $tablesStmt = $pdo->query("SHOW TABLES");
-        $tables = $tablesStmt !== false ? array_map('strval', $tablesStmt->fetchAll(\PDO::FETCH_COLUMN)) : [];
+        $tables = $tablesStmt !== false ? array_values(array_map('strval', $tablesStmt->fetchAll(\PDO::FETCH_COLUMN))) : [];
 
         foreach ($tables as $table) {
             $table = (string) $table;
