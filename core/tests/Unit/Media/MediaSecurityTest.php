@@ -6,6 +6,7 @@ namespace BsCms\Tests\Unit\Media;
 
 use BsCms\Media\MediaSecurity;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class MediaSecurityTest extends TestCase
@@ -101,7 +102,7 @@ final class MediaSecurityTest extends TestCase
         $textFile = $this->tempDir . '/notes.txt';
         file_put_contents($textFile, "Header\n<?php phpinfo(); ?>\nFooter");
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('forbidden executable script tags');
 
         MediaSecurity::sanitizeAndStore($textFile, $this->tempDir . '/stored.txt', 'text/plain');

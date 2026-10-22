@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { suppressWelcome } from './helpers';
 import { AxeBuilder } from '@axe-core/playwright';
 
 /**
@@ -25,6 +26,7 @@ const THEMES = ['light', 'dark'] as const;
 
 test.describe('CI Route Accessibility Suite (Axe)', () => {
   test.beforeEach(async ({ page }) => {
+    await suppressWelcome(page);
     // Session mock (owner with full permissions)
     await page.route('**/api/v1/auth/session', async (route) => {
       await route.fulfill({

@@ -1,0 +1,69 @@
+[
+  {
+    "id": "hero",
+    "name": "Hero Section",
+    "category": "header",
+    "description": "Large hero banner with headline, subhead, CTA buttons, and background image.",
+    "fields": [
+      { "name": "title", "label": "Headline", "type": "text", "required": true },
+      { "name": "subtitle", "label": "Subhead", "type": "textarea" },
+      { "name": "cta_text", "label": "CTA Button Text", "type": "text" },
+      { "name": "cta_url", "label": "CTA Destination URL", "type": "text" },
+      { "name": "image_url", "label": "Hero Image URL", "type": "text" }
+    ]
+  },
+  {
+    "id": "features-grid",
+    "name": "Features Grid",
+    "category": "content",
+    "description": "2 to 4 column feature cards with icon, title, and description.",
+    "fields": [
+      { "name": "headline", "label": "Section Heading", "type": "text" },
+      { "name": "columns", "label": "Number of Columns", "type": "number", "default": 3 },
+      { "name": "items", "label": "Feature Items", "type": "repeater" }
+    ]
+  },
+  {
+    "id": "content-split",
+    "name": "Split Content",
+    "category": "content",
+    "description": "Text column beside an image or video with optional bullet list.",
+    "fields": [
+      { "name": "title", "label": "Title", "type": "text" },
+      { "name": "body", "label": "Content Text", "type": "richtext" },
+      { "name": "image_url", "label": "Image URL", "type": "text" },
+      { "name": "image_position", "label": "Image Side", "type": "select", "options": ["left", "right"], "default": "right" }
+    ]
+  },
+  {
+    "id": "testimonials",
+    "name": "Testimonial Carousel / Grid",
+    "category": "social-proof",
+    "description": "Customer quotes with author, role, avatar, and company.",
+    "fields": [
+      { "name": "title", "label": "Section Title", "type": "text" },
+      { "name": "quotes", "label": "Quotes", "type": "repeater" }
+    ]
+  },
+  {
+    "id": "cta-banner",
+    "name": "Call to Action Banner",
+    "category": "conversion",
+    "description": "High-visibility conversion strip with background colour or pattern.",
+    "fields": [
+      { "name": "headline", "label": "Headline", "type": "text", "required": true },
+      { "name": "subheadline", "label": "Subheadline", "type": "text" },
+      { "name": "button_text", "label": "Button Label", "type": "text" },
+      { "name": "button_url", "label": "Button Target", "type": "text" }
+    ]
+  },
+  {
+    "id": "pricing-table",
+    "name": "Pricing Table",
+    "category": "conversion",
+    "description": "Tiered pricing cards with features checklist and highlight tag.",
+    "fields": [
+      { "name": "tiers", "label": "Pricing Tiers", "type": "repeater" }
+    ]
+  }
+]

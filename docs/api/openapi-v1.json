@@ -7908,10 +7908,21 @@
                         "maxLength": 64
                     },
                     "blocks": {
-                        "type": [
-                            "object",
-                            "array"
-                        ]
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "type"
+                            ]
+                        }
                     },
                     "featured_image": {
                         "type": [

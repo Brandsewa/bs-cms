@@ -1,0 +1,24 @@
+{
+    "name": "faq",
+    "label": "FAQ Block",
+    "description": "Expandable questions and answers feeding FAQPage structured data",
+    "category": "content",
+    "icon": "help-circle",
+    "fields": {
+        "items": {
+            "type": "array",
+            "label": "Questions & Answers",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string"
+                    },
+                    "answer": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

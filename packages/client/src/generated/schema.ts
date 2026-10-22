@@ -383,7 +383,10 @@ export type PagesEntry = {
   "summary"?: string;
   "show_in_nav"?: boolean;
   "nav_label"?: string;
-  "blocks"?: unknown;
+  "blocks"?: Array<{
+      "type": string;
+      "data"?: Record<string, unknown>;
+    }>;
   "featured_image"?: unknown;
 };
 

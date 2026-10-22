@@ -70,7 +70,7 @@
         "blocks": {
             "handle": "blocks",
             "label": "Page Blocks",
-            "type": "json",
+            "type": "blocks",
             "required": false,
             "show_in_list": false,
             "config": {}

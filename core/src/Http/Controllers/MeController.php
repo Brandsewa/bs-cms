@@ -71,6 +71,7 @@ class MeController extends BaseController
 
         $allowedFields = ['name', 'locale', 'timezone', 'avatar_media_id'];
         $updates = [];
+        $errors = [];
 
         foreach ($allowedFields as $field) {
             if (array_key_exists($field, $body)) {
@@ -80,6 +81,39 @@ class MeController extends BaseController
 
         if (empty($updates)) {
             return $this->problem(422, 'Unprocessable Content', 'No valid profile fields provided for update.');
+        }
+
+        if (array_key_exists('name', $updates)) {
+            $name = $updates['name'];
+            if (!is_string($name) || trim($name) === '') {
+                $errors['name'] = ['Name must be a non-empty string.'];
+            } elseif (mb_strlen($name) > 190) {
+                $errors['name'] = ['Name must not exceed 190 characters.'];
+            }
+        }
+
+        if (array_key_exists('timezone', $updates)) {
+            $tz = $updates['timezone'];
+            if (!is_string($tz) || !in_array($tz, \DateTimeZone::listIdentifiers(), true)) {
+                $errors['timezone'] = ['Unknown timezone identifier. Must be a valid IANA timezone (e.g. UTC, America/New_York).'];
+            }
+        }
+
+        if (array_key_exists('locale', $updates)) {
+            $locale = $updates['locale'];
+            if (!is_string($locale) || !preg_match('/^[a-z]{2}(-[A-Za-z0-9]+)?$/', $locale)) {
+                $errors['locale'] = ["Locale must be a valid language code (e.g. 'en', 'en-US')."];
+            }
+        }
+
+        if (array_key_exists('avatar_media_id', $updates) && $updates['avatar_media_id'] !== null) {
+            if (!is_string($updates['avatar_media_id']) || !preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $updates['avatar_media_id'])) {
+                $errors['avatar_media_id'] = ['Avatar media ID must be a valid ULID or null.'];
+            }
+        }
+
+        if (!empty($errors)) {
+            return $this->problem(422, 'Validation Error', 'Invalid profile data.', null, $errors);
         }
 
         $this->users->update($actor->id, $updates);
@@ -111,6 +145,11 @@ class MeController extends BaseController
             return $authError;
         }
 
+        $stepUpError = $this->requireStepUp($request);
+        if ($stepUpError !== null) {
+            return $stepUpError;
+        }
+
         $actor = $this->getActor($request);
         $body = $this->getBody($request);
         $currentPassword = (string) ($body['current_password'] ?? '');
@@ -129,10 +168,9 @@ class MeController extends BaseController
             return $this->problem(401, 'Unauthorized', 'Current password is incorrect.');
         }
 
-        try {
-            $this->hasher->validatePolicy($newPassword);
-        } catch (\Throwable $e) {
-            return $this->problem(422, 'Unprocessable Content', $e->getMessage());
+        $policyError = $this->hasher->validatePolicy($newPassword);
+        if ($policyError !== null) {
+            return $this->problem(422, 'Unprocessable Content', $policyError);
         }
 
         $newHash = $this->hasher->hash($newPassword);
@@ -461,7 +499,7 @@ class MeController extends BaseController
         $actor = $this->getActor($request);
         $settingsTable = $this->connection->prefixTable('settings');
         $stmt = $this->connection->getPdo()->prepare(
-            "SELECT `value` FROM `{$settingsTable}` WHERE `key` = ?"
+            "SELECT `value` FROM `{$settingsTable}` WHERE `handle` = ?"
         );
         $stmt->execute(["user_notif_prefs:{$actor->id}"]);
         $val = $stmt->fetchColumn();
@@ -486,22 +524,62 @@ class MeController extends BaseController
         $body = $this->getBody($request);
         $preferences = (array) ($body['preferences'] ?? $body);
 
+        $allowedKeys = [
+            'email_on_login',
+            'email_on_role_change',
+            'in_app_system_alerts',
+            'email_security_alerts',
+            'email_publish_digest',
+        ];
+
+        $validatedPrefs = [];
+        $errors = [];
+
+        foreach ($preferences as $key => $val) {
+            if (!in_array($key, $allowedKeys, true)) {
+                $errors["preferences.{$key}"] = ["Unknown notification preference '{$key}'."];
+                continue;
+            }
+            if (!is_bool($val)) {
+                $errors["preferences.{$key}"] = ["Preference '{$key}' must be a boolean."];
+                continue;
+            }
+            $validatedPrefs[$key] = $val;
+        }
+
+        if (!empty($errors)) {
+            return $this->problem(422, 'Validation Error', 'Invalid notification preferences.', null, $errors);
+        }
+
+        // Merge with existing preferences so partial updates do not wipe other settings
         $settingsTable = $this->connection->prefixTable('settings');
+        $existingStmt = $this->connection->getPdo()->prepare(
+            "SELECT `value` FROM `{$settingsTable}` WHERE `handle` = ?"
+        );
+        $existingStmt->execute(["user_notif_prefs:{$actor->id}"]);
+        $existingVal = $existingStmt->fetchColumn();
+        $currentPrefs = is_string($existingVal) ? Json::decode($existingVal) : [
+            'email_on_login' => true,
+            'email_on_role_change' => true,
+            'in_app_system_alerts' => true,
+        ];
+        $mergedPrefs = array_merge($currentPrefs, $validatedPrefs);
+
         $now = Clock::sql(Clock::now());
 
         $stmt = $this->connection->getPdo()->prepare(
-            "INSERT INTO `{$settingsTable}` (`key`, `value`, `is_secret`, `updated_at`, `updated_by`)
+            "INSERT INTO `{$settingsTable}` (`handle`, `value`, `is_secret`, `updated_at`, `updated_by`)
              VALUES (?, ?, 0, ?, ?)
              ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = VALUES(`updated_at`), `updated_by` = VALUES(`updated_by`)"
         );
         $stmt->execute([
             "user_notif_prefs:{$actor->id}",
-            Json::encode($preferences),
+            Json::encode($mergedPrefs),
             $now,
             $actor->id,
         ]);
 
-        return $this->json(['status' => 'preferences_updated']);
+        return $this->json(['status' => 'preferences_updated', 'preferences' => $mergedPrefs]);
     }
 
     public function getPreferences(ServerRequestInterface $request): ResponseInterface

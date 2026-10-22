@@ -152,9 +152,15 @@ class OAuthController extends BaseController
             return $guardResponse;
         }
 
+        // 0b. Dynamic client registration disable setting
+        $dynamicRegistrationEnabled = (bool) ($this->config?->get('security.oauth.dynamic_registration_enabled', true));
+        if (!$dynamicRegistrationEnabled) {
+            return $this->oauthError(403, 'access_denied', 'Dynamic client registration is disabled by system policy.');
+        }
+
         // 1. Enforce IP rate limit cap from configuration (default: 5 per hour)
         $ip = $this->resolveClientIp($request);
-        $rateLimitConfig = (array) ($this->config?->get('security.oauth.registration_rate_limit', []));
+        $rateLimitConfig = (array) ($this->config->get('security.oauth.registration_rate_limit', []));
         $maxRegistrations = (int) ($rateLimitConfig['limit'] ?? 5);
         $window = (int) ($rateLimitConfig['window'] ?? 3600);
 

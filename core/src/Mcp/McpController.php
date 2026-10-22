@@ -181,9 +181,30 @@ final class McpController extends BaseController
             ]);
         }
 
-        // 3. Grant Rate Limiting (60 calls per minute per grant/token)
+        // 3. Grant Rate Limiting (1,000 calls per day per grant, 60/min burst)
         $grantKey = (string) ($authInfo['grant_id'] ?? $authInfo['client_id'] ?? 'token');
         if ($this->rateLimiter !== null) {
+            // Check daily limit: 1000 calls / 86400 seconds
+            $dailyRate = $this->rateLimiter->hit("mcp:grant:daily:{$grantKey}", 1000, 86400);
+            if (!$dailyRate['allowed']) {
+                return $this->json([
+                    'jsonrpc' => '2.0',
+                    'id' => null,
+                    'error' => [
+                        'code' => -32000,
+                        'message' => 'Daily rate limit exceeded for this grant (1,000 calls/day). Please try again tomorrow.',
+                        'data' => ['retry_after' => $dailyRate['retry_after']],
+                    ],
+                ], 429, [
+                    'Access-Control-Allow-Origin' => '*',
+                    'RateLimit-Limit' => (string) $dailyRate['limit'],
+                    'RateLimit-Remaining' => (string) $dailyRate['remaining'],
+                    'RateLimit-Reset' => (string) $dailyRate['reset'],
+                    'Retry-After' => (string) $dailyRate['retry_after'],
+                ]);
+            }
+
+            // Burst check: 60 calls / min
             $grantRate = $this->rateLimiter->hit("mcp:grant:{$grantKey}", 60, 60);
             if (!$grantRate['allowed']) {
                 return $this->json([
@@ -508,6 +529,30 @@ final class McpController extends BaseController
             );
         }
 
+        // 1b. Write rate limit (20 writes per minute per grant)
+        $isWriteTool = $meta->mutates;
+        if ($isWriteTool && $this->rateLimiter !== null) {
+            $grantKey = $actor->id;
+            $writeRate = $this->rateLimiter->hit("mcp:write:{$grantKey}", 20, 60);
+            if (!$writeRate['allowed']) {
+                $this->recordToolAudit($actor, $toolName, 'rate_limit_exceeded', $requestId, $clientIp, $userAgent);
+                $writeHeaders = array_merge($headers, [
+                    'Retry-After' => (string) $writeRate['retry_after'],
+                    'RateLimit-Limit' => '20',
+                    'RateLimit-Remaining' => (string) $writeRate['remaining'],
+                    'RateLimit-Reset' => (string) $writeRate['reset'],
+                ]);
+                return $this->jsonRpcError(
+                    $id,
+                    -32000,
+                    "Write rate limit exceeded (maximum 20 writes/minute). Retry after {$writeRate['retry_after']}s.",
+                    429,
+                    $writeHeaders,
+                    ['retry_after' => $writeRate['retry_after']]
+                );
+            }
+        }
+
         // 2. Input hardening: reject unknown arguments
         $arguments = $rawArgs;
         if (!empty($meta->inputSchema['properties']) && is_array($meta->inputSchema['properties'])) {
@@ -565,6 +610,19 @@ final class McpController extends BaseController
 
             $textRepresentation = $this->formatToolResultText($toolName, $result->data);
 
+            // Response size cap: if text representation exceeds 64 KB, truncate and provide continuation cursor
+            $isTruncated = false;
+            $continuationCursor = null;
+            if (strlen($textRepresentation) > 65536) {
+                $isTruncated = true;
+                $textRepresentation = substr($textRepresentation, 0, 65536) . "\n\n[TRUNCATED: Response exceeded 64KB limit. Use continuation_cursor or limit parameters to page through results.]";
+                $continuationCursor = base64_encode(json_encode([
+                    'tool' => $toolName,
+                    'offset' => (int) ($arguments['offset'] ?? 0) + (int) ($arguments['limit'] ?? 10),
+                    'timestamp' => time(),
+                ], JSON_THROW_ON_ERROR));
+            }
+
             $resultPayload = [
                 'content' => [
                     [
@@ -575,6 +633,11 @@ final class McpController extends BaseController
                 'content_trust' => 'untrusted',
                 'data' => $result->data,
             ];
+
+            if ($isTruncated) {
+                $resultPayload['truncated'] = true;
+                $resultPayload['continuation_cursor'] = $continuationCursor;
+            }
 
             if ($outcome === 'pending_approval') {
                 $resultPayload['pending_approval'] = true;

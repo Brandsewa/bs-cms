@@ -75,7 +75,7 @@ final class CoreServiceProvider implements ServiceProvider
 
         // 3. Security & Hashing primitives
         $container->singleton(PasswordHasher::class, function (Container $c): PasswordHasher {
-            return new PasswordHasher();
+            return new PasswordHasher(null, null, null, $c->get(SettingsRepository::class));
         });
 
         $container->singleton(TwoFactorService::class, function (Container $c): TwoFactorService {
@@ -96,7 +96,15 @@ final class CoreServiceProvider implements ServiceProvider
         });
 
         $container->singleton(SessionManager::class, function (Container $c): SessionManager {
-            return new SessionManager($c->get(Connection::class));
+            $settings = $c->get(SettingsRepository::class);
+            $sec = $settings->get('security_settings', []);
+            $idleMinutes = isset($sec['session_idle_timeout_minutes']) && is_numeric($sec['session_idle_timeout_minutes'])
+                ? (int) $sec['session_idle_timeout_minutes']
+                : 60;
+            $absHours = isset($sec['session_absolute_lifetime_hours']) && is_numeric($sec['session_absolute_lifetime_hours'])
+                ? (int) $sec['session_absolute_lifetime_hours']
+                : 24;
+            return new SessionManager($c->get(Connection::class), $idleMinutes * 60, $absHours * 3600);
         });
 
         $container->singleton(SettingsRepository::class, function (Container $c): SettingsRepository {
@@ -145,7 +153,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(AuditLogger::class),
                 $c->get(Mailer::class),
                 $c->get(TemplateRenderer::class),
-                $c->get(Crypto::class)
+                $c->get(Crypto::class),
+                $c->get(SettingsRepository::class)
             );
         });
 
@@ -677,6 +686,16 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
+        $container->singleton(\BsCms\Security\RateLimiter::class, function (Container $c): \BsCms\Security\RateLimiter {
+            return new \BsCms\Security\RateLimiter(60, 60, [], function () use ($c): ?Connection {
+                try {
+                    return $c->get(Connection::class);
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            });
+        });
+
         $container->singleton(\BsCms\Mcp\McpController::class, function (Container $c): \BsCms\Mcp\McpController {
             return new \BsCms\Mcp\McpController(
                 $c->get(Connection::class),
@@ -760,6 +779,104 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->has(\BsCms\Seo\SeoResolver::class) ? $c->get(\BsCms\Seo\SeoResolver::class) : null
             );
         });
+
+        // SPRINT-A BEGIN
+        $container->singleton(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\SecuritySettingsController {
+            return new \BsCms\Http\Controllers\SprintA\SecuritySettingsController(
+                $c->get(\BsCms\Settings\SettingsRepository::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Users\RoleRepository::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\QueueJobsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\QueueJobsController {
+            return new \BsCms\Http\Controllers\SprintA\QueueJobsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\AiConnectionsController {
+            return new \BsCms\Http\Controllers\SprintA\AiConnectionsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+        // SPRINT-A END
+
+        // SPRINT-C BEGIN: Blocks Registry & Controller
+        $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
+            $storageDir = $app->storagePath('blocks');
+            $registry = new \BsCms\Blocks\BlockRegistry($storageDir, $app->basePath('resources/blocks'));
+            $starterBlocksDir = dirname($app->basePath()) . '/starter/src/blocks';
+            if (is_dir($starterBlocksDir)) {
+                $registry->syncFromDirectory($starterBlocksDir);
+            }
+            return $registry;
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\BlocksController::class, function (Container $c): \BsCms\Http\Controllers\BlocksController {
+            return new \BsCms\Http\Controllers\BlocksController(
+                $c->get(\BsCms\Blocks\BlockRegistry::class)
+            );
+        });
+
+        // Crawler Policy services
+        $container->singleton(\BsCms\CrawlerPolicy\RobotsGenerator::class, function (): \BsCms\CrawlerPolicy\RobotsGenerator {
+            return new \BsCms\CrawlerPolicy\RobotsGenerator();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CanaryChecker::class, function (): \BsCms\CrawlerPolicy\CanaryChecker {
+            return new \BsCms\CrawlerPolicy\CanaryChecker();
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\IndexNowService::class, function (Container $c): \BsCms\CrawlerPolicy\IndexNowService {
+            return new \BsCms\CrawlerPolicy\IndexNowService($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\CrawlerPolicy\CrawlerPolicyService::class, function (Container $c) use ($app): \BsCms\CrawlerPolicy\CrawlerPolicyService {
+            $cataloguePath = $app->basePath('resources/bots.json');
+            return new \BsCms\CrawlerPolicy\CrawlerPolicyService(
+                $c->get(Connection::class),
+                $c->get(\BsCms\CrawlerPolicy\RobotsGenerator::class),
+                $cataloguePath
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\CrawlerPolicyController::class, function (Container $c): \BsCms\Http\Controllers\CrawlerPolicyController {
+            return new \BsCms\Http\Controllers\CrawlerPolicyController(
+                $c->get(\BsCms\CrawlerPolicy\CrawlerPolicyService::class),
+                $c->get(\BsCms\CrawlerPolicy\CanaryChecker::class),
+                $c->get(\BsCms\CrawlerPolicy\IndexNowService::class),
+                $c->get(Authorizer::class),
+                $c->get(\BsCms\Audit\AuditLogger::class)
+            );
+        });
+
+        // Backup, Updater, and Maintenance services
+        $container->singleton(\BsCms\Operations\DatabaseBackupService::class, function (Container $c) use ($app): \BsCms\Operations\DatabaseBackupService {
+            return new \BsCms\Operations\DatabaseBackupService(
+                $c->get(Connection::class),
+                $app->storagePath('backups')
+            );
+        });
+
+        $container->singleton(\BsCms\Operations\SelfUpdaterService::class, function (Container $c) use ($app): \BsCms\Operations\SelfUpdaterService {
+            return new \BsCms\Operations\SelfUpdaterService(
+                $app->storagePath(),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MaintenanceController::class, function (Container $c) use ($app): \BsCms\Http\Controllers\MaintenanceController {
+            return new \BsCms\Http\Controllers\MaintenanceController(
+                $c->get(\BsCms\Operations\SelfUpdaterService::class),
+                $c->get(\BsCms\Operations\DatabaseBackupService::class),
+                $c->get(Authorizer::class),
+                $app->storagePath()
+            );
+        });
+        // SPRINT-C END: Blocks Registry & Controller
     }
 
     public function boot(Container $container): void

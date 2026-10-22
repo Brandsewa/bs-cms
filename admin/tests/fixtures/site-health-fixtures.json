@@ -1,0 +1,93 @@
+{
+  "summary": {
+    "total": 8,
+    "errors": 0,
+    "warnings": 6,
+    "info": 2,
+    "status": "warning"
+  },
+  "issues": [
+    {
+      "rule_id": "seo.title.duplicate",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Duplicate title 'A Post Without Description' shared by multiple published entries.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2JKVP3F4T8AD55M2V3JK",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Ensure titles are unique across all published pages and posts."
+    },
+    {
+      "rule_id": "seo.title.duplicate",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Duplicate title 'A Post Without Description' shared by multiple published entries.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2TQA54NWS72CBWKVF4X0",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Ensure titles are unique across all published pages and posts."
+    },
+    {
+      "rule_id": "seo.description.duplicate",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Duplicate meta description shared by multiple published entries.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2JKVP3F4T8AD55M2V3JK",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Provide unique meta descriptions for each published entry."
+    },
+    {
+      "rule_id": "seo.description.duplicate",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Duplicate meta description shared by multiple published entries.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2TQA54NWS72CBWKVF4X0",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Provide unique meta descriptions for each published entry."
+    },
+    {
+      "rule_id": "seo.og.image.missing",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Published post 'A Post Without Description' has no featured image or OpenGraph image.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2JKVP3F4T8AD55M2V3JK",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Set a featured image or OpenGraph image to improve social share snippets."
+    },
+    {
+      "rule_id": "seo.og.image.missing",
+      "severity": "warn",
+      "category": "seo",
+      "message": "Published post 'A Post Without Description' has no featured image or OpenGraph image.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2TQA54NWS72CBWKVF4X0",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Set a featured image or OpenGraph image to improve social share snippets."
+    },
+    {
+      "rule_id": "geo.summary.missing",
+      "severity": "info",
+      "category": "geo",
+      "message": "Entry 'A Post Without Description' is missing an Answer Summary.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2JKVP3F4T8AD55M2V3JK",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Add a concise 1-2 sentence Answer Summary to ground AI search and retrieval engines."
+    },
+    {
+      "rule_id": "geo.summary.missing",
+      "severity": "info",
+      "category": "geo",
+      "message": "Entry 'A Post Without Description' is missing an Answer Summary.",
+      "entity_type": "entry",
+      "entity_id": "01M5FD2TQA54NWS72CBWKVF4X0",
+      "entity_title": "A Post Without Description",
+      "fix_hint": "Add a concise 1-2 sentence Answer Summary to ground AI search and retrieval engines."
+    }
+  ],
+  "rules_checked": 15,
+  "scanned_at": "2026-10-21 14:15:45.253"
+}

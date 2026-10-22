@@ -17,11 +17,16 @@ import {
   Trash2,
   CheckCircle2,
   FileEdit,
+  LayoutList,
+  GitBranch,
+  RotateCcw,
+  Download,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { buildCollectionColumns } from './collection-columns';
 import { QuickEditForm } from './quick-edit-form';
+import { PagesTreeView } from './pages-tree-view';
 import type {
   CollectionSchema,
   EntryItem,
@@ -48,6 +53,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   // Pagination & Filtering state
   const [activeTab, setActiveTab] = useState<string>('all');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
   const [tableState, setTableState] = useState<DataTableState>({
     pagination: { pageIndex: 0, pageSize: 25 },
     sorting: [{ id: 'created_at', desc: true }],
@@ -177,7 +183,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
     }
 
     if (activeTab === 'trash') {
-      queryParams.set('trashed', 'true');
+      queryParams.set('trashed', 'only');
     } else if (activeTab !== 'all') {
       queryParams.set('filter[status]', activeTab);
     }
@@ -196,49 +202,30 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
       if (res.ok) {
         const items = res.data.data || [];
         const pagination = res.data.meta?.pagination;
+
         setEntries(items);
         setTotalRows(pagination?.total ?? items.length);
         setPageCount(pagination?.pages ?? Math.ceil((pagination?.total ?? items.length) / pageSize));
         setLastUpdated(new Date());
 
-        // Update counts: update activeTab count and refresh counts across all tabs
-        const currentCount = pagination?.total ?? items.length;
-        setStatusCounts((prev) => ({
-          ...prev,
-          [activeTab]: currentCount,
-          all: activeTab === 'all' ? currentCount : (prev['all'] ?? 0),
-        }));
-
-        // Fetch counts for all other statuses in background
+        // Fetch aggregate counts in one efficient request from GET /collections/{handle}/counts
         (async () => {
           try {
-            const statuses = ['all', 'published', 'draft', 'in_review', 'archived', 'trash'] as const;
-            const countResults = await Promise.all(
-              statuses.map(async (st) => {
-                let countUrl = `/collections/${collectionHandle}/entries?page[size]=1`;
-                if (st === 'trash') {
-                  countUrl += '&trashed=true';
-                } else if (st !== 'all') {
-                  countUrl += `&filter[status]=${st}`;
-                }
-                const cRes = await apiClient.request<EntriesListResponse>('GET', countUrl);
-                if (cRes.ok) {
-                  return [st, cRes.data.meta?.pagination?.total ?? 0] as const;
-                }
-                return [st, null] as const;
-              })
+            const countsRes = await apiClient.request<Record<string, number>>(
+              'GET',
+              `/collections/${collectionHandle}/counts`
             );
-            setStatusCounts((prev) => {
-              const updated = { ...prev };
-              for (const [st, val] of countResults) {
-                if (val !== null) {
-                  updated[st] = val;
-                }
-              }
-              return updated;
-            });
+            if (countsRes.ok && countsRes.data) {
+              setStatusCounts(countsRes.data);
+            }
           } catch {
-            // non-fatal
+            // fallback: update activeTab count from current pagination
+            const currentCount = pagination?.total ?? items.length;
+            setStatusCounts((prev) => ({
+              ...prev,
+              [activeTab]: currentCount,
+              all: activeTab === 'all' ? currentCount : (prev['all'] ?? 0),
+            }));
           }
         })();
       } else {
@@ -550,7 +537,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         icon: Trash2,
         destructive: true,
         confirm: 'confirm',
-        hidden: () => !canDelete,
+        hidden: () => !canDelete || activeTab === 'trash',
         run: async (rows) => {
           const res = await apiClient.request<BulkOperationResponse>(
             'POST',
@@ -581,6 +568,60 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
             }));
           }
           loadEntries();
+          return outcome;
+        },
+      },
+      {
+        id: 'restore',
+        label: 'Restore from Trash',
+        icon: RotateCcw,
+        hidden: () => activeTab !== 'trash' || !canDelete,
+        run: async (rows) => {
+          const res = await apiClient.request<BulkOperationResponse>(
+            'POST',
+            `/collections/${collectionHandle}/entries/bulk`,
+            {
+              body: {
+                operation: 'restore',
+                ids: rows.map((r) => r.id),
+              },
+            }
+          );
+
+          const outcome: BulkActionOutcome<EntryItem> = { succeeded: [], failed: [] };
+          if (res.ok) {
+            const resMap = new Map(res.data.items.map((i) => [i.id, i]));
+            for (const r of rows) {
+              const item = resMap.get(r.id);
+              if (item?.status === 'success') {
+                outcome.succeeded.push(r);
+              } else {
+                outcome.failed.push({ row: r, reason: item?.error || 'Failed to restore' });
+              }
+            }
+          } else {
+            outcome.failed = rows.map((r) => ({
+              row: r,
+              reason: res.problem?.detail || 'Bulk restore failed',
+            }));
+          }
+          loadEntries();
+          return outcome;
+        },
+      },
+      {
+        id: 'export',
+        label: 'Export Selected (JSON)',
+        icon: Download,
+        run: async (rows) => {
+          const outcome: BulkActionOutcome<EntryItem> = { succeeded: rows, failed: [] };
+          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(rows, null, 2));
+          const dlAnchor = document.createElement('a');
+          dlAnchor.setAttribute('href', dataStr);
+          dlAnchor.setAttribute('download', `${collectionHandle}-export-${Date.now()}.json`);
+          document.body.appendChild(dlAnchor);
+          dlAnchor.click();
+          dlAnchor.remove();
           return outcome;
         },
       },
@@ -620,6 +661,12 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         columnId: 'title',
       },
       {
+        id: 'category',
+        label: 'Category (Include subcategories)',
+        type: 'text',
+        columnId: 'category',
+      },
+      {
         id: 'status',
         label: 'Status',
         type: 'status',
@@ -633,6 +680,21 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
       },
     ];
   }, []);
+
+  const handleMovePageHierarchy = async (entryId: string, newParentId: string | null) => {
+    try {
+      const res = await apiClient.request('PATCH', `/collections/${collectionHandle}/entries/${entryId}`, {
+        body: {
+          parent_id: newParentId,
+        },
+      });
+      if (res.ok) {
+        loadEntries();
+      }
+    } catch {
+      // Ignored
+    }
+  };
 
   const columns = useMemo(() => buildCollectionColumns(activeCollection, userMap), [activeCollection, userMap]);
   const collectionLabel = activeCollection?.label_plural || collectionHandle;
@@ -669,6 +731,36 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
             </div>
           )}
 
+          {/* View Mode Toggle for Pages */}
+          {collectionHandle === 'pages' && (
+            <div className="flex rounded-lg border border-border p-1 bg-muted/40">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('tree')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === 'tree'
+                    ? 'bg-background text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                <span>Hierarchy Tree</span>
+              </button>
+            </div>
+          )}
+
           {canCreate && (
             <Button
               size="sm"
@@ -684,55 +776,66 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
         </div>
       </div>
 
-      {/* Main DataTable component */}
-      <DataTable<EntryItem>
-        columns={columns}
-        data={entries}
-        getRowId={(row) => row.id}
-        aria-label={`${collectionLabel} table`}
-        loading={loading}
-        error={error}
-        onRetry={loadEntries}
-        onRefresh={loadEntries}
-        lastUpdated={lastUpdated}
-        statusTabs={statusTabs}
-        bulkActions={bulkActions}
-        rowMenu={rowMenu}
-        quickEdit={canUpdate ? (row) => <QuickEditForm entry={row} onSave={(patch) => handleQuickEditSave(row.id, patch)} /> : undefined}
-        rowHref={(row) => `/admin/entries/${collectionHandle}/${row.id}`}
-        onRowOpen={(row) => {
-          window.location.assign(`/admin/entries/${collectionHandle}/${row.id}`);
-        }}
-        manualPagination={true}
-        totalRows={totalRows}
-        pageCount={pageCount}
-        state={tableState}
-        onStateChange={(patch) => setTableState((prev) => ({ ...prev, ...patch }))}
-        filters={{
-          defs: filterDefs,
-          active: activeFilters,
-          onChange: setActiveFilters,
-        }}
-        emptyState={{
-          title: `No ${collectionLabel.toLowerCase()} found`,
-          description:
-            activeTab === 'trash'
-              ? 'Trash is empty.'
-              : `Create your first ${activeCollection?.label_singular?.toLowerCase() || 'entry'} to get started.`,
-          action:
-            canCreate && activeTab !== 'trash' ? (
-              <Button
-                size="sm"
-                onClick={() => {
-                  window.location.assign(`/admin/entries/${collectionHandle}/new`);
-                }}
-              >
-                Create {activeCollection?.label_singular || 'Entry'}
-              </Button>
-            ) : undefined,
-        }}
-        storageKey={`bs_collection_${collectionHandle}`}
-      />
+      {/* Pages Tree Hierarchy View or DataTable Component */}
+      {collectionHandle === 'pages' && viewMode === 'tree' ? (
+        <PagesTreeView
+          entries={entries}
+          onMovePage={handleMovePageHierarchy}
+          onOpenPage={(page) => {
+            window.location.assign(`/admin/entries/${collectionHandle}/${page.id}`);
+          }}
+          canUpdate={canUpdate}
+        />
+      ) : (
+        <DataTable<EntryItem>
+          columns={columns}
+          data={entries}
+          getRowId={(row) => row.id}
+          aria-label={`${collectionLabel} table`}
+          loading={loading}
+          error={error}
+          onRetry={loadEntries}
+          onRefresh={loadEntries}
+          lastUpdated={lastUpdated}
+          statusTabs={statusTabs}
+          bulkActions={bulkActions}
+          rowMenu={rowMenu}
+          quickEdit={canUpdate ? (row) => <QuickEditForm entry={row} onSave={(patch) => handleQuickEditSave(row.id, patch)} /> : undefined}
+          rowHref={(row) => `/admin/entries/${collectionHandle}/${row.id}`}
+          onRowOpen={(row) => {
+            window.location.assign(`/admin/entries/${collectionHandle}/${row.id}`);
+          }}
+          manualPagination={true}
+          totalRows={totalRows}
+          pageCount={pageCount}
+          state={tableState}
+          onStateChange={(patch) => setTableState((prev) => ({ ...prev, ...patch }))}
+          filters={{
+            defs: filterDefs,
+            active: activeFilters,
+            onChange: setActiveFilters,
+          }}
+          emptyState={{
+            title: `No ${collectionLabel.toLowerCase()} found`,
+            description:
+              activeTab === 'trash'
+                ? 'Trash is empty.'
+                : `Create your first ${activeCollection?.label_singular?.toLowerCase() || 'entry'} to get started.`,
+            action:
+              canCreate && activeTab !== 'trash' ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    window.location.assign(`/admin/entries/${collectionHandle}/new`);
+                  }}
+                >
+                  Create {activeCollection?.label_singular || 'Entry'}
+                </Button>
+              ) : undefined,
+          }}
+          storageKey={`bs_collection_${collectionHandle}`}
+        />
+      )}
     </PageContainer>
   );
 }

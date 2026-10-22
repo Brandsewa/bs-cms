@@ -20,11 +20,25 @@ const OAuthConsentReturnRoute = lazy(() =>
 const CollectionListRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.CollectionListRoute }))
 );
+const EntryEditorRoute = lazy(() =>
+  import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
+);
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
 
 // Settings views (independently lazy-loaded chunks)
+// SPRINT-B BEGIN
+const MediaLibraryRoute = lazy(() =>
+  import('./media').then((m) => ({ default: m.MediaLibraryRoute }))
+);
+const TaxonomiesRoute = lazy(() =>
+  import('./taxonomies').then((m) => ({ default: m.TaxonomiesRoute }))
+);
+const MenusRoute = lazy(() =>
+  import('./menus').then((m) => ({ default: m.MenusRoute }))
+);
+// SPRINT-B END
 const SettingsLayout = lazy(() =>
   import('./settings/settings-layout').then((m) => ({ default: m.SettingsLayout }))
 );
@@ -34,6 +48,44 @@ const GeneralSettingsView = lazy(() =>
 const EmailSettingsView = lazy(() =>
   import('./settings/email-settings-view').then((m) => ({ default: m.EmailSettingsView }))
 );
+
+// SPRINT-A BEGIN
+const SecuritySettingsView = lazy(() =>
+  import('./settings/security-settings-view').then((m) => ({ default: m.SecuritySettingsView }))
+);
+const ApiTokensView = lazy(() =>
+  import('./settings/api-tokens-view').then((m) => ({ default: m.ApiTokensView }))
+);
+const WebhooksView = lazy(() =>
+  import('./settings/webhooks-view').then((m) => ({ default: m.WebhooksView }))
+);
+const EmailLogView = lazy(() =>
+  import('./settings/email-log-view').then((m) => ({ default: m.EmailLogView }))
+);
+const PublishingSettingsView = lazy(() =>
+  import('./settings/publishing-settings-view').then((m) => ({ default: m.PublishingSettingsView }))
+);
+const AiConnectionsView = lazy(() =>
+  import('./settings/ai-connections-view').then((m) => ({ default: m.AiConnectionsView }))
+);
+const NotificationsPreferencesView = lazy(() =>
+  import('./settings/notifications-preferences-view').then((m) => ({ default: m.NotificationsPreferencesView }))
+);
+
+const RedirectsView = lazy(() =>
+  import('./system/redirects-view').then((m) => ({ default: m.RedirectsView }))
+);
+
+const JobsView = lazy(() =>
+  import('./developer/jobs-view').then((m) => ({ default: m.JobsView }))
+);
+const SchemaBuilderView = lazy(() =>
+  import('./developer/schema-builder-view').then((m) => ({ default: m.SchemaBuilderView }))
+);
+const ApiExplorerView = lazy(() =>
+  import('./developer/api-explorer-view').then((m) => ({ default: m.ApiExplorerView }))
+);
+// SPRINT-A END
 
 // Users & Roles views (independently lazy-loaded chunks)
 const UsersLayout = lazy(() =>
@@ -50,6 +102,16 @@ const RolesMatrixView = lazy(() =>
 const AuditLogView = lazy(() =>
   import('./system/audit-log-view').then((m) => ({ default: m.AuditLogView }))
 );
+const SiteHealthView = lazy(() =>
+  import('./system/site-health-view').then((m) => ({ default: m.SiteHealthView }))
+);
+
+// SPRINT-D BEGIN
+// Account views (independently lazy-loaded chunks)
+const MyAccountView = lazy(() =>
+  import('./account/my-account-view').then((m) => ({ default: m.MyAccountView }))
+);
+// SPRINT-D END
 
 // Shell fallbacks & placeholders
 const ComingSoonPage = lazy(() =>
@@ -175,10 +237,9 @@ export const entryNewRoute = createRoute({
     const params = entryNewRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:create">
-        <ComingSoonPage
-          title={`Create ${params.collection === 'pages' ? 'Page' : 'Post'}`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
@@ -191,10 +252,9 @@ export const entryEditRoute = createRoute({
     const params = entryEditRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:update">
-        <ComingSoonPage
-          title={`Edit ${params.collection === 'pages' ? 'Page' : 'Post'} (${params.id})`}
-          description="The full Tiptap article schema editor with optimistic concurrency (If-Match) and SEO panel is arriving in Phase 6.2."
-        />
+        <RouteSuspense>
+          <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
+        </RouteSuspense>
       </ProtectedAdmin>
     );
   },
@@ -206,10 +266,9 @@ export const taxonomiesRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="taxonomies:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Taxonomies & Categories"
-          description="Hierarchical tags, categories, and organizational vocabularies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <TaxonomiesRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -221,10 +280,9 @@ export const mediaRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="media:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Media Library"
-          description="Upload and inspect optimized image and document assets."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MediaLibraryRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -236,10 +294,9 @@ export const menusRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="menus:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Site Navigation & Menus"
-          description="Structure site header, footer, and contextual navigation hierarchies."
-        />
+        {/* SPRINT-B BEGIN */}
+        <MenusRoute />
+        {/* SPRINT-B END */}
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -354,6 +411,18 @@ export const systemAuditRoute = createRoute({
   ),
 });
 
+export const systemHealthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/system/health',
+  component: () => (
+    <ProtectedAdmin permission="site:health">
+      <RouteSuspense>
+        <SiteHealthView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
 // Redirect /settings/audit to /system/audit for dashboard and legacy link compatibility
 export const settingsAuditRedirectRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -362,6 +431,180 @@ export const settingsAuditRedirectRoute = createRoute({
     throw redirect({ to: '/system/audit' });
   },
 });
+
+// Redirect /settings/health to /system/health for dashboard and legacy link compatibility
+export const settingsHealthRedirectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/health',
+  beforeLoad: () => {
+    throw redirect({ to: '/system/health' });
+  },
+});
+
+// SPRINT-A BEGIN: Settings Sub-routes
+export const settingsSecurityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/security',
+  component: () => (
+    <ProtectedAdmin permission="settings.manage">
+      <RouteSuspense>
+        <SettingsLayout activeTab="security">
+          <SecuritySettingsView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsTokensRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/tokens',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <SettingsLayout activeTab="tokens">
+          <ApiTokensView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsWebhooksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/webhooks',
+  component: () => (
+    <ProtectedAdmin permission="settings.manage">
+      <RouteSuspense>
+        <SettingsLayout activeTab="webhooks">
+          <WebhooksView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsEmailLogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/email-log',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <SettingsLayout activeTab="email-log">
+          <EmailLogView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsPublishingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/publishing',
+  component: () => (
+    <ProtectedAdmin permission="settings.manage">
+      <RouteSuspense>
+        <SettingsLayout activeTab="publishing">
+          <PublishingSettingsView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsAiRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/ai',
+  component: () => (
+    <ProtectedAdmin permission="ai:read">
+      <RouteSuspense>
+        <SettingsLayout activeTab="ai">
+          <AiConnectionsView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const settingsNotificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/notifications',
+  component: () => (
+    <ProtectedAdmin>
+      <RouteSuspense>
+        <SettingsLayout activeTab="notifications">
+          <NotificationsPreferencesView />
+        </SettingsLayout>
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+// SPRINT-A: Redirects Route
+export const redirectsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/redirects',
+  component: () => (
+    <ProtectedAdmin permission="site:read">
+      <RouteSuspense>
+        <RedirectsView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+// SPRINT-A: Developer Routes
+export const developerJobsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/developer/jobs',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <JobsView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const developerSchemaRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/developer/schema',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <SchemaBuilderView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const developerApiExplorerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/developer/api',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <ApiExplorerView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+// SPRINT-A END
+
+// SPRINT-D BEGIN
+// User Account Route
+export const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/account',
+  component: () => (
+    <ProtectedAdmin>
+      <RouteSuspense>
+        <MyAccountView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+// SPRINT-D END
 
 export const forbiddenRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -407,8 +650,24 @@ export async function buildRouteTree() {
     settingsRoute,
     settingsGeneralRoute,
     settingsEmailRoute,
+    // SPRINT-A BEGIN
+    settingsSecurityRoute,
+    settingsTokensRoute,
+    settingsWebhooksRoute,
+    settingsEmailLogRoute,
+    settingsPublishingRoute,
+    settingsAiRoute,
+    settingsNotificationsRoute,
+    redirectsRoute,
+    developerJobsRoute,
+    developerSchemaRoute,
+    developerApiExplorerRoute,
+    // SPRINT-A END
     systemAuditRoute,
     settingsAuditRedirectRoute,
+    systemHealthRoute,
+    settingsHealthRedirectRoute,
+    accountRoute,
     forbiddenRoute,
     notFoundRoute,
   ];

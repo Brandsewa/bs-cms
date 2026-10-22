@@ -73,7 +73,17 @@ final class ApiRoutes
         ?AiController $ai = null,
         ?PublishingController $publishing = null,
         ?BuildTokensController $buildTokens = null,
-        ?PreviewController $preview = null
+        ?PreviewController $preview = null,
+        // SPRINT-A BEGIN
+        ?\BsCms\Http\Controllers\SprintA\SecuritySettingsController $securitySettings = null,
+        ?\BsCms\Http\Controllers\SprintA\QueueJobsController $queueJobs = null,
+        ?\BsCms\Http\Controllers\SprintA\AiConnectionsController $aiConnections = null,
+        // SPRINT-A END
+        // SPRINT-C BEGIN: Blocks Controller param
+        ?\BsCms\Http\Controllers\BlocksController $blocks = null,
+        ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null,
+        ?\BsCms\Http\Controllers\MaintenanceController $maintenance = null
+        // SPRINT-C END: Blocks Controller param
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -142,6 +152,7 @@ final class ApiRoutes
         $routes->post('/api/v1/settings/email/test', [$email, 'testConnection']);
         $routes->post('/api/v1/settings/email/send-test', [$email, 'sendTestEmail']);
         $routes->get('/api/v1/email-log', [$email, 'listLogs']);
+        $routes->get('/api/v1/settings/email/log', [$email, 'listLogs']);
         $routes->post('/api/v1/email-log/{id:\d+}/resend', [$email, 'resend']);
 
         // 8. Notifications endpoints
@@ -169,6 +180,7 @@ final class ApiRoutes
             if ($bulkEntries !== null) {
                 $routes->post('/api/v1/collections/{handle}/entries/bulk', [$bulkEntries, 'bulk']);
             }
+            $routes->get('/api/v1/collections/{handle}/entries/export', [$entries, 'export']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}', [$entries, 'get']);
             $routes->put('/api/v1/collections/{handle}/entries/{id}', [$entries, 'update']);
             $routes->patch('/api/v1/collections/{handle}/entries/{id}', [$entries, 'patch']);
@@ -185,6 +197,7 @@ final class ApiRoutes
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions', [$entries, 'listVersions']);
             $routes->get('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}', [$entries, 'getVersion']);
             $routes->post('/api/v1/collections/{handle}/entries/{id}/versions/{version_id}/restore', [$entries, 'restoreVersion']);
+            // SPRINT-C: Entries export endpoint
         }
 
         // 11. Singletons endpoints
@@ -377,5 +390,43 @@ final class ApiRoutes
             $routes->delete('/api/v1/preview/token', [$preview, 'revokeToken']);
             $routes->get('/api/v1/preview/{collection}/{id}', [$preview, 'getDraft']);
         }
+
+        // SPRINT-A BEGIN
+        if ($securitySettings !== null) {
+            $routes->get('/api/v1/settings/security', [$securitySettings, 'getSettings']);
+            $routes->put('/api/v1/settings/security', [$securitySettings, 'updateSettings']);
+        }
+
+        if ($queueJobs !== null) {
+            $routes->get('/api/v1/jobs', [$queueJobs, 'list']);
+            $routes->post('/api/v1/jobs/{id}/retry', [$queueJobs, 'retry']);
+        }
+
+        if ($aiConnections !== null) {
+            $routes->get('/api/v1/ai/grants', [$aiConnections, 'listGrants']);
+            $routes->delete('/api/v1/ai/grants/{id}', [$aiConnections, 'revokeGrant']);
+        }
+        // SPRINT-A END
+
+        // SPRINT-C BEGIN: Blocks endpoints
+        if ($blocks !== null) {
+            $routes->get('/api/v1/blocks', [$blocks, 'list']);
+            $routes->get('/api/v1/blocks/{name}', [$blocks, 'get']);
+        }
+        if ($crawlerPolicy !== null) {
+            $routes->get('/api/v1/crawler-policy', [$crawlerPolicy, 'getActive']);
+            $routes->put('/api/v1/crawler-policy', [$crawlerPolicy, 'update']);
+            $routes->get('/api/v1/crawler-policy/versions', [$crawlerPolicy, 'listVersions']);
+            $routes->post('/api/v1/crawler-policy/rollback/{id}', [$crawlerPolicy, 'rollback']);
+            $routes->post('/api/v1/crawler-policy/canary', [$crawlerPolicy, 'runCanary']);
+            $routes->post('/api/v1/crawler-policy/indexnow', [$crawlerPolicy, 'submitIndexNow']);
+        }
+        if ($maintenance !== null) {
+            $routes->get('/api/v1/system/maintenance', [$maintenance, 'status']);
+            $routes->post('/api/v1/system/maintenance/enable', [$maintenance, 'enable']);
+            $routes->post('/api/v1/system/maintenance/disable', [$maintenance, 'disable']);
+            $routes->post('/api/v1/system/backup', [$maintenance, 'createBackup']);
+        }
+        // SPRINT-C END: Blocks endpoints
     }
 }

@@ -14,6 +14,8 @@ export {
   NotFoundState,
   PageLoadingSkeleton,
 } from './states';
+export { PageStates } from './page-states';
+export type { PageStatesProps } from './page-states';
 export type {
   EmptyStateProps,
   ErrorStateProps,

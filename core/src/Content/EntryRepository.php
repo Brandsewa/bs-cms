@@ -1091,6 +1091,16 @@ final class EntryRepository
                 continue;
             }
 
+            // Fallback blocks validation if field handle is 'blocks' or type is blocks/json with blocks structure
+            if ($fHandle === 'blocks' || $fTypeStr === 'blocks') {
+                $blocksType = new \BsCms\Schema\FieldTypes\BlocksType();
+                $blockErrs = $blocksType->validate($rawVal, $config, $vContext);
+                if (!empty($blockErrs)) {
+                    $validationErrors[$fHandle] = array_merge($validationErrors[$fHandle] ?? [], $blockErrs);
+                    continue;
+                }
+            }
+
             // Normalize value
             $normalizedVal = $fType->normalize($rawVal, $config);
 

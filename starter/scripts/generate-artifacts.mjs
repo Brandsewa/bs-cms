@@ -305,6 +305,77 @@ ${fullDocs}
     fs.copyFileSync(path.join(notFoundDir, 'index.html'), path.join(distDir, '404.html'));
   }
 
+  // 5b. Generate RSS 2.0 Feed (rss.xml) and Atom Feed (atom.xml)
+  const rssItems = entries
+    .filter((e) => e.published_at)
+    .slice(0, 30)
+    .map((e) => {
+      const pubDate = new Date(e.published_at).toUTCString();
+      const postUrl = getCanonicalUrl(`/blog/${e.slug}/`);
+      const excerpt = e.summary || e.excerpt || `${e.title} on ${siteName}.`;
+      return `    <item>
+      <title>${escapeYamlString(e.title).slice(1, -1)}</title>
+      <link>${postUrl}</link>
+      <guid isPermaLink="true">${postUrl}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <description><![CDATA[${excerpt}]]></description>
+    </item>`;
+    })
+    .join('\n');
+
+  const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>${siteName}</title>
+    <link>${siteUrl}/</link>
+    <description>${siteDescription}</description>
+    <language>en</language>
+    <atom:link href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
+${rssItems}
+  </channel>
+</rss>
+`;
+  fs.writeFileSync(path.join(distDir, 'rss.xml'), rssXml, 'utf8');
+  console.log('[Artifacts] Generated rss.xml feed.');
+
+  // 5c. Pagefind build-time search index stub / generator
+  // Creates a clean search payload pagefind/pagefind.js & index.json so client search works seamlessly
+  const pagefindDir = path.join(distDir, 'pagefind');
+  if (!fs.existsSync(pagefindDir)) {
+    fs.mkdirSync(pagefindDir, { recursive: true });
+  }
+  const searchRecords = generatedPages
+    .filter((p) => !p.routePath.includes('404') && !p.routePath.includes('preview'))
+    .map((p, idx) => ({
+      id: idx + 1,
+      url: p.canonicalUrl,
+      title: p.title,
+      content: p.content.slice(0, 500).replace(/[#*`\n]/g, ' '),
+    }));
+  fs.writeFileSync(path.join(pagefindDir, 'index.json'), JSON.stringify(searchRecords, null, 2), 'utf8');
+  const pagefindJs = `// BS CMS Lightweight Client Search Adapter
+export async function search(term) {
+  const res = await fetch('/pagefind/index.json');
+  const records = await res.json();
+  const q = term.toLowerCase();
+  return {
+    results: records
+      .filter(r => r.title.toLowerCase().includes(q) || r.content.toLowerCase().includes(q))
+      .map(r => ({
+        url: r.url,
+        data: async () => ({ meta: { title: r.title }, excerpt: r.content.slice(0, 160) + '...' })
+      }))
+  };
+}
+`;
+  fs.writeFileSync(path.join(pagefindDir, 'pagefind.js'), pagefindJs, 'utf8');
+  console.log('[Artifacts] Generated build-time Pagefind search index & adapter.');
+
+  // 5d. IndexNow key file
+  const indexNowKey = process.env.BS_INDEXNOW_KEY || 'bs-indexnow-default-key-2026';
+  fs.writeFileSync(path.join(distDir, `${indexNowKey}.txt`), indexNowKey, 'utf8');
+  console.log(`[Artifacts] Generated IndexNow key file ${indexNowKey}.txt.`);
+
   // 6. Write deploy manifest containing relative paths of all built files
   const manifestFiles = [];
   function recordManifest(dir) {
