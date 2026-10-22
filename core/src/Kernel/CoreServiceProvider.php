@@ -771,6 +771,29 @@ final class CoreServiceProvider implements ServiceProvider
             );
         });
 
+        // SPRINT-A BEGIN
+        $container->singleton(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\SecuritySettingsController {
+            return new \BsCms\Http\Controllers\SprintA\SecuritySettingsController(
+                $c->get(\BsCms\Settings\SettingsRepository::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\QueueJobsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\QueueJobsController {
+            return new \BsCms\Http\Controllers\SprintA\QueueJobsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class, function (Container $c): \BsCms\Http\Controllers\SprintA\AiConnectionsController {
+            return new \BsCms\Http\Controllers\SprintA\AiConnectionsController(
+                $c->get(Connection::class),
+                $c->get(Authorizer::class)
+            );
+        });
+        // SPRINT-A END
+
         // SPRINT-C BEGIN: Blocks Registry & Controller
         $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
             $storageDir = $app->storagePath('blocks');

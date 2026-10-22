@@ -201,6 +201,11 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\PublishingController::class),
     $container->get(\BsCms\Http\Controllers\BuildTokensController::class),
     $container->get(\BsCms\Http\Controllers\PreviewController::class),
+    // SPRINT-A BEGIN
+    $container->get(\BsCms\Http\Controllers\SprintA\SecuritySettingsController::class),
+    $container->get(\BsCms\Http\Controllers\SprintA\QueueJobsController::class),
+    $container->get(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class),
+    // SPRINT-A END
     // SPRINT-C BEGIN: Blocks Controller wiring
     $container->get(\BsCms\Http\Controllers\BlocksController::class),
     $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),

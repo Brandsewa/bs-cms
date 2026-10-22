@@ -8,8 +8,19 @@ import {
   type PageNavItem,
 } from '@bs/ui';
 
+export type SettingsTabId =
+  | 'general'
+  | 'email'
+  | 'email-log'
+  | 'security'
+  | 'tokens'
+  | 'webhooks'
+  | 'publishing'
+  | 'ai'
+  | 'notifications';
+
 export interface SettingsLayoutProps {
-  activeTab: 'general' | 'email';
+  activeTab: SettingsTabId;
   children: ReactNode;
 }
 
@@ -17,40 +28,39 @@ export function SettingsLayout({ activeTab, children }: SettingsLayoutProps) {
   const navigate = useNavigate();
 
   const navItems: PageNavItem[] = [
-    {
-      id: 'general',
-      label: 'General',
-    },
-    {
-      id: 'email',
-      label: 'Email',
-    },
+    { id: 'general', label: 'General' },
+    { id: 'security', label: 'Security' },
+    { id: 'tokens', label: 'API Tokens' },
+    { id: 'publishing', label: 'Publishing' },
+    { id: 'webhooks', label: 'Webhooks' },
+    { id: 'email', label: 'Email' },
+    { id: 'email-log', label: 'Email Log' },
+    { id: 'ai', label: 'AI Connections' },
+    { id: 'notifications', label: 'Notifications' },
   ];
 
   const handleTabChange = (tabId: string) => {
-    if (tabId === 'general') {
-      navigate({ to: '/settings/general' });
-    } else if (tabId === 'email') {
-      navigate({ to: '/settings/email' });
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    navigate({ to: `/settings/${tabId}` as any });
   };
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/admin/' },
+    { label: 'Admin', href: '/admin/' },
     { label: 'Settings', href: '/admin/settings/general' },
     {
-      label: activeTab === 'general' ? 'General' : 'Email',
+      label: navItems.find((item) => item.id === activeTab)?.label || 'General',
     },
   ];
 
   return (
-    <PageContainer width="small" className="space-y-6">
-      <Breadcrumbs items={breadcrumbs} />
-
-      <PageHeader
-        title="Settings"
-        description="Configure site metadata, environment, delivery providers, and preferences."
-      />
+    <PageContainer width="full" className="space-y-6">
+      <div className="space-y-1.5">
+        <Breadcrumbs items={breadcrumbs} className="text-12" />
+        <PageHeader
+          title="Workspace Settings"
+          description="Configure site metadata, authentication policies, API credentials, webhooks, publishing pipelines, and AI governance."
+        />
+      </div>
 
       <PageNav
         aria-label="Settings sections"
@@ -59,7 +69,7 @@ export function SettingsLayout({ activeTab, children }: SettingsLayoutProps) {
         onChange={handleTabChange}
       />
 
-      <div className="pt-2">{children}</div>
+      <div className="pt-2 max-w-4xl">{children}</div>
     </PageContainer>
   );
 }
