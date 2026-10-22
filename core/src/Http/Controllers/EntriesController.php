@@ -942,6 +942,12 @@ class EntriesController extends BaseController
             return $this->problem(422, 'Validation Error', "Unsupported export format '{$format}'.");
         }
 
+        // Gate export on dedicated 'export' permission
+        $permError = $this->requirePermission($this->authorizer, $request, 'export', new Subject('collection', $handle));
+        if ($permError !== null) {
+            return $permError;
+        }
+
         // Reuse list() so permission checks, owner scoping and presentation stay identical.
         $entries = [];
         for ($page = 1; $page <= 10; $page++) {

@@ -256,7 +256,12 @@ final class Authorizer
     private function matchesSubject(Permission $rule, Subject $subject): bool
     {
         if ($rule->subjectType !== '*' && $rule->subjectType !== $subject->type) {
-            return false;
+            // Normalize singular/plural variations between spec/rules (e.g. webhook <-> webhooks)
+            $isWebhookAlias = ($rule->subjectType === 'webhooks' && $subject->type === 'webhook')
+                || ($rule->subjectType === 'webhook' && $subject->type === 'webhooks');
+            if (!$isWebhookAlias) {
+                return false;
+            }
         }
 
         if ($rule->subjectKey !== '*' && $rule->subjectKey !== $subject->key) {

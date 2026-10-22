@@ -6,6 +6,8 @@ namespace BsCms\Blocks;
 
 final class BlockRegistry
 {
+    private static ?self $instance = null;
+
     /** @var array<string, array<string, mixed>> */
     private array $blocks = [];
 
@@ -17,6 +19,17 @@ final class BlockRegistry
             $this->loadDir($this->baselineDir);
         }
         $this->loadFromDisk();
+        self::$instance = $this;
+    }
+
+    public static function getInstance(): ?self
+    {
+        return self::$instance;
+    }
+
+    public static function setInstance(?self $instance): void
+    {
+        self::$instance = $instance;
     }
 
     /**

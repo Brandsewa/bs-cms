@@ -818,7 +818,13 @@ final class Console
      */
     private function blocksSync(array $args): int
     {
-        $defaultDir = dirname($this->app->basePath()) . '/starter/src/blocks';
+        $defaultDir = $this->app->basePath('resources/blocks');
+        if (!is_dir($defaultDir)) {
+            $starterBlocks = dirname($this->app->basePath()) . '/starter/src/blocks';
+            if (is_dir($starterBlocks)) {
+                $defaultDir = $starterBlocks;
+            }
+        }
         $dir = $this->parseDirArg($args, $defaultDir);
 
         if (!is_dir($dir)) {
