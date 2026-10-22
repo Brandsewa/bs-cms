@@ -133,7 +133,7 @@ export const PublishingSettingsView: FC = () => {
     try {
       const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens/build');
       if (res.ok) {
-        setNewTokenRaw(res.data.token || res.data.raw_token);
+        setNewTokenRaw(res.data.token || res.data.raw_token || null);
         loadData();
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to create build token' });

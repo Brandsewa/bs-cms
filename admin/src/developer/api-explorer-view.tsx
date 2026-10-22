@@ -14,7 +14,7 @@ import {
 import { ExternalLink, Copy, Check } from 'lucide-react';
 
 export const ApiExplorerView: FC = () => {
-  const [spec, setSpec] = useState<Record<string, unknown> | null>(null);
+  const [spec, setSpec] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
