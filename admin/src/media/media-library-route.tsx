@@ -15,6 +15,11 @@ import {
   errorToast,
   successToast,
   cn,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@bs/ui';
 import {
   Image as ImageIcon,
@@ -306,15 +311,16 @@ export function MediaLibraryRoute() {
                 />
               </div>
 
-              <select
-                value={mimeFilter}
-                onChange={(e) => setMimeFilter(e.target.value)}
-                className="text-xs h-8 rounded-md border border-border bg-background px-2"
-              >
-                <option value="all">All Types</option>
-                <option value="image">Images Only</option>
-                <option value="document">Documents & Files</option>
-              </select>
+              <Select value={mimeFilter} onValueChange={(val) => setMimeFilter(val)}>
+                <SelectTrigger className="text-xs h-8 w-[140px]">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="image">Images Only</SelectItem>
+                  <SelectItem value="document">Documents & Files</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">

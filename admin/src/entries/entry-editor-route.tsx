@@ -14,6 +14,7 @@ import {
   NotFoundState,
   errorToast,
   successToast,
+  problemToast,
 } from '@bs/ui';
 import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -158,11 +159,20 @@ export function EntryEditorRoute({
         setSlug(item.slug || '');
         setStatus((item.status as any) || 'draft');
         setBodyContent(item.body || itemData.body || null);
-        if (Array.isArray(item.blocks)) {
-          setBlocksContent(item.blocks as BlockInstance[]);
-        } else if (Array.isArray(itemData.blocks)) {
-          setBlocksContent(itemData.blocks as BlockInstance[]);
-        }
+        const rawBlocks = Array.isArray(item.blocks) ? item.blocks : Array.isArray(itemData.blocks) ? itemData.blocks : [];
+        const normalizedBlocks: BlockInstance[] = rawBlocks.map((b: any, idx: number) => {
+          if (b && typeof b === 'object') {
+            const blockType = b.type || b.block_id || 'hero';
+            const { id: _id, type: _t, block_id: _bid, ...dataFields } = b;
+            return {
+              id: b.id || `blk_${Date.now()}_${idx}`,
+              type: blockType,
+              data: b.data && typeof b.data === 'object' ? b.data : dataFields,
+            };
+          }
+          return { id: `blk_${Date.now()}_${idx}`, type: 'text', data: {} };
+        });
+        setBlocksContent(normalizedBlocks);
         setExcerpt(item.excerpt || itemData.excerpt || '');
         setMetaTitle(item.seo?.title || itemData.seo?.title || '');
         setMetaDescription(item.seo?.description || itemData.seo?.description || '');
@@ -170,7 +180,7 @@ export function EntryEditorRoute({
         setPublishedAt(item.published_at || null);
         setScheduledAt(item.scheduled_at || null);
         setVersion(typeof item.version === 'number' ? item.version : 1);
-        if (item.author_id) setAuthorId(item.author_id);
+        const resolvedAuthorId = item.author_id || (itemData as any).author_id || null; if (resolvedAuthorId) setAuthorId(resolvedAuthorId);
         { const cats = (item as Record<string, unknown>).categories ?? item.category_ids; if (Array.isArray(cats)) setCategoryIds(cats as string[]); }
         if (item.featured_image) setFeaturedImage(item.featured_image as unknown as MediaItem);
 
@@ -237,6 +247,14 @@ export function EntryEditorRoute({
   }, [isDirty]);
 
   // Save handler with If-Match concurrency headers
+  const hasField = useCallback(
+    (fieldHandle: string) => {
+      if (!schema?.fields) return true; // optimistic default while loading schema
+      return Boolean((schema.fields as Record<string, unknown>)[fieldHandle]);
+    },
+    [schema]
+  );
+
   const handleSave = useCallback(
     async (overrideStatus?: 'draft' | 'published' | 'in_review', forceVersion?: number) => {
       if (!canSave) {
@@ -255,7 +273,6 @@ export function EntryEditorRoute({
       const targetStatus = overrideStatus || status;
       const cleanedBody = cleanDocument(bodyContent);
 
-      const hasField = (handle: string) => Boolean(schema?.fields && (schema.fields as Record<string, unknown>)[handle]);
       const payload: Record<string, unknown> = {
         title: title.trim(),
         slug: slug.trim(),
@@ -267,7 +284,12 @@ export function EntryEditorRoute({
         },
       };
       if (hasField('body')) payload.body = cleanedBody;
-      if (hasField('blocks')) payload.blocks = blocksContent;
+      if (hasField('blocks')) {
+        payload.blocks = blocksContent.map((blk) => ({
+          type: blk.type,
+          ...blk.data,
+        }));
+      }
       if (hasField('excerpt')) payload.excerpt = excerpt.trim();
       if (hasField('is_featured')) payload.is_featured = isFeatured;
       if (hasField('categories')) payload.categories = categoryIds;
@@ -292,9 +314,10 @@ export function EntryEditorRoute({
               params: { collection: collectionHandle, id: res.data.id },
             });
           } else {
-            const err = !res.ok ? (res as any).error?.message || 'Failed to create entry.' : 'Failed to create entry.';
-            errorToast(err);
-            setErrorMessage(err);
+            const errObj = (res as any).problem || (res as any).error;
+            problemToast(errObj || 'Failed to create entry.', { fallbackMessage: 'Failed to create entry.' });
+            const msg = errObj?.detail || errObj?.message || 'Failed to create entry.';
+            setErrorMessage(msg);
           }
         } else {
           // Update (PATCH) with If-Match concurrency header
@@ -340,9 +363,10 @@ export function EntryEditorRoute({
             );
             setConflictModalOpen(true);
           } else {
-            const err = !res.ok ? (res as any).error?.message || 'Failed to update entry.' : 'Failed to update entry.';
-            errorToast(err);
-            setErrorMessage(err);
+            const errObj = (res as any).problem || (res as any).error;
+            problemToast(errObj || 'Failed to update entry.', { fallbackMessage: 'Failed to update entry.' });
+            const msg = errObj?.detail || errObj?.message || 'Failed to update entry.';
+            setErrorMessage(msg);
           }
         }
       } catch (err: any) {
@@ -350,7 +374,8 @@ export function EntryEditorRoute({
           setConflictDetails('A concurrency conflict occurred. The entry was modified elsewhere.');
           setConflictModalOpen(true);
         } else {
-          errorToast(err?.message || 'Error occurred while saving entry.');
+          problemToast(err || 'Error occurred while saving entry.', { fallbackMessage: 'Error occurred while saving entry.' });
+          setErrorMessage(err?.detail || err?.message || 'Error occurred while saving entry.');
         }
       } finally {
         setSaving(false);
@@ -602,36 +627,40 @@ export function EntryEditorRoute({
               )}
 
               {/* Excerpt */}
-              <div className="space-y-1.5 pt-2">
-                <Label htmlFor="entry-excerpt-input" className="text-xs font-medium text-foreground-light">
-                  Excerpt / Summary
-                </Label>
-                <Textarea
-                  id="entry-excerpt-input"
-                  value={excerpt}
-                  onChange={(e) => setExcerpt(e.target.value)}
-                  placeholder="Short excerpt for archives and listing cards..."
-                  rows={3}
-                  className="text-xs resize-none"
-                />
-              </div>
+              {hasField('excerpt') && (
+                <div className="space-y-1.5 pt-2">
+                  <Label htmlFor="entry-excerpt-input" className="text-xs font-medium text-foreground-light">
+                    Excerpt / Summary
+                  </Label>
+                  <Textarea
+                    id="entry-excerpt-input"
+                    value={excerpt}
+                    onChange={(e) => setExcerpt(e.target.value)}
+                    placeholder="Short excerpt for archives and listing cards..."
+                    rows={3}
+                    className="text-xs resize-none"
+                  />
+                </div>
+              )}
 
               {/* Featured toggle */}
-              <div className="flex items-center justify-between rounded-md border border-border bg-surface-100 p-3">
-                <div className="space-y-0.5">
-                  <Label htmlFor="entry-featured-switch" className="text-xs font-medium text-foreground">
-                    Featured Item
-                  </Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    Pin this article to heroes and top featured sections.
-                  </p>
+              {hasField('is_featured') && (
+                <div className="flex items-center justify-between rounded-md border border-border bg-surface-100 p-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="entry-featured-switch" className="text-xs font-medium text-foreground">
+                      Featured Item
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Pin this article to heroes and top featured sections.
+                    </p>
+                  </div>
+                  <Switch
+                    id="entry-featured-switch"
+                    checked={isFeatured}
+                    onCheckedChange={setIsFeatured}
+                  />
                 </div>
-                <Switch
-                  id="entry-featured-switch"
-                  checked={isFeatured}
-                  onCheckedChange={setIsFeatured}
-                />
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -654,22 +683,28 @@ export function EntryEditorRoute({
             onSubmitForReview={() => successToast('Submitted entry for review.')}
           />
 
-          <FeaturedImagePanel
-            featuredImage={featuredImage}
-            onSelect={setFeaturedImage}
-          />
+          {hasField('featured_image') && (
+            <FeaturedImagePanel
+              featuredImage={featuredImage}
+              onSelect={setFeaturedImage}
+            />
+          )}
 
-          <AuthorPanel
-            authorId={authorId}
-            onAuthorChange={setAuthorId}
-          />
+          {(hasField('author_id') || hasField('authors')) && (
+            <AuthorPanel
+              authorId={authorId}
+              onAuthorChange={setAuthorId}
+            />
+          )}
 
-          <TaxonomyPanel
-            taxonomyHandle="categories"
-            taxonomyTitle="Categories"
-            selectedTermIds={categoryIds}
-            onChange={setCategoryIds}
-          />
+          {hasField('categories') && (
+            <TaxonomyPanel
+              taxonomyHandle="categories"
+              taxonomyTitle="Categories"
+              selectedTermIds={categoryIds}
+              onChange={setCategoryIds}
+            />
+          )}
 
           <RevisionsPanel
             collectionHandle={collectionHandle}

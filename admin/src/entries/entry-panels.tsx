@@ -521,7 +521,16 @@ export function AuthorPanel({ authorId, onAuthorChange }: AuthorPanelProps) {
       try {
         const res = await apiClient.request<AuthorUser[] | { data: AuthorUser[] }>('GET', '/users');
         if (res.ok && res.data) {
-          const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+          const raw = res.data as any;
+          const list = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw.items)
+              ? raw.items
+              : Array.isArray(raw.data?.items)
+                ? raw.data.items
+                : Array.isArray(raw.data)
+                  ? raw.data
+                  : [];
           setUsers(list);
         }
       } catch {

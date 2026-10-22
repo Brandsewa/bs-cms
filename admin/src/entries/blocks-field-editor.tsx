@@ -35,31 +35,102 @@ import { apiClient } from '../lib/api';
 export interface BlockFieldDefinition {
   name: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'select' | 'richtext' | 'repeater';
+  type: string;
   required?: boolean;
   default?: any;
   options?: string[];
+  description?: string;
 }
 
 export interface BlockDefinition {
-  id: string;
-  name: string;
+  id: string; // block name (e.g. 'hero', 'callout', 'faq', 'text')
+  name: string; // display label
   category?: string;
   description?: string;
+  icon?: string;
   fields: BlockFieldDefinition[];
 }
 
 export interface BlockInstance {
-  id: string; // unique instance id
-  block_id: string; // reference to block definition
-  name?: string;
+  id: string; // unique client-side key for rendering
+  type: string; // matches def.id / registry name
   data: Record<string, any>;
+  [key: string]: any;
 }
 
 export interface BlocksFieldEditorProps {
   value: BlockInstance[];
   onChange: (blocks: BlockInstance[]) => void;
   disabled?: boolean;
+}
+
+/**
+ * Normalizes raw registry definitions from GET /api/v1/blocks into BlockDefinition list.
+ */
+function normalizeRegistryBlocks(raw: unknown): BlockDefinition[] {
+  let list: unknown[] = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (raw && typeof raw === 'object' && Array.isArray((raw as any).data)) {
+    list = (raw as any).data;
+  }
+
+  const defs: BlockDefinition[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue;
+    const obj = item as Record<string, any>;
+    const blockKey = String(obj.name || obj.id || '');
+    if (!blockKey) continue;
+
+    const label = String(obj.label || obj.name || blockKey);
+    const category = obj.category ? String(obj.category) : undefined;
+    const description = obj.description ? String(obj.description) : undefined;
+    const icon = obj.icon ? String(obj.icon) : undefined;
+
+    const fields: BlockFieldDefinition[] = [];
+    if (obj.fields && typeof obj.fields === 'object') {
+      if (Array.isArray(obj.fields)) {
+        for (const f of obj.fields) {
+          if (!f || typeof f !== 'object') continue;
+          fields.push({
+            name: f.name || f.handle || '',
+            label: f.label || f.name || '',
+            type: f.type || 'text',
+            required: Boolean(f.required),
+            default: f.default,
+            options: Array.isArray(f.options) ? f.options : Array.isArray(f.enum) ? f.enum : undefined,
+            description: f.description,
+          });
+        }
+      } else {
+        // Map of fieldName -> fieldConfig
+        for (const [fName, fConf] of Object.entries(obj.fields)) {
+          if (!fConf || typeof fConf !== 'object') continue;
+          const fc = fConf as Record<string, any>;
+          fields.push({
+            name: fName,
+            label: fc.label || fName,
+            type: fc.type || 'text',
+            required: Boolean(fc.required),
+            default: fc.default,
+            options: Array.isArray(fc.options) ? fc.options : Array.isArray(fc.enum) ? fc.enum : undefined,
+            description: fc.description,
+          });
+        }
+      }
+    }
+
+    defs.push({
+      id: blockKey,
+      name: label,
+      category,
+      description,
+      icon,
+      fields,
+    });
+  }
+
+  return defs;
 }
 
 export function BlocksFieldEditor({
@@ -76,47 +147,59 @@ export function BlocksFieldEditor({
     async function loadDefinitions() {
       setLoading(true);
       try {
-        const res = await apiClient.request<BlockDefinition[]>('GET', '/blocks');
-        if (res.ok && Array.isArray(res.data)) {
-          setDefinitions(res.data);
-        } else {
-          // Fallback static starter blocks
-          setDefinitions([
-            {
-              id: 'hero',
-              name: 'Hero Section',
-              category: 'header',
-              description: 'Large hero banner with headline, CTA and background.',
-              fields: [
-                { name: 'title', label: 'Headline', type: 'text', required: true },
-                { name: 'subtitle', label: 'Subhead', type: 'textarea' },
-                { name: 'cta_text', label: 'CTA Text', type: 'text' },
-                { name: 'cta_url', label: 'CTA URL', type: 'text' },
-              ],
-            },
-            {
-              id: 'features-grid',
-              name: 'Features Grid',
-              category: 'content',
-              description: 'Grid cards with icons and descriptions.',
-              fields: [
-                { name: 'headline', label: 'Section Heading', type: 'text' },
-                { name: 'columns', label: 'Number of Columns', type: 'number', default: 3 },
-              ],
-            },
-            {
-              id: 'cta-banner',
-              name: 'Call to Action Banner',
-              category: 'conversion',
-              description: 'High conversion prompt strip.',
-              fields: [
-                { name: 'headline', label: 'Headline', type: 'text', required: true },
-                { name: 'button_text', label: 'Button Text', type: 'text' },
-                { name: 'button_url', label: 'Button Target', type: 'text' },
-              ],
-            },
-          ]);
+        const res = await apiClient.request<unknown>('GET', '/blocks');
+        if (res.ok && res.data) {
+          const parsed = normalizeRegistryBlocks(res.data);
+          if (parsed.length > 0) {
+            setDefinitions(parsed);
+            return;
+          }
         }
+
+        // Fallback default definitions matching core/resources/blocks
+        setDefinitions([
+          {
+            id: 'hero',
+            name: 'Hero Section',
+            category: 'layout',
+            description: 'Large banner with heading, text, and call-to-action',
+            fields: [
+              { name: 'heading', label: 'Heading', type: 'string', required: true },
+              { name: 'text', label: 'Text', type: 'string' },
+              { name: 'cta_label', label: 'Button Label', type: 'string' },
+              { name: 'cta_url', label: 'Button URL', type: 'string' },
+            ],
+          },
+          {
+            id: 'callout',
+            name: 'Callout Box',
+            category: 'content',
+            description: 'Highlighted notice with icon and variant styling',
+            fields: [
+              { name: 'variant', label: 'Variant', type: 'select', options: ['info', 'tip', 'warning', 'note'], default: 'info' },
+              { name: 'title', label: 'Title', type: 'string' },
+              { name: 'content', label: 'Message', type: 'string', required: true },
+            ],
+          },
+          {
+            id: 'text',
+            name: 'Rich Text Block',
+            category: 'content',
+            description: 'Standard rich text or markdown paragraph',
+            fields: [
+              { name: 'content', label: 'Content', type: 'textarea', required: true },
+            ],
+          },
+          {
+            id: 'faq',
+            name: 'FAQ Block',
+            category: 'content',
+            description: 'Expandable questions and answers feeding FAQPage structured data',
+            fields: [
+              { name: 'items', label: 'Questions & Answers (JSON array)', type: 'textarea' },
+            ],
+          },
+        ]);
       } catch {
         // Fallback default
       } finally {
@@ -134,8 +217,7 @@ export function BlocksFieldEditor({
 
     const newInstance: BlockInstance = {
       id: `blk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      block_id: def.id,
-      name: def.name,
+      type: def.id,
       data: defaultData,
     };
 
@@ -200,7 +282,7 @@ export function BlocksFieldEditor({
   };
 
   const filteredDefinitions = definitions.filter((d) =>
-    search ? d.name.toLowerCase().includes(search.toLowerCase()) || d.description?.toLowerCase().includes(search.toLowerCase()) : true
+    search ? d.name.toLowerCase().includes(search.toLowerCase()) || d.description?.toLowerCase().includes(search.toLowerCase()) || d.id.toLowerCase().includes(search.toLowerCase()) : true
   );
 
   return (
@@ -247,11 +329,12 @@ export function BlocksFieldEditor({
       ) : (
         <div className="space-y-3">
           {value.map((blk, idx) => {
-            const def = definitions.find((d) => d.id === blk.block_id);
-            const blockName = def?.name || blk.name || blk.block_id;
+            const blockType = blk.type || blk.block_id || '';
+            const def = definitions.find((d) => d.id === blockType);
+            const blockName = def?.name || blk.name || blockType;
 
             return (
-              <Card key={blk.id} className="border-border bg-card">
+              <Card key={blk.id || `blk-${idx}`} className="border-border bg-card">
                 <CardHeader className="p-3 bg-surface-100 border-b border-border flex flex-row items-center justify-between space-y-0">
                   <div className="flex items-center gap-2">
                     <span className="flex h-5 w-5 items-center justify-center rounded bg-surface-200 text-[10px] font-mono text-muted-foreground font-semibold">
@@ -261,7 +344,7 @@ export function BlocksFieldEditor({
                       {blockName}
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono py-0">
-                      {blk.block_id}
+                      {blockType}
                     </Badge>
                   </div>
 
@@ -314,23 +397,37 @@ export function BlocksFieldEditor({
                 </CardHeader>
 
                 <CardContent className="p-4 space-y-3">
-                  {def ? (
+                  {def && def.fields.length > 0 ? (
                     def.fields.map((field) => (
                       <div key={field.name} className="space-y-1">
                         <Label className="text-xs font-medium text-foreground-light">
                           {field.label} {field.required && <span className="text-destructive">*</span>}
                         </Label>
-                        {field.type === 'textarea' ? (
+                        {field.type === 'textarea' || field.type === 'richtext' || (field.name === 'items' && !field.options) ? (
                           <Textarea
-                            value={blk.data[field.name] || ''}
-                            onChange={(e) => handleUpdateBlockData(idx, field.name, e.target.value)}
-                            rows={2}
+                            value={
+                              typeof blk.data[field.name] === 'object'
+                                ? JSON.stringify(blk.data[field.name], null, 2)
+                                : blk.data[field.name] || ''
+                            }
+                            onChange={(e) => {
+                              let val: any = e.target.value;
+                              if (field.name === 'items') {
+                                try {
+                                  val = JSON.parse(e.target.value);
+                                } catch {
+                                  // Keep string while editing
+                                }
+                              }
+                              handleUpdateBlockData(idx, field.name, val);
+                            }}
+                            rows={field.name === 'items' ? 4 : 2}
                             disabled={disabled}
                             className="text-xs resize-none"
                           />
-                        ) : field.type === 'select' && field.options ? (
+                        ) : field.type === 'select' || (field.options && field.options.length > 0) ? (
                           <Select
-                            value={blk.data[field.name] || field.options[0]}
+                            value={String(blk.data[field.name] || (field.options ? field.options[0] : ''))}
                             onValueChange={(val) => handleUpdateBlockData(idx, field.name, val)}
                             disabled={disabled}
                           >
@@ -338,7 +435,7 @@ export function BlocksFieldEditor({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              {field.options.map((opt) => (
+                              {(field.options || []).map((opt) => (
                                 <SelectItem key={opt} value={opt}>
                                   {opt}
                                 </SelectItem>
@@ -348,7 +445,7 @@ export function BlocksFieldEditor({
                         ) : (
                           <Input
                             type={field.type === 'number' ? 'number' : 'text'}
-                            value={blk.data[field.name] || ''}
+                            value={blk.data[field.name] ?? ''}
                             onChange={(e) => handleUpdateBlockData(idx, field.name, e.target.value)}
                             disabled={disabled}
                             className="text-xs h-8"

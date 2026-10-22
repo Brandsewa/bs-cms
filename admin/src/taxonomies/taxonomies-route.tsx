@@ -32,6 +32,28 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
+
+function getSingularTermName(pluralOrName?: string): string {
+  if (!pluralOrName) return 'Term';
+  const trimmed = pluralOrName.trim();
+  if (trimmed.toLowerCase().endsWith('categories')) {
+    return trimmed.slice(0, -3) + 'y';
+  }
+  if (trimmed.toLowerCase().endsWith('ies')) {
+    return trimmed.slice(0, -3) + 'y';
+  }
+  if (trimmed.toLowerCase().endsWith('tags')) {
+    return 'Tag';
+  }
+  if (trimmed.toLowerCase().endsWith('es') && !trimmed.toLowerCase().endsWith('ses')) {
+    return trimmed.slice(0, -2);
+  }
+  if (trimmed.endsWith('s') && !trimmed.endsWith('ss')) {
+    return trimmed.slice(0, -1);
+  }
+  return trimmed;
+}
+
 export interface TaxonomyItem {
   id: string;
   name: string;
@@ -394,7 +416,7 @@ export function TaxonomiesRoute() {
             className="text-xs h-8 gap-1.5"
           >
             <Plus className="h-4 w-4" />
-            Add New {activeTaxonomy?.name ? activeTaxonomy.name.replace(/s$/, '') : 'Term'}
+            Add New {getSingularTermName(activeTaxonomy?.name)}
           </Button>
         </div>
       </div>
@@ -568,7 +590,7 @@ export function TaxonomiesRoute() {
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold flex items-center gap-2">
               <Tag className="h-4 w-4 text-primary" />
-              <span>{editingTerm ? 'Edit Term' : `Create ${activeTaxonomy?.name?.replace(/s$/, '') || 'Term'}`}</span>
+              <span>{editingTerm ? 'Edit Term' : `Create ${getSingularTermName(activeTaxonomy?.name)}`}</span>
             </DialogTitle>
           </DialogHeader>
 
