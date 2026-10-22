@@ -80,6 +80,26 @@ Session: Sprint B Content Engine Pass
 
 ---
 
+### Scope 7: Post-Integration Alignment & Polish
+- **Schema-Driven Panel Rendering**:
+  - The entry editor dynamically inspects the collection schema fields (`hasField`) so that collections like `pages` only render schema-defined fields, hiding `excerpt`, `is_featured`, `categories`, and `author` when not declared in the collection definition.
+- **Taxonomy Singularization**:
+  - Fixed plural replacement bug (`.replace(/s$/, '')`) producing "Add New Categorie" / "Create Categorie" for "Categories". Replaced with `getSingularTermName()` mapping "Categories" -> "Category" correctly across all dialogs and buttons.
+- **Rich Text Headings Styling**:
+  - Added explicit typography styles in `admin/src/styles/main.css` for `.tiptap h1`, `.tiptap h2`, `.tiptap h3`, `.tiptap h4`, lists, blockquotes, code blocks, and preformatted text so H2/H3 render with distinct font sizes and weights in the editor.
+- **Author Mapping**:
+  - Resolved author select remaining blank after save by handling the `/users` response envelope (`items` array) and populating `author_id` from entry attributes.
+- **Block Registry Shape Alignment & 422 Handling**:
+  - Updated `BlocksFieldEditor` to query `GET /api/v1/blocks` from Session C's `BlockRegistry` (`name`, `label`, `fields`, `category`).
+  - Formats blocks payload as `{ type: block.name, ...data }` on entry save and gracefully surfaces RFC 9457 Problem Details / 422 validation errors via `problemToast`.
+- **Media Filter Design System Alignment**:
+  - Replaced native HTML `<select>` for "All Types" filter in the Media Library with `@bs/ui`'s `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, and `SelectItem`.
+
+---
+
 ## 3. Verification & Checks
+- PHP lint check: `php -l core/src/Routing/ApiRoutes.php`, `php -l core/src/Cli/Console.php`, `php -l core/src/Http/Controllers/BlocksController.php` all passed cleanly with 0 errors.
+- Admin type check: `npx tsc --noEmit -p admin` passed with exit code 0.
+- Simulation API verification: Verified `POST /api/v1/auth/login`, `GET /api/v1/blocks`, and `GET /api/v1/users` against the live simulation environment (port 8081).
 - PHP lint check: `php -l core/src/Routing/ApiRoutes.php`, `php -l core/src/Cli/Console.php`, `php -l core/src/Http/Controllers/BlocksController.php` all passed cleanly with 0 errors.
 - Admin type check: `npx tsc --noEmit -p admin` passed with exit code 0.
