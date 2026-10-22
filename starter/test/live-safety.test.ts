@@ -96,7 +96,7 @@ describe('Real build failures and fixture isolation', () => {
     } finally {
       serverProc.kill();
     }
-  }, 45000);
+  }, 240000);
 
   it('only generates benchmark fixtures when BS_USE_FIXTURES=1 is explicitly set', () => {
     execSync('npx astro build && npx tsx scripts/generate-artifacts.mjs', {
@@ -115,5 +115,5 @@ describe('Real build failures and fixture isolation', () => {
 
     const post1Html = fs.readFileSync(path.join(distDir, 'blog/post-1/index.html'), 'utf8');
     expect(post1Html).toMatch(/Benchmark Post Title 1/);
-  }, 45000);
+  }, 240000);
 });

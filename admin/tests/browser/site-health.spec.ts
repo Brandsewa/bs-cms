@@ -196,6 +196,9 @@ test.describe('Site Health Admin Screen', () => {
       await page.evaluate((mode) => {
         document.documentElement.classList.toggle('dark', mode === 'dark');
       }, theme);
+      // Let colour transitions finish so axe samples settled colours, not mid-animation values.
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(500);
 
       const results = await new AxeBuilder({ page })
         .include('main')
