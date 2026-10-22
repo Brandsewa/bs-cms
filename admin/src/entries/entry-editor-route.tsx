@@ -102,7 +102,7 @@ export function EntryEditorRoute({
         last.type === 'paragraph' &&
         (!last.content ||
           last.content.length === 0 ||
-          last.content.every((c: any) => !c.text || !c.text.trim()))
+          last.content.every((c: unknown) => { const node = c as { text?: string }; return !node.text || !node.text.trim(); }))
       ) {
         content.pop();
       } else {
@@ -132,9 +132,9 @@ export function EntryEditorRoute({
             setErrorMessage(`Collection '${collectionHandle}' does not exist.`);
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!mounted) return;
-        setSchemaStatusCode(err?.status || 500);
+        setSchemaStatusCode((err as { status?: number })?.status || 500);
       } finally {
         if (mounted) setLoadingSchema(false);
       }
@@ -154,33 +154,38 @@ export function EntryEditorRoute({
       const res = await apiClient.request<EntryItem>('GET', `/collections/${collectionHandle}/entries/${entryId}`);
       if (res.ok && res.data) {
         const item = res.data;
-        const itemData = (item.data || {}) as Record<string, any>;
+        const itemData = (item.data || {}) as Record<string, unknown>;
         setTitle(item.title || '');
         setSlug(item.slug || '');
-        setStatus((item.status as any) || 'draft');
+        setStatus((item.status as 'draft' | 'published' | 'in_review' | 'scheduled' | 'archived') || 'draft');
         setBodyContent(item.body || itemData.body || null);
         const rawBlocks = Array.isArray(item.blocks) ? item.blocks : Array.isArray(itemData.blocks) ? itemData.blocks : [];
-        const normalizedBlocks: BlockInstance[] = rawBlocks.map((b: any, idx: number) => {
+        const normalizedBlocks: BlockInstance[] = rawBlocks.map((b: unknown, idx: number) => {
           if (b && typeof b === 'object') {
-            const blockType = b.type || b.block_id || 'hero';
-            const { id: _id, type: _t, block_id: _bid, ...dataFields } = b;
+            const bObj = b as Record<string, unknown>;
+            const blockType = String(bObj.type || bObj.block_id || 'hero');
+            const dataFields: Record<string, unknown> = { ...bObj };
+            delete dataFields.id;
+            delete dataFields.type;
+            delete dataFields.block_id;
             return {
-              id: b.id || `blk_${Date.now()}_${idx}`,
+              id: String(bObj.id || `blk_${Date.now()}_${idx}`),
               type: blockType,
-              data: b.data && typeof b.data === 'object' ? b.data : dataFields,
+              data: bObj.data && typeof bObj.data === 'object' ? (bObj.data as Record<string, unknown>) : dataFields,
             };
           }
           return { id: `blk_${Date.now()}_${idx}`, type: 'text', data: {} };
         });
         setBlocksContent(normalizedBlocks);
-        setExcerpt(item.excerpt || itemData.excerpt || '');
-        setMetaTitle(item.seo?.title || itemData.seo?.title || '');
-        setMetaDescription(item.seo?.description || itemData.seo?.description || '');
+        const itemDataSeo = itemData.seo as { title?: string; description?: string } | undefined;
+        setExcerpt(String(item.excerpt || itemData.excerpt || ''));
+        setMetaTitle(String(item.seo?.title || itemDataSeo?.title || ''));
+        setMetaDescription(String(item.seo?.description || itemDataSeo?.description || ''));
         setIsFeatured(Boolean(item.is_featured));
         setPublishedAt(item.published_at || null);
         setScheduledAt(item.scheduled_at || null);
         setVersion(typeof item.version === 'number' ? item.version : 1);
-        const resolvedAuthorId = item.author_id || (itemData as any).author_id || null; if (resolvedAuthorId) setAuthorId(resolvedAuthorId);
+        const resolvedAuthorId = item.author_id || (typeof itemData.author_id === 'string' ? itemData.author_id : null); if (resolvedAuthorId) setAuthorId(resolvedAuthorId);
         { const cats = (item as Record<string, unknown>).categories ?? item.category_ids; if (Array.isArray(cats)) setCategoryIds(cats as string[]); }
         if (item.featured_image) setFeaturedImage(item.featured_image as unknown as MediaItem);
 
@@ -189,9 +194,9 @@ export function EntryEditorRoute({
           slug: item.slug || '',
           status: item.status || 'draft',
           body: item.body || itemData.body || null,
-          excerpt: item.excerpt || itemData.excerpt || '',
-          metaTitle: item.seo?.title || itemData.seo?.title || '',
-          metaDescription: item.seo?.description || itemData.seo?.description || '',
+          excerpt: String(item.excerpt || itemData.excerpt || ''),
+          metaTitle: String(item.seo?.title || itemDataSeo?.title || ''),
+          metaDescription: String(item.seo?.description || itemDataSeo?.description || ''),
           isFeatured: Boolean(item.is_featured),
           categoryIds: (((item as Record<string, unknown>).categories ?? item.category_ids) as string[] | undefined) || [],
           authorId: item.author_id || null,
@@ -202,8 +207,8 @@ export function EntryEditorRoute({
       } else {
         setEntryStatusCode(res.status || 500);
       }
-    } catch (err: any) {
-      setEntryStatusCode(err?.status || 500);
+    } catch (err: unknown) {
+      setEntryStatusCode((err as { status?: number })?.status || 500);
     } finally {
       setLoadingEntry(false);
     }
@@ -314,9 +319,11 @@ export function EntryEditorRoute({
               params: { collection: collectionHandle, id: res.data.id },
             });
           } else {
-            const errObj = (res as any).problem || (res as any).error;
+            const resObj = res as { problem?: unknown; error?: { message?: string } };
+            const errObj = resObj.problem || resObj.error;
             problemToast(errObj || 'Failed to create entry.', { fallbackMessage: 'Failed to create entry.' });
-            const msg = errObj?.detail || errObj?.message || 'Failed to create entry.';
+            const errAny = errObj as { detail?: string; message?: string } | undefined;
+            const msg = errAny?.detail || errAny?.message || 'Failed to create entry.';
             setErrorMessage(msg);
           }
         } else {
@@ -356,26 +363,29 @@ export function EntryEditorRoute({
             setIsDirty(false);
           } else if (res.status === 409) {
             // Optimistic concurrency collision
-            const conflictMsg = !res.ok ? (res as any).error?.message : undefined;
+            const conflictMsg = !res.ok ? (res as { error?: { message?: string } }).error?.message : undefined;
             setConflictDetails(
               conflictMsg ||
                 'Another user or session saved a newer revision of this entry. Please review conflicts.'
             );
             setConflictModalOpen(true);
           } else {
-            const errObj = (res as any).problem || (res as any).error;
+            const resObj2 = res as { problem?: unknown; error?: { message?: string } };
+            const errObj = resObj2.problem || resObj2.error;
             problemToast(errObj || 'Failed to update entry.', { fallbackMessage: 'Failed to update entry.' });
-            const msg = errObj?.detail || errObj?.message || 'Failed to update entry.';
+            const errAny2 = errObj as { detail?: string; message?: string } | undefined;
+            const msg = errAny2?.detail || errAny2?.message || 'Failed to update entry.';
             setErrorMessage(msg);
           }
         }
-      } catch (err: any) {
-        if (err?.status === 409) {
+      } catch (err: unknown) {
+        const e = err as { status?: number; detail?: string; message?: string };
+        if (e?.status === 409) {
           setConflictDetails('A concurrency conflict occurred. The entry was modified elsewhere.');
           setConflictModalOpen(true);
         } else {
           problemToast(err || 'Error occurred while saving entry.', { fallbackMessage: 'Error occurred while saving entry.' });
-          setErrorMessage(err?.detail || err?.message || 'Error occurred while saving entry.');
+          setErrorMessage(e?.detail || e?.message || 'Error occurred while saving entry.');
         }
       } finally {
         setSaving(false);
@@ -401,6 +411,8 @@ export function EntryEditorRoute({
       entryId,
       version,
       navigate,
+      blocksContent,
+      hasField,
     ]
   );
 

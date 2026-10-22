@@ -21,6 +21,11 @@ import {
   errorToast,
   successToast,
   cn,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@bs/ui';
 import {
   Compass,
@@ -73,15 +78,16 @@ export function MenusRoute() {
         '/singletons/navigation'
       );
       if (res.ok && res.data) {
-        const payload = (res.data as any).data || res.data;
-        const menusObj = payload.menus || payload || {};
+        const resData = res.data as { data?: NavigationMenuData | Record<string, MenuItem[]> } | NavigationMenuData | Record<string, MenuItem[]>;
+        const payload = (typeof resData === "object" && resData !== null && "data" in resData ? (resData as { data?: NavigationMenuData | Record<string, MenuItem[]> }).data : resData);
+        const menusRecord = (payload && typeof payload === "object" && "menus" in payload ? (payload as NavigationMenuData).menus : payload) as Record<string, MenuItem[]> | undefined;
         const safeMenus: Record<string, MenuItem[]> = {
-          header: menusObj.header || [
+          header: menusRecord?.header || [
             { id: '1', label: 'Home', url: '/', type: 'custom' },
             { id: '2', label: 'Blog', url: '/posts', type: 'custom' },
             { id: '3', label: 'About Us', url: '/about', type: 'page' },
           ],
-          footer: menusObj.footer || [
+          footer: menusRecord?.footer || [
             { id: '4', label: 'Privacy Policy', url: '/privacy', type: 'page' },
             { id: '5', label: 'Terms of Service', url: '/terms', type: 'page' },
           ],
@@ -409,16 +415,20 @@ export function MenusRoute() {
 
             <div className="space-y-1">
               <Label className="text-xs">Item Type</Label>
-              <select
+              <Select
                 value={itemType}
-                onChange={(e) => setItemType(e.target.value as any)}
-                className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+                onValueChange={(val) => setItemType(val as 'custom' | 'page' | 'post' | 'category')}
               >
-                <option value="custom">Custom Link</option>
-                <option value="page">Page</option>
-                <option value="post">Post</option>
-                <option value="category">Category Archive</option>
-              </select>
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom">Custom Link</SelectItem>
+                  <SelectItem value="page">Page</SelectItem>
+                  <SelectItem value="post">Post</SelectItem>
+                  <SelectItem value="category">Category Archive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2 pt-1">

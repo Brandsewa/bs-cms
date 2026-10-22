@@ -16,6 +16,11 @@ import {
   errorToast,
   successToast,
   cn,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '@bs/ui';
 import {
   Tags,
@@ -105,12 +110,18 @@ export function TaxonomiesRoute() {
     try {
       const res = await apiClient.request<TaxonomyItem[] | { data: TaxonomyItem[] }>('GET', '/taxonomies');
       if (res.ok && res.data) {
-        const raw = (Array.isArray(res.data) ? res.data : (res.data as any).data || []) as Array<Record<string, any>>;
-        const list: TaxonomyItem[] = raw.map((t) => ({
-          ...(t as unknown as TaxonomyItem),
-          name: t.label_plural ?? t.name ?? t.handle,
-          is_hierarchical: t.hierarchical ?? t.is_hierarchical ?? false,
-        }));
+        const resObj = res.data as { data?: unknown[] } | unknown[];
+        const raw = (Array.isArray(resObj) ? resObj : (resObj as { data?: unknown[] })?.data || []) as Array<Record<string, unknown>>;
+        const list: TaxonomyItem[] = raw.map((t) => {
+          const item = t as unknown as TaxonomyItem;
+          return {
+            ...item,
+            id: String(item.id || ''),
+            handle: String(item.handle || ''),
+            name: String(t.label_plural ?? t.name ?? t.handle ?? ''),
+            is_hierarchical: Boolean(t.hierarchical ?? t.is_hierarchical ?? false),
+          };
+        });
         setTaxonomies(list);
         if (list.length > 0 && !activeTaxonomy) {
           setActiveTaxonomy(list[0] || null);
@@ -138,7 +149,8 @@ export function TaxonomiesRoute() {
         `/taxonomies/${activeTaxonomy.handle}/terms`
       );
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+        const resObj = res.data as { data?: TermItem[] } | TermItem[];
+        const list = Array.isArray(resObj) ? resObj : (resObj as { data?: TermItem[] })?.data || [];
         setTerms(list);
       } else {
         setTerms([]);
@@ -619,20 +631,24 @@ export function TaxonomiesRoute() {
             {activeTaxonomy?.is_hierarchical && (
               <div className="space-y-1">
                 <Label className="text-xs">Parent Category</Label>
-                <select
+                <Select
                   value={termParentId}
-                  onChange={(e) => setTermParentId(e.target.value)}
-                  className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+                  onValueChange={setTermParentId}
                 >
-                  <option value="root">Root (No Parent)</option>
-                  {terms
-                    .filter((t) => t.id !== editingTerm?.id)
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                </select>
+                  <SelectTrigger className="w-full text-xs h-8">
+                    <SelectValue placeholder="Root (No Parent)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="root">Root (No Parent)</SelectItem>
+                    {terms
+                      .filter((t) => t.id !== editingTerm?.id)
+                      .map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -698,20 +714,23 @@ export function TaxonomiesRoute() {
 
             <div className="space-y-1">
               <Label className="text-xs">Select Target Term to Merge Into</Label>
-              <select
+              <Select
                 value={mergeTargetTermId}
-                onChange={(e) => setMergeTargetTermId(e.target.value)}
-                className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+                onValueChange={setMergeTargetTermId}
               >
-                <option value="">Choose target term...</option>
-                {terms
-                  .filter((t) => t.id !== mergeSourceTerm?.id)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} (/{t.slug})
-                    </option>
-                  ))}
-              </select>
+                <SelectTrigger className="w-full text-xs h-8">
+                  <SelectValue placeholder="Choose target term..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {terms
+                    .filter((t) => t.id !== mergeSourceTerm?.id)
+                    .map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} (/{t.slug})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

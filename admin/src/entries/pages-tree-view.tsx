@@ -61,7 +61,8 @@ export function PagesTreeView({
 
     for (const e of entries) {
       const node = nodeMap.get(e.id)!;
-      const parentId = (e as any).parent_id || (e.data as any)?.parent_id;
+      const eData = e.data as Record<string, unknown> | undefined;
+      const parentId = ((e as unknown as Record<string, unknown>).parent_id as string | undefined) || (eData?.parent_id as string | undefined);
       if (parentId && nodeMap.has(parentId)) {
         nodeMap.get(parentId)!.children!.push(node);
       } else {
@@ -83,7 +84,8 @@ export function PagesTreeView({
 
   const handleOpenMoveDialog = (entry: EntryItem) => {
     setMovingEntry(entry);
-    const parentId = (entry as any).parent_id || (entry.data as any)?.parent_id || 'root';
+    const eData = entry.data as Record<string, unknown> | undefined;
+    const parentId = ((entry as unknown as Record<string, unknown>).parent_id as string | undefined) || (eData?.parent_id as string | undefined) || 'root';
     setTargetParentId(parentId);
   };
 

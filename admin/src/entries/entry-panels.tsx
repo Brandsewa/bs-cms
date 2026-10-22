@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   Card,
@@ -250,7 +250,7 @@ export function RevisionsPanel({
         `/collections/${collectionHandle}/entries/${entryId}/versions`
       );
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+        const list = Array.isArray(res.data) ? res.data : (res.data as { data?: RevisionItem[] })?.data || [];
         setRevisions(list);
       }
     } catch {
@@ -382,7 +382,7 @@ export function TaxonomyPanel({
   const [newTermName, setNewTermName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const loadTerms = async () => {
+  const loadTerms = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.request<TaxonomyTerm[] | { data: TaxonomyTerm[] }>(
@@ -390,7 +390,7 @@ export function TaxonomyPanel({
         `/taxonomies/${taxonomyHandle}/terms`
       );
       if (res.ok && res.data) {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any).data || [];
+        const list = Array.isArray(res.data) ? res.data : (res.data as { data?: TaxonomyTerm[] })?.data || [];
         setTerms(list);
       }
     } catch {
@@ -398,11 +398,11 @@ export function TaxonomyPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [taxonomyHandle]);
 
   useEffect(() => {
     loadTerms();
-  }, [taxonomyHandle]);
+  }, [loadTerms]);
 
   const handleToggleTerm = (id: string) => {
     if (selectedTermIds.includes(id)) {
@@ -521,15 +521,15 @@ export function AuthorPanel({ authorId, onAuthorChange }: AuthorPanelProps) {
       try {
         const res = await apiClient.request<AuthorUser[] | { data: AuthorUser[] }>('GET', '/users');
         if (res.ok && res.data) {
-          const raw = res.data as any;
-          const list = Array.isArray(raw)
-            ? raw
+          const raw = res.data as { items?: AuthorUser[]; data?: { items?: AuthorUser[] } | AuthorUser[] };
+          const list: AuthorUser[] = Array.isArray(res.data)
+            ? (res.data as AuthorUser[])
             : Array.isArray(raw.items)
               ? raw.items
-              : Array.isArray(raw.data?.items)
-                ? raw.data.items
+              : raw.data && typeof raw.data === 'object' && Array.isArray((raw.data as { items?: AuthorUser[] }).items)
+                ? ((raw.data as { items: AuthorUser[] }).items)
                 : Array.isArray(raw.data)
-                  ? raw.data
+                  ? (raw.data as AuthorUser[])
                   : [];
           setUsers(list);
         }

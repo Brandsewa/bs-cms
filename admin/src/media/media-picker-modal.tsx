@@ -46,13 +46,16 @@ export interface MediaItem {
 }
 
 /** Map the API media shape (mime, size_bytes, alt_text, title) onto the fields the media UI renders. */
-export function normalizeMedia(raw: Record<string, any>): MediaItem {
+export function normalizeMedia(raw: Record<string, unknown>): MediaItem {
+  const r = raw as unknown as Record<string, unknown>;
+  const baseItem = raw as unknown as MediaItem;
   return {
-    ...(raw as MediaItem),
-    mime_type: raw.mime ?? raw.mime_type,
-    size: raw.size_bytes ?? raw.size,
-    alt: raw.alt_text ?? raw.alt ?? '',
-    name: raw.title ?? raw.name,
+    ...baseItem,
+    id: String(r.id || ''),
+    mime_type: (r.mime !== undefined ? String(r.mime) : baseItem.mime_type),
+    size: (typeof r.size_bytes === 'number' ? r.size_bytes : baseItem.size),
+    alt: (r.alt_text !== undefined ? String(r.alt_text) : (baseItem.alt ?? '')),
+    name: (r.title !== undefined ? String(r.title) : baseItem.name),
   };
 }
 
@@ -61,7 +64,7 @@ export function unwrapMediaList(data: unknown): MediaItem[] {
   const arr = Array.isArray(data)
     ? data
     : ((data as { items?: unknown[]; data?: unknown[] } | null)?.items ?? (data as { data?: unknown[] } | null)?.data ?? []);
-  return (arr as Array<Record<string, any>>).map(normalizeMedia);
+  return (arr as Array<Record<string, unknown>>).map(normalizeMedia);
 }
 
 export interface MediaFolder {
@@ -179,8 +182,9 @@ export function MediaPickerModal({
         setUploadError(result.error || 'Upload failed.');
         errorToast(result.error || 'Upload failed.');
       }
-    } catch (err: any) {
-      setUploadError(err?.message || 'Error during file upload.');
+    } catch (err: unknown) {
+      const errObj = err as { message?: string } | undefined;
+      setUploadError(errObj?.message || 'Error during file upload.');
       errorToast('Upload failed.');
     } finally {
       setUploadProgress(null);
