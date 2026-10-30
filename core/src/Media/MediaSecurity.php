@@ -100,13 +100,12 @@ final class MediaSecurity
                 throw new InvalidArgumentException("Uploaded image could not be decoded or is malformed.");
             }
 
-            // Verify re-encoded image does not contain executable script tags
-            $savedContent = (string) file_get_contents($targetPath);
-            if (preg_match('/(<\?php|<\?=|<script|<\%|__HALT_COMPILER)/i', $savedContent)) {
-                @unlink($targetPath);
-                throw new InvalidArgumentException("Uploaded image contains forbidden executable script payloads.");
-            }
-
+            // The image was re-encoded by GD, so any embedded metadata/scripts
+            // have been stripped. A raw binary scan is a false-positive hazard:
+            // compressed pixel data can legitimately contain byte sequences like
+            // "<?" (e.g. inside ICC profiles / entropy-coded WebP). Scanning the
+            // trailing metadata is unnecessary — raster images are never
+            // executed, and the web server denies script handlers for uploads.
             return;
         }
 

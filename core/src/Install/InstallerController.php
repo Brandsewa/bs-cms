@@ -48,7 +48,7 @@ final class InstallerController
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         if ($this->isInstalled()) {
-            return $this->htmlResponse(404, '<h1>404 Not Found</h1><p>BS CMS is already installed.</p>');
+            return $this->htmlResponse(404, InstallerViews::errorPage('Already Installed', '<p>BS CMS is already installed on this host.</p><p>You can access the <a style=\'color:var(--primary)\' href=\'/admin\'>admin dashboard</a>.</p>', 404, '/admin', '4'));
         }
 
         $path = $request->getUri()->getPath();
@@ -84,58 +84,60 @@ final class InstallerController
             $defaultUrl .= ':' . $port;
         }
 
-        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>BS CMS Web Installer</title>';
-        $html .= '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.5;}';
-        $html .= '.pass{color:#15803d;}.fail{color:#b91c1c;font-weight:bold;}.warn{color:#b45309;}';
-        $html .= '.card{border:1px solid #e5e7eb;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;}';
-        $html .= 'input,select{width:100%;padding:0.5rem;margin:0.25rem 0 1rem;box-sizing:border-box;}';
-        $html .= 'button{background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;}';
-        $html .= '</style></head><body>';
-        $html .= '<h1>BS CMS Setup</h1>';
-
-        $html .= '<div class="card"><h2>1. System Requirements</h2><ul>';
-        $html .= '<li>PHP Version: <span class="' . htmlspecialchars($checks['php_version']['status']) . '">' . htmlspecialchars($checks['php_version']['current']) . '</span></li>';
-        $html .= '<li>Storage Writable: <span class="' . htmlspecialchars($checks['storage_writable']['status']) . '">' . ($checks['storage_writable']['writable'] ? 'Yes' : 'No') . '</span></li>';
-
+                $content = '';
+        $content .= '<ul class="checklist">';
+        $phpPass = $checks['php_version']['status'] === 'pass';
+        $content .= '<li><span class="st ' . ($phpPass ? 'pass' : 'fail') . '">' . ($phpPass ? '&#10003;' : '&#10007;') . '</span><span>PHP Version <strong style="color:var(--text)">' . htmlspecialchars($checks['php_version']['current']) . '</strong></span></li>';
+        $storW = (bool) $checks['storage_writable']['writable'];
+        $content .= '<li><span class="st ' . ($storW ? 'pass' : 'fail') . '">' . ($storW ? '&#10003;' : '&#10007;') . '</span><span>Storage writable <strong style="color:var(--text)">' . ($storW ? 'Yes' : 'No') . '</strong></span></li>';
         foreach ($checks['extensions'] as $ext => $res) {
-            $statusText = $res['loaded'] ? 'Loaded' : ($res['required'] ? 'Missing (Required)' : 'Missing (Optional)');
-            $html .= '<li>Extension ' . htmlspecialchars($ext) . ': <span class="' . htmlspecialchars($res['status']) . '">' . htmlspecialchars($statusText) . '</span>';
+            $loaded = (bool) $res['loaded'];
+            $required = (bool) $res['required'];
+            $cls = $loaded ? 'pass' : ($required ? 'fail' : 'warn');
+            $mark = $loaded ? '&#10003;' : ($required ? '&#10007;' : '!') ;
+            $statusText = $loaded ? 'Loaded' : ($required ? 'Missing (Required)' : 'Missing (Optional)');
+            $content .= '<li><span class="st ' . $cls . '">' . $mark . '</span><span>Extension ' . htmlspecialchars($ext) . ' <span style="color:var(--muted)">' . htmlspecialchars($statusText) . '</span>';
             if ($res['hint'] !== null) {
-                $html .= '<br><small style="color:#6b7280;">' . htmlspecialchars($res['hint']) . '</small>';
+                $content .= '<span class="hint">' . htmlspecialchars($res['hint']) . '</span>';
             }
-            $html .= '</li>';
+            $content .= '</span></li>';
         }
-        $html .= '</ul>';
-
-        $html .= '<h3>CLI PHP Detection</h3><p>Detected PHP binary: <code>' . htmlspecialchars($cliPhp['path']) . '</code> (' . htmlspecialchars($cliPhp['type']) . ')</p>';
+        $content .= '</ul>';
+        $content .= '<h3>CLI PHP Detection</h3><p style="font-size:.9rem;margin:4px 0 0">Detected PHP binary: <code>' . htmlspecialchars($cliPhp['path']) . '</code> (' . htmlspecialchars($cliPhp['type']) . ')</p>';
         if ($cliPhp['warning'] !== null) {
-            $html .= '<p class="warn"><small>' . htmlspecialchars($cliPhp['warning']) . '</small></p>';
+            $content .= '<p class="warn" style="font-size:.85rem">' . htmlspecialchars($cliPhp['warning']) . '</p>';
         }
-        $html .= '</div>';
 
         if (!$checks['can_install']) {
-            $html .= '<p class="fail">Please resolve the requirements above to continue installation.</p></body></html>';
-            return $this->htmlResponse(200, $html);
+            $content .= '<div class="alert error"><strong>Requirements not met</strong><div class="alertbody">Please resolve the issues above, then refresh this page to continue the installation.</div></div>';
+            return $this->htmlResponse(200, InstallerViews::shell(1, 'System Requirements', $content));
         }
 
-        // Database and Site form with CSRF
-        $html .= '<div class="card"><h2>2. Site & Database Configuration</h2>';
-        $html .= '<form method="POST" action="/install/database">';
-        $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
-        $html .= '<label>Site URL (Admin & API Base): <input name="site_url" value="' . htmlspecialchars($defaultUrl) . '" required></label>';
-        $html .= '<label>DB Host: <input name="db_host" value="127.0.0.1" required></label>';
-        $html .= '<label>DB Port: <input name="db_port" value="3306" required></label>';
-        $html .= '<label>DB Name: <input name="db_name" required></label>';
-        $html .= '<label>DB User: <input name="db_user" required></label>';
-        $html .= '<label>DB Password: <input type="password" name="db_password"></label>';
-        $html .= '<label>Table Prefix: <input name="db_prefix" value="bs_" required></label>';
-        $html .= '<label>CLI PHP Binary Override: <input name="cli_php" value="' . htmlspecialchars($cliPhp['path']) . '"></label>';
-        $html .= '<button type="submit">Verify Database & Continue</button>';
-        $html .= '</form></div>';
+        $form = '<form method="POST" action="/install/database">';
+        $form .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
+        $form .= '<label>Site URL (Admin &amp; API Base)</label><input name="site_url" value="' . htmlspecialchars($defaultUrl) . '" required>';
+        $form .= '<label>Database Host</label><input name="db_host" value="127.0.0.1" required>';
+        $form .= '<label>Database Port</label><input name="db_port" value="3306" required>';
+        $form .= '<label>Database Name</label><input name="db_name" placeholder="e.g. bs_cms" required>';
+        $form .= '<label>Database User</label><input name="db_user" placeholder="e.g. bs_user" required>';
+        $form .= '<label>Database Password</label><input type="password" name="db_password">';
+        $form .= '<label>Table Prefix</label><input name="db_prefix" value="bs_" required>';
+        $form .= '<label>CLI PHP Binary Override</label><input name="cli_php" value="' . htmlspecialchars($cliPhp['path']) . '">';
+        $form .= '<div class="actions"><button type="submit" class="btn">Verify Database &amp; Continue &rarr;</button></div>';
+        $form .= '</form>';
+        $content .= '<h2>Site &amp; Database Configuration</h2>';
+        $content .= $form;
 
-        $html .= '</body></html>';
+        $bodyEnd = '<script>'
+            . 'var f = document.querySelector("form");'
+            . 'if (f) { f.addEventListener("submit", function() {'
+            . '  var b = f.querySelector("button[type=submit]");'
+            . '  if (b) { b.disabled = true; b.innerHTML = "<span class=spin></span> Verifying database connection..."; }'
+            . '}); }'
+            . '</script>';
 
-        return $this->htmlResponse(200, $html);
+        return $this->htmlResponse(200, InstallerViews::shell(2, 'Site & Database Configuration', $content, ['bodyEnd' => $bodyEnd]));
+
     }
 
     public function processDatabase(ServerRequestInterface $request): ResponseInterface
@@ -152,16 +154,16 @@ final class InstallerController
         // 2. Perform automated private-path probe
         $probeResult = $this->probePrivatePaths($request);
         if (!$probeResult['passed']) {
-            $errorHtml = '<h1>Security Violation: Private Files Exposed</h1>';
-            $errorHtml .= '<p>The automated private-path probe discovered that private files are accessible via HTTP:</p>';
-            $errorHtml .= '<ul>';
+            $exposedList = '<ul>';
             foreach ($probeResult['exposed'] as $exposedPath) {
-                $errorHtml .= '<li><code>' . htmlspecialchars($exposedPath) . '</code></li>';
+                $exposedList .= '<li><code>' . htmlspecialchars($exposedPath) . '</code></li>';
             }
-            $errorHtml .= '</ul>';
-            $errorHtml .= '<p>Installation cannot proceed until private directories are protected. Please point your document root to <code>public/</code> (Mode A) or apply Mode B hardened <code>.htaccess</code>.</p>';
-            $errorHtml .= '<p><a href="/install">Back to Setup</a></p>';
-            return $this->htmlResponse(403, $errorHtml);
+            $exposedList .= '</ul>';
+            return $this->htmlResponse(403, InstallerViews::errorPage(
+                'Private Files Exposed',
+                '<p>The automated private-path probe discovered that private files are accessible via HTTP. Installation cannot proceed until private directories are protected.</p>' . $exposedList . '<p>Point your document root to <code>public/</code> (Mode A) or apply the Mode B hardened <code>.htaccess</code>.</p>',
+                403
+            ));
         }
 
         $host = $body['db_host'] ?? '127.0.0.1';
@@ -214,51 +216,53 @@ final class InstallerController
         $csrfToken = $this->getOrCreateCsrfToken();
 
         // Step 3: Owner Account creation form without echoing DB password
-        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Create Owner Account - BS CMS</title>';
-        $html .= '<style>body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;padding:0 1rem;line-height:1.5;}';
-        $html .= '.card{border:1px solid #e5e7eb;border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;}';
-        $html .= 'input{width:100%;padding:0.5rem;margin:0.25rem 0 1rem;box-sizing:border-box;}';
-        $html .= 'button{background:#2563eb;color:white;padding:0.75rem 1.5rem;border:none;border-radius:4px;cursor:pointer;}';
-        $html .= '.pass{color:#15803d;font-weight:bold;}';
-        $html .= '</style></head><body>';
-        $html .= '<h1>Database Connected &amp; Verified</h1>';
-        $html .= '<p>Server: ' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</p>';
-        $html .= '<p>Database: <code>' . htmlspecialchars($dbname) . '</code> (Host: <code>' . htmlspecialchars($host) . '</code>, User: <code>' . htmlspecialchars($user) . '</code>)</p>';
-        $html .= '<p>Site URL: <code>' . htmlspecialchars($siteUrl) . '</code></p>';
-        $html .= '<p>Private Path Security Probe: <span class="pass">PASSED</span></p>';
+                $vpanel = '<div class="vpanel">'
+            . '<div class="vrow"><span class="k">Server</span><span class="v">' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</span><span class="st pass">&#10003; Connected</span></div>'
+            . '<div class="vrow"><span class="k">Database</span><span class="v">' . htmlspecialchars($dbname) . '</span></div>'
+            . '<div class="vrow"><span class="k">Host / User</span><span class="v">' . htmlspecialchars($host) . ' / ' . htmlspecialchars($user) . '</span></div>'
+            . '<div class="vrow"><span class="k">Site URL</span><span class="v">' . htmlspecialchars($siteUrl) . '</span></div>'
+            . '<div class="vrow"><span class="k">Private Path Probe</span><span class="st pass">&#10003; PASSED</span></div>'
+            . '</div>';
 
-        $html .= '<div class="card"><h2>3. Create Owner Account</h2>';
-        $html .= '<p>The owner account holds irrevocable system administrator permissions.</p>';
-        $html .= '<form method="POST" action="/install/execute">';
-        $html .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
-        $html .= '<label>Owner Name: <input name="owner_name" value="Administrator" required></label>';
-        $html .= '<label>Owner Email: <input type="email" name="owner_email" placeholder="owner@example.com" required></label>';
-        $html .= '<label>Owner Password: <input type="password" name="owner_password" id="owner_password" required minlength="12" maxlength="256"></label>';
-        $html .= '<div id="strength-meter" style="margin-top:-0.5rem;margin-bottom:1rem;font-size:0.875rem;color:#4b5563;">Password policy: At least 12 characters. Common passwords are blocked.</div>';
-        $html .= '<button type="submit">Run Migrations &amp; Finish Installation</button>';
-        $html .= '</form>';
-        $html .= '<script>';
-        $html .= 'const pwd = document.getElementById("owner_password");';
-        $html .= 'const meter = document.getElementById("strength-meter");';
-        $html .= 'if (pwd && meter) {';
-        $html .= '  pwd.addEventListener("input", () => {';
-        $html .= '    const val = pwd.value;';
-        $html .= '    if (val.length === 0) {';
-        $html .= '      meter.textContent = "Password policy: At least 12 characters. Common passwords are blocked.";';
-        $html .= '      meter.style.color = "#4b5563";';
-        $html .= '    } else if (val.length < 12) {';
-        $html .= '      meter.textContent = "Too short (" + val.length + "/12 characters)";';
-        $html .= '      meter.style.color = "#b91c1c";';
-        $html .= '    } else {';
-        $html .= '      meter.textContent = "Length acceptable (" + val.length + " chars). Unique passphrase recommended.";';
-        $html .= '      meter.style.color = "#15803d";';
-        $html .= '    }';
-        $html .= '  });';
-        $html .= '}';
-        $html .= '</script>';
-        $html .= '</div></body></html>';
+        $form = '<form method="POST" action="/install/execute">';
+        $form .= '<input type="hidden" name="_csrf" value="' . htmlspecialchars($csrfToken) . '">';
+        $form .= '<label>Owner Name</label><input name="owner_name" value="Administrator" required>';
+        $form .= '<label>Owner Email</label><input type="email" name="owner_email" placeholder="owner@example.com" required>';
+        $form .= '<label>Owner Password</label><input type="password" name="owner_password" id="owner_password" required minlength="12" maxlength="256">';
+        $form .= '<div id="strength-meter" class="meter">Password policy: At least 12 characters. Common passwords are blocked.</div>';
+        $form .= '<div class="actions"><button type="submit" class="btn">Run Migrations &amp; Finish Installation &rarr;</button></div>';
+        $form .= '</form>';
 
-        return $this->htmlResponse(200, $html);
+        $bodyEnd = '<script>'
+            . 'var pwd = document.getElementById("owner_password");'
+            . 'var meter = document.getElementById("strength-meter");'
+            . 'if (pwd && meter) {'
+            . '  pwd.addEventListener("input", function() {'
+            . '    var val = pwd.value;'
+            . '    if (val.length === 0) {'
+            . '      meter.textContent = "Password policy: At least 12 characters. Common passwords are blocked.";'
+            . '      meter.style.color = "var(--muted)";'
+            . '    } else if (val.length < 12) {'
+            . '      meter.textContent = "Too short (" + val.length + "/12 characters)";'
+            . '      meter.style.color = "var(--err)";'
+            . '    } else {'
+            . '      meter.textContent = "Length acceptable (" + val.length + " chars). Unique passphrase recommended.";'
+            . '      meter.style.color = "var(--ok)";'
+            . '    }'
+            . '  });'
+            . '}'
+            . 'var f = document.querySelector("form");'
+            . 'if (f) { f.addEventListener("submit", function() {'
+            . '  var b = f.querySelector("button[type=submit]");'
+            . '  if (b) { b.disabled = true; b.innerHTML = "<span class=spin></span> Running migrations & seeding..."; }'
+            . '}); }'
+            . '</script>';
+
+        return $this->htmlResponse(200, InstallerViews::shell(3, 'Create Owner Account', $vpanel . '<h2>Owner Account</h2>' . $form, [
+            'back' => 'javascript:history.back()',
+            'bodyEnd' => $bodyEnd,
+        ]));
+
     }
 
     public function executeInstallation(ServerRequestInterface $request): ResponseInterface
@@ -275,7 +279,7 @@ final class InstallerController
         // 2. Perform automated private-path probe again to guarantee safety
         $probeResult = $this->probePrivatePaths($request);
         if (!$probeResult['passed']) {
-            return $this->htmlResponse(403, '<h1>Security Probe Failed</h1><p>Private paths are exposed via HTTP. Installation aborted.</p>');
+            return $this->htmlResponse(403, InstallerViews::errorPage('Security Probe Failed', '<p>Private paths are exposed via HTTP. Installation aborted.</p>', 403));
         }
 
         // Validate owner inputs
@@ -310,151 +314,180 @@ final class InstallerController
         $stageData = Json::decode((string) file_get_contents($stageFile));
         @unlink($stageFile);
 
-        // 3. Generate app key and write to storage/keys/app.key
-        $keysDir = $this->storageDir . '/keys';
-        if (!is_dir($keysDir)) {
-            @mkdir($keysDir, 0700, true);
-        }
-        $appKey = Crypto::generateKey();
-        file_put_contents($keysDir . '/app.key', $appKey);
-        @chmod($keysDir . '/app.key', 0600);
+        try {
+            // 3. Generate app key and write to storage/keys/app.key
+            $keysDir = $this->storageDir . '/keys';
+            if (!is_dir($keysDir)) {
+                @mkdir($keysDir, 0700, true);
+            }
+            $appKey = Crypto::generateKey();
+            file_put_contents($keysDir . '/app.key', $appKey);
+            @chmod($keysDir . '/app.key', 0600);
 
-        // 4. Write storage/config.php
-        $config = [
-            'database' => [
-                'host' => $stageData['db_host'],
-                'port' => (int) $stageData['db_port'],
-                'database' => $stageData['db_name'],
-                'username' => $stageData['db_user'],
-                'password' => $stageData['db_password'],
-                'prefix' => $stageData['db_prefix'],
-            ],
-            'app' => [
-                'key_file' => 'keys/app.key',
-                'key' => $appKey,
-                'url' => $stageData['site_url'],
-                'public_url' => $stageData['site_url'],
-                'environment' => 'production',
-                'debug' => false,
-                'cli_php' => $stageData['cli_php'],
-            ],
-        ];
+            // 4. Write storage/config.php
+            $config = [
+                'database' => [
+                    'host' => $stageData['db_host'],
+                    'port' => (int) $stageData['db_port'],
+                    'database' => $stageData['db_name'],
+                    'username' => $stageData['db_user'],
+                    'password' => $stageData['db_password'],
+                    'prefix' => $stageData['db_prefix'],
+                ],
+                'app' => [
+                    'key_file' => 'keys/app.key',
+                    'key' => $appKey,
+                    'url' => $stageData['site_url'],
+                    'public_url' => $stageData['site_url'],
+                    'environment' => 'production',
+                    'debug' => false,
+                    'cli_php' => $stageData['cli_php'],
+                ],
+            ];
 
-        $configContent = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
-        file_put_contents($this->storageDir . '/config.php', $configContent);
-        @chmod($this->storageDir . '/config.php', 0600);
+            $configContent = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
+            file_put_contents($this->storageDir . '/config.php', $configContent);
+            @chmod($this->storageDir . '/config.php', 0600);
 
-        // 5. Connect and run migrations
-        $conn = new Connection($config['database']);
-        $migrator = new Migrator($conn);
-        $migrator->registerNamespace('core', $this->rootDir . '/migrations');
-        $migrator->migrate();
+            // 5. Connect and run migrations
+            $conn = new Connection($config['database']);
+            $migrator = new Migrator($conn);
+            $migrator->registerNamespace('core', $this->rootDir . '/migrations');
+            $migrator->migrate();
 
-        // 5b. Seed built-in collections from core/resources/schema
-        $schemaDir = $this->rootDir . '/resources/schema';
-        if (is_dir($schemaDir)) {
-            $cacheFile = $this->storageDir . '/cache/schema.php';
-            $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
-            $registry->invalidate();
-            $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
-            $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
-            $lock = new \BsCms\Schema\SchemaLock($conn);
-            $applier = new \BsCms\Schema\SchemaApplier($conn, $registry, $lock);
+            // 5b. Seed built-in collections from core/resources/schema
+            $schemaDir = $this->rootDir . '/resources/schema';
+            if (is_dir($schemaDir)) {
+                $cacheFile = $this->storageDir . '/cache/schema.php';
+                $registry = new \BsCms\Schema\CollectionRegistry($conn, $cacheFile);
+                $registry->invalidate();
+                $fieldTypeRegistry = new \BsCms\Schema\FieldTypeRegistry();
+                $planner = new \BsCms\Schema\SchemaPlanner($conn, $registry, $fieldTypeRegistry);
+                $lock = new \BsCms\Schema\SchemaLock($conn);
+                $applier = new \BsCms\Schema\SchemaApplier($conn, $registry, $lock);
 
-            $schemaFiles = glob($schemaDir . '/*.json') ?: [];
-            foreach ($schemaFiles as $file) {
-                $content = (string) file_get_contents($file);
-                $target = json_decode($content, true);
-                if (is_array($target) && !empty($target['handle'])) {
-                    $plan = $planner->plan($target);
-                    if (!empty($plan->changes) || !empty($plan->sqlStatements)) {
-                        $applier->apply($plan, $target, null, 'installer');
+                $schemaFiles = glob($schemaDir . '/*.json') ?: [];
+                foreach ($schemaFiles as $file) {
+                    $content = (string) file_get_contents($file);
+                    $target = json_decode($content, true);
+                    if (is_array($target) && !empty($target['handle'])) {
+                        $plan = $planner->plan($target);
+                        if (!empty($plan->changes) || !empty($plan->sqlStatements)) {
+                            $applier->apply($plan, $target, null, 'installer');
+                        }
                     }
                 }
-            }
 
-            // Seed built-in taxonomies
-            $taxFile = $this->rootDir . '/resources/taxonomies.json';
-            if (is_file($taxFile)) {
-                $taxContent = (string) file_get_contents($taxFile);
-                $taxonomies = json_decode($taxContent, true);
-                if (is_array($taxonomies)) {
-                    $taxRepo = new \BsCms\Taxonomy\TaxonomyRepository($conn);
-                    $termRepo = new \BsCms\Taxonomy\TermRepository($conn);
+                // Seed built-in taxonomies
+                $taxFile = $this->rootDir . '/resources/taxonomies.json';
+                if (is_file($taxFile)) {
+                    $taxContent = (string) file_get_contents($taxFile);
+                    $taxonomies = json_decode($taxContent, true);
+                    if (is_array($taxonomies)) {
+                        $taxRepo = new \BsCms\Taxonomy\TaxonomyRepository($conn);
+                        $termRepo = new \BsCms\Taxonomy\TermRepository($conn);
 
-                    foreach ($taxonomies as $taxData) {
-                        if (!is_array($taxData) || empty($taxData['handle'])) {
-                            continue;
-                        }
-                        $taxHandle = (string) $taxData['handle'];
-                        $existing = $taxRepo->findByHandle($taxHandle);
-                        if ($existing === null) {
-                            $created = $taxRepo->create($taxData);
-                            $taxId = (string) $created['id'];
-                        } else {
-                            $taxId = (string) $existing['id'];
-                        }
+                        foreach ($taxonomies as $taxData) {
+                            if (!is_array($taxData) || empty($taxData['handle'])) {
+                                continue;
+                            }
+                            $taxHandle = (string) $taxData['handle'];
+                            $existing = $taxRepo->findByHandle($taxHandle);
+                            if ($existing === null) {
+                                $created = $taxRepo->create($taxData);
+                                $taxId = (string) $created['id'];
+                            } else {
+                                $taxId = (string) $existing['id'];
+                            }
 
-                        if (!empty($taxData['default_term']) && is_array($taxData['default_term'])) {
-                            $defaultTerm = $taxData['default_term'];
-                            $termSlug = (string) ($defaultTerm['slug'] ?? 'uncategorized');
-                            $existingTerm = $termRepo->findBySlug($taxId, $termSlug);
-                            if ($existingTerm === null) {
-                                $termRepo->create($taxId, $defaultTerm);
+                            if (!empty($taxData['default_term']) && is_array($taxData['default_term'])) {
+                                $defaultTerm = $taxData['default_term'];
+                                $termSlug = (string) ($defaultTerm['slug'] ?? 'uncategorized');
+                                $existingTerm = $termRepo->findBySlug($taxId, $termSlug);
+                                if ($existingTerm === null) {
+                                    $termRepo->create($taxId, $defaultTerm);
+                                }
                             }
                         }
                     }
                 }
             }
+
+            // 6. Create Owner User & Assign Owner Role
+            $userRepo = new \BsCms\Users\UserRepository($conn);
+            $roleRepo = new \BsCms\Users\RoleRepository($conn);
+
+            $ownerRole = $roleRepo->findByHandle('owner');
+            if ($ownerRole === null) {
+                throw new \RuntimeException("Seeded 'owner' role not found after migrations.");
+            }
+
+            $ownerId = $userRepo->create([
+                'email' => $ownerEmail,
+                'password_hash' => $hasher->hash($ownerPassword),
+                'name' => $ownerName,
+                'status' => 'active',
+                'email_verified_at' => null, // Email verification skipped until SMTP configured; banner shown
+            ], [$ownerRole['id']]);
+
+            // Record audit entry for installation
+            $auditLogger = new \BsCms\Audit\AuditLogger($conn);
+            $auditLogger->record(
+                actor: \BsCms\Auth\Actor::system(),
+                action: 'user.created',
+                subject: 'user',
+                summary: "Initial owner account created during installation: {$ownerEmail}",
+                subjectId: $ownerId
+            );
+
+            // 7. Write installed.lock
+            file_put_contents($this->storageDir . '/installed.lock', Clock::sql(Clock::now()));
+
+            // Clean up install CSRF token
+            @unlink($this->storageDir . '/install_csrf.tmp');
+
+            // 8. Show completion screen with cron command and owner confirmation
+            $cliPhp = htmlspecialchars($config['app']['cli_php']);
+            $cronLine = "* * * * * {$cliPhp} {$this->rootDir}/bin/bs jobs:run >> /dev/null 2>&1";
+
+                    $cronEsc = htmlspecialchars($cronLine);
+            $successContent = '<div class="success-hero">'
+                . '<div class="big">&#10003;</div>'
+                . '<p style="margin:0 0 6px;font-size:1.05rem;font-weight:600">BS CMS is installed and ready.</p>'
+                . '<p style="margin:0;font-size:.88rem;color:var(--muted)">Owner account <strong style="color:var(--text)">' . htmlspecialchars($ownerEmail) . '</strong> created with role <strong>Owner</strong>.</p>'
+                . '</div>'
+                . '<p class="note" style="text-align:center">Email verification is deferred until SMTP is configured in Settings &rarr; Email.</p>'
+                . '<h3 style="text-align:center">Automate background jobs</h3>'
+                . '<p class="note" style="text-align:center">Add this line to your hosting cron schedule (run every minute):</p>'
+                . '<pre id="cronline">' . $cronEsc . '</pre>'
+                . '<p style="text-align:center"><button type="button" class="btn ghost" id="copycron">Copy cron command</button></p>';
+
+            $bodyEnd = '<script>'
+                . 'var b = document.getElementById("copycron");'
+                . 'if (b) { b.addEventListener("click", function() {'
+                . '  var line = document.getElementById("cronline").textContent;'
+                . '  if (navigator.clipboard) { navigator.clipboard.writeText(line); b.textContent = "Copied!"; setTimeout(function(){ b.textContent = "Copy cron command"; }, 2000); }'
+                . '}); }'
+                . '</script>';
+
+            return $this->htmlResponse(200, InstallerViews::shell(4, 'Installation Complete', $successContent, [
+                'back' => '/admin',
+                'bodyEnd' => $bodyEnd,
+            ]));
+
+        } catch (Throwable $e) {
+            $msg = htmlspecialchars($e->getMessage());
+            $hint = (strpos($e->getMessage(), '1062') !== false)
+                ? '<p>The owner email or data already exists from a previous installation. Reuse the original owner account or choose a different email address.</p>'
+                : '<p>If a previous installation attempt left partial data, restore the database (or drop its tables) and run the installer again.</p>';
+            return $this->htmlResponse(500, InstallerViews::errorPage(
+                'Installation Failed',
+                '<p>' . $msg . '</p>' . $hint,
+                500,
+                '/install',
+                '3',
+            ));
         }
-
-        // 6. Create Owner User & Assign Owner Role
-        $userRepo = new \BsCms\Users\UserRepository($conn);
-        $roleRepo = new \BsCms\Users\RoleRepository($conn);
-
-        $ownerRole = $roleRepo->findByHandle('owner');
-        if ($ownerRole === null) {
-            throw new \RuntimeException("Seeded 'owner' role not found after migrations.");
-        }
-
-        $ownerId = $userRepo->create([
-            'email' => $ownerEmail,
-            'password_hash' => $hasher->hash($ownerPassword),
-            'name' => $ownerName,
-            'status' => 'active',
-            'email_verified_at' => null, // Email verification skipped until SMTP configured; banner shown
-        ], [$ownerRole['id']]);
-
-        // Record audit entry for installation
-        $auditLogger = new \BsCms\Audit\AuditLogger($conn);
-        $auditLogger->record(
-            actor: \BsCms\Auth\Actor::system(),
-            action: 'user.created',
-            subject: 'user',
-            summary: "Initial owner account created during installation: {$ownerEmail}",
-            subjectId: $ownerId
-        );
-
-        // 7. Write installed.lock
-        file_put_contents($this->storageDir . '/installed.lock', Clock::sql(Clock::now()));
-
-        // Clean up install CSRF token
-        @unlink($this->storageDir . '/install_csrf.tmp');
-
-        // 8. Show completion screen with cron command and owner confirmation
-        $cliPhp = htmlspecialchars($config['app']['cli_php']);
-        $cronLine = "* * * * * {$cliPhp} {$this->rootDir}/bin/bs jobs:run >> /dev/null 2>&1";
-
-        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Installation Complete</title></head><body>';
-        $html .= '<h1>BS CMS Installed Successfully!</h1>';
-        $html .= '<p>Owner account <strong>' . htmlspecialchars($ownerEmail) . '</strong> created with role <strong>Owner</strong>.</p>';
-        $html .= '<p><em>Note: Email verification is deferred until SMTP is configured in Settings.</em></p>';
-        $html .= '<p>Add the following line to your host cron schedule:</p>';
-        $html .= '<pre style="background:#f3f4f6;padding:1rem;border-radius:4px;">' . htmlspecialchars($cronLine) . '</pre>';
-        $html .= '<p><a href="/admin">Go to Admin Dashboard</a></p>';
-        $html .= '</body></html>';
-
-        return $this->htmlResponse(200, $html);
     }
 
     /**

@@ -264,6 +264,48 @@ class PublicEntriesController extends BaseController
             }
         }
 
+        // 3. Resolve branding tokens (singleton) with media URLs
+        $branding = null;
+        try {
+            $stmtBrand = $this->connection->execute("SELECT `data` FROM `{$prefix}c_branding` WHERE `deleted_at` IS NULL LIMIT 1");
+            $brandRow = $stmtBrand->fetch();
+            if ($brandRow && !empty($brandRow['data'])) {
+                $brandData = is_string($brandRow['data']) ? json_decode($brandRow['data'], true) : $brandRow['data'];
+                if (is_array($brandData)) {
+                    $resolveMedia = function ($mediaId) use ($prefix) {
+                        $mediaId = trim((string) $mediaId);
+                        if ($mediaId === '') {
+                            return null;
+                        }
+                        try {
+                            $stmtM = $this->connection->execute(
+                                "SELECT `storage_path` FROM `{$prefix}media` WHERE `id` = ? AND `deleted_at` IS NULL LIMIT 1",
+                                [$mediaId]
+                            );
+                            $m = $stmtM->fetch();
+                            return isset($m['storage_path']) ? '/' . ltrim((string) $m['storage_path'], '/') : null;
+                        } catch (\Throwable) {
+                            return null;
+                        }
+                    };
+                    // Pass all branding fields through; media ids become URLs.
+                    // Site Width (px or %), color tokens, typography and shape
+                    // are consumed by the static starter as design tokens.
+                    $mediaKeys = ['logo', 'logo_dark', 'favicon'];
+                    $branding = [];
+                    foreach ($brandData as $key => $value) {
+                        if (in_array($key, $mediaKeys, true)) {
+                            $branding[$key . '_url'] = $resolveMedia($value);
+                        } elseif (is_scalar($value)) {
+                            $branding[(string) $key] = (string) $value;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // Branding singleton not present — omit gracefully.
+        }
+
         $body = [
             'site_name' => $siteName,
             'tagline' => $tagline,
@@ -273,6 +315,9 @@ class PublicEntriesController extends BaseController
             'environment' => $environment,
             'navigation' => $navItems,
         ];
+        if ($branding !== null) {
+            $body['branding'] = $branding;
+        }
 
         return $this->json($body);
     }

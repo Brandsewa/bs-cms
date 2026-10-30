@@ -123,6 +123,20 @@ class SingletonsController extends BaseController
         $stmt = $this->connection->execute("SELECT * FROM `{$tableName}` LIMIT 1");
         $existing = $stmt->fetch();
 
+        // A singleton must always have exactly one live row. If it was
+        // soft-deleted (e.g. by a bulk delete that did not exclude singleton
+        // tables), restore it so updates resolve instead of failing with
+        // "Entry not found".
+        if ($existing && !empty($existing['deleted_at'])) {
+            $restoredSlug = preg_replace('/-deleted-[0-9A-Za-z]{6}$/', '', (string) $existing['slug']) ?? (string) $existing['slug'];
+            $this->connection->execute(
+                "UPDATE `{$tableName}` SET `deleted_at` = NULL, `slug` = ? WHERE `id` = ?",
+                [$restoredSlug, $existing['id']]
+            );
+            $existing['deleted_at'] = null;
+            $existing['slug'] = $restoredSlug;
+        }
+
         // Enforce step-up and two-step confirmation on environment change (production/staging)
         if ($handle === 'site_settings' && isset($body['environment'])) {
             $existingData = $existing && is_string($existing['data']) ? json_decode($existing['data'], true) : [];
