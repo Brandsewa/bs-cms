@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
+import { loadTemplates, renderTemplate } from '../../lib/templates';
+
+/**
+ * Archive page for custom collections (e.g. /hotels/). Rendered through the
+ * CMS-authored `<collection>-archive` template when one exists; otherwise a
+ * simple default listing. Collections without published entries 404.
+ */
+export async function getStaticPaths() {
+  const ARCHIVES: Array<{ handle: string; label: string; description: string }> = [
+    { handle: 'hotels', label: 'Hotels', description: 'Browse our curated hotel listings.' },
+  ];
+  const paths: Array<{
+    params: { collection: string };
+    props: { handle: string; label: string; description: string; entries: any[] };
+  }> = [];
+  for (const col of ARCHIVES) {
+    try {
+      const entries = await loadCollectionEntries(col.handle);
+      if (entries.length > 0) {
+        paths.push({ params: { collection: col.handle }, props: { ...col, entries } });
+      }
+    } catch {
+      // Collection unavailable — skip.
+    }
+  }
+  return paths;
+}
+
+const { handle, label, description, entries } = Astro.props as {
+  handle: string;
+  label: string;
+  description: string;
+  entries: any[];
+};
+
+const templates = await loadTemplates();
+const archiveTpl = templates[`${handle}-archive`];
+
+const items = entries.map((entry) => {
+  const data = (entry.data || {}) as Record<string, unknown>;
+  return {
+    ...data,
+    ...entry,
+    url: `/${handle}/${entry.slug}/`,
+  };
+});
+---
+
+<BaseLayout
+  title={`${label} | BS CMS`}
+  description={description}
+  canonical={getCanonicalUrl(`/${handle}/`)}
+>
+  {archiveTpl ? (
+    <Fragment set:html={renderTemplate(archiveTpl, { label, description, items })} />
+  ) : (
+    <header style="margin-bottom: 2rem;">
+      <h1>{label}</h1>
+      <p style="color: var(--color-text-secondary); font-size: 1.1rem;">{description}</p>
+    </header>
+  )}
+</BaseLayout>

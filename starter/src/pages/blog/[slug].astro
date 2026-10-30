@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { renderToHtml, renderToMarkdown } from '@bs/renderer';
 import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
+import { loadTemplates, renderTemplate, singleContext } from '../../lib/templates';
 
 export async function getStaticPaths() {
   const entries = await loadCollectionEntries('posts');
@@ -30,6 +31,8 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props as any;
+const templates = await loadTemplates();
+const singleTpl = templates['blog-single'] || templates['posts-single'];
 ---
 
 <BaseLayout
@@ -39,6 +42,9 @@ const { post } = Astro.props as any;
   structuredData={post.structured_data}
   robots={post.seo?.robots}
 >
+    {singleTpl ? (
+    <Fragment set:html={renderTemplate(singleTpl, singleContext(post as unknown as Record<string, unknown>, `/blog/${post.slug}/`))} />
+  ) : (
   <article class="post-detail">
     <header class="post-header">
       <nav aria-label="Breadcrumb" style="margin-bottom: 1rem;">
@@ -61,4 +67,5 @@ const { post } = Astro.props as any;
 
     <div class="post-content" set:html={post.renderedHtml} />
   </article>
+  )}
 </BaseLayout>

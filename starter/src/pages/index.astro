@@ -34,6 +34,9 @@ const heroSubtitle = homePage?.summary || siteMeta.description || 'BS CMS combin
   structuredData={homePage?.structured_data}
   robots={homePage?.seo?.robots}
 >
+  {homePage?.html_code ? (
+    <Fragment set:html={homePage.html_code} />
+  ) : (
   <section class="hero">
     <h1>{heroHeading}</h1>
     <p class="hero-subtitle">
@@ -81,4 +84,5 @@ const heroSubtitle = homePage?.summary || siteMeta.description || 'BS CMS combin
       </div>
     )}
   </section>
+  )}
 </BaseLayout>

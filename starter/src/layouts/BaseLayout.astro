@@ -1,6 +1,7 @@
 ---
 import '../styles/tokens.css';
 import { escapeJsonLd, escapeAttr, getCanonicalUrl, getSiteMetadata } from '../lib/bs';
+import { brandCssVars, readableOn } from '../lib/brand';
 
 interface Props {
   title: string;
@@ -14,6 +15,12 @@ interface Props {
 }
 
 const siteMeta = await getSiteMetadata();
+const brandCss = brandCssVars(siteMeta.branding);
+const brand = siteMeta.branding || null;
+const brandLogo = brand?.logo_url || '';
+const brandLogoDark = brand?.logo_dark_url || brand?.logo_url || '';
+const brandAlt = brand?.logo_alt || siteMeta.name + ' logo';
+const onPrimary = readableOn(brand?.color_primary);
 
 const {
   title,
@@ -55,6 +62,13 @@ const robotsContent = [
     <meta name="description" content={safeDescription} />
     <meta name="robots" content={robotsContent} />
     <link rel="canonical" href={canonical} />
+    {brand?.favicon_url && <link rel="icon" href={brand.favicon_url} />}
+    {brandCss && <style is:inline set:html={brandCss} />}
+    {brand && (
+      <style is:inline
+        set:html={`.enquire-btn:hover, .footer-btn:hover { background: ${brand.color_primary || 'inherit'}; border-color: ${brand.color_primary || 'inherit'}; color: ${onPrimary}; }`}
+      />
+    )}
 
     <!-- Open Graph & Twitter -->
     <meta property="og:title" content={title} />
@@ -77,8 +91,17 @@ const robotsContent = [
     <header>
       <nav class="site-nav" aria-label="Main Navigation">
         <a href="/" class="site-brand">
-          <span>{siteMeta.name}</span>
-          <span class="badge">Static</span>
+          {brandLogo ? (
+            <img class="brand-logo" src={brandLogo} alt={brandAlt} />
+          ) : (
+            <>
+              <span class="brand-leaf" aria-hidden="true">&#10087;</span>
+              <span class="brand-text">
+                <span class="brand-name">{siteMeta.name.toUpperCase()}</span>
+                <span class="brand-tag">SEEDS &bull; PLANTS &bull; A GREENER TOMORROW</span>
+              </span>
+            </>
+          )}
         </a>
         <ul class="nav-links">
           {siteMeta.navigation.map((item) => (
@@ -89,6 +112,7 @@ const robotsContent = [
             </li>
           ))}
         </ul>
+        <a class="enquire-btn" href="/contact-us/">Enquire <span aria-hidden="true">&rarr;</span></a>
       </nav>
     </header>
 
@@ -97,16 +121,50 @@ const robotsContent = [
     </main>
 
     <footer>
-      <div class="footer-content">
-        <p>&copy; {new Date().getFullYear()} {siteMeta.name}. Zero Node daemons in production.</p>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          {brandLogoDark ? (
+            <img class="footer-logo-img" src={brandLogoDark} alt={brandAlt} />
+          ) : (
+            <p class="footer-logo">&#10087; {siteMeta.name.toUpperCase()}</p>
+          )}
+          <p class="footer-blurb">Supplying quality flower and vegetable seeds, bulbs and planting material to growers in India and around the world.</p>
+        </div>
+        <div class="footer-col">
+          <p class="footer-h">Quick Links</p>
+          <ul>
+            {siteMeta.navigation.slice(0, 5).map((item) => (
+              <li><a href={item.url}>{item.label}</a></li>
+            ))}
+          </ul>
+        </div>
+        <div class="footer-col">
+          <p class="footer-h">Our Range</p>
+          <ul>
+            <li><a href="/our-stories/">Flower Seeds</a></li>
+            <li><a href="/our-stories/">Vegetable Seeds</a></li>
+            <li><a href="/blueberry/">Fruit &amp; Horticulture</a></li>
+          </ul>
+        </div>
+        <div class="footer-col footer-news">
+          <p class="footer-h">Newsletter</p>
+          <p>Get the latest updates, growing tips and new varieties.</p>
+          <a class="footer-btn" href="/contact-us/">Get in touch &rarr;</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; {new Date().getFullYear()} {siteMeta.name}. All rights reserved.</p>
         <div class="footer-links">
-          <a href="/llms.txt">llms.txt</a>
+          <a href="/terms-and-condition/">Privacy Policy</a>
+          <a href="/terms-and-condition/">Terms of Use</a>
           <a href="/sitemap.xml">Sitemap</a>
-          <a href="/robots.txt">Robots</a>
         </div>
       </div>
     </footer>
 
+    <!-- Embed activation loader conforming to CSP script-src 'self' -->
+    <script src="/embed.js" is:inline></script>
+  </body>
     <!-- Embed activation loader conforming to CSP script-src 'self' -->
     <script src="/embed.js" is:inline></script>
   </body>

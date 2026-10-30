@@ -1,0 +1,83 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { loadCollectionEntries, getCanonicalUrl } from '../../lib/bs';
+import { loadTemplates, renderTemplate, singleContext } from '../../lib/templates';
+
+/**
+ * Generic archive for custom collections (e.g. "hotels") defined in the
+ * Schema Builder. Public collections to render are listed here; entries are
+ * fetched at build time from the public entries API.
+ */
+export async function getStaticPaths() {
+  const mod = await import('../../lib/bs');
+  const CUSTOM_COLLECTIONS: Array<{ handle: string; label: string }> = [
+    { handle: 'hotels', label: 'Hotels' },
+  ];
+  const paths: Array<{ params: { collection: string; slug: string }; props: { entry: any; label: string; handle: string } }> = [];
+  for (const col of CUSTOM_COLLECTIONS) {
+    try {
+      const entries = await mod.loadCollectionEntries(col.handle);
+      for (const entry of entries) {
+        paths.push({ params: { collection: col.handle, slug: entry.slug }, props: { entry, label: col.label, handle: col.handle } });
+      }
+    } catch {
+      // Collection empty or unavailable at build time — skip silently.
+    }
+  }
+  return paths;
+}
+
+const { entry, label, handle } = Astro.props as { entry: any; label: string; handle: string };
+const templates = await loadTemplates();
+const singleTpl = templates[`${handle}-single`];
+// The public API presents custom fields at the top level (with a `data` map
+// alongside) — merge both so schema fields like star_rating are found.
+const data = { ...(entry.data || {}), ...entry } as Record<string, unknown>;
+
+// Render simple scalar fields from the collection schema; skip internal keys.
+const SKIP = new Set(['body', 'blocks', 'seo', 'summary']);
+const fields = Object.entries(data).filter(
+  ([key, value]) =>
+    !SKIP.has(key) &&
+    (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'),
+);
+---
+
+<BaseLayout
+  title={`${entry.title} | ${label}`}
+  description={entry.summary || entry.excerpt || `${entry.title} — ${label} on BS CMS.`}
+  canonical={getCanonicalUrl(`/${entry.slug}/`)}
+  structuredData={entry.structured_data}
+  robots={entry.seo?.robots}
+>
+  {singleTpl ? (
+    <Fragment set:html={renderTemplate(singleTpl, singleContext(data, `/${handle}/${entry.slug}/`))} />
+  ) : (
+  <article class="post-detail">
+    <header class="post-header">
+      <p style="font-size: 0.85rem; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">
+        {label}
+      </p>
+      <h1>{entry.title}</h1>
+      {entry.summary && (
+        <p style="font-size: 1.15rem; color: var(--color-text-secondary); margin-top: 0.5rem;">
+          {entry.summary}
+        </p>
+      )}
+    </header>
+
+    <div class="post-content">
+      {fields.length > 0 ? (
+        <dl class="detail-fields" style="margin-top: 1.5rem; display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem;">
+          {fields.map(([key, value]) => (
+            <>
+              <dt style="font-weight: 600; color: var(--color-text-secondary);">{key.replace(/_/g, ' ')}</dt>
+              <dd style="margin: 0;">{value === true ? 'Yes' : value === false ? 'No' : String(value)}</dd>
+            </>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  </article>
+  )}
+</BaseLayout>

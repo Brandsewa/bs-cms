@@ -115,11 +115,28 @@ export function escapeJsonLd(json: unknown): string {
   return serialized.replace(/<\/script/gi, '<\\/script');
 }
 
+export interface BrandingTokens {
+  logo_url?: string | null;
+  logo_dark_url?: string | null;
+  favicon_url?: string | null;
+  logo_alt?: string;
+  color_primary?: string;
+  color_secondary?: string;
+  color_accent?: string;
+  color_background?: string;
+  color_surface?: string;
+  color_text?: string;
+  font_heading?: string;
+  font_body?: string;
+  radius?: string;
+}
+
 export interface SiteMetaWithNav {
   name: string;
   description: string;
   tagline: string;
   navigation: Array<{ label: string; url: string; target?: string | null }>;
+  branding?: BrandingTokens | null;
 }
 
 let cachedSiteData: SiteMetaWithNav | null = null;
@@ -144,6 +161,19 @@ export async function getSiteMetadata(): Promise<SiteMetaWithNav> {
               { label: 'Home', url: '/' },
               { label: 'Blog', url: '/blog/' },
             ],
+        branding: (() => {
+          const raw = (site as unknown as { branding?: BrandingTokens }).branding;
+          if (!raw) return null;
+          // Branding media URLs are CMS-relative; make them absolute so the
+          // statically-built site (served from a different host) can load them.
+          const abs = (u?: string | null) => (u && u.startsWith('/') ? CMS_URL + u : u ?? null);
+          return {
+            ...raw,
+            logo_url: abs(raw.logo_url),
+            logo_dark_url: abs(raw.logo_dark_url),
+            favicon_url: abs(raw.favicon_url),
+          };
+        })(),
       };
       return cachedSiteData;
     }
@@ -180,4 +210,5 @@ export async function getSiteMetadata(): Promise<SiteMetaWithNav> {
   };
   return cachedSiteData;
 }
+
 
