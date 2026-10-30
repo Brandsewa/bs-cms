@@ -53,3 +53,9 @@ Thumbs.db
 !.vscode/extensions.json
 *.suo
 *.user
+
+# Local migration/testing workspace (session cookies, scratch files)
+.migration/*
+!.migration/*.cjs
+!.migration/*.php
+!.migration/*.sql
