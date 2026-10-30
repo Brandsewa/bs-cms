@@ -1,4 +1,4 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import {
   AppSidebar,
@@ -27,7 +27,9 @@ import {
   Sun,
   Moon,
   Laptop,
+  Layers,
 } from 'lucide-react';
+import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { ADMIN_SIDEBAR_GROUPS, type AdminSidebarItem } from './nav-groups';
 import { ShellErrorBoundary } from './error-boundary';
@@ -66,17 +68,88 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/admin/';
 
-  // Find active item
+  // Content collections for the sidebar: the static "Entries" item expands into
+  // one archive link per collection (Posts, Pages, then custom like Hotels).
+  const [collections, setCollections] = useState<Array<{ handle: string; label_plural: string; icon: string | null; is_system: boolean }>>([]);
+  useEffect(() => {
+    let mounted = true;
+    apiClient.request<Array<Record<string, unknown>>>('GET', '/collections').then((res) => {
+      if (!mounted || !res.ok || !Array.isArray(res.data)) return;
+      setCollections(
+        res.data
+          .filter((c) => c.kind !== 'single') // singletons have dedicated screens
+          .map((c) => ({
+            handle: String(c.handle || ''),
+            label_plural: String(c.label_plural || c.handle || ''),
+            icon: c.icon ? String(c.icon) : null,
+            is_system: Boolean(c.is_system),
+          })),
+      );
+    }).catch(() => undefined);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const navGroups = useMemo(() => {
+    if (collections.length === 0) return ADMIN_SIDEBAR_GROUPS;
+    // Curated order: the primary content types first, remaining system
+    // collections next, then custom collections alphabetically.
+    const PRIORITY = ['pages', 'posts', 'authors'];
+    const sorted = [...collections].sort((a, b) => {
+      const ai = a.is_system ? PRIORITY.indexOf(a.handle) : -1;
+      const bi = b.is_system ? PRIORITY.indexOf(b.handle) : -1;
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+      return a.label_plural.localeCompare(b.label_plural);
+    });
+    const collectionsItem: AdminSidebarItem = {
+      id: 'collections',
+      label: 'Collections',
+      permission: 'collection:read',
+      icon: Layers,
+      to: '/admin/entries',
+      children: sorted.map((c) => ({
+        id: `entries-${c.handle}`,
+        label: c.label_plural,
+        permission: 'collection:read',
+        to: `/admin/entries/${c.handle}`,
+      })),
+    };
+    const developerChildren: AdminSidebarItem[] = [
+      { id: 'developer-schema', label: 'Schema Builder', permission: 'settings:read', to: '/admin/developer/schema' },
+      { id: 'developer-jobs', label: 'Background Jobs', permission: 'settings:read', to: '/admin/developer/jobs' },
+      { id: 'developer-api', label: 'API Explorer', permission: 'settings:read', to: '/admin/developer/api' },
+    ];
+    return ADMIN_SIDEBAR_GROUPS.map((g) => {
+      if (g.id === 'content') {
+        return { ...g, items: [collectionsItem, ...g.items.filter((i) => i.id !== 'entries')] };
+      }
+      if (g.id === 'system') {
+        return {
+          ...g,
+          items: g.items.map((i) => (i.id === 'developer' ? { ...i, children: developerChildren } : i)),
+        };
+      }
+      return g;
+    });
+  }, [collections]);
+
+  // Find active item — prefer the most specific (longest) match so that
+  // /admin/entries/hotels highlights "Hotels", not "All Collections".
   let activeId: string | undefined;
-  for (const group of ADMIN_SIDEBAR_GROUPS) {
+  let bestLen = 0;
+  for (const group of navGroups) {
     for (const item of group.items) {
-      if (
+      const matches =
         currentPath === item.to ||
         currentPath === item.to + '/' ||
-        (item.to !== '/admin' && item.to !== '/admin/' && currentPath.startsWith(item.to))
-      ) {
+        (item.to !== '/admin' && item.to !== '/admin/' && currentPath.startsWith(item.to));
+      if (matches && item.to.length > bestLen) {
         activeId = item.id;
-        break;
+        bestLen = item.to.length;
       }
     }
   }
@@ -134,7 +207,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const renderSidebar = (isMobile = false) => (
     <AppSidebar
       className="shrink-0 h-full border-r border-border bg-background"
-      groups={ADMIN_SIDEBAR_GROUPS}
+      groups={navGroups}
       hasPermission={hasPermission}
       activeId={activeId}
       showCollapseButton={!isMobile}

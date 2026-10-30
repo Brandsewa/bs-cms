@@ -5,3 +5,4 @@ export * from './collection-list-route';
 export * from './entry-editor-route';
 export * from './tiptap-article-editor';
 export * from './entry-panels';
+export * from './collections-index-view';

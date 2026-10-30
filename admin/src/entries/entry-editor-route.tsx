@@ -29,9 +29,10 @@ import {
   TaxonomyPanel,
   AuthorPanel,
   FeaturedImagePanel,
+  CustomFieldsPanel,
 } from './entry-panels';
 import type { MediaItem } from '../media/media-picker-modal';
-import type { CollectionSchema, EntryItem } from './types';
+import type { CollectionSchema, EntryItem, CollectionFieldDefinition } from './types';
 
 export interface EntryEditorRouteProps {
   collectionHandle: string;
@@ -73,10 +74,14 @@ export function EntryEditorRoute({
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
   const [version, setVersion] = useState<number>(1);
+  // Schema-driven state: term selections per taxonomy field, and values for custom fields
+  const [taxonomySelection, setTaxonomySelection] = useState<Record<string, string[]>>({});
+  const [customValues, setCustomValues] = useState<Record<string, unknown>>({});
 
   // Dirty state tracking for unsaved-changes guard
   const initialSnapshotRef = useRef<string>('');
   const [isDirty, setIsDirty] = useState(false);
+  const loadedEntryRef = useRef<{ item: EntryItem; itemData: Record<string, unknown> } | null>(null);
 
   // Loading & Saving status
   const [loadingEntry, setLoadingEntry] = useState(!isNew);
@@ -189,6 +194,10 @@ export function EntryEditorRoute({
         { const cats = (item as Record<string, unknown>).categories ?? item.category_ids; if (Array.isArray(cats)) setCategoryIds(cats as string[]); }
         if (item.featured_image) setFeaturedImage(item.featured_image as unknown as MediaItem);
 
+        // Keep the raw payload around so schema-driven fields can be populated
+        // once the collection schema (fetched in parallel) is available.
+        loadedEntryRef.current = { item, itemData };
+
         const snapshot = JSON.stringify({
           title: item.title || '',
           slug: item.slug || '',
@@ -260,6 +269,43 @@ export function EntryEditorRoute({
     [schema]
   );
 
+  // Schema-driven field classification: taxonomy fields get term pickers, the rest
+  // fall back to the generic custom-fields panel.
+  const fieldDefs = (schema?.fields || {}) as Record<string, CollectionFieldDefinition>;
+  const taxonomyFieldEntries = Object.entries(fieldDefs).filter(([, f]) => f.type === 'taxonomy');
+  const KNOWN_FIELD_HANDLES = new Set([
+    'title', 'slug', 'body', 'blocks', 'excerpt', 'seo', 'is_featured', 'featured_image',
+    'author_id', 'authors', 'categories', 'tags', 'reading_time',
+  ]);
+  const customFieldEntries = Object.entries(fieldDefs).filter(
+    ([h, f]) => f.type !== 'taxonomy' && !KNOWN_FIELD_HANDLES.has(h),
+  );
+
+  // Populate taxonomy selections and custom field values from the loaded entry
+  // once the schema (needed for classification) is available.
+  useEffect(() => {
+    const loaded = loadedEntryRef.current;
+    if (!schema?.fields || !loaded) return;
+    const defs = schema.fields as Record<string, CollectionFieldDefinition>;
+    const merged = { ...loaded.itemData, ...(loaded.item as Record<string, unknown>) };
+    const tax: Record<string, string[]> = {};
+    const custom: Record<string, unknown> = {};
+    for (const [handle, def] of Object.entries(defs)) {
+      const val = merged[handle];
+      if (def.type === 'taxonomy') {
+        if (Array.isArray(val)) tax[handle] = val as string[];
+      } else if (!KNOWN_FIELD_HANDLES.has(handle)) {
+        if (val !== undefined) custom[handle] = val;
+      }
+    }
+    setTaxonomySelection(tax);
+    setCustomValues(custom);
+    loadedEntryRef.current = null;
+    // These values came from the saved entry, not user edits — reset the
+    // dirty flag so the editor doesn't open flagged as unsaved.
+    setIsDirty(false);
+  }, [schema]);
+
   const handleSave = useCallback(
     async (overrideStatus?: 'draft' | 'published' | 'in_review', forceVersion?: number) => {
       if (!canSave) {
@@ -299,6 +345,14 @@ export function EntryEditorRoute({
       if (hasField('is_featured')) payload.is_featured = isFeatured;
       if (hasField('categories')) payload.categories = categoryIds;
       if (hasField('featured_image')) payload.featured_image = featuredImage?.id || null;
+      // Schema-driven taxonomy fields (e.g. amenities on a custom collection)
+      for (const [handle] of taxonomyFieldEntries) {
+        payload[handle] = taxonomySelection[handle] || [];
+      }
+      // Collection-specific custom fields (e.g. star_rating, city)
+      for (const [handle] of customFieldEntries) {
+        if (customValues[handle] !== undefined) payload[handle] = customValues[handle];
+      }
 
       if (publishedAt) payload.published_at = publishedAt;
       if (scheduledAt) payload.scheduled_at = scheduledAt;
@@ -413,6 +467,10 @@ export function EntryEditorRoute({
       navigate,
       blocksContent,
       hasField,
+      taxonomyFieldEntries,
+      customFieldEntries,
+      taxonomySelection,
+      customValues,
     ]
   );
 
@@ -703,21 +761,33 @@ export function EntryEditorRoute({
             />
           )}
 
-          {(hasField('author_id') || hasField('authors')) && (
+          {hasField('author_id') || hasField('authors') ? (
             <AuthorPanel
               authorId={authorId}
               onAuthorChange={setAuthorId}
             />
-          )}
+          ) : null}
 
-          {hasField('categories') && (
+          {taxonomyFieldEntries.map(([handle, def]) => (
             <TaxonomyPanel
-              taxonomyHandle="categories"
-              taxonomyTitle="Categories"
-              selectedTermIds={categoryIds}
-              onChange={setCategoryIds}
+              key={handle}
+              taxonomyHandle={(def.config?.taxonomy as string) || handle}
+              taxonomyTitle={def.label || handle}
+              selectedTermIds={taxonomySelection[handle] || []}
+              onChange={(ids) => setTaxonomySelection((prev) => ({ ...prev, [handle]: ids }))}
             />
-          )}
+          ))}
+
+          <CustomFieldsPanel
+            fields={customFieldEntries.map(([handle, def]) => ({
+              handle,
+              label: def.label || handle,
+              type: def.type,
+              required: def.required,
+            }))}
+            values={customValues}
+            onChange={(handle, value) => setCustomValues((prev) => ({ ...prev, [handle]: value }))}
+          />
 
           <RevisionsPanel
             collectionHandle={collectionHandle}

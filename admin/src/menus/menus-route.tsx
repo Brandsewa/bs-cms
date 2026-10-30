@@ -143,6 +143,9 @@ export function MenusRoute() {
       const res = await apiClient.request('PUT', '/singletons/navigation', {
         body: {
           menus: finalData,
+          // The public site endpoint (GET /api/v1/public/site) reads `items`
+          // for the header navigation consumed by the static starter.
+          items: finalData.header || [],
         },
       });
 

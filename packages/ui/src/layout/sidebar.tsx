@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, ChevronDown } from 'lucide-react';
 import {
   useCallback,
   useState,
@@ -19,6 +19,11 @@ export interface SidebarItem {
   icon?: React.ComponentType<{ className?: string }>;
   /** Small count/status badge (e.g. pending AI changes). */
   badge?: ReactNode;
+  /**
+   * Nested items rendered as an expandable sub-list under this item.
+   * Hidden when the sidebar is collapsed to icons.
+   */
+  children?: SidebarItem[];
 }
 
 export interface SidebarGroup {
@@ -101,11 +106,28 @@ export function AppSidebar({
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter(
-        (item) => !item.permission || hasPermission?.(item.permission) !== false
-      ),
+      items: group.items
+        .filter((item) => !item.permission || hasPermission?.(item.permission) !== false)
+        .map((item) =>
+          item.children
+            ? {
+                ...item,
+                children: item.children.filter(
+                  (child) => !child.permission || hasPermission?.(child.permission) !== false
+                ),
+              }
+            : item
+        ),
     }))
     .filter((group) => group.items.length > 0);
+
+  // Accordion state for items with children. Defaults to open when the parent
+  // or any child is the active page.
+  const [manualOpen, setManualOpen] = useState<Record<string, boolean>>({});
+  const isChildActive = (item: SidebarItem) =>
+    item.children?.some((child) => child.id === activeId) ?? false;
+  const isExpanded = (item: SidebarItem) =>
+    manualOpen[item.id] ?? (item.id === activeId || isChildActive(item));
 
   const renderItem = (item: SidebarItem) => {
     const isActive = item.id === activeId;
@@ -154,6 +176,37 @@ export function AppSidebar({
           <Tooltip content={item.label} delayDuration={150} side="right">
             {linkNode}
           </Tooltip>
+        </li>
+      );
+    }
+    if (item.children && item.children.length > 0) {
+      const expanded = isExpanded(item);
+      return (
+        <li key={item.id}>
+          <div
+            className={cn(
+              'flex items-center',
+              isActive && '[&_.item-link]:bg-surface-200 [&_.item-link]:text-foreground [&_.item-link]:font-medium'
+            )}
+          >
+            <div className="item-link min-w-0 flex-1 [&>a]:w-full [&>a]:pr-1">{linkNode}</div>
+            <button
+              type="button"
+              onClick={() => setManualOpen((prev) => ({ ...prev, [item.id]: !expanded }))}
+              aria-expanded={expanded}
+              aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronDown
+                className={cn('h-3.5 w-3.5 transition-transform', !expanded && '-rotate-90')}
+              />
+            </button>
+          </div>
+          {expanded ? (
+            <ul className="ml-5 mt-0.5 space-y-0.5 border-l border-border pl-2">
+              {item.children.map(renderItem)}
+            </ul>
+          ) : null}
         </li>
       );
     }

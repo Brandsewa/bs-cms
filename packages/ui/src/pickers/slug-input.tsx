@@ -57,11 +57,22 @@ export function SlugInput({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hintId = useId();
 
+  // Remembers the last slug this component auto-derived, so the derive effect
+  // never clobbers a value that came from elsewhere (e.g. loaded from the CMS).
+  const lastAutoRef = useRef<string | null>(null);
+
   // Auto-derive while locked: slugify the source whenever it changes.
   useEffect(() => {
     if (locked && source !== undefined) {
+      // A non-empty value that we didn't derive ourselves is authoritative
+      // (an existing entry's saved slug) — keep it instead of overwriting.
+      if (value && value !== lastAutoRef.current) {
+        setDraft(value);
+        return;
+      }
       const auto = slugify(source);
       if (auto !== value) onChange(auto);
+      lastAutoRef.current = auto;
       setDraft(auto);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

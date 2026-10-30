@@ -3,6 +3,8 @@ import {
   Button,
   Card,
   CardHeader,
+  CardTitle,
+  CardDescription,
   CardContent,
   Label,
   Input,
@@ -788,5 +790,90 @@ export function ConflictDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export interface CustomFieldDef {
+  handle: string;
+  label: string;
+  type: string;
+  required?: boolean;
+}
+
+export interface CustomFieldsPanelProps {
+  fields: CustomFieldDef[];
+  values: Record<string, unknown>;
+  onChange: (handle: string, value: unknown) => void;
+}
+
+/**
+ * Renders editor inputs for collection-specific schema fields that have no
+ * dedicated panel (e.g. star_rating, city on a custom "hotels" collection).
+ */
+export function CustomFieldsPanel({ fields, values, onChange }: CustomFieldsPanelProps) {
+  if (fields.length === 0) return null;
+
+  return (
+    <Card data-testid="custom-fields-panel">
+      <CardHeader>
+        <CardTitle>Fields</CardTitle>
+        <CardDescription>Collection-specific fields defined in the Schema Builder.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {fields.map((f) => {
+          const value = values[f.handle];
+          const id = `cf_${f.handle}`;
+          return (
+            <div key={f.handle} className="space-y-1.5">
+              <Label htmlFor={id}>
+                {f.label}
+                {f.required && <span className="text-destructive"> *</span>}
+                <code className="ml-2 text-11 font-mono text-muted-foreground">({f.handle})</code>
+              </Label>
+              {f.type === 'boolean' ? (
+                <Select
+                  value={value === true || value === '1' ? '1' : '0'}
+                  onValueChange={(v) => onChange(f.handle, v === '1')}
+                >
+                  <SelectTrigger id={id}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Yes</SelectItem>
+                    <SelectItem value="0">No</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : f.type === 'textarea' || f.type === 'markdown' || f.type === 'richtext' ? (
+                <Textarea
+                  id={id}
+                  rows={f.handle.startsWith('html') || f.handle.endsWith('_code') ? 18 : 4}
+                  className={f.handle.startsWith('html') || f.handle.endsWith('_code') ? 'font-mono text-12' : undefined}
+                  spellCheck={false}
+                  value={typeof value === 'string' ? value : ''}
+                  onChange={(e) => onChange(f.handle, e.target.value)}
+                />
+              ) : (
+                <Input
+                  id={id}
+                  type={
+                    f.type === 'number'
+                      ? 'number'
+                      : f.type === 'date'
+                        ? 'date'
+                        : f.type === 'datetime'
+                          ? 'datetime-local'
+                          : f.type === 'email'
+                            ? 'email'
+                            : f.type === 'url'
+                              ? 'url'
+                              : 'text'
+                  }
+                  value={value === null || value === undefined ? '' : String(value)}
+                  onChange={(e) => onChange(f.handle, f.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)}
+                />
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

@@ -54,8 +54,8 @@ export function normalizeMedia(raw: Record<string, unknown>): MediaItem {
     id: String(r.id || ''),
     mime_type: (r.mime !== undefined ? String(r.mime) : baseItem.mime_type),
     size: (typeof r.size_bytes === 'number' ? r.size_bytes : baseItem.size),
-    alt: (r.alt_text !== undefined ? String(r.alt_text) : (baseItem.alt ?? '')),
-    name: (r.title !== undefined ? String(r.title) : baseItem.name),
+    alt: (r.alt_text != null ? String(r.alt_text) : (baseItem.alt ?? '')),
+    name: (r.title != null ? String(r.title) : baseItem.name),
   };
 }
 

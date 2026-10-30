@@ -390,6 +390,7 @@ export function TaxonomiesRoute() {
               size="sm"
               variant="outline"
               onClick={() => openEditDialog(node)}
+              aria-label={'Edit term ' + node.name}
               className="h-6 px-2 text-[11px]"
             >
               <Edit2 className="h-3 w-3" />
@@ -398,6 +399,7 @@ export function TaxonomiesRoute() {
               size="sm"
               variant="ghost"
               onClick={() => handleDeleteTerm(node.id)}
+              aria-label={'Delete term ' + node.name}
               className="h-6 w-6 p-0 text-destructive"
             >
               <Trash2 className="h-3 w-3" />

@@ -8,6 +8,7 @@ import {
   Globe,
   Image,
   ScrollText,
+  Palette,
   Settings,
   Sparkles,
   Users,
@@ -80,6 +81,13 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
         to: '/admin/redirects',
       },
       // SPRINT-A END
+      {
+        id: 'branding',
+        label: 'Branding',
+        permission: 'site:read',
+        icon: Palette,
+        to: '/admin/branding',
+      },
       {
         id: 'ai',
         label: 'AI Studio',

@@ -17,8 +17,20 @@ const AcceptInvitationRoute = lazy(() =>
 const OAuthConsentReturnRoute = lazy(() =>
   import('./auth/oauth-consent-return').then((m) => ({ default: m.OAuthConsentReturnRoute }))
 );
+const BrandingView = lazy(() =>
+  import('./settings/branding-view').then((m) => ({ default: m.BrandingView }))
+);
+const DeveloperHubView = lazy(() =>
+  import('./developer/developer-hub-view').then((m) => ({ default: m.DeveloperHubView }))
+);
+const AiStudioView = lazy(() =>
+  import('./ai/ai-studio-view').then((m) => ({ default: m.AiStudioView }))
+);
 const CollectionListRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.CollectionListRoute }))
+);
+const CollectionsIndexView = lazy(() =>
+  import('./entries').then((m) => ({ default: m.CollectionsIndexView }))
 );
 const EntryEditorRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
@@ -114,9 +126,6 @@ const MyAccountView = lazy(() =>
 // SPRINT-D END
 
 // Shell fallbacks & placeholders
-const ComingSoonPage = lazy(() =>
-  import('./shell/coming-soon').then((m) => ({ default: m.ComingSoonPage }))
-);
 const ForbiddenRoute = lazy(() =>
   import('./shell/forbidden').then((m) => ({ default: m.ForbiddenRoute }))
 );
@@ -209,7 +218,7 @@ export const entriesRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="collection:read">
       <RouteSuspense>
-        <CollectionListRoute collectionHandle="posts" />
+        <CollectionsIndexView />
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -302,16 +311,25 @@ export const menusRoute = createRoute({
   ),
 });
 
+export const brandingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/branding',
+  component: () => (
+    <ProtectedAdmin permission="site:read">
+      <RouteSuspense>
+        <BrandingView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
 export const aiRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ai',
   component: () => (
     <ProtectedAdmin permission="ai:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="AI Studio & Pending Changes"
-          description="Review AI agent suggestions, draft reviews, and automated changes."
-        />
+        <AiStudioView />
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -352,10 +370,7 @@ export const developerRoute = createRoute({
   component: () => (
     <ProtectedAdmin permission="settings:read">
       <RouteSuspense>
-        <ComingSoonPage
-          title="Developer Tools"
-          description="API keys, webhooks, schema inspection, and MCP connections."
-        />
+        <DeveloperHubView />
       </RouteSuspense>
     </ProtectedAdmin>
   ),
@@ -643,6 +658,7 @@ export async function buildRouteTree() {
     taxonomiesRoute,
     mediaRoute,
     menusRoute,
+    brandingRoute,
     aiRoute,
     usersRoute,
     usersRolesRoute,

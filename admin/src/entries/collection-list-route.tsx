@@ -42,7 +42,7 @@ interface CollectionListRouteProps {
 export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionListRouteProps) {
   const { session, hasPermission } = useSession();
 
-  const [collections, setCollections] = useState<CollectionSchema[]>([]);
+  const [, setCollections] = useState<CollectionSchema[]>([]);
   const [activeCollection, setActiveCollection] = useState<CollectionSchema | null>(null);
 
   const [entries, setEntries] = useState<EntryItem[]>([]);
@@ -708,29 +708,6 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
           description={`Browse, manage, search, and publish ${collectionLabel.toLowerCase()}.`}
         />
         <div className="flex items-center gap-2">
-          {/* Collection Switcher */}
-          {collections.length > 1 && (
-            <div className="flex rounded-lg border border-border p-1 bg-muted/40">
-              {collections
-                .filter((c) => c.kind === 'collection')
-                .map((c) => (
-                  <button
-                    key={c.handle}
-                    onClick={() => {
-                      window.location.assign(`/admin/entries/${c.handle}`);
-                    }}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      c.handle === collectionHandle
-                        ? 'bg-background text-foreground shadow-xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {c.label_plural}
-                  </button>
-                ))}
-            </div>
-          )}
-
           {/* View Mode Toggle for Pages */}
           {collectionHandle === 'pages' && (
             <div className="flex rounded-lg border border-border p-1 bg-muted/40">
