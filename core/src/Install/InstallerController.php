@@ -84,7 +84,7 @@ final class InstallerController
             $defaultUrl .= ':' . $port;
         }
 
-                $content = '';
+        $content = '';
         $content .= '<ul class="checklist">';
         $phpPass = $checks['php_version']['status'] === 'pass';
         $content .= '<li><span class="st ' . ($phpPass ? 'pass' : 'fail') . '">' . ($phpPass ? '&#10003;' : '&#10007;') . '</span><span>PHP Version <strong style="color:var(--text)">' . htmlspecialchars($checks['php_version']['current']) . '</strong></span></li>';
@@ -216,7 +216,7 @@ final class InstallerController
         $csrfToken = $this->getOrCreateCsrfToken();
 
         // Step 3: Owner Account creation form without echoing DB password
-                $vpanel = '<div class="vpanel">'
+        $vpanel = '<div class="vpanel">'
             . '<div class="vrow"><span class="k">Server</span><span class="v">' . htmlspecialchars($conn->getServerType()) . ' ' . htmlspecialchars($conn->getServerVersion()) . '</span><span class="st pass">&#10003; Connected</span></div>'
             . '<div class="vrow"><span class="k">Database</span><span class="v">' . htmlspecialchars($dbname) . '</span></div>'
             . '<div class="vrow"><span class="k">Host / User</span><span class="v">' . htmlspecialchars($host) . ' / ' . htmlspecialchars($user) . '</span></div>'
@@ -450,7 +450,7 @@ final class InstallerController
             $cliPhp = htmlspecialchars($config['app']['cli_php']);
             $cronLine = "* * * * * {$cliPhp} {$this->rootDir}/bin/bs jobs:run >> /dev/null 2>&1";
 
-                    $cronEsc = htmlspecialchars($cronLine);
+            $cronEsc = htmlspecialchars($cronLine);
             $successContent = '<div class="success-hero">'
                 . '<div class="big">&#10003;</div>'
                 . '<p style="margin:0 0 6px;font-size:1.05rem;font-weight:600">BS CMS is installed and ready.</p>'

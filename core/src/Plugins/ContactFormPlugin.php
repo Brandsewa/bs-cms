@@ -6,7 +6,6 @@ namespace BsCms\Plugins;
 
 use BsCms\Blocks\BlockRegistry;
 use BsCms\Database\Connection;
-use BsCms\Mail\MailerService;
 use BsCms\Security\Ulid;
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -18,8 +17,7 @@ final class ContactFormPlugin implements PluginInterface
 
     public function __construct(
         private readonly Connection $connection,
-        private readonly ?BlockRegistry $blockRegistry = null,
-        private readonly ?MailerService $mailerService = null
+        private readonly ?BlockRegistry $blockRegistry = null
     ) {
     }
 
@@ -127,7 +125,7 @@ final class ContactFormPlugin implements PluginInterface
                 ORDER BY f.created_at DESC";
 
         $stmt = $pdo->query($sql);
-        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $rows = $stmt !== false ? $stmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 
         $result = [];
         foreach ($rows as $row) {

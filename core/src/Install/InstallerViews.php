@@ -22,7 +22,7 @@ final class InstallerViews
      * @param int $step 1..4 (active step)
      * @param string $title Page/step title
      * @param string $content Pre-escaped inner HTML for the step card
-     * @param array{back?: string, extraHead?: string, bodyClass?: string} $opts
+     * @param array{back?: string, extraHead?: string, bodyClass?: string, bodyEnd?: string} $opts
      */
     public static function shell(int $step, string $title, string $content, array $opts = []): string
     {

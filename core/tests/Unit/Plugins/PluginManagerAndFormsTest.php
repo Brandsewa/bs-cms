@@ -116,6 +116,7 @@ final class PluginManagerAndFormsTest extends TestCase
         // 3. Verify block registered into BlockRegistry
         $this->assertTrue($this->blockRegistry->has('contact_form'));
         $blockDef = $this->blockRegistry->get('contact_form');
+        $this->assertNotNull($blockDef);
         $this->assertSame('Contact Form', $blockDef['label']);
 
         // 4. Update config
@@ -212,6 +213,7 @@ final class PluginManagerAndFormsTest extends TestCase
 
         // 4. Verify in inbox / metrics
         $formWithCount = $plugin->getForm('sales-lead');
+        $this->assertNotNull($formWithCount);
         $this->assertSame(1, $formWithCount['submissions_count']);
         $this->assertSame(1, $formWithCount['unread_count']);
 
@@ -226,6 +228,7 @@ final class PluginManagerAndFormsTest extends TestCase
         $this->assertSame('read', $updated['status']);
 
         $formAfterRead = $plugin->getForm('sales-lead');
+        $this->assertNotNull($formAfterRead);
         $this->assertSame(0, $formAfterRead['unread_count']);
 
         // 6. Delete submission
