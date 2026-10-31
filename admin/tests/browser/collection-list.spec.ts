@@ -125,7 +125,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
   test('renders DataTable with posts list columns, header, and collection switcher', async ({
     page,
   }) => {
-    await page.goto(`${ADMIN_URL}/entries`);
+    await page.goto(`${ADMIN_URL}/entries/posts`);
 
     // Verify header and collection title
     await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
   });
 
   test('status tabs filter entries including Trash tab with restore/purge', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries`);
+    await page.goto(`${ADMIN_URL}/entries/posts`);
 
     // Click on Trash status tab (now displaying live count 2)
     const trashTab = page.getByRole('tab', { name: /Trash/i });
@@ -172,9 +172,9 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
   });
 
   test('collection switcher switches to pages collection', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries`);
+    await page.goto(`${ADMIN_URL}/entries/posts`);
 
-    const pagesSwitcher = page.getByRole('button', { name: 'Pages' });
+    const pagesSwitcher = page.getByRole('link', { name: 'Pages' });
     await expect(pagesSwitcher).toBeVisible();
     await pagesSwitcher.click();
 
@@ -183,7 +183,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
   });
 
   test('new button navigates to editor route', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries`);
+    await page.goto(`${ADMIN_URL}/entries/posts`);
 
     const newBtn = page.getByRole('button', { name: /New Entry|New Post/i });
     await newBtn.click();
@@ -232,7 +232,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
       });
     });
 
-    await page.goto(`${ADMIN_URL}/entries`);
+    await page.goto(`${ADMIN_URL}/entries/posts`);
 
     await expect(page.getByRole('heading', { name: 'Posts' })).toBeVisible();
     await expect(page.getByRole('button', { name: /New Entry|New Post/i })).toHaveCount(0);
@@ -244,7 +244,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
         window.localStorage.setItem('bs-theme', mode);
       }, theme);
 
-      await page.goto(`${ADMIN_URL}/entries`);
+      await page.goto(`${ADMIN_URL}/entries/posts`);
       await page.evaluate((mode) => {
         document.documentElement.classList.toggle('dark', mode === 'dark');
       }, theme);
@@ -271,7 +271,7 @@ test.describe('Collection List Screen Suite (Phase 6 Screen 6.2)', () => {
       }, theme);
 
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(`${ADMIN_URL}/entries`);
+      await page.goto(`${ADMIN_URL}/entries/posts`);
       await page.evaluate((mode) => {
         document.documentElement.classList.toggle('dark', mode === 'dark');
       }, theme);

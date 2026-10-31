@@ -816,7 +816,7 @@ export function CustomFieldsPanel({ fields, values, onChange }: CustomFieldsPane
   return (
     <Card data-testid="custom-fields-panel">
       <CardHeader>
-        <CardTitle>Fields</CardTitle>
+        <CardTitle as="h2">Fields</CardTitle>
         <CardDescription>Collection-specific fields defined in the Schema Builder.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
