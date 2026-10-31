@@ -52,6 +52,8 @@ final class AuthenticateMiddleware implements MiddlewareInterface
 
         // Public API & docs
         $this->addPublic('GET', '#^/api/v1/public(/.*)?$#');
+        $this->addPublic('POST', '#^/api/v1/public(/.*)?$#');
+        $this->addPublic('OPTIONS', '#^/api/v1/public(/.*)?$#');
         $this->addPublic('HEAD', '#^/api/v1/public(/.*)?$#');
         $this->addPublic('GET', '#^/api/v1/openapi\.json$#');
 
