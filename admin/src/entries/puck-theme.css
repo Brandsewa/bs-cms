@@ -1,0 +1,59 @@
+/*
+ * Token bridge: Puck's editor chrome (sidebars, fields, canvas chrome) reads
+ * its own `--puck-*` custom properties. Map them onto the admin's semantic
+ * tokens so the visual editor follows the CMS theme in light AND dark mode
+ * (admin tokens flip under the `.dark` class, so a single mapping covers
+ * both). Scoped to the editor host; Puck's component canvas keeps the
+ * @bs/page-builder site styles on purpose — it previews the public page.
+ *
+ * Pragmatic on purpose: Puck's remaining defaults (accent hues, shadows) are
+ * left alone rather than re-themed wholesale.
+ */
+.bs-puck-editor {
+  /* Surfaces */
+  --puck-color-surface: var(--card);
+  --puck-color-surface-muted: var(--surface-100);
+  --puck-color-surface-subtle: var(--background);
+  --puck-color-surface-inverse: var(--foreground);
+  --puck-color-overlay-backdrop: rgb(0 0 0 / 0.45);
+
+  /* Text */
+  --puck-color-text: var(--foreground);
+  --puck-color-text-secondary: var(--muted-foreground);
+  --puck-color-text-muted: var(--muted-foreground);
+  --puck-color-text-subtle: var(--muted-foreground);
+  --puck-color-text-inverse: var(--background);
+  --puck-color-text-disabled: var(--foreground-muted);
+
+  /* Lines */
+  --puck-color-border: var(--border);
+  --puck-color-border-muted: var(--border-muted);
+  --puck-color-border-hover: var(--border-strong);
+
+  /* Interactive chrome (buttons, toggles, active states) */
+  --puck-color-interactive: var(--primary);
+  --puck-color-interactive-hover: var(--primary);
+  --puck-color-interactive-active: var(--primary);
+  --puck-color-interactive-inverse: var(--primary-foreground);
+  --puck-color-focus-ring: var(--ring);
+
+  /* Selection highlight on the canvas */
+  --puck-color-selection-bg: color-mix(in srgb, var(--primary) 12%, transparent);
+  --puck-color-selection-border: var(--primary);
+  --puck-color-highlight: var(--primary);
+
+  /* Typography + radii follow the admin */
+  --puck-font-family: var(--font-sans);
+  --puck-font-family-monospaced: var(--font-mono);
+  --puck-radius-xs: var(--radius-sm);
+  --puck-radius-s: var(--radius-sm);
+  --puck-radius-m: var(--radius-md);
+  --puck-radius-l: var(--radius-lg);
+}
+
+/* Read-only preview (no save permission): static render of the page. */
+.bs-puck-readout {
+  min-height: 200px;
+  max-height: max(72vh, 540px);
+  overflow: auto;
+}

@@ -423,12 +423,12 @@
           "created_at": "2026-10-21 01:10:23.000",
           "updated_at": "2026-10-21 01:10:23.000"
         },
-        "blocks": {
+        "content": {
           "id": "01M5E04SGYS6R3HDMBZERNG9W7",
           "collection_id": "01M5E04SGRNCQFA0WNB82Y94ZZ",
-          "handle": "blocks",
-          "label": "Page Blocks",
-          "type": "json",
+          "handle": "content",
+          "label": "Page Content",
+          "type": "puck",
           "config": [],
           "required": false,
           "is_unique": false,
@@ -1808,12 +1808,12 @@
         "created_at": "2026-10-21 01:10:23.000",
         "updated_at": "2026-10-21 01:10:23.000"
       },
-      "blocks": {
+      "content": {
         "id": "01M5E04SGYS6R3HDMBZERNG9W7",
         "collection_id": "01M5E04SGRNCQFA0WNB82Y94ZZ",
-        "handle": "blocks",
-        "label": "Page Blocks",
-        "type": "json",
+        "handle": "content",
+        "label": "Page Content",
+        "type": "puck",
         "config": [],
         "required": false,
         "is_unique": false,

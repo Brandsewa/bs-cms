@@ -14,6 +14,7 @@ const ADMIN_URL = 'http://127.0.0.1:4173/admin';
 const ADMIN_ROUTES = [
   { path: '/', name: 'Dashboard' },
   { path: '/entries', name: 'Collection List (Entries)' },
+  { path: '/entries/pages/01M5EPAGEFIXEDID0001', name: 'Page Editor (Puck)' },
   { path: '/users', name: 'Users List' },
   { path: '/users/roles', name: 'Roles Matrix' },
   { path: '/settings/general', name: 'General Settings' },
@@ -21,6 +22,15 @@ const ADMIN_ROUTES = [
   { path: '/403', name: 'Forbidden State' },
   { path: '/not-found-preview', name: '404 Not Found' },
 ];
+
+/**
+ * The Puck visual editor (embedded on pages entries) is a third-party
+ * drag-and-drop surface. Its internal chrome/canvas DOM is excluded from the
+ * axe scan via the CSS-module classes Puck renders (every Puck element
+ * carries a `_<ComponentName>_<hash>` class); the rest of the route —
+ * header, sidebar panels, forms — is fully audited.
+ */
+const PUCK_EDITOR_SELECTOR = '[class*="_Puck"]';
 
 const THEMES = ['light', 'dark'] as const;
 
@@ -169,6 +179,73 @@ test.describe('CI Route Accessibility Suite (Axe)', () => {
         }),
       });
     });
+
+    // Pages collection schema + one saved page for the Puck editor route.
+    // Registered AFTER the generic route above so the specific entry path wins.
+    await page.route('**/api/v1/collections/pages', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'c-pages',
+          handle: 'pages',
+          kind: 'collection',
+          label_singular: 'Page',
+          label_plural: 'Pages',
+          table_name: 'pages',
+          fields: {
+            content: {
+              id: 'f-content',
+              collection_id: 'c-pages',
+              handle: 'content',
+              label: 'Page Content',
+              type: 'puck',
+              config: null,
+              required: false,
+            },
+            excerpt: {
+              id: 'f-excerpt',
+              collection_id: 'c-pages',
+              handle: 'excerpt',
+              label: 'Excerpt',
+              type: 'text',
+              config: null,
+              required: false,
+            },
+          },
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/collections/pages/entries/01M5EPAGEFIXEDID0001', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: '01M5EPAGEFIXEDID0001',
+          slug: 'home',
+          title: 'Home',
+          status: 'published',
+          version: 1,
+          excerpt: 'The home landing page.',
+          content: {
+            root: {},
+            content: [
+              {
+                type: 'Hero',
+                props: {
+                  id: 'Hero-1',
+                  heading: 'Puck Hero Heading',
+                  text: 'Puck hero subtext',
+                  ctaLabel: 'Learn more',
+                  ctaUrl: 'https://example.com',
+                },
+              },
+            ],
+          },
+        }),
+      });
+    });
   });
 
   for (const theme of THEMES) {
@@ -190,6 +267,8 @@ test.describe('CI Route Accessibility Suite (Axe)', () => {
 
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+          // Third-party Puck DnD surface (see PUCK_EDITOR_SELECTOR above).
+          .exclude(PUCK_EDITOR_SELECTOR)
           .analyze();
 
         const blocking = results.violations.filter(

@@ -334,3 +334,158 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
     }
   });
 });
+
+/**
+ * Page Editor suite: pages use the embedded Puck visual editor bound to the
+ * `content` field (Puck Data) instead of the Tiptap `body` field. The CMS
+ * header Save button is the single save path — Puck's own header/publish
+ * chrome is hidden.
+ */
+test.describe('Page Editor Screen Suite (Puck content field)', () => {
+  const PAGE_ENTRY = {
+    id: '01M5E0583S0DPAGES00000001',
+    slug: 'home',
+    title: 'Home',
+    status: 'published',
+    version: 2,
+    excerpt: 'The home landing page.',
+    seo: { title: 'Home | BrandSewa', description: 'Homepage built with the visual editor.' },
+    template: 'default',
+    summary: 'Landing page',
+    show_in_nav: true,
+    nav_label: 'Home',
+    content: {
+      root: {},
+      content: [
+        {
+          type: 'Hero',
+          props: {
+            id: 'Hero-1',
+            heading: 'Puck Hero Heading',
+            text: 'Puck hero subtext',
+            ctaLabel: 'Learn more',
+            ctaUrl: 'https://example.com',
+          },
+        },
+        {
+          type: 'RichText',
+          props: { id: 'RichText-1', html: '<p>Puck rich paragraph</p>' },
+        },
+      ],
+    },
+  };
+
+  let capturedPagePayload: any = null;
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/auth/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'authenticated',
+          csrf_token: 'csrf123',
+          user: {
+            id: 'u1',
+            email: 'owner@example.com',
+            name: 'Alice Owner',
+            roles: [{ id: 'r-owner', handle: 'owner', name: 'Owner' }],
+          },
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/me/permissions', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          actor_id: 'u1',
+          role_ids: ['r-owner'],
+          permissions: [
+            { id: 'p-all', role_id: 'r-owner', subject_type: '*', subject_key: '*', action: '*', effect: 'allow' },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/api/v1/collections/pages', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(fixturesData.collections_pages),
+        });
+      }
+    });
+
+    await page.route('**/api/v1/collections/pages/entries/01M5E0583S0DPAGES00000001', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(PAGE_ENTRY),
+        });
+      } else if (['PUT', 'PATCH'].includes(route.request().method())) {
+        const json = JSON.parse(route.request().postData() || '{}');
+        capturedPagePayload = json;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: PAGE_ENTRY.id, title: json.title, status: json.status, version: 3 }),
+        });
+      }
+    });
+  });
+
+  test('renders the embedded Puck canvas with the saved content and saves the Puck data as-is', async ({ page }) => {
+    await page.goto(`${ADMIN_URL}/entries/pages/01M5E0583S0DPAGES00000001`);
+
+    await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
+
+    // The lazy Puck chunk loads and renders the saved page inside the canvas.
+    const editor = page.locator('[data-testid="puck-page-editor"]');
+    await expect(editor).toBeVisible();
+    await expect(editor.locator('.bs-hero__heading')).toHaveText('Puck Hero Heading');
+
+    // Saving flows through the CMS header button and sends the Puck Data
+    // object on the `content` field (root + typed, id'd content rows).
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => capturedPagePayload).toBeTruthy();
+
+    expect(capturedPagePayload.title).toBe('Home');
+    const content = capturedPagePayload.content;
+    expect(content).toBeTruthy();
+    expect(content.root).toEqual({});
+    expect(content.content).toHaveLength(2);
+    expect(content.content[0].type).toBe('Hero');
+    expect(content.content[0].props.id).toBe('Hero-1');
+    expect(content.content[1].type).toBe('RichText');
+    // The legacy field must not be sent.
+    expect(capturedPagePayload.blocks).toBeUndefined();
+  });
+
+  test('new page starts with an empty Puck canvas and sends an empty page payload', async ({ page }) => {
+    await page.route('**/api/v1/collections/pages/entries', async (route) => {
+      if (route.request().method() === 'POST') {
+        capturedPagePayload = JSON.parse(route.request().postData() || '{}');
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'new-page-id', title: capturedPagePayload.title, status: 'draft', version: 1 }),
+        });
+      }
+    });
+
+    await page.goto(`${ADMIN_URL}/entries/pages/new`);
+    await expect(page.getByRole('heading', { name: /Create Page/i })).toBeVisible();
+    await expect(page.locator('[data-testid="puck-page-editor"]')).toBeVisible();
+
+    await page.locator('#entry-title-input').fill('Fresh Page');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => capturedPagePayload).toBeTruthy();
+
+    expect(capturedPagePayload.title).toBe('Fresh Page');
+    expect(capturedPagePayload.content).toEqual({ root: {}, content: [] });
+  });
+});

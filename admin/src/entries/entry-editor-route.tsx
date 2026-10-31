@@ -20,7 +20,8 @@ import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
-import { BlocksFieldEditor, type BlockInstance } from './blocks-field-editor';
+import { PuckPageEditor } from './puck-page-editor';
+import { extractEntryContent, toContentPayload } from './puck-content';
 import {
   PublishPanel,
   SeoPanel,
@@ -63,7 +64,7 @@ export function EntryEditorRoute({
   const [slug, setSlug] = useState('');
   const [status, setStatus] = useState<'draft' | 'published' | 'in_review' | 'scheduled' | 'archived'>('draft');
   const [bodyContent, setBodyContent] = useState<unknown>(null);
-  const [blocksContent, setBlocksContent] = useState<BlockInstance[]>([]);
+  const [puckContent, setPuckContent] = useState<unknown>(null);
   const [excerpt, setExcerpt] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
@@ -164,24 +165,11 @@ export function EntryEditorRoute({
         setSlug(item.slug || '');
         setStatus((item.status as 'draft' | 'published' | 'in_review' | 'scheduled' | 'archived') || 'draft');
         setBodyContent(item.body || itemData.body || null);
-        const rawBlocks = Array.isArray(item.blocks) ? item.blocks : Array.isArray(itemData.blocks) ? itemData.blocks : [];
-        const normalizedBlocks: BlockInstance[] = rawBlocks.map((b: unknown, idx: number) => {
-          if (b && typeof b === 'object') {
-            const bObj = b as Record<string, unknown>;
-            const blockType = String(bObj.type || bObj.block_id || 'hero');
-            const dataFields: Record<string, unknown> = { ...bObj };
-            delete dataFields.id;
-            delete dataFields.type;
-            delete dataFields.block_id;
-            return {
-              id: String(bObj.id || `blk_${Date.now()}_${idx}`),
-              type: blockType,
-              data: bObj.data && typeof bObj.data === 'object' ? (bObj.data as Record<string, unknown>) : dataFields,
-            };
-          }
-          return { id: `blk_${Date.now()}_${idx}`, type: 'text', data: {} };
-        });
-        setBlocksContent(normalizedBlocks);
+        // Puck page data (`content` field) is stored raw and normalized by
+        // the editor itself; the snapshot keeps the raw value so loading a
+        // saved page does not flag the form dirty.
+        const rawContent = extractEntryContent(item, itemData);
+        setPuckContent(rawContent);
         const itemDataSeo = itemData.seo as { title?: string; description?: string } | undefined;
         setExcerpt(String(item.excerpt || itemData.excerpt || ''));
         setMetaTitle(String(item.seo?.title || itemDataSeo?.title || ''));
@@ -203,6 +191,7 @@ export function EntryEditorRoute({
           slug: item.slug || '',
           status: item.status || 'draft',
           body: item.body || itemData.body || null,
+          content: rawContent,
           excerpt: String(item.excerpt || itemData.excerpt || ''),
           metaTitle: String(item.seo?.title || itemDataSeo?.title || ''),
           metaDescription: String(item.seo?.description || itemDataSeo?.description || ''),
@@ -234,6 +223,7 @@ export function EntryEditorRoute({
       slug,
       status,
       body: bodyContent,
+      content: puckContent,
       excerpt,
       metaTitle,
       metaDescription,
@@ -243,10 +233,10 @@ export function EntryEditorRoute({
     });
     if (initialSnapshotRef.current) {
       setIsDirty(current !== initialSnapshotRef.current);
-    } else if (title || slug || excerpt || bodyContent) {
+    } else if (title || slug || excerpt || bodyContent || puckContent) {
       setIsDirty(true);
     }
-  }, [title, slug, status, bodyContent, excerpt, metaTitle, metaDescription, isFeatured, categoryIds, authorId]);
+  }, [title, slug, status, bodyContent, puckContent, excerpt, metaTitle, metaDescription, isFeatured, categoryIds, authorId]);
 
   // Unsaved changes beforeunload guard
   useEffect(() => {
@@ -274,7 +264,7 @@ export function EntryEditorRoute({
   const fieldDefs = (schema?.fields || {}) as Record<string, CollectionFieldDefinition>;
   const taxonomyFieldEntries = Object.entries(fieldDefs).filter(([, f]) => f.type === 'taxonomy');
   const KNOWN_FIELD_HANDLES = new Set([
-    'title', 'slug', 'body', 'blocks', 'excerpt', 'seo', 'is_featured', 'featured_image',
+    'title', 'slug', 'body', 'content', 'excerpt', 'seo', 'is_featured', 'featured_image',
     'author_id', 'authors', 'categories', 'tags', 'reading_time',
   ]);
   const customFieldEntries = Object.entries(fieldDefs).filter(
@@ -335,12 +325,8 @@ export function EntryEditorRoute({
         },
       };
       if (hasField('body')) payload.body = cleanedBody;
-      if (hasField('blocks')) {
-        payload.blocks = blocksContent.map((blk) => ({
-          type: blk.type,
-          ...blk.data,
-        }));
-      }
+      // Puck Data object sent as-is — the backend validates the shape.
+      if (hasField('content')) payload.content = toContentPayload(puckContent);
       if (hasField('excerpt')) payload.excerpt = excerpt.trim();
       if (hasField('is_featured')) payload.is_featured = isFeatured;
       if (hasField('categories')) payload.categories = categoryIds;
@@ -406,6 +392,7 @@ export function EntryEditorRoute({
               slug: slug.trim(),
               status: targetStatus,
               body: cleanedBody,
+              content: puckContent,
               excerpt: excerpt.trim(),
               metaTitle: metaTitle.trim(),
               metaDescription: metaDescription.trim(),
@@ -465,7 +452,7 @@ export function EntryEditorRoute({
       entryId,
       version,
       navigate,
-      blocksContent,
+      puckContent,
       hasField,
       taxonomyFieldEntries,
       customFieldEntries,
@@ -674,12 +661,15 @@ export function EntryEditorRoute({
                 />
               </div>
 
-              {/* Content Editor: Blocks for Pages or Tiptap for Posts */}
+              {/* Content Editor: Puck canvas for Pages or Tiptap for Posts */}
               {collectionHandle === 'pages' ? (
                 <div className="space-y-1.5 pt-2">
-                  <BlocksFieldEditor
-                    value={blocksContent}
-                    onChange={setBlocksContent}
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
+                    Page Content
+                  </Label>
+                  <PuckPageEditor
+                    value={puckContent}
+                    onChange={setPuckContent}
                     disabled={!canSave}
                   />
                 </div>
