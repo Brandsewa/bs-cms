@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute } from './routing';
 import { ProtectedAdmin } from './shell/protected-admin';
+import { PageLoadingSkeleton } from '@bs/ui';
 
 // Code-split routes to keep the initial bundle size strictly minimal (< 200 KB gzipped)
 const LoginRoute = lazy(() => import('./auth/login').then((m) => ({ default: m.LoginRoute })));
@@ -136,11 +137,7 @@ const NotFoundRoute = lazy(() =>
 function RouteSuspense({ children }: { children: React.ReactNode }) {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-[300px] items-center justify-center p-6">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      }
+      fallback={<PageLoadingSkeleton lines={6} />}
     >
       {children}
     </Suspense>
