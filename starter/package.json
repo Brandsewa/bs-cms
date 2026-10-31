@@ -11,13 +11,19 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@astrojs/react": "^7.1.2",
     "@bs/client": "*",
-    "@bs/renderer": "*"
+    "@bs/page-builder": "*",
+    "@bs/renderer": "*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
+    "@astrojs/check": "^0.9.12",
     "@types/jsdom": "^30.0.0",
-    "astro": "^5.4.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "astro": "^7.4.4",
     "jsdom": "^26.1.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.0"
