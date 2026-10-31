@@ -126,9 +126,12 @@ export interface BrandingTokens {
   color_background?: string;
   color_surface?: string;
   color_text?: string;
+  color_heading?: string;
+  site_width?: string;
   font_heading?: string;
   font_body?: string;
   radius?: string;
+  [key: string]: unknown;
 }
 
 export interface SiteMetaWithNav {

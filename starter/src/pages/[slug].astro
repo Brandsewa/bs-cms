@@ -56,6 +56,16 @@ const blocks = Array.isArray(page.blocks) ? page.blocks : [];
           if (block.type === 'text') {
             return <p>{block.content || block.text}</p>;
           }
+          if (block.type === 'contact_form') {
+            const formHandle = block.form_handle || 'contact-us';
+            return (
+              <section class={`contact-form-section ${block.card_style ? 'form-card-container' : ''}`} style="margin: 2rem 0; padding: 1.5rem; border: 1px solid var(--color-border, #e5e7eb); border-radius: 8px;">
+                {block.heading && <h2 style="margin-bottom: 0.5rem;">{block.heading}</h2>}
+                {block.subheading && <p style="color: var(--color-text-secondary, #6b7280); margin-bottom: 1.25rem;">{block.subheading}</p>}
+                <div data-bs-form={formHandle}></div>
+              </section>
+            );
+          }
           return null;
         })
       ) : (

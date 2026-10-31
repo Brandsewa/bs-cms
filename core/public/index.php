@@ -209,8 +209,14 @@ $router = new Router($routes);
     // SPRINT-C BEGIN: Blocks Controller wiring
     $container->get(\BsCms\Http\Controllers\BlocksController::class),
     $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),
-    $container->get(\BsCms\Http\Controllers\MaintenanceController::class)
+    $container->get(\BsCms\Http\Controllers\MaintenanceController::class),
     // SPRINT-C END: Blocks Controller wiring
+    // MARKETPLACE & PLUGINS BEGIN
+    $container->get(\BsCms\Http\Controllers\MarketplaceController::class),
+    $container->get(\BsCms\Http\Controllers\FormsController::class),
+    $container->get(\BsCms\Http\Controllers\FormSubmissionsController::class),
+    $container->get(\BsCms\Http\Controllers\PublicFormsController::class)
+    // MARKETPLACE & PLUGINS END
 );
 
 // Build middleware pipeline

@@ -12,6 +12,8 @@ import {
   Settings,
   Sparkles,
   Users,
+  Mail,
+  Store,
 } from 'lucide-react';
 
 export interface AdminSidebarItem extends SidebarItem {
@@ -95,12 +97,26 @@ export const ADMIN_SIDEBAR_GROUPS: AdminSidebarGroup[] = [
         icon: Sparkles,
         to: '/admin/ai',
       },
+      {
+        id: 'forms',
+        label: 'Forms & Inquiries',
+        permission: 'collection:read',
+        icon: Mail,
+        to: '/admin/forms',
+      },
     ],
   },
   {
     id: 'system',
     label: 'System',
     items: [
+      {
+        id: 'marketplace',
+        label: 'Marketplace',
+        permission: 'settings:read',
+        icon: Store,
+        to: '/admin/marketplace',
+      },
       {
         id: 'users',
         label: 'Users',

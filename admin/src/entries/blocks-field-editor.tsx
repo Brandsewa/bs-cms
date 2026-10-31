@@ -199,6 +199,19 @@ export function BlocksFieldEditor({
               { name: 'items', label: 'Questions & Answers (JSON array)', type: 'textarea' },
             ],
           },
+          {
+            id: 'contact_form',
+            name: 'Contact Form',
+            category: 'interactive',
+            description: 'Embed a dynamic contact form with inquiry management',
+            icon: 'mail',
+            fields: [
+              { name: 'form_handle', label: 'Form Handle', type: 'string', required: true, description: 'Unique handle of the published form to embed (e.g. contact-us)' },
+              { name: 'heading', label: 'Section Heading', type: 'string' },
+              { name: 'subheading', label: 'Subheading or Instructions', type: 'string' },
+              { name: 'card_style', label: 'Wrap in Card Container', type: 'boolean', default: true },
+            ],
+          },
         ]);
       } catch {
         // Fallback default

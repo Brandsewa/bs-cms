@@ -58,6 +58,12 @@ class Connection
             }
         }
 
+        if (($config['driver'] ?? '') === 'sqlite') {
+            $this->serverType = 'sqlite';
+            $this->serverVersion = '3.0.0';
+            return;
+        }
+
         $this->configureSession();
         $this->detectAndValidateVersion();
     }

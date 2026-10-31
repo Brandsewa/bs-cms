@@ -1,0 +1,31 @@
+{
+    "name": "contact_form",
+    "label": "Contact Form",
+    "description": "Embed a dynamic contact form with inquiry management",
+    "category": "interactive",
+    "icon": "mail",
+    "fields": {
+        "form_handle": {
+            "type": "string",
+            "label": "Form Handle",
+            "required": true,
+            "description": "Unique handle of the published form to embed (e.g. contact-us)"
+        },
+        "heading": {
+            "type": "string",
+            "label": "Section Heading",
+            "required": false
+        },
+        "subheading": {
+            "type": "string",
+            "label": "Subheading or Instructions",
+            "required": false
+        },
+        "card_style": {
+            "type": "boolean",
+            "label": "Wrap in Card Container",
+            "required": false,
+            "default": true
+        }
+    }
+}
