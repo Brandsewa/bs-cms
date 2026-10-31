@@ -131,7 +131,7 @@ final class InstallerEndToEndIntegrationTest extends TestCase
         $response = $installer->handle($executeRequest);
         $this->assertSame(200, $response->getStatusCode(), 'Installation execution should return 200 OK: ' . (string) $response->getBody());
         $body = (string) $response->getBody();
-        $this->assertStringContainsString('BS CMS Installed Successfully!', $body);
+        $this->assertStringContainsString('BS CMS is installed and ready.', $body);
         $this->assertStringContainsString($ownerEmail, $body);
 
         // 3. Verify installed.lock exists

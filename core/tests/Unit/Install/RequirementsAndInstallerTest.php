@@ -102,7 +102,7 @@ final class RequirementsAndInstallerTest extends TestCase
         $response = $installer->handle($request);
         $body = (string) $response->getBody();
 
-        $this->assertStringContainsString('Site URL (Admin & API Base)', $body);
+        $this->assertStringContainsString('Site URL (Admin &amp; API Base)', $body);
         $this->assertStringContainsString('name="site_url"', $body);
     }
 
