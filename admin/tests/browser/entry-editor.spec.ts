@@ -336,10 +336,10 @@ test.describe('Entry Editor Screen Suite (Phase 6 Screen 6.3)', () => {
 });
 
 /**
- * Page Editor suite: pages use the embedded Puck visual editor bound to the
- * `content` field (Puck Data) instead of the Tiptap `body` field. The CMS
- * header Save button is the single save path — Puck's own header/publish
- * chrome is hidden.
+ * Page Editor suite: pages show a read-only preview of the saved Puck
+ * `content` field plus a Customize action that opens the full-screen designer
+ * route (the only place that edits/saves content). The entry form never sends
+ * `content`, so it cannot clobber designer saves with stale data.
  */
 test.describe('Page Editor Screen Suite (Puck content field)', () => {
   const PAGE_ENTRY = {
@@ -438,34 +438,50 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
     });
   });
 
-  test('renders the embedded Puck canvas with the saved content and saves the Puck data as-is', async ({ page }) => {
+  test('renders the saved page preview and keeps the entry form hands off the content field', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/entries/pages/01M5E0583S0DPAGES00000001`);
 
     await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
 
-    // The lazy Puck chunk loads and renders the saved page inside the canvas.
-    const editor = page.locator('[data-testid="puck-page-editor"]');
-    await expect(editor).toBeVisible();
-    await expect(editor.locator('.bs-hero__heading')).toHaveText('Puck Hero Heading');
+    // The entry editor shows a read-only preview of the saved content plus a
+    // Customize action; the interactive editor lives on the designer route.
+    const preview = page.locator('[data-testid="puck-content-preview"]');
+    await expect(preview).toBeVisible();
+    await expect(preview.locator('.bs-hero__heading')).toHaveText('Puck Hero Heading');
+    await expect(preview.getByTestId('puck-customize-button')).toBeVisible();
 
-    // Saving flows through the CMS header button and sends the Puck Data
-    // object on the `content` field (root + typed, id'd content rows).
+    // Saving the entry form must NOT send `content` — the designer route owns
+    // that field, so the form can never clobber designer saves with stale data.
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(() => capturedPagePayload).toBeTruthy();
 
     expect(capturedPagePayload.title).toBe('Home');
-    const content = capturedPagePayload.content;
-    expect(content).toBeTruthy();
-    expect(content.root).toEqual({});
-    expect(content.content).toHaveLength(2);
-    expect(content.content[0].type).toBe('Hero');
-    expect(content.content[0].props.id).toBe('Hero-1');
-    expect(content.content[1].type).toBe('RichText');
-    // The legacy field must not be sent.
+    expect(capturedPagePayload.content).toBeUndefined();
+    // The legacy field must not be sent either.
     expect(capturedPagePayload.blocks).toBeUndefined();
   });
 
-  test('new page starts with an empty Puck canvas and sends an empty page payload', async ({ page }) => {
+  test('Customize opens the full-screen designer and Exit returns to the page', async ({ page }) => {
+    await page.goto(`${ADMIN_URL}/entries/pages/01M5E0583S0DPAGES00000001`);
+    await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
+
+    await page.getByTestId('puck-customize-button').click();
+
+    // The designer route is chrome-less with its own toolbar.
+    await expect(page).toHaveURL(new RegExp('/entries/pages/01M5E0583S0DPAGES00000001/design$'));
+    const header = page.getByTestId('designer-header');
+    await expect(header).toBeVisible();
+    await expect(header.getByText('Home')).toBeVisible();
+    await expect(header.getByTestId('designer-save-draft')).toBeVisible();
+    await expect(header.getByTestId('designer-publish')).toBeVisible();
+
+    // Exit returns to the entry editor.
+    await header.getByTestId('designer-exit').click();
+    await expect(page).toHaveURL(new RegExp('/entries/pages/01M5E0583S0DPAGES00000001$'));
+    await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
+  });
+
+  test('new page shows the empty state and the create payload carries no content field', async ({ page }) => {
     await page.route('**/api/v1/collections/pages/entries', async (route) => {
       if (route.request().method() === 'POST') {
         capturedPagePayload = JSON.parse(route.request().postData() || '{}');
@@ -479,13 +495,14 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
 
     await page.goto(`${ADMIN_URL}/entries/pages/new`);
     await expect(page.getByRole('heading', { name: /Create Page/i })).toBeVisible();
-    await expect(page.locator('[data-testid="puck-page-editor"]')).toBeVisible();
+    await expect(page.locator('[data-testid="puck-preview-empty"]')).toBeVisible();
+    await expect(page.getByTestId('puck-customize-button')).toBeDisabled();
 
     await page.locator('#entry-title-input').fill('Fresh Page');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(() => capturedPagePayload).toBeTruthy();
 
     expect(capturedPagePayload.title).toBe('Fresh Page');
-    expect(capturedPagePayload.content).toEqual({ root: {}, content: [] });
+    expect(capturedPagePayload.content).toBeUndefined();
   });
 });

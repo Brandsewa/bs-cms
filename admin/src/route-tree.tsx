@@ -36,6 +36,9 @@ const CollectionsIndexView = lazy(() =>
 const EntryEditorRoute = lazy(() =>
   import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
 );
+const PageDesignerRoute = lazy(() =>
+  import('./entries/page-designer-route').then((m) => ({ default: m.PageDesignerRoute }))
+);
 const DashboardRoute = lazy(() =>
   import('./dashboard').then((m) => ({ default: m.DashboardRoute }))
 );
@@ -260,6 +263,22 @@ export const entryEditRoute = createRoute({
       <ProtectedAdmin permission="collection:update">
         <RouteSuspense>
           <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
+        </RouteSuspense>
+      </ProtectedAdmin>
+    );
+  },
+});
+
+// Full-screen visual designer for pages (Puck). Chrome-less: owns the viewport.
+export const entryDesignRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/entries/$collection/$id/design',
+  component: () => {
+    const params = entryDesignRoute.useParams();
+    return (
+      <ProtectedAdmin permission="collection:update" chrome={false}>
+        <RouteSuspense>
+          <PageDesignerRoute collectionHandle={params.collection} entryId={params.id} />
         </RouteSuspense>
       </ProtectedAdmin>
     );
@@ -652,6 +671,7 @@ export async function buildRouteTree() {
     collectionEntriesRoute,
     entryNewRoute,
     entryEditRoute,
+    entryDesignRoute,
     taxonomiesRoute,
     mediaRoute,
     menusRoute,

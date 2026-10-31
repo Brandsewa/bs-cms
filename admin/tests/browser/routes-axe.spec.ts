@@ -15,6 +15,7 @@ const ADMIN_ROUTES = [
   { path: '/', name: 'Dashboard' },
   { path: '/entries', name: 'Collection List (Entries)' },
   { path: '/entries/pages/01M5EPAGEFIXEDID0001', name: 'Page Editor (Puck)' },
+  { path: '/entries/pages/01M5EPAGEFIXEDID0001/design', name: 'Page Designer (Puck full-screen)' },
   { path: '/users', name: 'Users List' },
   { path: '/users/roles', name: 'Roles Matrix' },
   { path: '/settings/general', name: 'General Settings' },
@@ -24,13 +25,13 @@ const ADMIN_ROUTES = [
 ];
 
 /**
- * The Puck visual editor (embedded on pages entries) is a third-party
- * drag-and-drop surface. Its internal chrome/canvas DOM is excluded from the
- * axe scan via the CSS-module classes Puck renders (every Puck element
- * carries a `_<ComponentName>_<hash>` class); the rest of the route —
- * header, sidebar panels, forms — is fully audited.
+ * The Puck visual editor (page designer route and the entry editor preview)
+ * is a third-party drag-and-drop surface. Its internal chrome/canvas DOM is
+ * excluded from the axe scan via the CSS-module classes Puck renders (every
+ * Puck element carries a `_<ComponentName>_<hash>` class); the rest of each
+ * route — toolbars, header, sidebar panels, forms — is fully audited.
  */
-const PUCK_EDITOR_SELECTOR = '[class*="_Puck"]';
+const PUCK_EDITOR_SELECTOR = '[class*="_Puck"], [class*="_Drawer"], [class*="_PuckFields"]';
 
 const THEMES = ['light', 'dark'] as const;
 

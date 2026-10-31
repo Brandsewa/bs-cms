@@ -1,7 +1,7 @@
 import { act, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
-import { PuckPageEditor } from './puck-page-editor';
+import { PuckPageEditor, PuckContentPreview } from './puck-page-editor';
 
 /**
  * Route-level wiring tests for the lazy Puck wrapper. The implementation
@@ -65,6 +65,55 @@ describe('PuckPageEditor lazy wrapper', () => {
     expect(fallback).not.toBeNull();
     expect(fallback?.getAttribute('role')).toBe('status');
     expect(fallback?.textContent).toContain('Loading page editor');
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+});
+
+describe('PuckContentPreview (entry editor card)', () => {
+  it('renders the saved content read-only and fires onCustomize from the Customize button', async () => {
+    const onCustomize = vi.fn();
+    const { container, root } = await renderEditor(
+      <PuckContentPreview
+        value={{ root: {}, content: [{ type: 'Hero', props: { id: 'Hero-1' } }] }}
+        onCustomize={onCustomize}
+      />
+    );
+
+    const stub = container.querySelector('[data-testid="puck-impl-stub"]');
+    expect(stub).not.toBeNull();
+    expect(stub?.getAttribute('data-disabled')).toBe('true');
+
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="puck-customize-button"]');
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(false);
+    await act(async () => {
+      button?.click();
+    });
+    expect(onCustomize).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it('shows the empty state for a page without content and disables customizing unsaved entries', async () => {
+    const onCustomize = vi.fn();
+    const { container, root } = await renderEditor(
+      <PuckContentPreview value={null} onCustomize={onCustomize} canCustomize={false} />
+    );
+
+    expect(container.querySelector('[data-testid="puck-preview-empty"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="puck-preview-frame"]')).toBeNull();
+
+    const button = container.querySelector<HTMLButtonElement>('[data-testid="puck-customize-button"]');
+    expect(button?.disabled).toBe(true);
+    await act(async () => {
+      button?.click();
+    });
+    expect(onCustomize).not.toHaveBeenCalled();
 
     await act(async () => {
       root.unmount();

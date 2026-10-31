@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { Puck, Render } from '@puckeditor/core';
 import type { Field } from '@puckeditor/core';
 import { createPuckConfig, sanitizePuckData } from '@bs/page-builder';
@@ -110,6 +111,14 @@ export interface PuckPageEditorImplProps {
   onChange: (data: PuckData) => void;
   /** No save permission: render a static preview instead of the editor. */
   disabled?: boolean;
+  /**
+   * Optional replacement for Puck's header bar (full-screen designer toolbar).
+   * When omitted the header is hidden entirely (embedded mode: the CMS chrome
+   * around the card owns saving).
+   */
+  header?: () => ReactElement;
+  /** Puck canvas height. Defaults to a workable embedded card height. */
+  height?: string;
 }
 
 /**
@@ -117,7 +126,13 @@ export interface PuckPageEditorImplProps {
  * button is the single save path: Puck's own header/publish chrome is
  * overridden away and every change flows upward via `onChange`.
  */
-export function PuckPageEditorImpl({ value, onChange, disabled = false }: PuckPageEditorImplProps) {
+export function PuckPageEditorImpl({
+  value,
+  onChange,
+  disabled = false,
+  header,
+  height = 'max(72vh, 540px)',
+}: PuckPageEditorImplProps) {
   // Stable config: the eight page-builder components with the media-picker
   // image field. `sanitizePuckData` never throws and guarantees the Puck
   // Data contract (root object, id'd content rows, known types only).
@@ -152,9 +167,10 @@ export function PuckPageEditorImpl({ value, onChange, disabled = false }: PuckPa
         // admin theme, page-builder styles and axe scans see the real DOM.
         iframe={{ enabled: false }}
         // Responsive workable height (mobile floor), Puck owns its layout.
-        height="max(72vh, 540px)"
-        // The CMS chrome owns saving and the title: hide Puck's header bar.
-        overrides={{ header: () => <></> }}
+        height={height}
+        // Embedded mode hides Puck's header (the CMS chrome owns saving);
+        // the full-screen designer passes its own toolbar.
+        overrides={{ header: header ?? (() => <></>) }}
       />
     </div>
   );

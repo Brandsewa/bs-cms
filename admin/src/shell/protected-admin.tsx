@@ -6,11 +6,19 @@ import { ForbiddenRoute } from './forbidden';
 export function ProtectedAdmin({
   permission,
   children,
+  chrome = true,
 }: {
   permission?: string;
   children: ReactNode;
+  /**
+   * Render the standard admin shell (sidebar + topbar). Full-screen work
+   * surfaces (e.g. the page designer) pass `false` to own the viewport.
+   */
+  chrome?: boolean;
 }) {
   const { session, isLoading, hasPermission } = useSession();
+
+  const wrap = (node: ReactNode) => (chrome ? <AdminLayout>{node}</AdminLayout> : node);
 
   if (isLoading) {
     return (
@@ -48,13 +56,9 @@ export function ProtectedAdmin({
     }
 
     if (!allowed) {
-      return (
-        <AdminLayout>
-          <ForbiddenRoute />
-        </AdminLayout>
-      );
+      return wrap(<ForbiddenRoute />);
     }
   }
 
-  return <AdminLayout>{children}</AdminLayout>;
+  return wrap(children);
 }

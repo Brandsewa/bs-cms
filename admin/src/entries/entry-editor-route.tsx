@@ -12,6 +12,7 @@ import {
   Spinner,
   ForbiddenState,
   NotFoundState,
+  ConfirmationModal,
   errorToast,
   successToast,
   problemToast,
@@ -20,8 +21,8 @@ import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
-import { PuckPageEditor } from './puck-page-editor';
-import { extractEntryContent, toContentPayload } from './puck-content';
+import { PuckContentPreview } from './puck-page-editor';
+import { extractEntryContent } from './puck-content';
 import {
   PublishPanel,
   SeoPanel,
@@ -64,7 +65,11 @@ export function EntryEditorRoute({
   const [slug, setSlug] = useState('');
   const [status, setStatus] = useState<'draft' | 'published' | 'in_review' | 'scheduled' | 'archived'>('draft');
   const [bodyContent, setBodyContent] = useState<unknown>(null);
-  const [puckContent, setPuckContent] = useState<unknown>(null);
+  // Puck page content is READ-ONLY here: the full-screen designer route owns
+  // editing/saving it, so this form can never clobber designer saves with a
+  // stale copy. The preview reflects the last saved version.
+  const [savedContent, setSavedContent] = useState<unknown>(null);
+  const [customizeConfirmOpen, setCustomizeConfirmOpen] = useState(false);
   const [excerpt, setExcerpt] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDescription, setMetaDescription] = useState('');
@@ -165,11 +170,10 @@ export function EntryEditorRoute({
         setSlug(item.slug || '');
         setStatus((item.status as 'draft' | 'published' | 'in_review' | 'scheduled' | 'archived') || 'draft');
         setBodyContent(item.body || itemData.body || null);
-        // Puck page data (`content` field) is stored raw and normalized by
-        // the editor itself; the snapshot keeps the raw value so loading a
-        // saved page does not flag the form dirty.
+        // Puck page content is loaded read-only for the preview; the
+        // full-screen designer route owns editing and saving it.
         const rawContent = extractEntryContent(item, itemData);
-        setPuckContent(rawContent);
+        setSavedContent(rawContent);
         const itemDataSeo = itemData.seo as { title?: string; description?: string } | undefined;
         setExcerpt(String(item.excerpt || itemData.excerpt || ''));
         setMetaTitle(String(item.seo?.title || itemDataSeo?.title || ''));
@@ -191,7 +195,6 @@ export function EntryEditorRoute({
           slug: item.slug || '',
           status: item.status || 'draft',
           body: item.body || itemData.body || null,
-          content: rawContent,
           excerpt: String(item.excerpt || itemData.excerpt || ''),
           metaTitle: String(item.seo?.title || itemDataSeo?.title || ''),
           metaDescription: String(item.seo?.description || itemDataSeo?.description || ''),
@@ -223,7 +226,6 @@ export function EntryEditorRoute({
       slug,
       status,
       body: bodyContent,
-      content: puckContent,
       excerpt,
       metaTitle,
       metaDescription,
@@ -233,10 +235,10 @@ export function EntryEditorRoute({
     });
     if (initialSnapshotRef.current) {
       setIsDirty(current !== initialSnapshotRef.current);
-    } else if (title || slug || excerpt || bodyContent || puckContent) {
+    } else if (title || slug || excerpt || bodyContent) {
       setIsDirty(true);
     }
-  }, [title, slug, status, bodyContent, puckContent, excerpt, metaTitle, metaDescription, isFeatured, categoryIds, authorId]);
+  }, [title, slug, status, bodyContent, excerpt, metaTitle, metaDescription, isFeatured, categoryIds, authorId]);
 
   // Unsaved changes beforeunload guard
   useEffect(() => {
@@ -325,8 +327,8 @@ export function EntryEditorRoute({
         },
       };
       if (hasField('body')) payload.body = cleanedBody;
-      // Puck Data object sent as-is — the backend validates the shape.
-      if (hasField('content')) payload.content = toContentPayload(puckContent);
+      // `content` is intentionally NOT sent here: the full-screen designer
+      // route owns that field, and this form's copy is read-only.
       if (hasField('excerpt')) payload.excerpt = excerpt.trim();
       if (hasField('is_featured')) payload.is_featured = isFeatured;
       if (hasField('categories')) payload.categories = categoryIds;
@@ -392,7 +394,6 @@ export function EntryEditorRoute({
               slug: slug.trim(),
               status: targetStatus,
               body: cleanedBody,
-              content: puckContent,
               excerpt: excerpt.trim(),
               metaTitle: metaTitle.trim(),
               metaDescription: metaDescription.trim(),
@@ -452,7 +453,6 @@ export function EntryEditorRoute({
       entryId,
       version,
       navigate,
-      puckContent,
       hasField,
       taxonomyFieldEntries,
       customFieldEntries,
@@ -661,16 +661,26 @@ export function EntryEditorRoute({
                 />
               </div>
 
-              {/* Content Editor: Puck canvas for Pages or Tiptap for Posts */}
+              {/* Content Editor: read-only page preview + full-screen builder for Pages, Tiptap for Posts */}
               {collectionHandle === 'pages' ? (
                 <div className="space-y-1.5 pt-2">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
                     Page Content
                   </Label>
-                  <PuckPageEditor
-                    value={puckContent}
-                    onChange={setPuckContent}
-                    disabled={!canSave}
+                  <PuckContentPreview
+                    value={savedContent}
+                    canCustomize={!isNew}
+                    onCustomize={() => {
+                      if (isDirty) {
+                        // Form edits would be lost by navigating away — confirm first.
+                        setCustomizeConfirmOpen(true);
+                        return;
+                      }
+                      navigate({
+                        to: '/entries/$collection/$id/design',
+                        params: { collection: collectionHandle, id: entryId! },
+                      });
+                    }}
                   />
                 </div>
               ) : (
@@ -812,6 +822,23 @@ export function EntryEditorRoute({
           setConflictModalOpen(false);
           // Force overwrite without version requirement
           handleSave(undefined, undefined);
+        }}
+      />
+
+      {/* Customize guard: navigating to the builder discards unsaved form edits */}
+      <ConfirmationModal
+        open={customizeConfirmOpen}
+        onOpenChange={setCustomizeConfirmOpen}
+        title="Discard unsaved changes?"
+        body="This page has unsaved form changes (title, status, SEO, etc.). Opening the visual builder will discard them — save your changes first if you want to keep them."
+        confirmLabel="Discard & open builder"
+        destructive
+        onConfirm={() => {
+          setCustomizeConfirmOpen(false);
+          navigate({
+            to: '/entries/$collection/$id/design',
+            params: { collection: collectionHandle, id: entryId! },
+          });
         }}
       />
     </PageContainer>
