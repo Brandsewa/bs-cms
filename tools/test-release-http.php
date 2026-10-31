@@ -1623,16 +1623,27 @@ $resAboutPage = httpRequest('POST', "{$baseUrl}/api/v1/collections/pages/entries
     'summary' => 'About Brand Sewa CMS',
     'status' => 'published',
     'show_in_nav' => true,
-    'blocks' => [
-        [
-            'type' => 'hero',
-            'heading' => 'About Brand Sewa CMS',
-            'text' => 'High performance static CMS publishing with Astro.',
+    'content' => [
+        'content' => [
+            [
+                'type' => 'Hero',
+                'props' => [
+                    'id' => 'Hero-about1',
+                    'heading' => 'About Brand Sewa CMS',
+                    'text' => 'High performance static CMS publishing with Astro.',
+                    'ctaLabel' => 'Learn more',
+                    'ctaUrl' => '/blog/',
+                ],
+            ],
+            [
+                'type' => 'RichText',
+                'props' => [
+                    'id' => 'RichText-about1',
+                    'html' => '<p>BS CMS empowers developers with agent-first tooling and instant delivery.</p>',
+                ],
+            ],
         ],
-        [
-            'type' => 'text',
-            'content' => 'BS CMS empowers developers with agent-first tooling and instant delivery.',
-        ]
+        'root' => ['props' => []],
     ],
 ]);
 if ($resAboutPage['status'] !== 201) {
@@ -1655,7 +1666,7 @@ foreach ($nav as $item) {
 if (!$hasAboutNav) {
     failTest("Published page with slug 'about' did not appear in GET /api/v1/public/site navigation: " . json_encode($nav));
 }
-passTest("18f. Dynamic 'About' page created with blocks and verified in public navigation");
+passTest("18f. Dynamic 'About' page created with Puck content and verified in public navigation");
 
 echo "\n======================================================\n";
 echo "[ALL TESTS PASSED] Phase 3 release build verified over HTTP!\n";

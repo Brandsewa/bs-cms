@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace BsCms\Schema;
 
-use BsCms\Schema\FieldTypes\BlocksType;
 use BsCms\Schema\FieldTypes\BooleanType;
 use BsCms\Schema\FieldTypes\ColorType;
 use BsCms\Schema\FieldTypes\ComputedType;
@@ -21,6 +20,7 @@ use BsCms\Schema\FieldTypes\MediaType;
 use BsCms\Schema\FieldTypes\MultiEnumType;
 use BsCms\Schema\FieldTypes\NumberType;
 use BsCms\Schema\FieldTypes\PhoneType;
+use BsCms\Schema\FieldTypes\PuckType;
 use BsCms\Schema\FieldTypes\RelationType;
 use BsCms\Schema\FieldTypes\RepeaterType;
 use BsCms\Schema\FieldTypes\RichtextType;
@@ -74,7 +74,7 @@ final class FieldTypeRegistry
             new RichtextType(),
             new MediaType(),
             new TaxonomyType(),
-            new BlocksType(),
+            new PuckType(),
         ];
 
         foreach ($defaults as $type) {

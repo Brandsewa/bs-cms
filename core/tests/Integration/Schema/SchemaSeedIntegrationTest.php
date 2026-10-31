@@ -131,7 +131,9 @@ final class SchemaSeedIntegrationTest extends TestCase
         $this->assertArrayHasKey('key_facts', $postsDef['fields']);
 
         $pagesDef = $registry->get('pages');
-        $this->assertArrayHasKey('blocks', $pagesDef['fields']);
+        $this->assertArrayHasKey('content', $pagesDef['fields']);
+        $this->assertSame('puck', $pagesDef['fields']['content']['type'] ?? null);
+        $this->assertArrayNotHasKey('blocks', $pagesDef['fields']);
         $this->assertArrayHasKey('featured_image', $pagesDef['fields']);
 
         $authorsDef = $registry->get('authors');

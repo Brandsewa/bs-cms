@@ -7907,22 +7907,58 @@
                         "type": "string",
                         "maxLength": 64
                     },
-                    "blocks": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "type": {
-                                    "type": "string"
-                                },
-                                "data": {
-                                    "type": "object"
+                    "content": {
+                        "type": "object",
+                        "properties": {
+                            "content": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {
+                                            "type": "string"
+                                        },
+                                        "props": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "required": [
+                                        "type"
+                                    ]
                                 }
                             },
-                            "required": [
-                                "type"
-                            ]
-                        }
+                            "root": {
+                                "type": "object",
+                                "properties": {
+                                    "props": {
+                                        "type": "object"
+                                    }
+                                }
+                            },
+                            "zones": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "type": {
+                                                "type": "string"
+                                            },
+                                            "props": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "required": [
+                                            "type"
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "required": [
+                            "content"
+                        ]
                     },
                     "featured_image": {
                         "type": [

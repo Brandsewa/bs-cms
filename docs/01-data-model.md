@@ -302,7 +302,7 @@ CREATE TABLE fields (
 | `user` | user id | User picker | author / owner |
 | `repeater` | JSON array | Field array (add, remove, reorder) | nested field definitions |
 | `group` | JSON object | Section of nested fields | |
-| `blocks` | JSON array of typed blocks | Block editor (add, reorder, collapse) | block types registered by theme / plugins |
+| `puck` | PuckData JSON object (see below) | Puck visual editor (drag, drop, configure) | component types are code-side; PHP validates structure only |
 | `faq` | JSON array {q,a} | Field array | feeds `FAQPage` structured data |
 | `seo` | JSON | SEO panel | see section 6; present automatically when feature `seo` is on |
 | `computed` | not stored | read-only | derived, e.g. reading time |
@@ -363,7 +363,24 @@ CREATE TABLE schema_changes (
 ## 3. Built-in collections (shipped on day one)
 
 ### `pages` (hierarchical, no taxonomies)
-Fields: `title` (text, required), `slug` (slug), `parent_id` (hierarchy via page tree), `template` (enum: default, landing, full-width; extended by theme), `summary` (textarea, "answer summary" for AEO), `blocks` (blocks), `featured_image` (media), `seo` (seo), `show_in_nav` (boolean), `nav_label` (text), `status`, `published_at`.
+Fields: `title` (text, required), `slug` (slug), `parent_id` (hierarchy via page tree), `template` (enum: default, landing, full-width; extended by theme), `summary` (textarea, "answer summary" for AEO), `content` (puck), `featured_image` (media), `seo` (seo), `show_in_nav` (boolean), `nav_label` (text), `status`, `published_at`.
+
+**PuckData shape** (stored in `data.content`, rendered by the Puck renderer):
+
+```json
+{
+  "content": [
+    { "type": "Hero",     "props": { "id": "Hero-abc123", "heading": "...", "text": "...", "ctaLabel": "...", "ctaUrl": "..." } },
+    { "type": "RichText", "props": { "id": "RichText-def456", "html": "<p>...</p>" } },
+    { "type": "Callout",  "props": { "id": "Callout-ghi789", "variant": "info|tip|warning|note", "title": "...", "content": "..." } },
+    { "type": "Faq",      "props": { "id": "Faq-jkl012", "items": [ { "question": "...", "answer": "..." } ] } }
+  ],
+  "root": { "props": {} },
+  "zones": { "sidebar": [ { "type": "...", "props": { "...": "..." } } ] }
+}
+```
+
+`root` and `zones` are optional. Component type names are camelCase and registered in the editor bundle; the `puck` field type validates structure only (unknown component types are accepted), with a 512 KB payload cap. The legacy `blocks` field was replaced by `content` via migration `202610310011_replace_pages_blocks_with_puck_content`, which converts old hero/text/callout/faq blocks to `Hero`/`RichText`/`Callout`/`Faq` components (deterministic `{Type}-mig{n}` ids) in `c_pages.data` and `entry_versions` snapshots; other legacy block types are dropped.
 Features: drafts, versions, scheduling, seo, hierarchy, soft_delete. **No taxonomy fields.**
 
 ### `posts` (blog)

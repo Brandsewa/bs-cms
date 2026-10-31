@@ -804,23 +804,6 @@ final class CoreServiceProvider implements ServiceProvider
         });
         // SPRINT-A END
 
-        // SPRINT-C BEGIN: Blocks Registry & Controller
-        $container->singleton(\BsCms\Blocks\BlockRegistry::class, function (Container $c) use ($app): \BsCms\Blocks\BlockRegistry {
-            $storageDir = $app->storagePath('blocks');
-            $registry = new \BsCms\Blocks\BlockRegistry($storageDir, $app->basePath('resources/blocks'));
-            $starterBlocksDir = dirname($app->basePath()) . '/starter/src/blocks';
-            if (is_dir($starterBlocksDir)) {
-                $registry->syncFromDirectory($starterBlocksDir);
-            }
-            return $registry;
-        });
-
-        $container->singleton(\BsCms\Http\Controllers\BlocksController::class, function (Container $c): \BsCms\Http\Controllers\BlocksController {
-            return new \BsCms\Http\Controllers\BlocksController(
-                $c->get(\BsCms\Blocks\BlockRegistry::class)
-            );
-        });
-
         // Crawler Policy services
         $container->singleton(\BsCms\CrawlerPolicy\RobotsGenerator::class, function (): \BsCms\CrawlerPolicy\RobotsGenerator {
             return new \BsCms\CrawlerPolicy\RobotsGenerator();

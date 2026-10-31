@@ -206,11 +206,8 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\SprintA\QueueJobsController::class),
     $container->get(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class),
     // SPRINT-A END
-    // SPRINT-C BEGIN: Blocks Controller wiring
-    $container->get(\BsCms\Http\Controllers\BlocksController::class),
     $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),
     $container->get(\BsCms\Http\Controllers\MaintenanceController::class)
-    // SPRINT-C END: Blocks Controller wiring
 );
 
 // Build middleware pipeline

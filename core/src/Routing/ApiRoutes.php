@@ -79,11 +79,8 @@ final class ApiRoutes
         ?\BsCms\Http\Controllers\SprintA\QueueJobsController $queueJobs = null,
         ?\BsCms\Http\Controllers\SprintA\AiConnectionsController $aiConnections = null,
         // SPRINT-A END
-        // SPRINT-C BEGIN: Blocks Controller param
-        ?\BsCms\Http\Controllers\BlocksController $blocks = null,
         ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null,
         ?\BsCms\Http\Controllers\MaintenanceController $maintenance = null
-        // SPRINT-C END: Blocks Controller param
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -408,11 +405,6 @@ final class ApiRoutes
         }
         // SPRINT-A END
 
-        // SPRINT-C BEGIN: Blocks endpoints
-        if ($blocks !== null) {
-            $routes->get('/api/v1/blocks', [$blocks, 'list']);
-            $routes->get('/api/v1/blocks/{name}', [$blocks, 'get']);
-        }
         if ($crawlerPolicy !== null) {
             $routes->get('/api/v1/crawler-policy', [$crawlerPolicy, 'getActive']);
             $routes->put('/api/v1/crawler-policy', [$crawlerPolicy, 'update']);
@@ -427,6 +419,5 @@ final class ApiRoutes
             $routes->post('/api/v1/system/maintenance/disable', [$maintenance, 'disable']);
             $routes->post('/api/v1/system/backup', [$maintenance, 'createBackup']);
         }
-        // SPRINT-C END: Blocks endpoints
     }
 }

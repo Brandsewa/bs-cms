@@ -156,6 +156,7 @@ final class MigratorRollbackTest extends TestCase
 
         $rolledBack = $migrator->rollback();
         $this->assertSame([
+            'core:202610310011_replace_pages_blocks_with_puck_content',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -182,6 +183,7 @@ final class MigratorRollbackTest extends TestCase
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
+            'core:202610310011_replace_pages_blocks_with_puck_content',
         ], $again);
         $this->assertSame($expected, $this->tables());
     }
@@ -193,6 +195,7 @@ final class MigratorRollbackTest extends TestCase
 
         $preview = $migrator->rollback(1, true);
         $this->assertSame([
+            '[DRY-RUN] rollback core:202610310011_replace_pages_blocks_with_puck_content',
             '[DRY-RUN] rollback core:202610220010_update_pages_blocks_field_type_to_blocks',
             '[DRY-RUN] rollback core:202610190009_create_oauth_and_pending_changes_tables',
             '[DRY-RUN] rollback core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -205,7 +208,7 @@ final class MigratorRollbackTest extends TestCase
             '[DRY-RUN] rollback core:202610170001_create_core_tables',
         ], $preview);
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(10, $migrator->getAppliedMigrations());
+        $this->assertCount(11, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackWithNothingAppliedReturnsEmptyList(): void
@@ -241,6 +244,7 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
+            'core:202610310011_replace_pages_blocks_with_puck_content',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -271,7 +275,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(10, $migrator->getAppliedMigrations());
+        $this->assertCount(11, $migrator->getAppliedMigrations());
     }
 
 
@@ -279,6 +283,140 @@ final class MigratorRollbackTest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         $this->migrator($this->coreDir())->rollback(0);
+    }
+
+    public function testPuckContentMigrationConvertsLegacyBlocks(): void
+    {
+        $migrator = $this->migrator($this->coreDir());
+        $migrator->migrate();
+
+        $pdo = $this->connection->getPdo();
+        $prefix = $this->prefix;
+        $collections = "{$prefix}collections";
+        $fields = "{$prefix}fields";
+        $pages = "{$prefix}c_pages";
+        $versions = "{$prefix}entry_versions";
+        $now = date('Y-m-d H:i:s.v');
+
+        // Simulate the legacy state: pages collection + blocks field row + content table.
+        $pdo->exec("CREATE TABLE `{$pages}` (
+            `id` CHAR(26) PRIMARY KEY,
+            `data` JSON NOT NULL,
+            `updated_at` DATETIME(3) NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $colId = '01ARZ3NDEKTSV4RRFFQ69G5FC0';
+        $stmt = $pdo->prepare("INSERT INTO `{$collections}` (
+            `id`, `handle`, `label_singular`, `label_plural`, `table_name`, `features`, `created_at`, `updated_at`
+        ) VALUES (?, 'pages', 'Page', 'Pages', 'c_pages', '{}', ?, ?)");
+        $stmt->execute([$colId, $now, $now]);
+
+        $stmt = $pdo->prepare("INSERT INTO `{$fields}` (
+            `id`, `collection_id`, `handle`, `label`, `type`, `config`, `created_at`, `updated_at`
+        ) VALUES (?, ?, 'blocks', 'Page Blocks', 'blocks', '{}', ?, ?)");
+        $stmt->execute(['01ARZ3NDEKTSV4RRFFQ69G5FC1', $colId, $now, $now]);
+
+        $seedPage = function (string $id, array $data) use ($pdo, $pages, $now): void {
+            $stmt = $pdo->prepare("INSERT INTO `{$pages}` (`id`, `data`, `updated_at`) VALUES (?, ?, ?)");
+            $stmt->execute([$id, json_encode($data), $now]);
+        };
+
+        $seedPage('01ARZ3NDEKTSV4RRFFQ69G5FPA', [
+            'blocks' => [
+                ['type' => 'hero', 'heading' => 'Welcome', 'text' => 'Hello', 'cta_label' => 'Go', 'cta_url' => '/go'],
+                ['type' => 'text', 'content' => '<p>Body</p>'],
+            ],
+        ]);
+        $seedPage('01ARZ3NDEKTSV4RRFFQ69G5FPB', [
+            'blocks' => [
+                ['type' => 'callout', 'data' => ['variant' => 'tip', 'title' => 'Tip', 'content' => 'Useful']],
+                ['type' => 'faq', 'items' => [['question' => 'Q?', 'answer' => 'A.']]],
+                ['type' => 'mystery', 'data' => ['nope' => true]],
+            ],
+        ]);
+        $seedPage('01ARZ3NDEKTSV4RRFFQ69G5FPC', ['title' => 'No blocks here']);
+        $seedPage('01ARZ3NDEKTSV4RRFFQ69G5FPD', ['blocks' => 'not-an-array']);
+
+        // A version snapshot embedding legacy blocks data.
+        $stmt = $pdo->prepare("INSERT INTO `{$versions}` (
+            `id`, `collection_id`, `entry_id`, `version_no`, `status`, `snapshot`, `actor_type`, `created_at`
+        ) VALUES (?, ?, ?, 1, 'published', ?, 'user', ?)");
+        $stmt->execute([
+            '01ARZ3NDEKTSV4RRFFQ69G5FC2',
+            $colId,
+            '01ARZ3NDEKTSV4RRFFQ69G5FPA',
+            json_encode(['id' => '01ARZ3NDEKTSV4RRFFQ69G5FPA', 'title' => 'Home', 'data' => [
+                'blocks' => [['type' => 'text', 'data' => ['content' => '<p>v1</p>']]],
+            ]]),
+            $now,
+        ]);
+
+        $migration = new \BsCms\Migrations\ReplacePagesBlocksWithPuckContent($this->connection);
+        $migration->up();
+
+        // Fetches a single scalar value from a query.
+        $scalar = function (string $sql) use ($pdo): string {
+            $stmt = $pdo->query($sql);
+            $this->assertInstanceOf(\PDOStatement::class, $stmt);
+            $value = $stmt->fetchColumn();
+            $this->assertNotFalse($value);
+            return (string) $value;
+        };
+
+        // Fields table: blocks row replaced by content row (type puck), position preserved.
+        $stmt = $pdo->prepare("SELECT `handle`, `type`, `label` FROM `{$fields}` WHERE `collection_id` = ?");
+        $stmt->execute([$colId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $byHandle = array_column($rows, null, 'handle');
+        $this->assertArrayNotHasKey('blocks', $byHandle);
+        $this->assertSame(['content', 'puck', 'Page Content'], array_values($byHandle['content'] ?? []));
+
+        // Page A: hero + text converted with deterministic ids.
+        $pageA = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPA'"), true);
+        $this->assertArrayNotHasKey('blocks', $pageA);
+        $this->assertSame([
+            'content' => [
+                ['type' => 'Hero', 'props' => ['id' => 'Hero-mig1', 'heading' => 'Welcome', 'text' => 'Hello', 'ctaLabel' => 'Go', 'ctaUrl' => '/go']],
+                ['type' => 'RichText', 'props' => ['id' => 'RichText-mig2', 'html' => '<p>Body</p>']],
+            ],
+            'root' => ['props' => []],
+        ], $pageA['content']);
+
+        // Page B: admin-style {type, data} callout + faq converted, unknown dropped.
+        $pageB = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPB'"), true);
+        $this->assertSame([
+            ['type' => 'Callout', 'props' => ['id' => 'Callout-mig1', 'variant' => 'tip', 'title' => 'Tip', 'content' => 'Useful']],
+            ['type' => 'Faq', 'props' => ['id' => 'Faq-mig2', 'items' => [['question' => 'Q?', 'answer' => 'A.']]]],
+        ], $pageB['content']['content']);
+
+        // Page C untouched (no blocks key), Page D stripped to an empty PuckData.
+        $pageC = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPC'"), true);
+        $this->assertArrayNotHasKey('content', $pageC);
+        $pageD = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPD'"), true);
+        $this->assertSame(['content' => [], 'root' => ['props' => []]], $pageD['content']);
+
+        // Snapshot converted the same way.
+        $snapshot = json_decode($scalar("SELECT `snapshot` FROM `{$versions}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FC2'"), true);
+        $this->assertArrayNotHasKey('blocks', $snapshot['data']);
+        $this->assertSame(
+            [['type' => 'RichText', 'props' => ['id' => 'RichText-mig1', 'html' => '<p>v1</p>']]],
+            $snapshot['data']['content']['content']
+        );
+
+        // Re-running is idempotent.
+        $migration->up();
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `{$fields}` WHERE `collection_id` = ? AND `handle` = 'content'");
+        $stmt->execute([$colId]);
+        $this->assertSame(1, (int) $stmt->fetchColumn());
+
+        // down(): restores the blocks field row and removes the content row.
+        $migration->down();
+        $stmt = $pdo->prepare("SELECT `type` FROM `{$fields}` WHERE `collection_id` = ? AND `handle` = 'blocks'");
+        $stmt->execute([$colId]);
+        $this->assertSame('blocks', (string) $stmt->fetchColumn());
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM `{$fields}` WHERE `collection_id` = ? AND `handle` = 'content'");
+        $stmt->execute([$colId]);
+        $this->assertSame(0, (int) $stmt->fetchColumn());
     }
 
     public function testCliRollbackActuallyDropsTables(): void

@@ -67,10 +67,10 @@
                 "max_length": 64
             }
         },
-        "blocks": {
-            "handle": "blocks",
-            "label": "Page Blocks",
-            "type": "blocks",
+        "content": {
+            "handle": "content",
+            "label": "Page Content",
+            "type": "puck",
             "required": false,
             "show_in_list": false,
             "config": {}

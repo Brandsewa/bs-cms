@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace BsCms\Tests\Unit\Schema;
 
 use BsCms\Schema\FieldTypeRegistry;
-use BsCms\Schema\FieldTypes\BlocksType;
 use BsCms\Schema\FieldTypes\BooleanType;
 use BsCms\Schema\FieldTypes\ColorType;
 use BsCms\Schema\FieldTypes\ComputedType;
@@ -22,6 +21,7 @@ use BsCms\Schema\FieldTypes\MultiEnumType;
 use BsCms\Schema\FieldTypes\NumberType;
 use BsCms\Schema\FieldTypes\PhoneType;
 use BsCms\Schema\FieldTypes\PopulateContext;
+use BsCms\Schema\FieldTypes\PuckType;
 use BsCms\Schema\FieldTypes\RelationType;
 use BsCms\Schema\FieldTypes\RepeaterType;
 use BsCms\Schema\FieldTypes\RichtextType;
@@ -49,23 +49,75 @@ final class FieldTypesTest extends TestCase
         $this->dummyContext = new ValidationContext([], ['handle' => 'test'], ['handle' => 'posts']);
     }
 
-    public function testBlocksTypeValidationAndStorage(): void
+    public function testPuckTypeValidationAndStorage(): void
     {
-        $this->assertTrue($this->registry->has('blocks'), "Registry must know blocks");
-        $type = $this->registry->get('blocks');
-        $this->assertInstanceOf(BlocksType::class, $type);
+        $this->assertTrue($this->registry->has('puck'), "Registry must know puck");
+        $type = $this->registry->get('puck');
+        $this->assertInstanceOf(PuckType::class, $type);
+        $this->assertSame('puck', $type->name());
         $this->assertSame([], $type->validateConfig([]));
 
-        $validBlocks = [
-            ['type' => 'hero', 'data' => ['headline' => 'Welcome']],
-            ['type' => 'features', 'data' => ['items' => ['A', 'B']]],
+        // Empty / null values are always valid
+        $this->assertSame([], $type->validate(null, [], $this->dummyContext));
+        $this->assertSame([], $type->validate('', [], $this->dummyContext));
+        $this->assertSame([], $type->validate([], [], $this->dummyContext));
+
+        // Valid PuckData with content, root and zones
+        $validPuck = [
+            'content' => [
+                ['type' => 'Hero', 'props' => ['id' => 'Hero-abc', 'heading' => 'Welcome']],
+                ['type' => 'RichText', 'props' => ['id' => 'RichText-def', 'html' => '<p>Hi</p>']],
+            ],
+            'root' => ['props' => []],
+            'zones' => [
+                'sidebar' => [['type' => 'Callout', 'props' => ['id' => 'Callout-ghi']]],
+            ],
         ];
-        $this->assertSame([], $type->validate($validBlocks, [], $this->dummyContext));
-        $this->assertSame([], $type->validate(json_encode($validBlocks), [], $this->dummyContext));
+        $this->assertSame([], $type->validate($validPuck, [], $this->dummyContext));
+        $this->assertSame([], $type->validate(json_encode($validPuck), [], $this->dummyContext));
 
-        $normalized = $type->normalize(json_encode($validBlocks), []);
-        $this->assertSame($validBlocks, $normalized);
+        // Unknown component types must NOT fail validation (components are code-side)
+        $unknown = ['content' => [['type' => 'BrandNewComponent', 'props' => ['id' => 'BrandNewComponent-xyz']]]];
+        $this->assertSame([], $type->validate($unknown, [], $this->dummyContext));
 
+        // Empty content array is valid
+        $this->assertSame([], $type->validate(['content' => []], [], $this->dummyContext));
+
+        // Missing content key is invalid
+        $errs = $type->validate(['root' => ['props' => []]], [], $this->dummyContext);
+        $this->assertNotEmpty($errs);
+
+        // Content that is not an array is invalid
+        $this->assertNotEmpty($type->validate(['content' => 'nope'], [], $this->dummyContext));
+
+        // Bad item shapes
+        $errs = $type->validate(['content' => ['a-string']], [], $this->dummyContext);
+        $this->assertNotEmpty($errs);
+        $errs = $type->validate(['content' => [['props' => ['id' => 'x']]]], [], $this->dummyContext);
+        $this->assertNotEmpty($errs, "Item without 'type' must be rejected");
+        $errs = $type->validate(['content' => [['type' => '']]], [], $this->dummyContext);
+        $this->assertNotEmpty($errs, "Item with empty 'type' must be rejected");
+        $errs = $type->validate(['content' => [['type' => 'Hero', 'props' => 'nope']]], [], $this->dummyContext);
+        $this->assertNotEmpty($errs, "Non-array props must be rejected");
+
+        // Bad optional keys
+        $this->assertNotEmpty($type->validate(['content' => [], 'root' => 'nope'], [], $this->dummyContext));
+        $this->assertNotEmpty($type->validate(['content' => [], 'root' => ['props' => 'nope']], [], $this->dummyContext));
+        $this->assertNotEmpty($type->validate(['content' => [], 'zones' => 'nope'], [], $this->dummyContext));
+        $this->assertNotEmpty($type->validate(['content' => [], 'zones' => ['side' => ['bad']]], [], $this->dummyContext));
+
+        // JSON string normalization
+        $normalized = $type->normalize(json_encode($validPuck), []);
+        $this->assertSame($validPuck, $normalized);
+        $this->assertSame([], $type->normalize('not-json', []));
+
+        // Oversize rejection (> 512 KB when JSON-encoded)
+        $huge = ['content' => [['type' => 'RichText', 'props' => ['id' => 'RichText-big', 'html' => str_repeat('x', 530000)]]]];
+        $errs = $type->validate($huge, [], $this->dummyContext);
+        $this->assertNotEmpty($errs);
+        $this->assertStringContainsString('512 KB', (string) reset($errs));
+
+        // Storage is JSON
         $storage = $type->storage([]);
         $this->assertSame(StorageDescriptor::MODE_JSON, $storage->mode);
     }
