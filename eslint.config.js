@@ -10,7 +10,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['packages/ui/**/*.{ts,tsx}', 'packages/client/**/*.{ts,tsx}', 'admin/**/*.{ts,tsx}'],
+    files: ['packages/ui/**/*.{ts,tsx}', 'packages/client/**/*.{ts,tsx}', 'packages/page-builder/**/*.{ts,tsx}', 'admin/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,
     },
