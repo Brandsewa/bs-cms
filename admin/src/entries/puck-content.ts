@@ -48,3 +48,17 @@ export function toContentPayload(value: unknown): PuckContentPayload {
   }
   return emptyPuckData();
 }
+
+/**
+ * Origin the draft preview opens against. In production the admin SPA and the
+ * static site share one origin, so the default (current origin) is right.
+ * Split deployments (local sim: API on :8481, static preview on :8581) can
+ * override it with the `bs.staticPreviewOrigin` localStorage key.
+ */
+export function staticPreviewOrigin(): string {
+  try {
+    return window.localStorage.getItem('bs.staticPreviewOrigin') || window.location.origin;
+  } catch {
+    return window.location.origin;
+  }
+}

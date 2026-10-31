@@ -39,6 +39,19 @@ export default defineConfig(({ command, mode }) => {
               '/oauth': proxyOptions,
               '/mcp': proxyOptions,
               '/.well-known': proxyOptions,
+              // The static site's draft-preview page (astro preview server,
+              // default :8581) — same-origin so the preview island's API
+              // fetch stays CSP/CORS-clean. /_astro covers the page's assets.
+              '/preview': {
+                target: process.env.BS_STATIC_PREVIEW_TARGET || 'http://localhost:8581',
+                changeOrigin: false,
+                secure: false,
+              },
+              '/_astro': {
+                target: process.env.BS_STATIC_PREVIEW_TARGET || 'http://localhost:8581',
+                changeOrigin: false,
+                secure: false,
+              },
             };
           })(),
         }

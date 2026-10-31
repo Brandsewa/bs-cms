@@ -22,7 +22,7 @@ import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
 import { PuckContentPreview } from './puck-page-editor';
-import { extractEntryContent } from './puck-content';
+import { extractEntryContent, staticPreviewOrigin } from './puck-content';
 import {
   PublishPanel,
   SeoPanel,
@@ -482,27 +482,36 @@ export function EntryEditorRoute({
   // Preview token creation & launch.
   // The window is opened synchronously in the click handler — after the
   // awaited token request the browser's popup blocker eats a fresh
-  // window.open, so we navigate the pre-opened tab instead.
+  // window.open, so we navigate the pre-opened tab instead. The API returns
+  // a relative preview_url for the static site's draft-preview page.
   const handlePreview = async () => {
     const win = window.open('about:blank', '_blank');
-    const fallbackUrl = `http://localhost:4321/${collectionHandle}/${slug || 'draft'}`;
+    const origin = staticPreviewOrigin();
+    const openUrl = (url: string) => {
+      if (win) win.location.href = url;
+      else window.open(url, '_blank');
+    };
+    const fallbackUrl = `${origin}/${collectionHandle}/${slug || 'draft'}`;
     try {
-      const res = await apiClient.request<{ token: string; url?: string }>('POST', '/preview/token', {
+      const res = await apiClient.request<{ token?: string; preview_url?: string }>('POST', '/preview/token', {
         body: {
           collection: collectionHandle,
           id: entryId || 'draft',
         },
       });
 
-      const url =
-        res.ok && res.data?.token
-          ? res.data.url || `http://localhost:4321/preview?token=${res.data.token}`
-          : fallbackUrl;
-      if (win) win.location.href = url;
-      else window.open(url, '_blank');
+      const previewPath =
+        (res.ok && res.data?.preview_url) ||
+        (res.ok && res.data?.token
+          ? `/preview/?collection=${encodeURIComponent(collectionHandle)}&id=${encodeURIComponent(entryId || 'draft')}&token=${encodeURIComponent(res.data.token)}`
+          : null);
+      if (previewPath) {
+        openUrl(origin + previewPath);
+      } else {
+        openUrl(fallbackUrl);
+      }
     } catch {
-      if (win) win.location.href = fallbackUrl;
-      else window.open(fallbackUrl, '_blank');
+      openUrl(fallbackUrl);
     }
   };
 

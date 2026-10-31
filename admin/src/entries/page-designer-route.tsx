@@ -5,7 +5,7 @@ import { apiClient } from '../lib/api';
 import { Button, ConfirmationModal, PageContainer, Spinner } from '@bs/ui';
 import { problemToast, successToast } from '@bs/ui';
 import { PuckPageEditor } from './puck-page-editor';
-import { extractEntryContent, toContentPayload } from './puck-content';
+import { extractEntryContent, staticPreviewOrigin, toContentPayload } from './puck-content';
 import type { PuckData } from '@bs/page-builder';
 
 /**
@@ -198,30 +198,37 @@ export function PageDesignerRoute({ collectionHandle, entryId }: { collectionHan
     run();
   }, [reloadKey, collectionHandle, entryId]);
 
-  // 5. Preview: same draft-token flow as the entry editor. The window is
-  // opened synchronously in the click handler — after the awaited token
-  // request the browser's popup blocker eats a fresh window.open.
+  // 5. Preview: the API returns a relative preview_url for the static site's
+  // draft-preview page. The window is opened synchronously in the click
+  // handler — after the awaited token request the browser's popup blocker
+  // eats a fresh window.open.
   const handlePreview = useCallback(async () => {
     const win = window.open('about:blank', '_blank');
-    const fallbackUrl = entry ? `http://localhost:4321/${collectionHandle}/${entry.slug || 'draft'}` : null;
+    const openUrl = (url: string) => {
+      if (win) win.location.href = url;
+      else window.open(url, '_blank');
+    };
+    const origin = staticPreviewOrigin();
+    const fallbackUrl = entry ? `${origin}/${entry.slug || ''}` : null;
     try {
-      const res = await apiClient.request<{ token: string; url?: string }>('POST', '/preview/token', {
+      const res = await apiClient.request<{ token?: string; preview_url?: string }>('POST', '/preview/token', {
         body: { collection: collectionHandle, id: entryId },
       });
-      const url =
-        res.ok && res.data?.token
-          ? res.data.url || `http://localhost:4321/preview?token=${res.data.token}`
-          : fallbackUrl;
-      if (url) {
-        if (win) win.location.href = url;
-        else window.open(url, '_blank');
+      const previewPath =
+        (res.ok && res.data?.preview_url) ||
+        (res.ok && res.data?.token
+          ? `/preview/?collection=${encodeURIComponent(collectionHandle)}&id=${encodeURIComponent(entryId)}&token=${encodeURIComponent(res.data.token)}`
+          : null);
+      if (previewPath) {
+        openUrl(origin + previewPath);
+      } else if (fallbackUrl) {
+        openUrl(fallbackUrl);
       } else if (win) {
         win.close();
       }
     } catch {
       if (fallbackUrl) {
-        if (win) win.location.href = fallbackUrl;
-        else window.open(fallbackUrl, '_blank');
+        openUrl(fallbackUrl);
       } else if (win) {
         win.close();
       }

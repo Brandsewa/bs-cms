@@ -112,7 +112,13 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ token: 'tok123', url: `https://site.test/preview?token=tok123` }),
+        body: JSON.stringify({
+          token: 'tok123',
+          expires_at: '2026-12-31T00:00:00Z',
+          collection: 'pages',
+          entry_id: PAGE_ID,
+          preview_url: '/preview/?collection=pages&id=' + PAGE_ID + '&token=tok123&path=/home/',
+        }),
       });
     });
   });
@@ -134,12 +140,12 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
     await expect(editor.locator('.bs-hero__heading')).toHaveText('Designer Hero Heading');
     await expect(header.getByText('Unsaved changes')).toHaveCount(0);
 
-    // Preview opens a window synchronously and navigates it to the token URL
-    // returned by the API.
+    // Preview opens a window synchronously and navigates it to the static
+    // site's draft-preview URL (preview_url resolved against the origin).
     await header.getByTestId('designer-preview').click();
     await expect
       .poll(async () => page.evaluate(() => (window as unknown as { __popups?: string[] }).__popups ?? []))
-      .toContain('https://site.test/preview?token=tok123');
+      .toContain(`http://127.0.0.1:4173/preview/?collection=pages&id=${PAGE_ID}&token=tok123&path=/home/`);
   });
 
   test('dragging a component in marks the session dirty; Save as Draft PATCHes content + status', async ({ page }) => {

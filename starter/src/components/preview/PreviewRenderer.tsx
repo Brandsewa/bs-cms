@@ -51,7 +51,10 @@ async function fetchPreviewEntry(
   id: string,
   token: string,
 ): Promise<PreviewEntry> {
-  const cmsBase = window.location.origin;
+  // Production serves the static site and the PHP API from one origin.
+  // Split deployments (local sim) override it via localStorage.
+  const cmsBase =
+    window.localStorage.getItem('bs.cmsOrigin') || window.location.origin;
   const res = await fetch(
     `${cmsBase}/api/v1/preview/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`,
   );
