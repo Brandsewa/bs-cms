@@ -163,12 +163,13 @@ export function DashboardRoute() {
       <div className="grid gap-6 lg:grid-cols-3 min-w-0">
         {/* Left Column: Recent Edits (spans 2 cols on lg) */}
         <div className="space-y-6 lg:col-span-2 min-w-0">
-          <RecentEditsWidget edits={data.recent_edits ?? []} />
+          <RecentEditsWidget edits={data.recent_edits ?? []} loading={loading} />
           <ContentQueueWidget
             drafts={data.drafts_waiting ?? []}
             scheduled={data.scheduled_items ?? []}
             pendingAiChanges={data.pending_ai_changes ?? []}
             canReviewAi={canReviewAi}
+            loading={loading}
           />
         </div>
 
@@ -179,6 +180,7 @@ export function DashboardRoute() {
               siteHealth={data.site_health}
               systemStatus={data.system_status}
               activity={data.recent_activity ?? []}
+              loading={loading}
             />
           )}
           <ShortcutsCard />

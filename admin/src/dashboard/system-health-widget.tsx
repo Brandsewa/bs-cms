@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent, StatusDot } from '@bs/ui';
+import { Card, CardHeader, CardTitle, CardContent, StatusDot, Skeleton } from '@bs/ui';
 import { ShieldCheck, Server } from 'lucide-react';
 
 interface SiteHealthSummary {
@@ -36,11 +36,13 @@ export function SystemAndHealthWidget({
   siteHealth,
   systemStatus,
   activity,
+  loading = false,
   className,
 }: {
   siteHealth?: SiteHealthSummary;
   systemStatus?: SystemStatusSummary;
   activity: RecentActivityItem[];
+  loading?: boolean;
   className?: string;
 }) {
   return (
@@ -55,6 +57,16 @@ export function SystemAndHealthWidget({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {loading ? (
+          <div className="space-y-3 py-1" aria-hidden="true" data-testid="system-health-skeleton">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-3/4" />
+          </div>
+        ) : (
+        <>
         {/* Site Health Overview */}
         {siteHealth && (
           <div className="rounded-md border border-border/80 bg-surface-100/30 p-3">
@@ -186,6 +198,8 @@ export function SystemAndHealthWidget({
             </ul>
           )}
         </div>
+        </>
+        )}
       </CardContent>
     </Card>
   );
