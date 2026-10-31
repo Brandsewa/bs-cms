@@ -479,8 +479,13 @@ export function EntryEditorRoute({
     }
   };
 
-  // Preview token creation & launch
+  // Preview token creation & launch.
+  // The window is opened synchronously in the click handler — after the
+  // awaited token request the browser's popup blocker eats a fresh
+  // window.open, so we navigate the pre-opened tab instead.
   const handlePreview = async () => {
+    const win = window.open('about:blank', '_blank');
+    const fallbackUrl = `http://localhost:4321/${collectionHandle}/${slug || 'draft'}`;
     try {
       const res = await apiClient.request<{ token: string; url?: string }>('POST', '/preview/token', {
         body: {
@@ -489,15 +494,15 @@ export function EntryEditorRoute({
         },
       });
 
-      if (res.ok && res.data?.token) {
-        const previewUrl = res.data.url || `http://localhost:4321/preview?token=${res.data.token}`;
-        window.open(previewUrl, '_blank');
-      } else {
-        // Fallback preview
-        window.open(`http://localhost:4321/${collectionHandle}/${slug || 'draft'}`, '_blank');
-      }
+      const url =
+        res.ok && res.data?.token
+          ? res.data.url || `http://localhost:4321/preview?token=${res.data.token}`
+          : fallbackUrl;
+      if (win) win.location.href = url;
+      else window.open(url, '_blank');
     } catch {
-      window.open(`http://localhost:4321/${collectionHandle}/${slug || 'draft'}`, '_blank');
+      if (win) win.location.href = fallbackUrl;
+      else window.open(fallbackUrl, '_blank');
     }
   };
 

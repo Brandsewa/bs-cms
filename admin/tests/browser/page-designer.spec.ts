@@ -39,10 +39,28 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
     popups = [];
 
     await page.addInitScript(() => {
-      (window as unknown as { __popups: string[] }).__popups = [];
+      // The designer opens the preview window synchronously (popup-blocker
+      // safe) and navigates it after the token resolves — record both the
+      // open and the final navigation.
+      const wins: string[] = [];
+      (window as unknown as { __popups: string[] }).__popups = wins;
       window.open = ((url: string | URL, ...rest: unknown[]) => {
-        (window as unknown as { __popups: string[] }).__popups.push(String(url));
-        return null;
+        wins.push('open:' + String(url));
+        const fake: { close: () => void; location: unknown } = {
+          close: () => wins.push('closed'),
+          location: undefined,
+        };
+        Object.defineProperty(fake, 'location', {
+          // `win.location.href = url` reads `location` then assigns `href` on
+          // the result — so the getter must return an object with a setter.
+          get: () => ({
+            set href(v: unknown) {
+              wins.push(String(v));
+            },
+          }),
+          set: (v: unknown) => wins.push(String(v)),
+        });
+        return fake as unknown as Window;
       }) as typeof window.open;
     });
 
@@ -116,7 +134,8 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
     await expect(editor.locator('.bs-hero__heading')).toHaveText('Designer Hero Heading');
     await expect(header.getByText('Unsaved changes')).toHaveCount(0);
 
-    // Preview opens the token URL returned by the API.
+    // Preview opens a window synchronously and navigates it to the token URL
+    // returned by the API.
     await header.getByTestId('designer-preview').click();
     await expect
       .poll(async () => page.evaluate(() => (window as unknown as { __popups?: string[] }).__popups ?? []))

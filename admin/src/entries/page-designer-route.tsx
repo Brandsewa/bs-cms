@@ -198,19 +198,33 @@ export function PageDesignerRoute({ collectionHandle, entryId }: { collectionHan
     run();
   }, [reloadKey, collectionHandle, entryId]);
 
-  // 5. Preview: same draft-token flow as the entry editor
+  // 5. Preview: same draft-token flow as the entry editor. The window is
+  // opened synchronously in the click handler — after the awaited token
+  // request the browser's popup blocker eats a fresh window.open.
   const handlePreview = useCallback(async () => {
+    const win = window.open('about:blank', '_blank');
+    const fallbackUrl = entry ? `http://localhost:4321/${collectionHandle}/${entry.slug || 'draft'}` : null;
     try {
       const res = await apiClient.request<{ token: string; url?: string }>('POST', '/preview/token', {
         body: { collection: collectionHandle, id: entryId },
       });
-      if (res.ok && res.data?.token) {
-        window.open(res.data.url || `http://localhost:4321/preview?token=${res.data.token}`, '_blank');
-      } else if (entry) {
-        window.open(`http://localhost:4321/${collectionHandle}/${entry.slug || 'draft'}`, '_blank');
+      const url =
+        res.ok && res.data?.token
+          ? res.data.url || `http://localhost:4321/preview?token=${res.data.token}`
+          : fallbackUrl;
+      if (url) {
+        if (win) win.location.href = url;
+        else window.open(url, '_blank');
+      } else if (win) {
+        win.close();
       }
     } catch {
-      if (entry) window.open(`http://localhost:4321/${collectionHandle}/${entry.slug || 'draft'}`, '_blank');
+      if (fallbackUrl) {
+        if (win) win.location.href = fallbackUrl;
+        else window.open(fallbackUrl, '_blank');
+      } else if (win) {
+        win.close();
+      }
     }
   }, [collectionHandle, entryId, entry]);
 

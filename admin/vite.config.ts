@@ -22,28 +22,25 @@ export default defineConfig(({ command, mode }) => {
     server: isDevSim
       ? {
           port: 5173,
-          proxy: {
-            '/api': {
+          proxy: (() => {
+            // The backend's CSRF middleware rejects mutations whose Origin
+            // doesn't match the request host (defense-in-depth). With
+            // changeOrigin the Host becomes the sim's, so the browser's
+            // http://localhost:5173 Origin would 403 every POST/PATCH —
+            // rewrite it to the target origin.
+            const proxyOptions = {
               target: simTarget,
               changeOrigin: true,
               secure: false,
-            },
-            '/oauth': {
-              target: simTarget,
-              changeOrigin: true,
-              secure: false,
-            },
-            '/mcp': {
-              target: simTarget,
-              changeOrigin: true,
-              secure: false,
-            },
-            '/.well-known': {
-              target: simTarget,
-              changeOrigin: true,
-              secure: false,
-            },
-          },
+              headers: { origin: simTarget },
+            };
+            return {
+              '/api': proxyOptions,
+              '/oauth': proxyOptions,
+              '/mcp': proxyOptions,
+              '/.well-known': proxyOptions,
+            };
+          })(),
         }
       : undefined,
     build: {

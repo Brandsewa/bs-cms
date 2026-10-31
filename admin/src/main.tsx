@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
-import { I18nProvider, ThemeProvider } from '@bs/ui';
+import { I18nProvider, ThemeProvider, Toaster } from '@bs/ui';
 import { buildRouteTree } from './route-tree';
 import { NotFoundRoute } from './shell/not-found';
 import { ProtectedAdmin } from './shell/protected-admin';
@@ -35,6 +35,9 @@ void buildRouteTree().then((routeTree) => {
           <QueryClientProvider client={queryClient}>
             <SessionProvider>
               <RouterProvider router={router} />
+              {/* App-root toast viewport: must live outside the admin shell so
+                  chrome-less routes (page designer, login) get feedback too. */}
+              <Toaster />
             </SessionProvider>
           </QueryClientProvider>
         </I18nProvider>
