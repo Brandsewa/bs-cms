@@ -2,7 +2,7 @@
 
 Audience: anyone picking up this project (developer, tester, product owner, or an AI agent). It explains what BS CMS is, what was planned, what has been built, how it was built, with which technologies, how it was verified, what is still open, and how to run it.
 
-Snapshot: 22 October 2026. `main` contains the merge of PR #43 (commit cd2ae47), which brought in all four sprint branches plus the verifier fixes. Anything not marked "verified" below should be treated as built but not yet proven.
+Snapshot: 30 October 2026. `main` (3d7c569) adds, on top of PR #43: a Branding editor (logo, light/dark palettes, typography, borders — tokens flow to the static site), a working Schema Builder / collection builder with taxonomy attachment, schema-driven custom fields and taxonomy pickers in the entry editor, a redesigned step-by-step installer (verified end-to-end on MariaDB 11.8 and MySQL 8.4), a Collections sidebar index, an AI Studio pending-changes screen, and a migrated real-world site (himalayanflorica.com: 7 pages, 12 posts, images) live on the simulation. All items marked "verified" in NOTES.md §22 were proven in the simulation (commits db10894..3d7c569).
 
 Related documents (read in this order after this one):
 1. `PLAN.md`: the original plan, decisions, risks and phase list (superseded for build order by `implementation/`).

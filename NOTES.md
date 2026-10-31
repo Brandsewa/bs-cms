@@ -1174,3 +1174,33 @@ Empirical measurements and architecture decisions on live Hostinger shared hosti
 
 
 
+
+## 22. Post-GA Session: Branding, Collection Builder, Installer Redesign (Oct 30)
+
+Single working session (commits db10894..3d7c569 on `main`) covering admin feature build-out, a real-site content migration, and installer verification. Sim instances: `ga1` (MariaDB, HF content, ports 8081/8481/8581), `fresh1` (wizard-tested install, 8091/8491), `sqltest` (MySQL 8.4, 8095/8495).
+
+### 1. Admin Features
+- **Collection Builder / Schema Builder (real)**: `POST/PUT /api/v1/collections` wired into the admin Schema Builder (was a local-state prototype); taxonomies tab (create + attach); Apply Plan tab uses real `/schema/plan` + `/schema/apply` with step-up. Field configs must match `FieldTypeRegistry` (e.g. `markdown` not `richtext` alias; `richtext` is its own type).
+- **Entry editor**: schema-driven custom-fields panel + per-taxonomy term panels; slug auto-derive no longer clobbers saved slugs (`SlugInput` lastAutoRef guard); editor no longer opens falsely dirty.
+- **Branding** (`branding` singleton, `/admin/branding`): logo/dark-logo/favicon (media ids), light + dark palettes (primary/secondary/accent/background/heading/body/button×2/card×2), button/card/image border+radius groups, heading/body font enums, responsive H1–H6 scale, site width (px or %). Public API `GET /public/site` returns `branding` (media ids resolved to `/media/...` URLs — **media table column is `storage_path`, there is no `url` column**). Starter `brand.ts` compiles tokens → `:root` overrides (light + `prefers-color-scheme: dark`, both at `:root:root` specificity to beat tokens.css), WCAG-luminance auto-contrast for button text, favicon, header/footer logo images (absolute URLs — static site is cross-host).
+- **IA**: sidebar Collections accordion (system first: Pages, Posts, Authors; then custom), singletons deep-link to their screens (never generic entry lists — a second singleton row breaks `LIMIT 1` endpoints), Developer accordion, Collections index page, AI Studio real screen (`/pending-changes`, read-only for now), Developer hub page.
+- **Skeletons**: MetricCards had them; Recent Edits / Content Queue / System Health widgets + `RouteSuspense` fallback gained themed `PageLoadingSkeleton`/Skeleton states (round-spinner fallback removed). `PageLoadingSkeleton` constrained to `max-w-6xl` container (was full-bleed).
+
+### 2. Fixes
+- **MediaSecurity**: removed binary `<script`/`<?` scan of GD-re-encoded raster images — compressed bytes false-positived constantly (every migrated image was rejected). SVG/text scans unchanged.
+- **SingletonsController::update**: auto-restores soft-deleted singleton rows (a soft-deleted `site_settings` row caused permanent "Entry not found" 500 on Settings save; row restored via DB + guard added). Root cause of the original soft-delete still unknown.
+- **Menus screen**: now also writes `items` (the shape `/public/site` reads) alongside `menus`; `menus` JSON field added to the navigation singleton via schema API.
+
+### 3. HF Migration (himalayanflorica.com → ga1)
+WordPress REST (`/wp-json`) for posts; pages are Breakdance-built (empty REST content) → scrape rendered HTML with jsdom. 7 pages + 12 posts + ~80 images migrated; images re-hosted in CMS media (`storage_path`-based URLs, made absolute against the CMS origin for the cross-host static build). Posts carry content in new `html_code` (textarea) + `featured_url` fields. Scripts in `.migration/` (git-ignored scratch: cookies, media). WP's own blueberry↔contact-us content swap was corrected during import.
+
+### 4. Installer Redesign & MySQL
+- Installer UI (all server-rendered HTML in `InstallerController`) replaced by `InstallerViews::shell()` — themed wizard, 4-step stepper, verification panels, themed errors, copy-cron. `executeInstallation` wrapped in try/catch → themed failure page (was fatal/blank on e.g. duplicate owner email 1062).
+- **NEW CLASS gotcha**: release builds use `composer --classmap-authoritative` — new classes are invisible until `composer dump-autoload` runs in the release pipeline (container hot-fix: insert mapping into `vendor/composer/autoload_classmap.php` AND `autoload_static.php`).
+- **MySQL 8.4 verified E2E** (`sqltest`, `sim up <name> <port> mysql8`): installer, 50-table migrations, seeding, login, post create, public read. MariaDB and MySQL both fully supported.
+- Layout fact learned: OLS docroot (docker.conf vhTemplate) is `$VH_ROOT/public_html` and `index.php` requires `../vendor` — public_html MUST resolve to `core/public` (symlink). A standalone copy of `public/` breaks autoloading.
+
+### 5. Known Open Items
+- `GET /` 404s on a fresh install until a static build is uploaded (headless-correct, UX-confusing) — candidate: redirect to `/install` pre-install or `/admin` post-install.
+- What soft-deleted the `site_settings` singleton row originally is still unknown (guard now self-heals).
+- AI Studio approve/reject actions; static deploy pipeline (Health banner warns until configured); starter cannot render featured images yet (media URLs in templates work; featured_image rendering in blog/article templates not built).
