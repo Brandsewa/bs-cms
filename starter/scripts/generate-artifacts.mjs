@@ -5,7 +5,7 @@ import { CmsBuildClient } from '@bs/client';
 import siteConfig from '../src/site.config.json' with { type: 'json' };
 
 const distDir = path.resolve('dist');
-const siteUrl = (process.env.SITE_URL || 'https://bskickstarter.com').replace(/\/+$/, '');
+let siteUrl = (process.env.SITE_URL || 'https://bskickstarter.com').replace(/\/+$/, '');
 const cmsUrl = (process.env.BS_CMS_URL || 'https://bskickstarter.com').replace(/\/+$/, '');
 const buildToken = process.env.BS_BUILD_TOKEN || '';
 
@@ -71,6 +71,43 @@ function getCanonicalUrl(routePath) {
   return clean ? `${siteUrl}/${clean}/` : `${siteUrl}/`;
 }
 
+/** Escapes a value for use in XML text/attribute content (sitemap loc, image locs). */
+function escapeXml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/** Normalizes a date-ish value to W3C date (YYYY-MM-DD) or null. */
+function toW3CDate(val) {
+  if (!val) return null;
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().split('T')[0];
+}
+
+/** Collects image URLs from an entry body AST (image nodes), absolutized against siteUrl. */
+function collectEntryImages(entry) {
+  const urls = [];
+  const featured = entry?.featured_image;
+  if (typeof featured === 'string' && /^https?:\/\//i.test(featured)) urls.push(featured);
+
+  function walkNode(node) {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'image' && node.attrs?.src) {
+      const src = String(node.attrs.src);
+      if (/^https?:\/\//i.test(src)) urls.push(src);
+      else if (src.startsWith('/')) urls.push(`${siteUrl}${src}`);
+    }
+    if (Array.isArray(node.content)) node.content.forEach(walkNode);
+  }
+  walkNode(entry?.body);
+  return [...new Set(urls)].slice(0, 100); // Google caps images per page at 1000; stay conservative
+}
+
 async function main() {
   if (!fs.existsSync(distDir)) {
     console.error('Dist directory does not exist. Run astro build first.');
@@ -89,6 +126,12 @@ async function main() {
       siteDescription = site.description || site.tagline || siteConfig.description;
       if (Array.isArray(site.navigation)) {
         navigation = site.navigation;
+      }
+      // The CMS site_settings singleton is the source of truth for the canonical base URL.
+      const cmsCanonical = typeof site.canonical_url === 'string' ? site.canonical_url.trim().replace(/\/+$/, '') : '';
+      if (/^https?:\/\//i.test(cmsCanonical) && cmsCanonical !== siteUrl) {
+        console.log(`[Artifacts] Using CMS canonical_base_url over SITE_URL: ${cmsCanonical}`);
+        siteUrl = cmsCanonical;
       }
     }
   } catch {
@@ -153,6 +196,11 @@ async function main() {
         const slug = slugMatch ? slugMatch[1] : null;
         const entry = slug ? entriesBySlug.get(slug) : null;
 
+        // SEO metadata for sitemap: real lastmod from the entry, image URLs, noindex flag
+        const noindex = Boolean(entry?.seo?.noindex) || Boolean(entry?.seo_resolved?.robots?.noindex);
+        const entryLastmod = toW3CDate(entry?.updated_at || entry?.published_at);
+        const entryImages = entry ? collectEntryImages(entry) : [];
+
         let markdownContent = '';
 
         if (entry) {
@@ -192,7 +240,15 @@ canonical: ${escapeYamlString(canonicalUrl)}
 
         const pageTitle = entry?.title || (rawRoute === '/' ? 'Home' : (rawRoute === '/blog' ? 'Blog' : rawRoute.replace(/^\//, '')));
         fs.writeFileSync(mdPath, markdownContent, 'utf8');
-        generatedPages.push({ routePath: rawRoute, canonicalUrl, title: pageTitle, content: markdownContent });
+        generatedPages.push({
+          routePath: rawRoute,
+          canonicalUrl,
+          title: pageTitle,
+          content: markdownContent,
+          lastmod: entryLastmod,
+          images: entryImages,
+          noindex,
+        });
       }
     }
   }
@@ -200,7 +256,78 @@ canonical: ${escapeYamlString(canonicalUrl)}
   walk(distDir);
   console.log(`[Artifacts] Generated canonical .md twins for ${generatedPages.length} pages.`);
 
-  // 2. Generate robots.txt (Balanced preset conforming to docs/04-crawlers-and-discoverability.md)
+  // 2. Sitemap generation (SEO/GEO/AEO best practices)
+  //    - real per-page lastmod (entry updated_at, omitted when unknown)
+  //    - image:image extension for pages with images
+  //    - noindex and utility pages (/404, /preview/*, /search) excluded
+  //    - chunked into a sitemap index when URLs exceed 10,000
+  const UTILITY_ROUTES = new Set(['/404', '/search', '/preview', '/_preview']);
+  const isUtilityRoute = (routePath) =>
+    UTILITY_ROUTES.has(routePath) || routePath.startsWith('/preview/') || routePath.startsWith('/_preview/');
+
+  for (const entry of entries) {
+    if (entry && typeof entry.seo === 'string') {
+      try { entry.seo = JSON.parse(entry.seo); } catch { entry.seo = {}; }
+    }
+  }
+
+  const sitemapPages = generatedPages.filter(
+    (p) => !p.noindex && !isUtilityRoute(p.routePath)
+  );
+
+  const buildUrlEntry = (p) => {
+    const imageXml = (p.images || [])
+      .map(
+        (img) => `    <image:image>
+      <image:loc>${escapeXml(img)}</image:loc>
+    </image:image>`
+      )
+      .join('\n');
+    return `  <url>
+    <loc>${escapeXml(p.canonicalUrl)}</loc>${
+      p.lastmod ? `\n    <lastmod>${p.lastmod}</lastmod>` : ''
+    }${imageXml ? `\n${imageXml}` : ''}
+  </url>`;
+  };
+
+  const urlEntries = sitemapPages.map(buildUrlEntry);
+  const SITEMAP_CHUNK_SIZE = 10000;
+  let sitemapPointer = `${siteUrl}/sitemap.xml`;
+
+  if (urlEntries.length <= SITEMAP_CHUNK_SIZE) {
+    const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${urlEntries.join('\n')}
+</urlset>
+`;
+    fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
+    console.log(`[Artifacts] Generated sitemap.xml with ${urlEntries.length} URLs.`);
+  } else {
+    const chunks = [];
+    for (let i = 0; i < urlEntries.length; i += SITEMAP_CHUNK_SIZE) {
+      const chunkIdx = chunks.length;
+      const chunkXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+${urlEntries.slice(i, i + SITEMAP_CHUNK_SIZE).join('\n')}
+</urlset>
+`;
+      fs.writeFileSync(path.join(distDir, `sitemap-${chunkIdx}.xml`), chunkXml, 'utf8');
+      chunks.push(`  <sitemap>
+    <loc>${escapeXml(getCanonicalUrl(`/sitemap-${chunkIdx}.xml`))}</loc>
+  </sitemap>`);
+    }
+    const indexXml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${chunks.join('\n')}
+</sitemapindex>
+`;
+    fs.writeFileSync(path.join(distDir, 'sitemap.xml'), indexXml, 'utf8');
+    console.log(`[Artifacts] Generated sitemap index with ${chunks.length} chunks (${urlEntries.length} URLs).`);
+    // Keep pointing robots.txt at the index regardless of file naming above.
+  }
+  // When chunked, sitemap.xml IS the index (widely supported); keep the pointer stable.
+
+  // 3. robots.txt (Balanced preset conforming to docs/04-crawlers-and-discoverability.md)
   const robotsTxt = `# Generated by BS CMS. Policy: Balanced preset.
 User-agent: *
 Allow: /
@@ -227,30 +354,11 @@ User-agent: Bytespider
 User-agent: cohere-ai
 Disallow: /
 
-Sitemap: ${siteUrl}/sitemap.xml
+Sitemap: ${sitemapPointer}
 `;
 
   fs.writeFileSync(path.join(distDir, 'robots.txt'), robotsTxt, 'utf8');
   console.log('[Artifacts] Generated robots.txt (Balanced preset).');
-
-  // 3. Generate sitemap.xml with consistent trailing slashes matching canonical policy (skip 404 and preview)
-  const sitemapUrls = generatedPages
-    .filter((p) => !p.routePath.includes('404') && !p.routePath.includes('preview'))
-    .map(
-      (p) => `  <url>
-    <loc>${p.canonicalUrl}</loc>
-    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
-  </url>`
-    )
-    .join('\n');
-
-  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${sitemapUrls}
-</urlset>
-`;
-  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
-  console.log('[Artifacts] Generated sitemap.xml.');
 
   // 4. Generate llms.txt & llms-full.txt
   let mainPagesList = '';
@@ -261,7 +369,7 @@ ${sitemapUrls}
   } else {
     // Generate from discovered pages in generatedPages (excluding 404, preview, and individual blog posts)
     const staticNavPages = generatedPages.filter(
-      (p) => !p.routePath.includes('404') && !p.routePath.includes('preview') && !p.routePath.startsWith('/blog/')
+      (p) => !p.noindex && !isUtilityRoute(p.routePath) && !p.routePath.startsWith('/blog/')
     );
     if (staticNavPages.length > 0) {
       mainPagesList = staticNavPages
@@ -287,9 +395,11 @@ ${mainPagesList}
   fs.writeFileSync(path.join(distDir, 'llms.txt'), llmsTxt, 'utf8');
 
   const fullDocs = generatedPages
-    .filter((p) => !p.routePath.includes('404'))
-    .slice(0, 50)
-    .map((p) => `# Page: ${p.canonicalUrl}\n\n${p.content}`)
+    .filter((p) => !p.noindex && !isUtilityRoute(p.routePath))
+    .map((p) => {
+      const lastmod = p.lastmod ? `\nLast updated: ${p.lastmod}` : '';
+      return `# Page: ${p.canonicalUrl}${lastmod}\n\n${p.content}`;
+    })
     .join('\n\n---\n\n');
 
   const llmsFullTxt = `# ${siteName} Full Content Corpus

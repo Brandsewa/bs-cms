@@ -200,7 +200,8 @@ class PublicEntriesController extends BaseController
                     $tagline = (string) ($siteData['tagline'] ?? '');
                     $description = (string) ($siteData['description'] ?? $tagline);
                     $defaultLanguage = (string) ($siteData['default_language'] ?? 'en');
-                    $canonicalUrl = (string) ($siteData['canonical_url'] ?? '');
+                    // Schema field is canonical_base_url (legacy data may still carry canonical_url)
+                    $canonicalUrl = (string) ($siteData['canonical_base_url'] ?? $siteData['canonical_url'] ?? '');
                     $environment = (string) ($siteData['environment'] ?? 'production');
                 }
             }
