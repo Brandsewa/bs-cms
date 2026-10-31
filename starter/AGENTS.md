@@ -104,7 +104,7 @@ Upon saving rich text, the system extracts:
 The public frontend is built with Astro (`starter/`):
 - `starter/src/styles/tokens.css` controls visual styles via CSS variables (`--color-primary`, `--font-sans`, `--color-bg`, etc.).
 - `starter/src/lib/bs.ts` handles communication with the CMS API.
-- All templates render static HTML and adhere to Content Security Policy (`script-src 'self'`).
+- All templates render static HTML and adhere to Content Security Policy: Astro emits a per-page `<meta http-equiv="content-security-policy">` with `script-src 'self'` plus build-computed hashes (inline scripts must be hash-covered — hand-written `is:inline` scripts are pinned in `astro.config.mjs` and audited by `test/puck-csp-audit.test.ts`), while `starter/public/.htaccess` owns `frame-ancestors`/`img-src`/`frame-src`/`connect-src`.
 
 *To inspect frontend architecture and design tokens, read `bs://guides/astro-starter`.*
 

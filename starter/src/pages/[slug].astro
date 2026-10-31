@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { loadCollectionEntries, getCanonicalUrl } from '../lib/bs';
+import { Render } from '@puckeditor/core';
+import { puckConfig, sanitizePuckData } from '@bs/page-builder';
 
 export async function getStaticPaths() {
   let pages: any[] = [];
@@ -18,7 +20,10 @@ export async function getStaticPaths() {
 }
 
 const { page } = Astro.props as any;
-const blocks = Array.isArray(page.blocks) ? page.blocks : [];
+// Puck page-builder content (undefined for pages authored before/without the
+// editor); sanitize never throws and guarantees Puck `Data` with `root`.
+const puckData = sanitizePuckData(page.content);
+const hasPuckContent = puckData.content.length > 0 || Object.keys(puckData.root).length > 0;
 ---
 
 <BaseLayout
@@ -43,21 +48,9 @@ const blocks = Array.isArray(page.blocks) ? page.blocks : [];
     </header>
 
     <div class="post-content">
-      {blocks.length > 0 ? (
-        blocks.map((block: any) => {
-          if (block.type === 'hero') {
-            return (
-              <section class="hero" style="margin: 1.5rem 0; padding: 2rem;">
-                {block.heading && <h2>{block.heading}</h2>}
-                {block.text && <p class="hero-subtitle">{block.text}</p>}
-              </section>
-            );
-          }
-          if (block.type === 'text') {
-            return <p>{block.content || block.text}</p>;
-          }
-          return null;
-        })
+      {hasPuckContent ? (
+        // Page-builder content: server-rendered Puck markup (no hydration).
+        <Render config={puckConfig} data={puckData} />
       ) : (
         <p>{page.summary || 'Content for this page.'}</p>
       )}

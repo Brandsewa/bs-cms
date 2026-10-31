@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { loadCollectionEntries, getCanonicalUrl, getSiteMetadata } from '../lib/bs';
+import { Render } from '@puckeditor/core';
+import { puckConfig, sanitizePuckData } from '@bs/page-builder';
 
 const siteMeta = await getSiteMetadata();
 
@@ -25,6 +27,12 @@ const title = homePage?.title ? `${homePage.title} | ${siteMeta.name}` : `${site
 const description = homePage?.summary || siteMeta.description || 'High-performance static publishing with zero Node daemons in production.';
 const heroHeading = homePage?.title || siteMeta.tagline || 'Publishing Engineered for Speed';
 const heroSubtitle = homePage?.summary || siteMeta.description || 'BS CMS combines an ultra-lean backend with modern Astro static publishing, automatic Markdown twins for AI agents, and zero runtime Node daemons.';
+
+// Puck page-builder content (undefined for pages authored before/without the
+// editor); sanitize never throws and guarantees Puck `Data` with `root`.
+const homePuckData = sanitizePuckData(homePage?.content);
+const homeHasPuckContent =
+  homePuckData.content.length > 0 || Object.keys(homePuckData.root).length > 0;
 ---
 
 <BaseLayout
@@ -35,7 +43,11 @@ const heroSubtitle = homePage?.summary || siteMeta.description || 'BS CMS combin
   robots={homePage?.seo?.robots}
 >
   {homePage?.html_code ? (
+    // Custom-coded home page: HTML from the admin code editor, rendered verbatim.
     <Fragment set:html={homePage.html_code} />
+  ) : homeHasPuckContent ? (
+    // Page-builder home page: server-rendered Puck markup (no hydration).
+    <Render config={puckConfig} data={homePuckData} />
   ) : (
   <section class="hero">
     <h1>{heroHeading}</h1>

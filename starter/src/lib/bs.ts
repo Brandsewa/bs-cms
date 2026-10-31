@@ -52,12 +52,112 @@ export function getBenchmarkFixtures(count = 200): EntryItem[] {
 }
 
 /**
+ * Puck page-builder fixture content: Hero + RichText + Faq (+ Callout),
+ * shaped exactly like the `content` field the CMS presents on pages entries.
+ */
+export function getPuckDemoContent() {
+  return {
+    root: {},
+    content: [
+      {
+        type: 'Hero',
+        props: {
+          id: 'hero-puck-demo',
+          heading: 'Pages, Composed Visually',
+          text: 'This page is rendered from Puck page-builder content stored in the CMS and baked to static HTML at build time.',
+          ctaLabel: 'Read the blog',
+          ctaUrl: '/blog/',
+        },
+      },
+      {
+        type: 'RichText',
+        props: {
+          id: 'richtext-puck-demo',
+          html: '<p>Puck content is <strong>sanitized</strong> and server-rendered — no hydration runtime ships with content pages.</p>',
+        },
+      },
+      {
+        type: 'Callout',
+        props: {
+          id: 'callout-puck-demo',
+          variant: 'tip',
+          title: 'Static Publishing',
+          content: 'Blocks render to plain .bs-* markup styled from the site branding variables.',
+        },
+      },
+      {
+        type: 'Faq',
+        props: {
+          id: 'faq-puck-demo',
+          items: [
+            { question: 'Does editing require a rebuild?', answer: 'Yes — pages are baked to static HTML at deploy time.' },
+            { question: 'Which blocks exist?', answer: 'Hero, RichText, Callout, Faq, CtaBanner, FeaturesGrid, ImageBlock and Spacer.' },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Fixture entries for the `pages` collection (BS_USE_FIXTURES=1): a home page
+ * and a Puck demo page carrying page-builder `content`.
+ */
+export function getFixturePages(): EntryItem[] {
+  return [
+    {
+      id: '01FIXPAGEHOME00001',
+      slug: 'home',
+      title: 'Welcome to BS CMS',
+      summary: 'Home page composed in the visual page builder and rendered statically.',
+      published_at: '2026-10-19T10:00:00Z',
+      updated_at: '2026-10-19T10:00:00Z',
+      content: {
+        root: {},
+        content: [
+          {
+            type: 'Hero',
+            props: {
+              id: 'hero-home-fixture',
+              heading: 'Publishing Engineered for Speed',
+              text: 'Fixture home page: Puck content beats the hardcoded hero, html_code would beat both.',
+              ctaLabel: 'Read the blog',
+              ctaUrl: '/blog/',
+            },
+          },
+          {
+            type: 'RichText',
+            props: {
+              id: 'richtext-home-fixture',
+              html: '<p>Recent articles live in the <a href="/blog/">blog archive</a>.</p>',
+            },
+          },
+        ],
+      },
+    },
+    {
+      id: '01FIXPAGEPUCK00001',
+      slug: 'puck-demo',
+      title: 'Puck Page Builder Demo',
+      summary: 'Every page-builder block rendered from fixture Puck content.',
+      published_at: '2026-10-19T10:00:00Z',
+      updated_at: '2026-10-19T10:00:00Z',
+      content: getPuckDemoContent(),
+    },
+  ];
+}
+
+/**
  * Loads published entries for a collection.
  * In real builds, throws an Error if the API request fails, halting the build.
- * Only returns benchmark fixtures if BS_USE_FIXTURES=1 is explicitly set.
+ * Only returns benchmark fixtures (posts) or page-builder fixture pages if
+ * BS_USE_FIXTURES=1 is explicitly set.
  */
 export async function loadCollectionEntries(collection: string): Promise<EntryItem[]> {
   if (USE_FIXTURES) {
+    if (collection === 'pages') {
+      return getFixturePages();
+    }
     const postCount = parseInt(process.env.BENCHMARK_POSTS || '200', 10);
     return getBenchmarkFixtures(postCount);
   }

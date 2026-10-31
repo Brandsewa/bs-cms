@@ -38,7 +38,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Astro 7 requires Node >= 22.23.4; use the active LTS line.
+          node-version: 24
 
       - name: Install dependencies
         working-directory: starter

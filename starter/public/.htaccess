@@ -38,12 +38,21 @@ DirectoryIndex index.html
 </FilesMatch>
 
 # Security Headers & CSP (Zero third-party script execution at load)
+#
+# Script/style policy ownership: Astro emits a per-page
+# <meta http-equiv="content-security-policy"> with
+# `script-src 'self' '<build-computed hashes>'` and `style-src 'self' 'unsafe-inline'`.
+# Multiple CSPs are enforced as an intersection, so this header must NOT retain
+# default-src/script-src/style-src constraints of its own (they would forbid the
+# hash-covered inline island bootstrap regardless of the meta policy). The header
+# keeps the directives the meta CSP cannot express or that should apply to every
+# response (frame-ancestors) plus defense-in-depth img/frame/connect allowlists.
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Header set Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https:; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://codepen.io https://platform.twitter.com https://x.com https://twitter.com; connect-src 'self' https://bskickstarter.com;"
+    Header set Content-Security-Policy "frame-ancestors 'self'; img-src 'self' data: https:; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://codepen.io https://platform.twitter.com https://x.com https://twitter.com; connect-src 'self' https://bskickstarter.com;"
 </IfModule>
 
 # Caching directives
