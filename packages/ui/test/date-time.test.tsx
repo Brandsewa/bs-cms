@@ -51,6 +51,13 @@ describe('Calendar', () => {
   });
 });
 
+// The pickers open on the current month, so a fixed month name time-bombs
+// the suite at every month rollover. Always pick the 15th of the live month.
+const now = new Date();
+const currentMonthName = now.toLocaleString('en-US', { month: 'long' });
+const currentMonthDay = (day: number) =>
+  new RegExp(`${day}.*${currentMonthName}|${currentMonthName}.*${day}`);
+
 describe('DatePicker', () => {
   it('opens the calendar, picks a date and shows it formatted', async () => {
     const onChange = vi.fn();
@@ -62,10 +69,10 @@ describe('DatePicker', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByRole('grid')).toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole('button', { name: /18.*October|October.*18/ }));
+    await user.click(within(dialog).getByRole('button', { name: currentMonthDay(15) }));
     expect(onChange).toHaveBeenCalledTimes(1);
     const picked = onChange.mock.calls[0]![0] as Date;
-    expect(picked.getDate()).toBe(18);
+    expect(picked.getDate()).toBe(15);
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
@@ -126,7 +133,7 @@ describe('DateRangePicker', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Filter period' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /October 5th/ }));
+    await user.click(within(dialog).getByRole('button', { name: currentMonthDay(15) }));
     expect(onChange).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Apply' }));
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -172,9 +179,9 @@ describe('DateTimePicker', () => {
     expect(screen.getByText(/Europe\/Berlin/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Schedule' }));
     const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('button', { name: /October 20th/ }));
+    await user.click(within(dialog).getByRole('button', { name: currentMonthDay(15) }));
     const picked = onChange.mock.calls[0]![0] as Date;
-    expect(picked.getDate()).toBe(20);
+    expect(picked.getDate()).toBe(15);
     expect(picked.getHours()).toBe(9); // default time applied on date pick
 
     // Completing the time field fires the composed date+time upward.

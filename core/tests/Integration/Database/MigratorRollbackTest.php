@@ -292,6 +292,31 @@ final class MigratorRollbackTest extends TestCase
         $this->migrator($this->coreDir())->rollback(0);
     }
 
+
+    /**
+     * MySQL normalises JSON object key order (by key length, then value), so
+     * decoded JSON must be key-sorted recursively before identity asserts.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private static function sortJsonKeys(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        $sorted = [];
+        $keys = array_keys($value);
+        $sortKeys = static function (array $keys): array {
+            usort($keys, static fn (string $a, string $b): int => [strlen($a), $a] <=> [strlen($b), $b]);
+            return $keys;
+        };
+        foreach ($sortKeys($keys) as $k) {
+            $sorted[$k] = self::sortJsonKeys($value[$k]);
+        }
+        return $sorted;
+    }
+
     public function testPuckContentMigrationConvertsLegacyBlocks(): void
     {
         $migrator = $this->migrator($this->coreDir());
@@ -381,34 +406,34 @@ final class MigratorRollbackTest extends TestCase
         // Page A: hero + text converted with deterministic ids.
         $pageA = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPA'"), true);
         $this->assertArrayNotHasKey('blocks', $pageA);
-        // MySQL normalises JSON object key order — compare canonically.
-        $this->assertEqualsCanonicalizing([
+        // MySQL normalises JSON object key order — compare key-sorted.
+        $this->assertSame(self::sortJsonKeys([
             'content' => [
                 ['type' => 'Hero', 'props' => ['id' => 'Hero-mig1', 'heading' => 'Welcome', 'text' => 'Hello', 'ctaLabel' => 'Go', 'ctaUrl' => '/go']],
                 ['type' => 'RichText', 'props' => ['id' => 'RichText-mig2', 'html' => '<p>Body</p>']],
             ],
             'root' => ['props' => []],
-        ], $pageA['content']);
+        ]), self::sortJsonKeys($pageA['content']));
 
         // Page B: admin-style {type, data} callout + faq converted, unknown dropped.
         $pageB = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPB'"), true);
-        $this->assertEqualsCanonicalizing([
+        $this->assertSame(self::sortJsonKeys([
             ['type' => 'Callout', 'props' => ['id' => 'Callout-mig1', 'variant' => 'tip', 'title' => 'Tip', 'content' => 'Useful']],
             ['type' => 'Faq', 'props' => ['id' => 'Faq-mig2', 'items' => [['question' => 'Q?', 'answer' => 'A.']]]],
-        ], $pageB['content']['content']);
+        ]), self::sortJsonKeys($pageB['content']['content']));
 
         // Page C untouched (no blocks key), Page D stripped to an empty PuckData.
         $pageC = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPC'"), true);
         $this->assertArrayNotHasKey('content', $pageC);
         $pageD = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPD'"), true);
-        $this->assertSame(['content' => [], 'root' => ['props' => []]], $pageD['content']);
+        $this->assertSame(self::sortJsonKeys(['content' => [], 'root' => ['props' => []]]), self::sortJsonKeys($pageD['content']));
 
         // Snapshot converted the same way.
         $snapshot = json_decode($scalar("SELECT `snapshot` FROM `{$versions}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FC2'"), true);
         $this->assertArrayNotHasKey('blocks', $snapshot['data']);
-        $this->assertEqualsCanonicalizing(
+        $this->assertSame(
             [['type' => 'RichText', 'props' => ['id' => 'RichText-mig1', 'html' => '<p>v1</p>']]],
-            $snapshot['data']['content']['content']
+            self::sortJsonKeys($snapshot['data']['content']['content'])
         );
 
         // Re-running is idempotent.
