@@ -690,12 +690,15 @@ export function DataTable<T>({
     }
     const column = columns.find((candidate) => candidate.id === columnId);
     if (!column || columnVisibility[columnId] === false) return null;
+    const rawValue = column.accessor(row);
+    const rawText = typeof rawValue === 'string' ? rawValue : typeof rawValue === 'number' ? String(rawValue) : undefined;
     return (
       <td
         key={columnId}
+        title={rawText !== undefined && rawText.length > 40 ? rawText : undefined}
         style={{ height: rowHeight }}
         className={cn(
-          'max-w-72 truncate border-b border-border-muted px-2 align-middle text-13 text-foreground',
+          'max-w-72 truncate border-b border-border-muted px-2.5 align-middle text-13 text-foreground',
           column.align === 'right' && 'text-right',
           column.sticky && 'sticky left-0 bg-card'
         )}
@@ -786,7 +789,8 @@ export function DataTable<T>({
         }}
         className={cn(
           'transition-colors hover:bg-surface-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-          focusedRowId === rowId && 'bg-surface-100'
+          focusedRowId === rowId && 'bg-surface-100',
+          href && 'cursor-pointer'
         )}
         style={style}
       >
@@ -1112,7 +1116,7 @@ export function DataTable<T>({
               <thead className="sticky top-0 z-20">
                 <tr>
                   {resolvedOrder.map(renderHeaderCell)}
-                  {rowMenu ? <th scope="col" className="w-10 border-b border-border bg-card"><span className="sr-only">{t('common.actions')}</span></th> : null}
+                  {rowMenu ? <th scope="col" className="border-b border-border bg-card"><span className="sr-only">{t('common.actions')}</span></th> : null}
                 </tr>
               </thead>
               {shouldVirtualize ? (
