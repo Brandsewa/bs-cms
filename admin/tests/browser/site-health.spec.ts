@@ -127,10 +127,11 @@ test.describe('Site Health Admin Screen', () => {
     await searchInput.fill('');
 
     // Severity status tabs
+    await page.waitForSelector('table[aria-label="Site health issues table"] tbody tr');
     const infoTab = page.getByRole('tab', { name: /Info/i });
     await infoTab.click();
     await expect(page.getByText('geo.summary.missing').first()).toBeVisible();
-    await expect(page.getByText('seo.title.duplicate')).toBeHidden();
+    await expect(page.getByText('seo.title.duplicate')).toHaveCount(0);
   });
 
   test('honest empty state when all checks pass', async ({ page }) => {
@@ -236,6 +237,6 @@ test.describe('Site Health Admin Screen', () => {
     // <table> element. Assert the issue cards render instead.
     await page.waitForSelector('[data-testid="run-health-scan-btn"]', { timeout: 15000 });
     // The mobile card layout shows each issue as a card with its entity title.
-    await expect(page.getByText('Spring Collection Showcase').first()).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('A Post Without Description').first()).toBeVisible({ timeout: 20000 });
   });
 });
