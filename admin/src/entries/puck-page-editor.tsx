@@ -105,7 +105,7 @@ export function PuckContentPreview({ value, onCustomize, canCustomize = true }: 
           </span>
         </button>
       ) : (
-        <div className="max-h-[420px] overflow-y-auto rounded-md border border-border bg-background" data-testid="puck-preview-frame">
+        <div className="max-h-[420px] overflow-y-auto rounded-md border border-border bg-white" data-testid="puck-preview-frame">
           <Suspense fallback={<PreviewSkeleton />}>
             <PuckPageEditorImpl value={value} onChange={() => {}} disabled />
           </Suspense>

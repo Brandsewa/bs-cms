@@ -149,7 +149,7 @@ export function PuckPageEditorImpl({
   if (disabled) {
     return (
       <div
-        className="bs-puck-editor bs-puck-readout rounded-md border border-border bg-background p-4"
+        className="bs-puck-editor bs-puck-readout rounded-md border border-border bg-white p-4"
         data-testid="puck-page-readout"
       >
         <Render config={config} data={data} />
