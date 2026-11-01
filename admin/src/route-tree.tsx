@@ -24,6 +24,12 @@ const BrandingView = lazy(() =>
 const DeveloperHubView = lazy(() =>
   import('./developer/developer-hub-view').then((m) => ({ default: m.DeveloperHubView }))
 );
+const MarketplaceView = lazy(() =>
+  import('./marketplace/marketplace-view').then((m) => ({ default: m.MarketplaceView }))
+);
+const FormsIndexView = lazy(() =>
+  import('./forms/forms-index-view').then((m) => ({ default: m.FormsIndexView }))
+);
 const AiStudioView = lazy(() =>
   import('./ai/ai-studio-view').then((m) => ({ default: m.AiStudioView }))
 );
@@ -392,6 +398,30 @@ export const developerRoute = createRoute({
   ),
 });
 
+export const marketplaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/marketplace',
+  component: () => (
+    <ProtectedAdmin permission="settings:read">
+      <RouteSuspense>
+        <MarketplaceView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
+export const formsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forms',
+  component: () => (
+    <ProtectedAdmin permission="collection:read">
+      <RouteSuspense>
+        <FormsIndexView />
+      </RouteSuspense>
+    </ProtectedAdmin>
+  ),
+});
+
 // Settings Routes
 export const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -680,6 +710,8 @@ export async function buildRouteTree() {
     usersRoute,
     usersRolesRoute,
     developerRoute,
+    marketplaceRoute,
+    formsRoute,
     settingsRoute,
     settingsGeneralRoute,
     settingsEmailRoute,

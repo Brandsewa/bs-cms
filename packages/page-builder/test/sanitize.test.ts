@@ -107,7 +107,7 @@ describe('sanitizePuckData', () => {
     expect(sanitizePuckData(hostile)).toEqual({ root: {}, content: [] });
   });
 
-  it('covers exactly the eight contract component types', () => {
+  it('covers exactly the nine contract component types', () => {
     expect([...componentTypes].sort()).toEqual(
       [
         'Hero',
@@ -118,6 +118,7 @@ describe('sanitizePuckData', () => {
         'FeaturesGrid',
         'ImageBlock',
         'Spacer',
+        'ContactForm',
       ].sort(),
     );
   });

@@ -399,3 +399,42 @@
 .bs-spacer {
   width: 100%;
 }
+
+/* ---- Contact form (contact-form plugin embed; interactive form hydrates
+        client-side via embed.js on the public site) ---- */
+.bs-contact-form {
+  padding: var(--space-8, 2.5rem) 1.5rem;
+}
+.bs-contact-form__inner {
+  max-width: var(--site-width, 720px);
+  margin-inline: auto;
+}
+.bs-contact-form__heading {
+  color: var(--color-heading, #1f2937);
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+.bs-contact-form__subheading {
+  color: var(--color-text-secondary, #4b5563);
+  margin: 0 0 1.25rem;
+}
+.bs-contact-form__placeholder {
+  border: 1px dashed var(--color-border, #d1d5db);
+  border-radius: var(--card-radius, 0.5rem);
+  background: var(--color-surface, #f9fafb);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.bs-contact-form__placeholder-title {
+  font-weight: 600;
+  color: var(--color-heading, #1f2937);
+  margin: 0;
+}
+.bs-contact-form__placeholder-handle {
+  color: var(--color-text-secondary, #4b5563);
+  font-size: 0.9rem;
+  margin: 0;
+}

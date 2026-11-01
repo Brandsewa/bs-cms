@@ -231,6 +231,7 @@ export interface BrandingTokens {
   font_heading?: string;
   font_body?: string;
   radius?: string;
+  [key: string]: unknown;
 }
 
 export interface SiteMetaWithNav {

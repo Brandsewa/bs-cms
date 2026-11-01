@@ -119,6 +119,8 @@ final class MigratorRollbackTest extends TestCase
             'rb_entry_relations',
             'rb_entry_versions',
             'rb_fields',
+            'rb_form_definitions',
+            'rb_form_submissions',
             'rb_index_notifications',
             'rb_invitations',
             'rb_jobs',
@@ -135,6 +137,7 @@ final class MigratorRollbackTest extends TestCase
             'rb_oauth_refresh_tokens',
             'rb_password_resets',
             'rb_pending_changes',
+            'rb_plugins',
             'rb_preview_tokens',
             'rb_rate_limits',
             'rb_redirects',
@@ -156,7 +159,8 @@ final class MigratorRollbackTest extends TestCase
 
         $rolledBack = $migrator->rollback();
         $this->assertSame([
-            'core:202610310011_replace_pages_blocks_with_puck_content',
+            'core:202610310012_replace_pages_blocks_with_puck_content',
+            'core:202610310011_create_plugins_and_forms_tables',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -183,7 +187,8 @@ final class MigratorRollbackTest extends TestCase
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
-            'core:202610310011_replace_pages_blocks_with_puck_content',
+            'core:202610310011_create_plugins_and_forms_tables',
+            'core:202610310012_replace_pages_blocks_with_puck_content',
         ], $again);
         $this->assertSame($expected, $this->tables());
     }
@@ -195,7 +200,7 @@ final class MigratorRollbackTest extends TestCase
 
         $preview = $migrator->rollback(1, true);
         $this->assertSame([
-            '[DRY-RUN] rollback core:202610310011_replace_pages_blocks_with_puck_content',
+            '[DRY-RUN] rollback core:202610310012_replace_pages_blocks_with_puck_content',
             '[DRY-RUN] rollback core:202610220010_update_pages_blocks_field_type_to_blocks',
             '[DRY-RUN] rollback core:202610190009_create_oauth_and_pending_changes_tables',
             '[DRY-RUN] rollback core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -244,7 +249,8 @@ final class MigratorRollbackTest extends TestCase
         $this->assertSame([
             'plugin:test1:202610180002_create_beta_items',
             'plugin:test1:202610180001_create_alpha_items',
-            'core:202610310011_replace_pages_blocks_with_puck_content',
+            'core:202610310012_replace_pages_blocks_with_puck_content',
+            'core:202610310011_create_plugins_and_forms_tables',
             'core:202610220010_update_pages_blocks_field_type_to_blocks',
             'core:202610190009_create_oauth_and_pending_changes_tables',
             'core:202610190008_create_publishing_pipeline_and_discoverability_tables',

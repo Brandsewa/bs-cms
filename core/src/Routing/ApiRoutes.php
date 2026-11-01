@@ -80,7 +80,13 @@ final class ApiRoutes
         ?\BsCms\Http\Controllers\SprintA\AiConnectionsController $aiConnections = null,
         // SPRINT-A END
         ?\BsCms\Http\Controllers\CrawlerPolicyController $crawlerPolicy = null,
-        ?\BsCms\Http\Controllers\MaintenanceController $maintenance = null
+        ?\BsCms\Http\Controllers\MaintenanceController $maintenance = null,
+        // MARKETPLACE & PLUGINS BEGIN
+        ?\BsCms\Http\Controllers\MarketplaceController $marketplace = null,
+        ?\BsCms\Http\Controllers\FormsController $forms = null,
+        ?\BsCms\Http\Controllers\FormSubmissionsController $formSubmissions = null,
+        ?\BsCms\Http\Controllers\PublicFormsController $publicForms = null
+        // MARKETPLACE & PLUGINS END
     ): void {
         // 1. Auth endpoints
         $routes->post('/api/v1/auth/login', [$auth, 'login']);
@@ -419,5 +425,34 @@ final class ApiRoutes
             $routes->post('/api/v1/system/maintenance/disable', [$maintenance, 'disable']);
             $routes->post('/api/v1/system/backup', [$maintenance, 'createBackup']);
         }
+        // MARKETPLACE & PLUGINS BEGIN
+        if ($marketplace !== null) {
+            $routes->get('/api/v1/marketplace/plugins', [$marketplace, 'list']);
+            $routes->post('/api/v1/marketplace/plugins/{handle}/install', [$marketplace, 'install']);
+            $routes->post('/api/v1/marketplace/plugins/{handle}/uninstall', [$marketplace, 'uninstall']);
+            $routes->post('/api/v1/marketplace/plugins/{handle}/toggle', [$marketplace, 'toggle']);
+            $routes->put('/api/v1/marketplace/plugins/{handle}/config', [$marketplace, 'updateConfig']);
+        }
+
+        if ($forms !== null) {
+            $routes->get('/api/v1/plugins/contact-form/forms', [$forms, 'list']);
+            $routes->post('/api/v1/plugins/contact-form/forms', [$forms, 'create']);
+            $routes->get('/api/v1/plugins/contact-form/forms/{id}', [$forms, 'get']);
+            $routes->put('/api/v1/plugins/contact-form/forms/{id}', [$forms, 'update']);
+            $routes->delete('/api/v1/plugins/contact-form/forms/{id}', [$forms, 'delete']);
+        }
+
+        if ($formSubmissions !== null) {
+            $routes->get('/api/v1/plugins/contact-form/submissions', [$formSubmissions, 'list']);
+            $routes->get('/api/v1/plugins/contact-form/submissions/{id}', [$formSubmissions, 'get']);
+            $routes->patch('/api/v1/plugins/contact-form/submissions/{id}', [$formSubmissions, 'updateStatus']);
+            $routes->delete('/api/v1/plugins/contact-form/submissions/{id}', [$formSubmissions, 'delete']);
+        }
+
+        if ($publicForms !== null) {
+            $routes->get('/api/v1/public/forms/{handle}', [$publicForms, 'get']);
+            $routes->post('/api/v1/public/forms/{handle}/submit', [$publicForms, 'submit']);
+        }
+        // MARKETPLACE & PLUGINS END
     }
 }

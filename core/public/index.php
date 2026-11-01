@@ -207,7 +207,13 @@ $router = new Router($routes);
     $container->get(\BsCms\Http\Controllers\SprintA\AiConnectionsController::class),
     // SPRINT-A END
     $container->get(\BsCms\Http\Controllers\CrawlerPolicyController::class),
-    $container->get(\BsCms\Http\Controllers\MaintenanceController::class)
+    $container->get(\BsCms\Http\Controllers\MaintenanceController::class),
+    // MARKETPLACE & PLUGINS BEGIN
+    $container->get(\BsCms\Http\Controllers\MarketplaceController::class),
+    $container->get(\BsCms\Http\Controllers\FormsController::class),
+    $container->get(\BsCms\Http\Controllers\FormSubmissionsController::class),
+    $container->get(\BsCms\Http\Controllers\PublicFormsController::class)
+    // MARKETPLACE & PLUGINS END
 );
 
 // Build middleware pipeline

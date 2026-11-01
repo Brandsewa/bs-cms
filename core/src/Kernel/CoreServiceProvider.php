@@ -859,7 +859,49 @@ final class CoreServiceProvider implements ServiceProvider
                 $app->storagePath()
             );
         });
-        // SPRINT-C END: Blocks Registry & Controller
+        // MARKETPLACE & PLUGINS BEGIN
+        $container->singleton(\BsCms\Plugins\ContactFormPlugin::class, function (Container $c): \BsCms\Plugins\ContactFormPlugin {
+            return new \BsCms\Plugins\ContactFormPlugin(
+                $c->get(Connection::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Plugins\PluginManager::class, function (Container $c): \BsCms\Plugins\PluginManager {
+            $manager = new \BsCms\Plugins\PluginManager(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Plugins\ContactFormPlugin::class)
+            );
+            $manager->boot();
+            return $manager;
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\MarketplaceController::class, function (Container $c): \BsCms\Http\Controllers\MarketplaceController {
+            return new \BsCms\Http\Controllers\MarketplaceController(
+                $c->get(\BsCms\Plugins\PluginManager::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\FormsController::class, function (Container $c): \BsCms\Http\Controllers\FormsController {
+            return new \BsCms\Http\Controllers\FormsController(
+                $c->get(\BsCms\Plugins\ContactFormPlugin::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\FormSubmissionsController::class, function (Container $c): \BsCms\Http\Controllers\FormSubmissionsController {
+            return new \BsCms\Http\Controllers\FormSubmissionsController(
+                $c->get(\BsCms\Plugins\ContactFormPlugin::class),
+                $c->get(Authorizer::class)
+            );
+        });
+
+        $container->singleton(\BsCms\Http\Controllers\PublicFormsController::class, function (Container $c): \BsCms\Http\Controllers\PublicFormsController {
+            return new \BsCms\Http\Controllers\PublicFormsController(
+                $c->get(\BsCms\Plugins\ContactFormPlugin::class)
+            );
+        });
+        // MARKETPLACE & PLUGINS END
     }
 
     public function boot(Container $container): void

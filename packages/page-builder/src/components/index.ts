@@ -6,6 +6,7 @@ export { CtaBanner, type CtaBannerProps, type CtaAlign } from './cta-banner.js';
 export { FeaturesGrid, type FeaturesGridProps, type FeatureItem } from './features-grid.js';
 export { ImageBlock, defaultImageField, type ImageBlockProps } from './image-block.js';
 export { Spacer, type SpacerProps } from './spacer.js';
+export { ContactForm, type ContactFormProps } from './contact-form.js';
 
 /**
  * Every page-builder component type name, keyed exactly as serialized into
@@ -21,6 +22,7 @@ export const componentTypes = [
   'FeaturesGrid',
   'ImageBlock',
   'Spacer',
+  'ContactForm',
 ] as const;
 
 export type ComponentType = (typeof componentTypes)[number];

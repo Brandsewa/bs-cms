@@ -37,6 +37,7 @@ cp -r "${REPO_ROOT}/core/migrations" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/resources" "${BUILD_DIR}/core/"
 cp -r "${REPO_ROOT}/core/bin" "${BUILD_DIR}/core/"
 cp "${REPO_ROOT}/core/composer.json" "${BUILD_DIR}/core/"
+cp "${REPO_ROOT}/core/composer.lock" "${BUILD_DIR}/core/" 2>/dev/null || true
 
 # 2. Copy public directory files into core/public/
 echo "Copying public assets..."

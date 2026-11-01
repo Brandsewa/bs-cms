@@ -1,6 +1,7 @@
 import type { Config } from '@puckeditor/core';
 import {
   Callout,
+  ContactForm,
   CtaBanner,
   Faq,
   FeaturesGrid,
@@ -37,6 +38,7 @@ export function createPuckConfig(options: CreatePuckConfigOptions = {}): Config 
       FeaturesGrid,
       ImageBlock: imageBlock,
       Spacer,
+      ContactForm,
     },
   };
 }

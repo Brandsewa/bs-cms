@@ -51,6 +51,7 @@ const hasPuckContent = puckData.content.length > 0 || Object.keys(puckData.root)
       {hasPuckContent ? (
         // Page-builder content: server-rendered Puck markup (no hydration).
         <Render config={puckConfig} data={puckData} />
+
       ) : (
         <p>{page.summary || 'Content for this page.'}</p>
       )}
