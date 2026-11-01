@@ -218,14 +218,51 @@ class PublicEntriesController extends BaseController
             if ($navRow && !empty($navRow['data'])) {
                 $navData = is_string($navRow['data']) ? json_decode($navRow['data'], true) : $navRow['data'];
                 if (is_array($navData) && !empty($navData['items']) && is_array($navData['items'])) {
-                    foreach ($navData['items'] as $item) {
-                        if (is_array($item) && !empty($item['label']) && !empty($item['url'])) {
-                            $navItems[] = [
-                                'label' => (string) $item['label'],
-                                'url' => (string) $item['url'],
-                                'target' => !empty($item['target']) ? '_blank' : null,
-                            ];
+                    // Rows are flat (menu/parent_id/position written by the
+                    // admin menu editor): header rows only, with children
+                    // composed from parent_id for future dropdown support.
+                    $rowsById = [];
+                    $order = [];
+                    foreach ($navData['items'] as $i => $item) {
+                        if (!is_array($item) || empty($item['label']) || empty($item['url'])) {
+                            continue;
                         }
+                        if (($item['menu'] ?? 'header') === 'footer') {
+                            continue;
+                        }
+                        $id = (string) ($item['id'] ?? ('row_' . $i));
+                        $rowsById[$id] = [
+                            'label' => (string) $item['label'],
+                            'url' => (string) $item['url'],
+                            'target' => !empty($item['target']) ? '_blank' : null,
+                            'parent_id' => isset($item['parent_id']) ? (string) $item['parent_id'] : null,
+                        ];
+                        $order[] = $id;
+                    }
+                    $childrenOf = [];
+                    $topLevel = [];
+                    foreach ($order as $id) {
+                        $parentId = $rowsById[$id]['parent_id'];
+                        if ($parentId !== null && isset($rowsById[$parentId])) {
+                            $childrenOf[$parentId][] = $id;
+                        } else {
+                            $topLevel[] = $id;
+                        }
+                    }
+                    $composeNav = static function (string $id) use (&$composeNav, $rowsById, $childrenOf): array {
+                        $row = $rowsById[$id];
+                        unset($row['parent_id']);
+                        $kids = [];
+                        foreach ($childrenOf[$id] ?? [] as $childId) {
+                            $kids[] = $composeNav($childId);
+                        }
+                        if (!empty($kids)) {
+                            $row['children'] = $kids;
+                        }
+                        return $row;
+                    };
+                    foreach ($topLevel as $id) {
+                        $navItems[] = $composeNav($id);
                     }
                 }
             }

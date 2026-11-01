@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   PageContainer,
   PageHeader,
@@ -34,9 +34,20 @@ import {
   Edit2,
   Save,
   RefreshCw,
-  ArrowUp,
-  ArrowDown,
+  CornerDownRight,
 } from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableItem, SortableDragHandle, useSortableItemState } from '@bs/ui';
 import { apiClient } from '../lib/api';
 
 export interface MenuItem {
@@ -52,6 +63,83 @@ export interface NavigationMenuData {
   menus: Record<string, MenuItem[]>;
 }
 
+
+/** Shape of one flat repeater row in the navigation singleton. */
+interface NavigationRow {
+  id?: string;
+  label?: string;
+  url?: string;
+  type?: string;
+  target?: number | boolean;
+  menu?: string;
+  parent_id?: string | null;
+  position?: number;
+}
+
+function defaultMenus(): Record<string, MenuItem[]> {
+  return {
+    header: [
+      { id: '1', label: 'Home', url: '/', type: 'custom' },
+      { id: '2', label: 'Blog', url: '/posts', type: 'custom' },
+      { id: '3', label: 'About Us', url: '/about', type: 'page' },
+    ],
+    footer: [
+      { id: '4', label: 'Privacy Policy', url: '/privacy', type: 'page' },
+      { id: '5', label: 'Terms of Service', url: '/terms', type: 'page' },
+    ],
+  };
+}
+
+/** Compose header/footer trees from the flat repeater rows. */
+function composeTreesFromRows(rows: Record<string, unknown>[]): Record<string, MenuItem[]> {
+  const parsed: Array<MenuItem & { menu: string; parentId: string | null }> = rows.map((row, i) => ({
+    id: typeof row['id'] === 'string' && row['id'] ? row['id'] : `row_${i}`,
+    label: typeof row['label'] === 'string' ? row['label'] : `Item ${i + 1}`,
+    url: typeof row['url'] === 'string' ? row['url'] : '/',
+    type: (typeof row['type'] === 'string' ? row['type'] : 'custom') as MenuItem['type'],
+    open_in_new_tab: Boolean(row['target']),
+    menu: typeof row['menu'] === 'string' ? row['menu'] : 'header',
+    parentId: typeof row['parent_id'] === 'string' ? row['parent_id'] : null,
+  }));
+
+  const byMenu = (menu: string) => parsed.filter((r) => r.menu === menu);
+  const tree = (list: Array<MenuItem & { menu: string; parentId: string | null }>): MenuItem[] => {
+    const nodes = new Map<string, MenuItem & { children: MenuItem[]; parentId: string | null }>();
+    for (const r of list) nodes.set(r.id, { ...r, children: [] });
+    const roots: MenuItem[] = [];
+    for (const r of list) {
+      const node = nodes.get(r.id)!;
+      const parent = r.parentId ? nodes.get(r.parentId) : undefined;
+      if (parent && parent !== node) parent.children.push(node);
+      else roots.push(node);
+    }
+    return roots;
+  };
+
+  return { header: tree(byMenu('header')), footer: tree(byMenu('footer')) };
+}
+
+/** Flatten a composed tree back into repeater rows for storage. */
+function flattenTree(nodes: MenuItem[], menu: string, parentId: string | null = null): NavigationRow[] {
+  const rows: NavigationRow[] = [];
+  nodes.forEach((node, index) => {
+    rows.push({
+      id: node.id,
+      label: node.label,
+      url: node.url,
+      type: node.type,
+      target: node.open_in_new_tab ? 1 : 0,
+      menu,
+      parent_id: parentId,
+      position: index,
+    });
+    if (node.children?.length) {
+      rows.push(...flattenTree(node.children, menu, node.id));
+    }
+  });
+  return rows;
+}
+
 export function MenusRoute() {
   const [activeMenuKey, setActiveMenuKey] = useState<string>('header');
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -61,6 +149,13 @@ export function MenusRoute() {
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Keep the per-menu snapshot in sync so drag changes always reach Save.
+  const menuItemsRef = useRef<MenuItem[]>(menuItems);
+  useEffect(() => {
+    menuItemsRef.current = menuItems;
+    setAllMenus((prev) => (prev[activeMenuKey] === menuItems ? prev : { ...prev, [activeMenuKey]: menuItems }));
+  }, [menuItems, activeMenuKey]);
 
   // Edit / Add modal
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,45 +168,26 @@ export function MenusRoute() {
   const loadNavigation = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.request<NavigationMenuData | { data: NavigationMenuData }>(
+      const res = await apiClient.request<{ data?: { items?: Record<string, unknown>[] } } | { items?: Record<string, unknown>[] }>(
         'GET',
         '/singletons/navigation'
       );
       if (res.ok && res.data) {
-        const resData = res.data as { data?: NavigationMenuData | Record<string, MenuItem[]> } | NavigationMenuData | Record<string, MenuItem[]>;
-        const payload = (typeof resData === "object" && resData !== null && "data" in resData ? (resData as { data?: NavigationMenuData | Record<string, MenuItem[]> }).data : resData);
-        const menusRecord = (payload && typeof payload === "object" && "menus" in payload ? (payload as NavigationMenuData).menus : payload) as Record<string, MenuItem[]> | undefined;
-        const safeMenus: Record<string, MenuItem[]> = {
-          header: menusRecord?.header || [
-            { id: '1', label: 'Home', url: '/', type: 'custom' },
-            { id: '2', label: 'Blog', url: '/posts', type: 'custom' },
-            { id: '3', label: 'About Us', url: '/about', type: 'page' },
-          ],
-          footer: menusRecord?.footer || [
-            { id: '4', label: 'Privacy Policy', url: '/privacy', type: 'page' },
-            { id: '5', label: 'Terms of Service', url: '/terms', type: 'page' },
-          ],
-        };
-        setAllMenus(safeMenus);
-        setMenuItems(safeMenus[activeMenuKey] || []);
+        const payload = (res.data as { data?: { items?: Record<string, unknown>[] } }).data ?? (res.data as { items?: Record<string, unknown>[] });
+        // Storage is a FLAT repeater of rows (schema-valid); the tree is
+        // composed client-side from menu/parent_id/position.
+        const rows = Array.isArray(payload.items) ? payload.items : [];
+        // Empty singleton: seed the familiar starter structure instead of a blank editor.
+        const trees = rows.length > 0 ? composeTreesFromRows(rows) : defaultMenus();
+        setAllMenus(trees);
+        setMenuItems(trees[activeMenuKey] || []);
       } else {
-        // Fallback default structure
-        const defaultMenus: Record<string, MenuItem[]> = {
-          header: [
-            { id: '1', label: 'Home', url: '/', type: 'custom' },
-            { id: '2', label: 'Blog', url: '/posts', type: 'custom' },
-            { id: '3', label: 'About Us', url: '/about', type: 'page' },
-          ],
-          footer: [
-            { id: '4', label: 'Privacy Policy', url: '/privacy', type: 'page' },
-            { id: '5', label: 'Terms of Service', url: '/terms', type: 'page' },
-          ],
-        };
-        setAllMenus(defaultMenus);
-        setMenuItems(defaultMenus[activeMenuKey] || []);
+        setAllMenus(defaultMenus());
+        setMenuItems(defaultMenus()[activeMenuKey] || []);
       }
     } catch {
-      // Ignored
+      setAllMenus(defaultMenus());
+      setMenuItems(defaultMenus()[activeMenuKey] || []);
     } finally {
       setLoading(false);
     }
@@ -134,18 +210,22 @@ export function MenusRoute() {
 
   const handleSaveNavigation = async () => {
     setSaving(true);
-    const finalData = {
-      ...allMenus,
-      [activeMenuKey]: menuItems,
-    };
+    // Flatten both trees into the flat repeater rows the navigation schema
+    // stores (the `menus` payload shape used previously was schema-invalid
+    // and silently failed every save with a 422).
+    const headerTree = activeMenuKey === 'footer' ? (allMenus.header ?? []) : menuItemsRef.current;
+    const footerTree = activeMenuKey === 'footer' ? menuItemsRef.current : (allMenus.footer ?? []);
+    const items = [
+      ...flattenTree(headerTree, 'header'),
+      ...flattenTree(footerTree, 'footer'),
+    ];
 
     try {
       const res = await apiClient.request('PUT', '/singletons/navigation', {
         body: {
-          menus: finalData,
           // The public site endpoint (GET /api/v1/public/site) reads `items`
           // for the header navigation consumed by the static starter.
-          items: finalData.header || [],
+          items,
         },
       });
 
@@ -225,28 +305,109 @@ export function MenusRoute() {
     setMenuItems((prev) => deleteRecursive(prev));
   };
 
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    const copy = [...menuItems];
-    const temp = copy[index];
-    const prev = copy[index - 1];
-    if (temp && prev) {
-      copy[index] = prev;
-      copy[index - 1] = temp;
-      setMenuItems(copy);
+  // ---- Nested drag & drop (dnd-kit) ----
+  // The tree is dragged as flat contexts per level: reorder within a group,
+  // move across groups, or drop on a "nest" zone to make the dragged item a
+  // child of that item — mirroring the page builder's drag model.
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  /** Locate the array that directly contains `id` plus its parent item. */
+  const findContainingList = (list: MenuItem[], id: string, parent: MenuItem | null): { list: MenuItem[]; parent: MenuItem | null } | null => {
+    if (list.some((it) => it.id === id)) return { list, parent };
+    for (const it of list) {
+      if (it.children?.length) {
+        const found = findContainingList(it.children, id, it);
+        if (found) return found;
+      }
     }
+    return null;
   };
 
-  const handleMoveDown = (index: number) => {
-    if (index >= menuItems.length - 1) return;
-    const copy = [...menuItems];
-    const temp = copy[index];
-    const next = copy[index + 1];
-    if (temp && next) {
-      copy[index] = next;
-      copy[index + 1] = temp;
-      setMenuItems(copy);
+  /** True when `ancestorId` contains `id` anywhere in its subtree. */
+  const isDescendantOf = (list: MenuItem[], id: string, ancestorId: string): boolean => {
+    for (const it of list) {
+      if (it.id === ancestorId) {
+        return it.children?.some((c) => c.id === id || isDescendantOf([c], id, ancestorId)) ?? false;
+      }
+      if (it.children && isDescendantOf(it.children, id, ancestorId)) return true;
     }
+    return false;
+  };
+
+  const removeFromTree = (list: MenuItem[], id: string): { list: MenuItem[]; removed: MenuItem | null } => {
+    let removed: MenuItem | null = null;
+    const next = list.filter((it) => {
+      if (it.id === id) {
+        removed = it;
+        return false;
+      }
+      return true;
+    });
+    if (removed) return { list: next, removed };
+    for (const it of next) {
+      if (it.children?.length) {
+        const sub = removeFromTree(it.children, id);
+        if (sub.removed) return { list: next.map((x) => (x.id === it.id ? { ...x, children: sub.list } : x)), removed: sub.removed };
+      }
+    }
+    return { list: next, removed: null };
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    setMenuItems((prev) => {
+      // Drop on a nest zone: append as a child of the zone's owner.
+      if (overId.startsWith('nest:')) {
+        const ownerId = overId.slice(5);
+        if (ownerId === activeId || isDescendantOf(prev, activeId, ownerId)) return prev;
+        const { list: without, removed } = removeFromTree(prev, activeId);
+        if (!removed) return prev;
+        const attach = (list: MenuItem[]): MenuItem[] =>
+          list.map((it) => (it.id === ownerId ? { ...it, children: [...(it.children ?? []), removed] } : it));
+        return attach(without);
+      }
+
+      // Drop on an item: reorder within its list, or move across lists.
+      const source = findContainingList(prev, activeId, null);
+      const target = findContainingList(prev, overId, null);
+      if (!source || !target) return prev;
+
+      if (source.parent === target.parent) {
+        const from = source.list.findIndex((it) => it.id === activeId);
+        const to = target.list.findIndex((it) => it.id === overId);
+        const next = [...source.list];
+        const [moved] = next.splice(from, 1);
+        if (!moved) return prev;
+        next.splice(to, 0, moved);
+        // Patch the containing list back into the tree
+        if (source.parent === null) return next;
+        const patch = (list: MenuItem[]): MenuItem[] =>
+          list.map((it) => (it.id === source.parent!.id ? { ...it, children: next } : it));
+        return patch(prev);
+      }
+
+      if (isDescendantOf(prev, activeId, overId)) return prev;
+      const { list: without, removed } = removeFromTree(prev, activeId);
+      if (!removed) return prev;
+      const targetList = findContainingList(without, overId, null);
+      if (!targetList) return prev;
+      const at = targetList.list.findIndex((it) => it.id === overId);
+      const inserted = [...targetList.list];
+      inserted.splice(at, 0, removed);
+      if (targetList.parent === null) return inserted;
+      const patch = (list: MenuItem[]): MenuItem[] =>
+        list.map((it) => (it.id === targetList.parent!.id ? { ...it, children: inserted } : it));
+      return patch(prev);
+    });
   };
 
   return (
@@ -319,67 +480,13 @@ export function MenusRoute() {
               </Button>
             </div>
           ) : (
-            menuItems.map((item, index) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-2.5 rounded-md border border-border bg-surface-50 hover:bg-surface-100 transition-colors text-xs group"
-              >
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <span className="text-muted-foreground font-mono text-[10px] w-4">
-                    {index + 1}
-                  </span>
-                  <span className="font-semibold text-foreground truncate">{item.label}</span>
-                  <span className="font-mono text-muted-foreground truncate">{item.url}</span>
-                  <Badge variant="outline" className="text-[10px] capitalize py-0">
-                    {item.type}
-                  </Badge>
-                  {item.open_in_new_tab && (
-                    <Badge variant="secondary" className="text-[9px] py-0">
-                      New Tab
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    aria-label="Move item up"
-                  >
-                    <ArrowUp className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === menuItems.length - 1}
-                    className="h-6 w-6 p-0 text-muted-foreground"
-                    aria-label="Move item down"
-                  >
-                    <ArrowDown className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEditDialog(item)}
-                    className="h-6 px-2 text-[11px]"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="h-6 w-6 p-0 text-destructive"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <MenuTreeLevel items={menuItems} parentId={null} onEdit={openEditDialog} onDelete={handleDeleteItem} />
+            </DndContext>
           )}
         </CardContent>
       </Card>
@@ -459,5 +566,123 @@ export function MenusRoute() {
         </DialogContent>
       </Dialog>
     </PageContainer>
+  );
+}
+
+
+// ---- Nested drag & drop tree ----
+// Each level is its own sortable group; a drag handle (grip) reorders among
+// siblings, and a drop zone under every item accepts drops to nest as a child.
+
+function MenuTreeLevel({
+  items,
+  parentId,
+  depth = 0,
+  onEdit,
+  onDelete,
+}: {
+  items: MenuItem[];
+  parentId: string | null;
+  depth?: number;
+  onEdit: (item: MenuItem) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <SortableContext items={items.map((it) => it.id)} strategy={verticalListSortingStrategy}>
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <MenuTreeItem key={item.id} item={item} depth={depth} onEdit={onEdit} onDelete={onDelete} />
+        ))}
+        {items.length === 0 && parentId !== null && <NestDropZone ownerId={parentId} label="Drop here to nest" />}
+      </div>
+    </SortableContext>
+  );
+}
+
+function MenuTreeItem({
+  item,
+  depth = 0,
+  onEdit,
+  onDelete,
+}: {
+  item: MenuItem;
+  depth?: number;
+  onEdit: (item: MenuItem) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { isDragging } = useSortableItemState();
+  const hasChildren = Boolean(item.children?.length);
+
+  return (
+    <SortableItem id={item.id} className={cn(isDragging && 'rounded-md')}>
+      <div
+        className="p-2.5 rounded-md border border-border bg-surface-50 hover:bg-surface-100 transition-colors text-xs group"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <SortableDragHandle label={`Drag ${item.label}`} />
+            <span className="font-semibold text-foreground truncate">{item.label}</span>
+            <span className="font-mono text-muted-foreground truncate">{item.url}</span>
+            <Badge variant="outline" className="text-[10px] capitalize py-0">
+              {item.type}
+            </Badge>
+            {item.open_in_new_tab && (
+              <Badge variant="secondary" className="text-[9px] py-0">
+                New Tab
+              </Badge>
+            )}
+            {hasChildren && (
+              <Badge variant="secondary" className="text-[9px] py-0">
+                {item.children?.length} sub
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onEdit(item)}
+              className="h-6 px-2 text-[11px]"
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onDelete(item.id)}
+              className="h-6 w-6 p-0 text-destructive"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+
+        {hasChildren && (
+          <div className="mt-1.5 ml-5 border-l border-dashed border-border pl-3">
+            <MenuTreeLevel items={item.children ?? []} parentId={item.id} depth={depth + 1} onEdit={onEdit} onDelete={onDelete} />
+          </div>
+        )}
+        <NestDropZone ownerId={item.id} />
+      </div>
+    </SortableItem>
+  );
+}
+
+/** Drop target under every item: dropping here nests the item as a child. */
+function NestDropZone({ ownerId, label }: { ownerId: string; label?: string }) {
+  const { isOver, setNodeRef, active } = useDroppable({ id: `nest:${ownerId}` });
+  if (!active) return null;
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'mt-1 rounded border border-dashed text-[10px] text-center py-1 flex items-center justify-center gap-1',
+        isOver ? 'border-primary bg-primary/10 text-primary' : 'border-border/60 text-muted-foreground/60',
+      )}
+    >
+      <CornerDownRight className="h-3 w-3" />
+      {label ?? 'Drop to nest under this item'}
+    </div>
   );
 }

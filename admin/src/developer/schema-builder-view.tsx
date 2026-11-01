@@ -29,6 +29,9 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  SortableList,
+  SortableItem,
+  SortableDragHandle,
 } from '@bs/ui';
 import {
   Database,
@@ -36,9 +39,7 @@ import {
   Trash2,
   Eye,
   CheckCircle2,
-  ArrowUp,
-  ArrowDown,
-  AlertTriangle,
+      AlertTriangle,
   Tags,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -353,15 +354,11 @@ export const SchemaBuilderView: FC = () => {
     setDirty(true);
   };
 
-  const handleMoveField = (index: number, direction: 'up' | 'down') => {
+  const handleReorderFields = (ids: string[]) => {
     if (!currentSchema) return;
-    const target = direction === 'up' ? index - 1 : index + 1;
-    if (target < 0 || target >= currentSchema.fields.length) return;
-
-    const fields = [...currentSchema.fields];
-    const [moved] = fields.splice(index, 1);
-    if (!moved) return;
-    fields.splice(target, 0, moved);
+    const byName = new Map(currentSchema.fields.map((f) => [f.name, f]));
+    const fields = ids.map((id) => byName.get(id)).filter((f): f is NonNullable<typeof f> => Boolean(f));
+    if (fields.length !== currentSchema.fields.length) return;
     setCurrentSchema({ ...currentSchema, fields });
     setDirty(true);
   };
@@ -670,33 +667,19 @@ export const SchemaBuilderView: FC = () => {
                           description="Add typed fields to extend this collection beyond its built-in title and slug."
                         />
                       ) : (
-                        <div className="divide-y divide-border rounded-md border border-border">
-                          {currentSchema.fields.map((field, idx) => (
-                            <div
+                        <SortableList
+                          className="divide-y divide-border rounded-md border border-border"
+                          items={currentSchema.fields.map((f) => f.name)}
+                          onReorder={handleReorderFields}
+                        >
+                          {currentSchema.fields.map((field) => (
+                            <SortableItem
                               key={field.name}
-                              className="p-3 flex items-center justify-between gap-3 text-13 hover:bg-muted/30"
+                              id={field.name}
+                              className="p-3 flex items-center justify-between gap-3 text-13 hover:bg-muted/30 bg-card"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="flex flex-col gap-0.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5"
-                                    disabled={idx === 0}
-                                    onClick={() => handleMoveField(idx, 'up')}
-                                  >
-                                    <ArrowUp className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5"
-                                    disabled={idx === currentSchema.fields.length - 1}
-                                    onClick={() => handleMoveField(idx, 'down')}
-                                  >
-                                    <ArrowDown className="h-3 w-3" />
-                                  </Button>
-                                </div>
+                                <SortableDragHandle label={`Reorder ${field.label}`} />
 
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -726,13 +709,13 @@ export const SchemaBuilderView: FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-destructive hover:bg-destructive/10"
-                                onClick={() => handleRemoveField(idx)}
+                                onClick={() => handleRemoveField(currentSchema.fields.findIndex((f) => f.name === field.name))}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                            </div>
+                            </SortableItem>
                           ))}
-                        </div>
+                        </SortableList>
                       )}
                     </div>
                   )}

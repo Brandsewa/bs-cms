@@ -46,6 +46,13 @@ export {
 } from './components/select';
 export { Separator } from './components/separator';
 export { Skeleton } from './components/skeleton';
+export {
+  SortableList,
+  SortableItem,
+  SortableDragHandle,
+  useSortableItemState,
+  type SortableListProps,
+} from './components/dnd-sortable';
 export { Slider } from './components/slider';
 export type { SliderProps } from './components/slider';
 export { Spinner } from './components/spinner';
