@@ -201,6 +201,7 @@ final class MigratorRollbackTest extends TestCase
         $preview = $migrator->rollback(1, true);
         $this->assertSame([
             '[DRY-RUN] rollback core:202610310012_replace_pages_blocks_with_puck_content',
+            '[DRY-RUN] rollback core:202610310011_create_plugins_and_forms_tables',
             '[DRY-RUN] rollback core:202610220010_update_pages_blocks_field_type_to_blocks',
             '[DRY-RUN] rollback core:202610190009_create_oauth_and_pending_changes_tables',
             '[DRY-RUN] rollback core:202610190008_create_publishing_pipeline_and_discoverability_tables',
@@ -213,7 +214,7 @@ final class MigratorRollbackTest extends TestCase
             '[DRY-RUN] rollback core:202610170001_create_core_tables',
         ], $preview);
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(11, $migrator->getAppliedMigrations());
+        $this->assertCount(12, $migrator->getAppliedMigrations());
     }
 
     public function testRollbackWithNothingAppliedReturnsEmptyList(): void
@@ -281,7 +282,7 @@ final class MigratorRollbackTest extends TestCase
         }
 
         $this->assertContains('rb_settings', $this->tables());
-        $this->assertCount(11, $migrator->getAppliedMigrations());
+        $this->assertCount(12, $migrator->getAppliedMigrations());
     }
 
 
@@ -380,7 +381,8 @@ final class MigratorRollbackTest extends TestCase
         // Page A: hero + text converted with deterministic ids.
         $pageA = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPA'"), true);
         $this->assertArrayNotHasKey('blocks', $pageA);
-        $this->assertSame([
+        // MySQL normalises JSON object key order — compare canonically.
+        $this->assertEqualsCanonicalizing([
             'content' => [
                 ['type' => 'Hero', 'props' => ['id' => 'Hero-mig1', 'heading' => 'Welcome', 'text' => 'Hello', 'ctaLabel' => 'Go', 'ctaUrl' => '/go']],
                 ['type' => 'RichText', 'props' => ['id' => 'RichText-mig2', 'html' => '<p>Body</p>']],
@@ -390,7 +392,7 @@ final class MigratorRollbackTest extends TestCase
 
         // Page B: admin-style {type, data} callout + faq converted, unknown dropped.
         $pageB = json_decode($scalar("SELECT `data` FROM `{$pages}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FPB'"), true);
-        $this->assertSame([
+        $this->assertEqualsCanonicalizing([
             ['type' => 'Callout', 'props' => ['id' => 'Callout-mig1', 'variant' => 'tip', 'title' => 'Tip', 'content' => 'Useful']],
             ['type' => 'Faq', 'props' => ['id' => 'Faq-mig2', 'items' => [['question' => 'Q?', 'answer' => 'A.']]]],
         ], $pageB['content']['content']);
@@ -404,7 +406,7 @@ final class MigratorRollbackTest extends TestCase
         // Snapshot converted the same way.
         $snapshot = json_decode($scalar("SELECT `snapshot` FROM `{$versions}` WHERE `id` = '01ARZ3NDEKTSV4RRFFQ69G5FC2'"), true);
         $this->assertArrayNotHasKey('blocks', $snapshot['data']);
-        $this->assertSame(
+        $this->assertEqualsCanonicalizing(
             [['type' => 'RichText', 'props' => ['id' => 'RichText-mig1', 'html' => '<p>v1</p>']]],
             $snapshot['data']['content']['content']
         );

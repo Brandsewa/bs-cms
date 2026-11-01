@@ -83,11 +83,13 @@ beforeAll(() => {
 }, 240000);
 
 describe('CSP audit over built dist', () => {
-  const htmlFiles = walkHtml(distDir);
+  // Lazy: dist does not exist until beforeAll builds the fixture output
+  // (and CI's node job never pre-builds it).
+  const htmlFiles = () => walkHtml(distDir);
 
   it('every page emits a meta CSP with script-src and style-src', () => {
-    expect(htmlFiles.length).toBeGreaterThan(0);
-    for (const file of htmlFiles) {
+    expect(htmlFiles().length).toBeGreaterThan(0);
+    for (const file of htmlFiles()) {
       const csp = getMetaCsp(fs.readFileSync(file, 'utf8'));
       expect(csp, path.relative(distDir, file)).toMatch(/script-src 'self'/);
       expect(csp, path.relative(distDir, file)).toMatch(/style-src 'self' 'unsafe-inline'/);
@@ -96,7 +98,7 @@ describe('CSP audit over built dist', () => {
   });
 
   it('every inline executable script is covered by a script-src hash', () => {
-    for (const file of htmlFiles) {
+    for (const file of htmlFiles()) {
       const html = fs.readFileSync(file, 'utf8');
       const allowed = scriptHashes(getMetaCsp(html));
       for (const script of inlineExecutableScripts(html)) {
@@ -111,7 +113,7 @@ describe('CSP audit over built dist', () => {
   });
 
   it('all script and stylesheet references are same-origin', () => {
-    for (const file of htmlFiles) {
+    for (const file of htmlFiles()) {
       const html = fs.readFileSync(file, 'utf8');
       const srcs = [...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]);
       const links = [...html.matchAll(/<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"/g)].map(
