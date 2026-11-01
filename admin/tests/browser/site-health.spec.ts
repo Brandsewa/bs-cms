@@ -93,7 +93,7 @@ test.describe('Site Health Admin Screen', () => {
     await page.goto(`${ADMIN_URL}/system/health`);
     await page.locator('table[aria-label="Site health issues table"] tbody tr').first().click();
 
-    const drawer = page.locator('[data-slot="sheet-content"]');
+    const drawer = page.getByRole('dialog');
     await expect(drawer).toBeVisible();
     await expect(drawer.getByText('Recommended fix')).toBeVisible();
     await expect(drawer.getByRole('button', { name: /Dismiss finding/i })).toBeVisible();
@@ -117,16 +117,16 @@ test.describe('Site Health Admin Screen', () => {
   test('filters issues by severity, category, and search query', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/system/health`);
 
-    // Search filter
-    const searchInput = page.getByPlaceholder('Search issues…');
+    // Search filter (DataTable's built-in search)
+    const searchInput = page.getByPlaceholder('Search…');
     await searchInput.fill('Duplicate meta description');
     await expect(page.getByText('Duplicate meta description shared by multiple').first()).toBeVisible();
-    await expect(page.getByText('seo.og.image.missing')).toBeHidden();
+    await expect(page.getByText('seo.og.image.missing')).toHaveCount(0);
 
     // Clear search
     await searchInput.fill('');
 
-    // Severity tab filter
+    // Severity status tabs
     const infoTab = page.getByRole('tab', { name: /Info/i });
     await infoTab.click();
     await expect(page.getByText('geo.summary.missing').first()).toBeVisible();
@@ -235,6 +235,7 @@ test.describe('Site Health Admin Screen', () => {
     // At 390px the DataTable switches to its responsive card layout — no
     // <table> element. Assert the issue cards render instead.
     await page.waitForSelector('[data-testid="run-health-scan-btn"]', { timeout: 15000 });
-    await expect(page.getByText('seo.description.missing').first()).toBeVisible({ timeout: 20000 });
+    // The mobile card layout shows each issue as a card with its entity title.
+    await expect(page.getByText('Spring Collection Showcase').first()).toBeVisible({ timeout: 20000 });
   });
 });
