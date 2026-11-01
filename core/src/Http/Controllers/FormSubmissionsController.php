@@ -7,6 +7,7 @@ namespace BsCms\Http\Controllers;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Plugins\ContactFormPlugin;
+use BsCms\Plugins\PluginManager;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -14,12 +15,27 @@ final class FormSubmissionsController extends BaseController
 {
     public function __construct(
         private readonly ContactFormPlugin $contactFormPlugin,
+        private readonly PluginManager $pluginManager,
         private readonly Authorizer $authorizer
     ) {
     }
 
+    private function requirePlugin(): ?ResponseInterface
+    {
+        if (!$this->pluginManager->isPluginEnabled(ContactFormPlugin::HANDLE)) {
+            return $this->problem(404, 'Not Found', 'The Contact Form plugin is not installed or is disabled. Install it from the Marketplace.');
+        }
+        return null;
+    }
+
+
     public function list(ServerRequestInterface $request): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $permError = $this->checkAccess($request, 'read');
         if ($permError !== null) {
             return $permError;
@@ -39,6 +55,11 @@ final class FormSubmissionsController extends BaseController
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $permError = $this->checkAccess($request, 'read');
         if ($permError !== null) {
             return $permError;
@@ -59,6 +80,11 @@ final class FormSubmissionsController extends BaseController
      */
     public function updateStatus(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $permError = $this->checkAccess($request, 'update');
         if ($permError !== null) {
             return $permError;
@@ -86,6 +112,11 @@ final class FormSubmissionsController extends BaseController
      */
     public function delete(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $permError = $this->checkAccess($request, 'delete');
         if ($permError !== null) {
             return $permError;

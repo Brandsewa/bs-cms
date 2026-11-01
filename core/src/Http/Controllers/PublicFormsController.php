@@ -5,15 +5,30 @@ declare(strict_types=1);
 namespace BsCms\Http\Controllers;
 
 use BsCms\Plugins\ContactFormPlugin;
+use BsCms\Plugins\PluginManager;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 final class PublicFormsController extends BaseController
 {
     public function __construct(
-        private readonly ContactFormPlugin $contactFormPlugin
+        private readonly ContactFormPlugin $contactFormPlugin,
+        private readonly PluginManager $pluginManager
     ) {
     }
+
+    /**
+     * Public surface: answer 404 (not an auth error) when the plugin is not
+     * installed or disabled, so uninstalled plugins leak nothing.
+     */
+    private function requirePlugin(): ?ResponseInterface
+    {
+        if (!$this->pluginManager->isPluginEnabled(ContactFormPlugin::HANDLE)) {
+            return $this->problem(404, 'Not Found', 'Not Found.');
+        }
+        return null;
+    }
+
 
     /**
      * Get public form schema for rendering.
@@ -22,6 +37,11 @@ final class PublicFormsController extends BaseController
      */
     public function get(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $form = $this->contactFormPlugin->getForm($handle);
 
@@ -55,6 +75,11 @@ final class PublicFormsController extends BaseController
      */
     public function submit(ServerRequestInterface $request, array $args = []): ResponseInterface
     {
+        $pluginError = $this->requirePlugin();
+        if ($pluginError !== null) {
+            return $pluginError;
+        }
+
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $body = $this->getJsonBody($request);
 

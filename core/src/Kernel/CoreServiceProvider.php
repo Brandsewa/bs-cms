@@ -885,6 +885,7 @@ final class CoreServiceProvider implements ServiceProvider
         $container->singleton(\BsCms\Http\Controllers\FormsController::class, function (Container $c): \BsCms\Http\Controllers\FormsController {
             return new \BsCms\Http\Controllers\FormsController(
                 $c->get(\BsCms\Plugins\ContactFormPlugin::class),
+                $c->get(\BsCms\Plugins\PluginManager::class),
                 $c->get(Authorizer::class)
             );
         });
@@ -892,13 +893,15 @@ final class CoreServiceProvider implements ServiceProvider
         $container->singleton(\BsCms\Http\Controllers\FormSubmissionsController::class, function (Container $c): \BsCms\Http\Controllers\FormSubmissionsController {
             return new \BsCms\Http\Controllers\FormSubmissionsController(
                 $c->get(\BsCms\Plugins\ContactFormPlugin::class),
+                $c->get(\BsCms\Plugins\PluginManager::class),
                 $c->get(Authorizer::class)
             );
         });
 
         $container->singleton(\BsCms\Http\Controllers\PublicFormsController::class, function (Container $c): \BsCms\Http\Controllers\PublicFormsController {
             return new \BsCms\Http\Controllers\PublicFormsController(
-                $c->get(\BsCms\Plugins\ContactFormPlugin::class)
+                $c->get(\BsCms\Plugins\ContactFormPlugin::class),
+                $c->get(\BsCms\Plugins\PluginManager::class)
             );
         });
         // MARKETPLACE & PLUGINS END

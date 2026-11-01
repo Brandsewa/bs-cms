@@ -234,7 +234,15 @@ final class PluginManagerAndFormsTest extends TestCase
             ],
         ]);
 
-        $controller = new PublicFormsController($plugin);
+        // Plugin gating: the public surface answers 404 until the plugin is
+        // installed AND enabled from the marketplace.
+        $manager = new PluginManager($this->connection, $plugin);
+        $controller = new PublicFormsController($plugin, $manager);
+        $lockedRequest = new ServerRequest('GET', '/api/v1/public/forms/feedback');
+        $lockedResponse = $controller->get($lockedRequest, ['handle' => 'feedback']);
+        $this->assertSame(404, $lockedResponse->getStatusCode());
+
+        $manager->install(ContactFormPlugin::HANDLE);
 
         // GET public schema
         $getRequest = new ServerRequest('GET', '/api/v1/public/forms/feedback');
