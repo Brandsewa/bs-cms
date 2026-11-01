@@ -17,6 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
   Spinner,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   problemToast,
   successToast,
 } from '@bs/ui';
@@ -212,6 +216,7 @@ export const BrandingView: FC = () => {
     </div>
   );
 
+  const [brandingTab, setBrandingTab] = useState('general');
   const themeRows = themeTab === 'light' ? THEME_ROWS.rows : DARK_ROWS.rows;
 
   const p = state.color_primary || '#1E3D2B';
@@ -249,6 +254,16 @@ export const BrandingView: FC = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
+            <Tabs value={brandingTab} onValueChange={setBrandingTab}>
+              <TabsList className="h-9 w-full flex-wrap">
+                <TabsTrigger value="general" className="text-xs px-4">General</TabsTrigger>
+                <TabsTrigger value="logo" className="text-xs px-4">Logo</TabsTrigger>
+                <TabsTrigger value="typography" className="text-xs px-4">Typography</TabsTrigger>
+                <TabsTrigger value="colours" className="text-xs px-4">Colours</TabsTrigger>
+                <TabsTrigger value="border" className="text-xs px-4">Border &amp; Radius</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="general">
 
             {/* General */}
             <Card>
@@ -274,8 +289,9 @@ export const BrandingView: FC = () => {
                 </div>
               </CardContent>
             </Card>
+            </TabsContent>
 
-            {/* Logo */}
+            <TabsContent value="logo">
             <Card>
               <CardHeader>
                 <CardTitle>Logo</CardTitle>
@@ -309,8 +325,9 @@ export const BrandingView: FC = () => {
                 </div>
               </CardContent>
             </Card>
+            </TabsContent>
 
-            {/* Brand colors — light/dark tabs */}
+            <TabsContent value="colours">
             <Card>
               <CardHeader>
                 <CardTitle>Brand Colors</CardTitle>
@@ -342,8 +359,9 @@ export const BrandingView: FC = () => {
                 ))}
               </CardContent>
             </Card>
+            </TabsContent>
 
-            {/* Border & radius */}
+            <TabsContent value="border">
             <Card>
               <CardHeader>
                 <CardTitle>Border &amp; Radius</CardTitle>
@@ -379,8 +397,9 @@ export const BrandingView: FC = () => {
                 ))}
               </CardContent>
             </Card>
+            </TabsContent>
 
-            {/* Typography */}
+            <TabsContent value="typography">
             <Card>
               <CardHeader>
                 <CardTitle>Typography</CardTitle>
@@ -443,6 +462,8 @@ export const BrandingView: FC = () => {
                 </div>
               </CardContent>
             </Card>
+            </TabsContent>
+          </Tabs>
           </div>
 
           {/* Live preview */}

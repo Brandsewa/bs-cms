@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardHeader,
   Input,
   Label,
   Textarea,
@@ -16,13 +17,13 @@ import {
   errorToast,
   successToast,
   problemToast,
+  SlugInput,
 } from '@bs/ui';
-import { ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Paintbrush } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
-import { PuckContentPreview } from './puck-page-editor';
-import { extractEntryContent, staticPreviewOrigin } from './puck-content';
+import { staticPreviewOrigin } from './puck-content';
 import {
   PublishPanel,
   SeoPanel,
@@ -46,6 +47,7 @@ export function EntryEditorRoute({
   entryId,
 }: EntryEditorRouteProps) {
   const isNew = !entryId || entryId === 'new';
+  const isPage = collectionHandle === 'pages';
   const navigate = useNavigate();
   const { session, hasPermission } = useSession();
 
@@ -65,10 +67,6 @@ export function EntryEditorRoute({
   const [slug, setSlug] = useState('');
   const [status, setStatus] = useState<'draft' | 'published' | 'in_review' | 'scheduled' | 'archived'>('draft');
   const [bodyContent, setBodyContent] = useState<unknown>(null);
-  // Puck page content is READ-ONLY here: the full-screen designer route owns
-  // editing/saving it, so this form can never clobber designer saves with a
-  // stale copy. The preview reflects the last saved version.
-  const [savedContent, setSavedContent] = useState<unknown>(null);
   const [customizeConfirmOpen, setCustomizeConfirmOpen] = useState(false);
   const [excerpt, setExcerpt] = useState('');
   const [metaTitle, setMetaTitle] = useState('');
@@ -170,10 +168,7 @@ export function EntryEditorRoute({
         setSlug(item.slug || '');
         setStatus((item.status as 'draft' | 'published' | 'in_review' | 'scheduled' | 'archived') || 'draft');
         setBodyContent(item.body || itemData.body || null);
-        // Puck page content is loaded read-only for the preview; the
-        // full-screen designer route owns editing and saving it.
-        const rawContent = extractEntryContent(item, itemData);
-        setSavedContent(rawContent);
+
         const itemDataSeo = itemData.seo as { title?: string; description?: string } | undefined;
         setExcerpt(String(item.excerpt || itemData.excerpt || ''));
         setMetaTitle(String(item.seo?.title || itemDataSeo?.title || ''));
@@ -675,27 +670,46 @@ export function EntryEditorRoute({
                 />
               </div>
 
-              {/* Content Editor: read-only page preview + full-screen builder for Pages, Tiptap for Posts */}
+              {/* Pages: editable page URL + builder hand-off (no preview) */}
               {collectionHandle === 'pages' ? (
                 <div className="space-y-1.5 pt-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
-                    Page Content
+                  <Label htmlFor="page-url-input" className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter">
+                    Page URL
                   </Label>
-                  <PuckContentPreview
-                    value={savedContent}
-                    canCustomize={!isNew}
-                    onCustomize={() => {
-                      if (isDirty) {
-                        // Form edits would be lost by navigating away — confirm first.
-                        setCustomizeConfirmOpen(true);
-                        return;
-                      }
-                      navigate({
-                        to: '/design/$collection/$id',
-                        params: { collection: collectionHandle, id: entryId! },
-                      });
-                    }}
-                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-13 text-muted-foreground font-mono shrink-0">/{collectionHandle}/</span>
+                    <SlugInput
+                      value={slug}
+                      onChange={setSlug}
+                      source={title}
+                      className="flex-1 text-13 font-mono"
+                      aria-label="Page URL"
+                    />
+                  </div>
+                  <p className="text-11 text-muted-foreground">
+                    Edit the page content in the full-screen visual builder.
+                  </p>
+                  <div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!canSave}
+                      onClick={() => {
+                        if (isDirty) {
+                          // Form edits would be lost by navigating away — confirm first.
+                          setCustomizeConfirmOpen(true);
+                          return;
+                        }
+                        navigate({
+                          to: '/design/$collection/$id',
+                          params: { collection: collectionHandle, id: entryId! },
+                        });
+                      }}
+                    >
+                      <Paintbrush className="mr-1.5 h-3.5 w-3.5" />
+                      Customize page
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1.5 pt-2">
@@ -748,6 +762,57 @@ export function EntryEditorRoute({
               )}
             </CardContent>
           </Card>
+
+          {/* Pages: SEO card in the main column — slug is edited above, the
+             builder owns the content, so only meta + SERP live here. */}
+          {isPage && (
+            <Card className="border-border bg-card">
+              <CardHeader className="p-4 pb-2 border-b border-border">
+                <span className="text-xs font-semibold uppercase tracking-wider text-foreground-lighter flex items-center gap-1.5">
+                  SEO
+                </span>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="seo-meta-title" className="text-xs font-medium text-foreground-light">Meta Title</Label>
+                    <span className="text-[10px] text-muted-foreground font-mono">{metaTitle.length}/60</span>
+                  </div>
+                  <Input
+                    id="seo-meta-title"
+                    value={metaTitle}
+                    onChange={(e) => setMetaTitle(e.target.value)}
+                    placeholder={title}
+                    className="text-xs"
+                    maxLength={60}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="seo-meta-desc" className="text-xs font-medium text-foreground-light">Meta Description</Label>
+                    <span className="text-[10px] text-muted-foreground font-mono">{metaDescription.length}/160</span>
+                  </div>
+                  <Textarea
+                    id="seo-meta-desc"
+                    value={metaDescription}
+                    onChange={(e) => setMetaDescription(e.target.value)}
+                    placeholder="Search snippet description..."
+                    className="text-xs resize-none"
+                    rows={3}
+                    maxLength={160}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-foreground-light">SERP Snippet Preview</Label>
+                  <div className="rounded-md border border-border p-3 space-y-1">
+                    <p className="text-12 text-success-text">{`https://example.com/${collectionHandle}/${slug || '…'}`}</p>
+                    <p className="text-13 font-medium text-primary">{metaTitle || title}</p>
+                    <p className="text-12 text-muted-foreground">{metaDescription || 'No description preview available.'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column: Publishing, Slug, Taxonomies, Revisions, Author, Featured Image */}
@@ -810,16 +875,18 @@ export function EntryEditorRoute({
             onRestoreVersion={handleRestoreVersion}
           />
 
-          <SeoPanel
-            slug={slug}
-            onSlugChange={setSlug}
-            title={title}
-            metaTitle={metaTitle}
-            onMetaTitleChange={setMetaTitle}
-            metaDescription={metaDescription}
-            onMetaDescriptionChange={setMetaDescription}
-            urlPrefix={`https://example.com/${collectionHandle}/`}
-          />
+          {!isPage && (
+            <SeoPanel
+              slug={slug}
+              onSlugChange={setSlug}
+              title={title}
+              metaTitle={metaTitle}
+              onMetaTitleChange={setMetaTitle}
+              metaDescription={metaDescription}
+              onMetaDescriptionChange={setMetaDescription}
+              urlPrefix={`https://example.com/${collectionHandle}/`}
+            />
+          )}
         </div>
       </div>
 
