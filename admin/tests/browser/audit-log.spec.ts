@@ -70,7 +70,7 @@ test.describe('Audit Log Admin Screen', () => {
 
     // Verify page title and header
     await expect(page.locator('h1')).toContainText('Audit Log');
-    await expect(page.getByText('Immutable, append-only record')).toBeVisible();
+    await expect(page.getByText('Append-only record of administrative')).toBeVisible();
 
     // Verify DataTable rendered with items
     await expect(page.getByRole('table')).toBeVisible();

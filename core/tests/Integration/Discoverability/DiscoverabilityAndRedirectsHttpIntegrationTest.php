@@ -974,7 +974,7 @@ final class DiscoverabilityAndRedirectsHttpIntegrationTest extends TestCase
         $report = json_decode((string) $resHealth->getBody(), true);
 
         // Key set assertion for report
-        $expectedReportKeys = ['issues', 'rules_checked', 'scanned_at', 'summary'];
+        $expectedReportKeys = ['issues', 'dismissed_count', 'dismissed_keys', 'rules_checked', 'scanned_at', 'summary'];
         sort($expectedReportKeys);
         $actualReportKeys = array_keys($report);
         sort($actualReportKeys);
