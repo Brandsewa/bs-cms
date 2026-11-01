@@ -117,7 +117,9 @@ test.describe('Site Health Admin Screen', () => {
   test('filters issues by severity, category, and search query', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/system/health`);
 
-    // Search filter (DataTable's built-in search)
+    // Search filter (DataTable's built-in search). Wait for rows so the
+    // fill lands after the table finished mounting.
+    await page.waitForSelector('table[aria-label="Site health issues table"] tbody tr');
     const searchInput = page.getByPlaceholder('Search…');
     await searchInput.fill('Duplicate meta description');
     await expect(page.getByText('Duplicate meta description shared by multiple').first()).toBeVisible();
