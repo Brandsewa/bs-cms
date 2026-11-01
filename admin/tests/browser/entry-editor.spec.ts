@@ -438,17 +438,17 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
     });
   });
 
-  test('renders the saved page preview and keeps the entry form hands off the content field', async ({ page }) => {
+  test('keeps the entry form hands off the content field', async ({ page }) => {
     await page.goto(`${ADMIN_URL}/entries/pages/01M5E0583S0DPAGES00000001`);
 
     await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
 
-    // The entry editor shows a read-only preview of the saved content plus a
-    // Customize action; the interactive editor lives on the designer route.
-    const preview = page.locator('[data-testid="puck-content-preview"]');
-    await expect(preview).toBeVisible();
-    await expect(preview.locator('.bs-hero__heading')).toHaveText('Puck Hero Heading');
-    await expect(preview.getByTestId('puck-customize-button')).toBeVisible();
+    // The entry editor renders Title, editable Page URL, the Customize
+    // hand-off and the SEO card — no page content preview.
+    await expect(page.getByText('Page URL')).toBeVisible();
+    await expect(page.getByTestId('puck-customize-button')).toBeVisible();
+    await expect(page.getByText('Meta Title')).toBeVisible();
+    await expect(page.getByText('SERP Snippet Preview')).toBeVisible();
 
     // Saving the entry form must NOT send `content` — the designer route owns
     // that field, so the form can never clobber designer saves with stale data.
@@ -481,7 +481,7 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
     await expect(page.getByRole('heading', { name: /Edit Page/i })).toBeVisible();
   });
 
-  test('new page shows the empty state and the create payload carries no content field', async ({ page }) => {
+  test('new page disables Customize and the create payload carries no content field', async ({ page }) => {
     await page.route('**/api/v1/collections/pages/entries', async (route) => {
       if (route.request().method() === 'POST') {
         capturedPagePayload = JSON.parse(route.request().postData() || '{}');
@@ -495,7 +495,6 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
 
     await page.goto(`${ADMIN_URL}/entries/pages/new`);
     await expect(page.getByRole('heading', { name: /Create Page/i })).toBeVisible();
-    await expect(page.locator('[data-testid="puck-preview-empty"]')).toBeVisible();
     await expect(page.getByTestId('puck-customize-button')).toBeDisabled();
 
     await page.locator('#entry-title-input').fill('Fresh Page');

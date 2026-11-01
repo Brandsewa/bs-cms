@@ -693,7 +693,8 @@ export function EntryEditorRoute({
                     <Button
                       type="button"
                       size="sm"
-                      disabled={!canSave}
+                      disabled={!canSave || isNew}
+                      data-testid="puck-customize-button"
                       onClick={() => {
                         if (isDirty) {
                           // Form edits would be lost by navigating away — confirm first.
