@@ -380,7 +380,7 @@ export function AuditLogView() {
         onRefresh={fetchAuditLogs}
         onRowOpen={handleOpenRow}
         state={tableState}
-        onStateChange={setTableState}
+        onStateChange={(next) => setTableState((prev) => ({ ...prev, ...next }))}
         filters={{
           defs: filterDefs,
           active: activeFilters,

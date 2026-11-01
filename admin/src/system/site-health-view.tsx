@@ -439,7 +439,7 @@ export const SiteHealthView: FC = () => {
         onRefresh={fetchHealth}
         onRowOpen={(row) => setDetail(row)}
         state={tableState}
-        onStateChange={setTableState}
+        onStateChange={(next) => setTableState((prev) => ({ ...prev, ...next }))}
         statusTabs={{ tabs: statusTabs, active: tableState.statusTab ?? 'all', onChange: (id) => setTableState((s) => ({ ...s, statusTab: id })) }}
         bulkActions={bulkActions}
         emptyState={{
