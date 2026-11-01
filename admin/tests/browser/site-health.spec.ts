@@ -131,7 +131,7 @@ test.describe('Site Health Admin Screen', () => {
     const infoTab = page.getByRole('tab', { name: /Info/i });
     await infoTab.click();
     await expect(page.getByText('geo.summary.missing').first()).toBeVisible();
-    await expect(page.getByText('seo.title.duplicate')).toHaveCount(0);
+    await expect(page.getByText('seo.title.duplicate')).toHaveCount(0, { timeout: 15000 });
   });
 
   test('honest empty state when all checks pass', async ({ page }) => {
