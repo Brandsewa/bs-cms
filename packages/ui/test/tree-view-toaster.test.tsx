@@ -123,6 +123,9 @@ describe('TreeView', () => {
 
 describe('Toaster', () => {
   afterEach(() => {
+    // Pending auto-close timers fire after teardown and surface as unhandled
+    // errors, failing the whole file — dismiss all toasts first.
+    toast.dismiss();
     vi.useRealTimers();
   });
 
