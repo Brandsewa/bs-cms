@@ -72,7 +72,7 @@ export function PageHeader({
       <div className="flex items-start gap-3 min-w-0">
         {icon ? <div className="mt-0.5 shrink-0">{icon}</div> : null}
         <div className="min-w-0">
-          <h1 className="text-base font-semibold leading-tight text-foreground">{title}</h1>
+          <h1 className="text-lg font-semibold tracking-tight leading-tight text-foreground">{title}</h1>
           {description ? (
             <p className="mt-1 max-w-2xl text-13 leading-normal text-foreground-lighter">{description}</p>
           ) : null}
@@ -243,7 +243,7 @@ const CardTitle = forwardRef<HTMLHeadingElement, ComponentPropsWithoutRef<'h3'> 
     return (
       <Tag
         ref={ref}
-        className={cn('text-sm font-semibold leading-tight text-foreground', className)}
+        className={cn('text-15 font-semibold leading-tight text-foreground', className)}
         {...props}
       />
     );

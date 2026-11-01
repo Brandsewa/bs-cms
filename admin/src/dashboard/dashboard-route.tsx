@@ -122,13 +122,11 @@ export function DashboardRoute() {
           label="Drafts in progress"
           value={loading ? '-' : String(data.counts?.drafts ?? 0)}
           hint="Unpublished drafts across collections"
-          loading={loading}
         />
         <MetricCard
           label="Scheduled for release"
           value={loading ? '-' : String(data.counts?.scheduled ?? 0)}
           hint="Automated upcoming publications"
-          loading={loading}
         />
         {canReviewAi ? (
           <MetricCard
@@ -163,13 +161,12 @@ export function DashboardRoute() {
       <div className="grid gap-6 lg:grid-cols-3 min-w-0">
         {/* Left Column: Recent Edits (spans 2 cols on lg) */}
         <div className="space-y-6 lg:col-span-2 min-w-0">
-          <RecentEditsWidget edits={data.recent_edits ?? []} loading={loading} />
+          <RecentEditsWidget edits={data.recent_edits ?? []} />
           <ContentQueueWidget
             drafts={data.drafts_waiting ?? []}
             scheduled={data.scheduled_items ?? []}
             pendingAiChanges={data.pending_ai_changes ?? []}
             canReviewAi={canReviewAi}
-            loading={loading}
           />
         </div>
 
@@ -180,7 +177,6 @@ export function DashboardRoute() {
               siteHealth={data.site_health}
               systemStatus={data.system_status}
               activity={data.recent_activity ?? []}
-              loading={loading}
             />
           )}
           <ShortcutsCard />

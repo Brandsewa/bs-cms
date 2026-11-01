@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent, StatusBadge, RelativeTime, Skeleton } from '@bs/ui';
+import { Card, CardHeader, CardTitle, CardContent, StatusBadge, RelativeTime } from '@bs/ui';
 import { FileClock, Calendar, Sparkles, ArrowRight } from 'lucide-react';
 import { parseApiUtcDate } from '../lib/datetime';
 
@@ -31,41 +31,14 @@ export function ContentQueueWidget({
   scheduled,
   pendingAiChanges,
   canReviewAi = false,
-  loading = false,
   className,
 }: {
   drafts: DraftItem[];
   scheduled: ScheduledItem[];
   pendingAiChanges: PendingAiChangeItem[];
   canReviewAi?: boolean;
-  loading?: boolean;
   className?: string;
 }) {
-  if (loading) {
-    return (
-      <Card className={`min-w-0 ${className || ''}`} data-testid="content-queue-widget">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div className="flex items-center gap-2">
-            <FileClock className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-15 font-semibold">Content queue</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 py-1" aria-hidden="true" data-testid="content-queue-skeleton">
-            {[0, 1].map((i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-3 w-40" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/5" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
   return (
     <Card className={`min-w-0 ${className || ''}`} data-testid="content-queue-widget">
       <CardHeader className="flex flex-row items-center justify-between pb-3">

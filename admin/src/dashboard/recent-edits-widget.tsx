@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent, StatusBadge, RelativeTime, Skeleton } from '@bs/ui';
+import { Card, CardHeader, CardTitle, CardContent, StatusBadge, RelativeTime } from '@bs/ui';
 import type { EntryStatus } from '@bs/ui';
 import { FileEdit, ArrowRight } from 'lucide-react';
 import { parseApiUtcDate } from '../lib/datetime';
@@ -14,7 +14,6 @@ export interface RecentEditItem {
 
 interface RecentEditsWidgetProps {
   edits: RecentEditItem[];
-  loading?: boolean;
   className?: string;
 }
 
@@ -23,7 +22,7 @@ function toEntryStatus(status: string): EntryStatus {
   return (allowed.includes(status as EntryStatus) ? status : 'draft') as EntryStatus;
 }
 
-export function RecentEditsWidget({ edits, loading, className }: RecentEditsWidgetProps) {
+export function RecentEditsWidget({ edits, className }: RecentEditsWidgetProps) {
   return (
     <Card className={`min-w-0 ${className || ''}`} data-testid="recent-edits-widget">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -39,18 +38,7 @@ export function RecentEditsWidget({ edits, loading, className }: RecentEditsWidg
         </a>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div className="space-y-3 py-2" aria-hidden="true" data-testid="recent-edits-skeleton">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-16" />
-              </div>
-            ))}
-          </div>
-        ) : edits.length === 0 ? (
+        {edits.length === 0 ? (
           <p className="py-6 text-center text-13 text-muted-foreground">No recent content edits found.</p>
         ) : (
           <div className="overflow-x-auto">

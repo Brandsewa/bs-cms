@@ -1,6 +1,18 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 @source "../../../packages/ui/src";
 @import '@bs/ui/tokens.css';
+
+/*
+ * Type hierarchy (docs/02-ui-spec.md 2):
+ *   page title    h1 via PageHeader        text-lg  font-semibold tracking-tight
+ *   card title    h2-h4 via CardTitle       text-15  font-semibold
+ *   body          text-13 / text-sm
+ *   caption/meta  text-11 / text-12
+ * Font: Geist Variable (self-hosted through the admin bundle — CSP
+ * `font-src` falls back to `default-src 'self'`).
+ */
 
 /* Class-based dark mode (tokens.css defines .dark variable values). */
 @custom-variant dark (&:is(.dark *));
