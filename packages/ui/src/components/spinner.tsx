@@ -5,8 +5,8 @@ import { cn } from '../lib/utils';
 export type SpinnerProps = SVGProps<SVGSVGElement> & { size?: number };
 
 /**
- * Spinner for button-level and inline pending states only. Page and table
- * loading use skeletons that match the final layout (docs/02-ui-spec.md 1).
+ * The single loading indicator across the admin: buttons, inline pending
+ * states, and page/route loading via PageLoadingSkeleton.
  */
 function Spinner({ className, size = 16, role, ...props }: SpinnerProps) {
   return (

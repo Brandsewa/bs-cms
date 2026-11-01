@@ -3,13 +3,15 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
 import { Button } from '../components/button';
+import { Spinner } from '../components/spinner';
 import { copyToClipboard } from '../lib/utils';
 
 /**
  * State fragments shared by every screen (docs/02-ui-spec.md 1: loading,
  * empty, error, permission denied, not found). Screens must never render a
  * blank page: each state has an icon, one-line explanation and the primary
- * action. Loading skeletons are per-screen (they must match the layout).
+ * action. Loading states use the shared spinner (skeletons were removed
+ * from loading surfaces in 2026-11 — one loader, everywhere).
  */
 
 export interface EmptyStateProps {
@@ -167,19 +169,26 @@ export function ForbiddenState({ onBack, onHome, className }: ForbiddenStateProp
 }
 
 export interface PageLoadingSkeletonProps {
+  /** Kept for call-site compatibility; ignored (spinner-only since 2026-11). */
   lines?: number;
   className?: string;
 }
 
-export function PageLoadingSkeleton({ lines = 4, className }: PageLoadingSkeletonProps) {
+/**
+ * Page/route loading state. Historically a layout-matching skeleton; the
+ * design now uses a single spinner everywhere so route transitions show one
+ * consistent loader instead of skeleton + data-fetch spinner in sequence.
+ */
+export function PageLoadingSkeleton({ className }: PageLoadingSkeletonProps) {
   return (
-    <div className={cn('mx-auto w-full max-w-6xl px-6 py-10 space-y-4 animate-pulse', className)} role="status" aria-label="Loading content">
-      <div className="h-7 w-1/3 rounded-sm bg-surface-200" />
-      <div className="h-4 w-2/3 rounded-sm bg-surface-200" />
-      <div className="mt-6 space-y-2">
-        {Array.from({ length: lines }, (_, i) => (
-          <div key={i} className="h-10 w-full rounded-sm bg-surface-200" />
-        ))}
+    <div
+      className={cn('flex min-h-[300px] w-full items-center justify-center', className)}
+      role="status"
+      aria-label="Loading content"
+    >
+      <div className="flex flex-col items-center gap-3">
+        <Spinner className="h-8 w-8 text-primary" />
+        <p className="text-13 text-muted-foreground">Loading…</p>
       </div>
     </div>
   );

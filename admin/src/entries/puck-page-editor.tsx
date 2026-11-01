@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import type { ReactElement } from 'react';
 import type { PuckData } from '@bs/page-builder';
 import { isRecord } from './puck-content';
-import { Button, Skeleton } from '@bs/ui';
+import { Button, Spinner } from '@bs/ui';
 import { Paintbrush } from 'lucide-react';
 
 /**
@@ -54,12 +54,12 @@ function isEmptyContent(value: unknown): boolean {
   return !Array.isArray(content) || content.length === 0;
 }
 
-/** Chunk-skeleton shaped like the preview card. */
+/** Spinner shown while the read-only preview chunk loads. */
 function PreviewSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="space-y-3" data-testid="puck-preview-loading">
+    <div role="status" aria-busy="true" className="flex min-h-[300px] items-center justify-center" data-testid="puck-preview-loading">
+      <Spinner className="h-6 w-6 text-primary" />
       <span className="sr-only">Loading page preview…</span>
-      <Skeleton className="h-[300px] w-full" />
     </div>
   );
 }
@@ -115,22 +115,17 @@ export function PuckContentPreview({ value, onCustomize, canCustomize = true }: 
   );
 }
 
-/** Chunk-skeleton shaped like the editor (chrome sides + canvas). */
+/** Spinner shown while the builder chunk loads. */
 function PuckEditorSkeleton() {
   return (
     <div
       role="status"
       aria-busy="true"
-      className="min-h-[540px] space-y-3 rounded-md border border-border p-3"
+      className="flex min-h-[540px] items-center justify-center rounded-md border border-border"
       data-testid="puck-page-editor-loading"
     >
+      <Spinner className="h-8 w-8 text-primary" />
       <span className="sr-only">Loading page editor…</span>
-      <Skeleton className="h-8 w-full" />
-      <div className="flex gap-3">
-        <Skeleton className="h-[60vh] w-1/5" />
-        <Skeleton className="h-[60vh] min-h-[440px] flex-1" />
-        <Skeleton className="hidden h-[60vh] w-1/5 sm:block" />
-      </div>
     </div>
   );
 }
