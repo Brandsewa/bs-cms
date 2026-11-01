@@ -75,4 +75,47 @@ class AuditController extends BaseController
 
         return $this->json($entry->toArray());
     }
+
+    /**
+     * POST /api/v1/audit/delete — bulk delete audit entries by id.
+     * Gated to the audit:delete action (owner-level: audit trails are
+     * security-relevant).
+     */
+    public function delete(ServerRequestInterface $request): ResponseInterface
+    {
+        $permError = $this->requirePermission($this->authorizer, $request, 'delete', new Subject('audit', '*'));
+        if ($permError !== null) {
+            return $permError;
+        }
+
+        $body = $this->getJsonBody($request);
+        $ids = is_array($body['ids'] ?? null) ? $body['ids'] : [];
+        $ids = array_values(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0));
+        if ($ids === []) {
+            return $this->problem(422, 'Unprocessable Content', 'Provide a non-empty numeric ids array.');
+        }
+        if (count($ids) > 500) {
+            return $this->problem(422, 'Unprocessable Content', 'Delete at most 500 entries per request.');
+        }
+
+        $deleted = $this->auditLogger->deleteEntries($ids);
+        return $this->json(['deleted' => $deleted, 'ids' => $ids]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getJsonBody(ServerRequestInterface $request): array
+    {
+        $parsed = $request->getParsedBody();
+        if (is_array($parsed)) {
+            return $parsed;
+        }
+        $raw = (string) $request->getBody();
+        if ($raw === '') {
+            return [];
+        }
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : [];
+    }
 }

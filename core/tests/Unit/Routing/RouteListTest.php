@@ -122,6 +122,8 @@ final class RouteListTest extends TestCase
             'GET /api/v1/notifications',
             'POST /api/v1/notifications/read',
             'POST /api/v1/notifications/read-all',
+            // Audit retention
+            'POST /api/v1/audit/delete',
         ];
 
         foreach ($expectedEndpoints as $endpoint) {
@@ -394,6 +396,8 @@ final class RouteListTest extends TestCase
             'GET /api/v1/public/seo/resolve',
             'GET /api/v1/site-health',
             'POST /api/v1/site-health/run',
+            'POST /api/v1/site-health/dismiss',
+            'POST /api/v1/site-health/restore',
         ];
 
         foreach ($expectedEndpoints as $endpoint) {

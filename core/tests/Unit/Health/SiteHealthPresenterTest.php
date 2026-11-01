@@ -47,7 +47,7 @@ final class SiteHealthPresenterTest extends TestCase
 
         $presentedReport = SiteHealthPresenter::presentReport($rawReport);
 
-        $expectedReportKeys = ['issues', 'rules_checked', 'scanned_at', 'summary'];
+        $expectedReportKeys = ['issues', 'dismissed_count', 'dismissed_keys', 'rules_checked', 'scanned_at', 'summary'];
         sort($expectedReportKeys);
         $actualReportKeys = array_keys($presentedReport);
         sort($actualReportKeys);

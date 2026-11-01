@@ -40,6 +40,8 @@ final class SiteHealthPresenter
      *
      * @param array{
      *     issues: list<array<string, mixed>>,
+     *     dismissed_count?: int,
+     *     dismissed_keys?: list<string>,
      *     rules_checked: int,
      *     scanned_at: string
      * } $data
@@ -88,6 +90,8 @@ final class SiteHealthPresenter
                 'status' => $status,
             ],
             'issues' => $issues,
+            'dismissed_count' => (int) ($data['dismissed_count'] ?? 0),
+            'dismissed_keys' => (array) ($data['dismissed_keys'] ?? []),
             'rules_checked' => $data['rules_checked'],
             'scanned_at' => $data['scanned_at'],
         ];

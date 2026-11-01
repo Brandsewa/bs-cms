@@ -4,22 +4,25 @@ import {
   Breadcrumbs,
   Button,
   DataTable,
+  type DataTableBulkAction,
   type DataTableColumn,
   type DataTableFilter,
   type DataTableState,
   PageContainer,
   PageHeader,
+  successToast,
+  errorToast,
 } from '@bs/ui';
-import {
-  CheckCircle,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle, Trash2, XCircle } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import { useSession } from '../auth/session-context';
 import { parseApiUtcDate, formatAdminDate } from '../lib/datetime';
 import { AuditDetailSheet } from './audit-detail-sheet';
 import type { AuditEntry, AuditListResponse } from '@bs/client';
 
 export function AuditLogView() {
+  const { hasPermission } = useSession();
+  const canDeleteAudit = hasPermission('audit', 'delete');
   const [items, setItems] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ message: string; details?: string } | null>(null);
@@ -181,6 +184,46 @@ export function AuditLogView() {
     setDetailOpen(true);
   };
 
+  const bulkDelete = useCallback(
+    async (rows: AuditEntry[]) => {
+      const ids = rows.map((r) => r.id);
+      try {
+        const res = await apiClient.request<{ deleted: number }>('POST', '/audit/delete', {
+          body: { ids },
+        });
+        if (res.ok) {
+          successToast(`${res.data?.deleted ?? ids.length} audit ${ids.length === 1 ? 'entry' : 'entries'} deleted.`);
+          void fetchAuditLogs();
+          return { succeeded: rows, failed: [] };
+        }
+        errorToast(res.problem?.detail || 'Failed to delete audit entries.');
+        return { succeeded: [], failed: rows.map((r) => ({ row: r, reason: 'Request failed' })) };
+      } catch (err) {
+        errorToast(err instanceof Error ? err.message : 'Failed to delete audit entries.');
+        return { succeeded: [], failed: rows.map((r) => ({ row: r, reason: 'Request failed' })) };
+      }
+    },
+    [fetchAuditLogs]
+  );
+
+  const bulkActions = useMemo<Array<DataTableBulkAction<AuditEntry>>>(() => {
+    if (!canDeleteAudit) return [];
+    return [
+      {
+        id: 'delete',
+        label: 'Delete selected',
+        icon: Trash2,
+        destructive: true,
+        confirm: {
+          type: 'type-to-confirm',
+          phrase: (rows) => `${rows.length} audit ${rows.length === 1 ? 'entry' : 'entries'}`,
+          body: 'Audit trails are security-relevant. Deleting them removes the permanent record of these actions.',
+        },
+        run: bulkDelete,
+      },
+    ];
+  }, [canDeleteAudit, bulkDelete]);
+
   const columns = useMemo<Array<DataTableColumn<AuditEntry>>>(
     () => [
       {
@@ -322,7 +365,7 @@ export function AuditLogView() {
 
       <PageHeader
         title="Audit Log"
-        description="Immutable, append-only record of administrative, content, authorization, and AI mutations."
+        description="Append-only record of administrative, content, authorization, and AI mutations. Owners may delete entries for retention."
       />
 
       <DataTable<AuditEntry>
@@ -330,6 +373,7 @@ export function AuditLogView() {
         columns={columns}
         data={filteredData}
         getRowId={(row) => String(row.id)}
+        bulkActions={bulkActions}
         loading={loading}
         error={error}
         onRetry={fetchAuditLogs}

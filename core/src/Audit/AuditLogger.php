@@ -91,6 +91,29 @@ final class AuditLogger
      * @param array<string, mixed> $filters
      * @return array{items: list<AuditEntry>, next_cursor: int|null}
      */
+    /**
+     * Delete audit entries by numeric ids. Returns the number deleted.
+     * Intended for retention/cleanup by privileged operators only.
+     *
+     * @param list<int> $ids
+     */
+    public function deleteEntries(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0));
+        if ($ids === []) {
+            return 0;
+        }
+        $table = $this->connection->prefixTable('audit_log');
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->connection->getPdo()->prepare("DELETE FROM `{$table}` WHERE `id` IN ({$placeholders})");
+        $stmt->execute($ids);
+        return $stmt->rowCount();
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{items: list<AuditEntry>, next_cursor: int|null}
+     */
     public function query(array $filters = [], int $limit = 50, ?int $beforeId = null): array
     {
         $table = $this->connection->prefixTable('audit_log');

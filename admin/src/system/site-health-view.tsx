@@ -3,32 +3,32 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Breadcrumbs,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Badge,
-  EmptyState,
+  DataTable,
+  type DataTableBulkAction,
+  type DataTableColumn,
+  type DataTableState,
+  type StatusTab,
   PageContainer,
   PageHeader,
   Progress,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  Spinner,
+  toast,
 } from '@bs/ui';
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
+  Eye,
+  EyeOff,
   ExternalLink,
   Info,
   RefreshCw,
-  Search,
-  ShieldCheck,
   XCircle,
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -36,7 +36,7 @@ import { formatAdminDate } from '../lib/datetime';
 
 export interface HealthIssue {
   rule_id: string;
-  severity: 'error' | 'warn' | 'warning' | 'info';
+  severity: 'error' | 'warn' | 'warning' | 'info' | 'dismissed';
   category: 'seo' | 'geo' | 'content' | 'links' | 'technical' | string;
   message: string;
   entity_type: string;
@@ -58,7 +58,25 @@ export interface SiteHealthReport {
   issues: HealthIssue[];
   rules_checked: number;
   scanned_at: string;
+  dismissed_count?: number;
+  dismissed_keys?: string[];
 }
+
+/** A browsable row: an active issue, or a dismissed key restored from the report. */
+interface HealthRow {
+  key: string;
+  severity: 'error' | 'warn' | 'info' | 'dismissed';
+  category: string;
+  rule_id: string;
+  message: string;
+  entity_type: string;
+  entity_id: string;
+  entity_title: string | null;
+  fix_hint: string;
+  dismissed: boolean;
+}
+
+
 
 export const SiteHealthView: FC = () => {
   const [data, setData] = useState<SiteHealthReport | null>(null);
@@ -66,11 +84,11 @@ export const SiteHealthView: FC = () => {
   const [running, setRunning] = useState(false);
   const [progressVal, setProgressVal] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-
-  // Filter state
-  const [severityFilter, setSeverityFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [detail, setDetail] = useState<HealthRow | null>(null);
+  const [tableState, setTableState] = useState<DataTableState>({
+    pagination: { pageIndex: 0, pageSize: 50 },
+    density: 'compact',
+  });
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
@@ -122,44 +140,178 @@ export const SiteHealthView: FC = () => {
     void fetchHealth();
   }, [fetchHealth]);
 
-  const categories = useMemo(() => {
-    if (!data?.issues) return [];
-    const set = new Set<string>();
-    data.issues.forEach((i) => {
-      if (i.category) set.add(i.category);
-    });
-    return Array.from(set).sort();
-  }, [data?.issues]);
+  /** Active issues + dismissed keys merged into one browsable row set. */
+  const rows = useMemo<HealthRow[]>(() => {
+    if (!data) return [];
+    const active: HealthRow[] = (data.issues ?? []).map((issue, idx) => ({
+      key: `${issue.rule_id}|${issue.entity_id}|${idx}`,
+      severity: issue.severity === 'info' ? 'info' : issue.severity === 'error' ? 'error' : 'warn',
+      category: issue.category,
+      rule_id: issue.rule_id,
+      message: issue.message,
+      entity_type: issue.entity_type,
+      entity_id: issue.entity_id,
+      entity_title: issue.entity_title,
+      fix_hint: issue.fix_hint,
+      dismissed: false,
+    }));
+    const activeKeys = new Set(active.map((r) => r.key));
+    const dismissed: HealthRow[] = (data.dismissed_keys ?? [])
+      .filter((k) => !activeKeys.has(k))
+      .map((k) => {
+        const [rule = 'rule', entity = ''] = k.split('|');
+        return {
+          key: k,
+          severity: 'dismissed' as const,
+          category: '—',
+          rule_id: rule,
+          message: `Dismissed finding (${rule}${entity ? ` on ${entity}` : ''}).`,
+          entity_type: 'entry',
+          entity_id: entity,
+          entity_title: null,
+          fix_hint: 'Restore this finding to review it again.',
+          dismissed: true,
+        };
+      });
+    return [...active, ...dismissed];
+  }, [data]);
 
-  const filteredIssues = useMemo(() => {
-    if (!data?.issues) return [];
-    return data.issues.filter((issue) => {
-      // Severity filter
-      if (severityFilter === 'error' && issue.severity !== 'error') return false;
-      if (
-        severityFilter === 'warn' &&
-        issue.severity !== 'warn' &&
-        issue.severity !== 'warning'
-      )
-        return false;
-      if (severityFilter === 'info' && issue.severity !== 'info') return false;
+  const statusTabs = useMemo<StatusTab[]>(() => {
+    const counts = {
+      all: rows.length,
+      error: rows.filter((r) => r.severity === 'error').length,
+      warn: rows.filter((r) => r.severity === 'warn').length,
+      info: rows.filter((r) => r.severity === 'info').length,
+      dismissed: rows.filter((r) => r.dismissed).length,
+    };
+    const tabs: StatusTab[] = [
+      { id: 'all', label: 'All', count: counts.all },
+      { id: 'error', label: 'Errors', count: counts.error },
+      { id: 'warn', label: 'Warnings', count: counts.warn },
+      { id: 'info', label: 'Info', count: counts.info },
+    ];
+    if (counts.dismissed > 0 || data?.dismissed_keys?.length) {
+      tabs.push({ id: 'dismissed', label: 'Dismissed', count: counts.dismissed });
+    }
+    return tabs;
+  }, [rows, data?.dismissed_keys]);
 
-      // Category filter
-      if (categoryFilter !== 'all' && issue.category !== categoryFilter) return false;
+  const columns = useMemo<Array<DataTableColumn<HealthRow>>>(
+    () => [
+      {
+        id: 'severity',
+        header: 'Severity',
+        fieldType: 'status',
+        accessor: (row) => row.severity,
+        width: 110,
+        cell: (row) => {
+          const map = {
+            error: { variant: 'destructive' as const, icon: XCircle, label: 'ERROR' },
+            warn: { variant: 'outline' as const, icon: AlertTriangle, label: 'WARN' },
+            info: { variant: 'secondary' as const, icon: Info, label: 'INFO' },
+            dismissed: { variant: 'secondary' as const, icon: EyeOff, label: 'DISMISSED' },
+          } as const;
+          const { variant, icon: Icon, label } = map[row.severity];
+          return (
+            <Badge variant={variant} className="text-[11px] font-mono uppercase px-1.5 py-0 h-5">
+              <Icon className="mr-1 h-3 w-3" />
+              {label}
+            </Badge>
+          );
+        },
+      },
+      {
+        id: 'category',
+        header: 'Category',
+        fieldType: 'text',
+        accessor: (row) => row.category,
+        width: 100,
+        cell: (row) => <Badge variant="outline" className="text-[11px] font-mono uppercase px-1.5 py-0 h-5">{row.category}</Badge>,
+      },
+      {
+        id: 'rule_id',
+        header: 'Rule',
+        fieldType: 'text',
+        accessor: (row) => row.rule_id,
+        searchable: true,
+        sortable: true,
+        width: 200,
+        cell: (row) => <span className="font-mono text-11 text-foreground-light">{row.rule_id}</span>,
+      },
+      {
+        id: 'entity',
+        header: 'Entity',
+        fieldType: 'text',
+        accessor: (row) => row.entity_title || row.entity_id,
+        searchable: true,
+        width: 200,
+        cell: (row) => (
+          <span className="text-12 text-foreground truncate">
+            {row.entity_title || row.entity_id}
+          </span>
+        ),
+      },
+      {
+        id: 'message',
+        header: 'Issue',
+        fieldType: 'text',
+        accessor: (row) => row.message,
+        searchable: true,
+        cell: (row) => (
+          <span className="truncate text-12 text-foreground" title={row.message}>
+            {row.message}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
 
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesMsg = issue.message.toLowerCase().includes(q);
-        const matchesHint = issue.fix_hint.toLowerCase().includes(q);
-        const matchesTitle = issue.entity_title?.toLowerCase().includes(q) ?? false;
-        const matchesRule = issue.rule_id.toLowerCase().includes(q);
-        if (!matchesMsg && !matchesHint && !matchesTitle && !matchesRule) return false;
-      }
+  const issueKey = (row: HealthRow) => `${row.rule_id}|${row.entity_id}`;
 
-      return true;
-    });
-  }, [data?.issues, severityFilter, categoryFilter, searchQuery]);
+  const bulkDismiss = async (selected: HealthRow[]) => {
+    const keys = selected.map(issueKey);
+    const res = await apiClient.request('POST', '/site-health/dismiss', { body: { keys } });
+    if (!res.ok) throw new Error(res.problem?.detail || 'Failed to dismiss findings.');
+    toast.success(`${selected.length} finding${selected.length === 1 ? '' : 's'} dismissed.`);
+    void fetchHealth();
+    return { succeeded: selected, failed: [] };
+  };
+
+  const bulkRestore = async (selected: HealthRow[]) => {
+    const keys = selected.map(issueKey);
+    const res = await apiClient.request('POST', '/site-health/restore', { body: { keys } });
+    if (!res.ok) throw new Error(res.problem?.detail || 'Failed to restore findings.');
+    toast.success(`${selected.length} finding${selected.length === 1 ? '' : 's'} restored.`);
+    void fetchHealth();
+    return { succeeded: selected, failed: [] };
+  };
+
+  const showingDismissed = tableState.statusTab === 'dismissed';
+
+  const bulkActions = useMemo<Array<DataTableBulkAction<HealthRow>>>(() => {
+    if (showingDismissed) {
+      return [
+        {
+          id: 'restore',
+          label: 'Restore selected',
+          icon: Eye,
+          confirm: 'confirm',
+          run: bulkRestore,
+        },
+      ];
+    }
+    return [
+      {
+        id: 'dismiss',
+        label: 'Dismiss selected',
+        icon: EyeOff,
+        confirm: 'confirm',
+        run: bulkDismiss,
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showingDismissed, data?.dismissed_keys]);
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/admin/' },
@@ -220,17 +372,15 @@ export const SiteHealthView: FC = () => {
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Compact summary strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-foreground-lighter">Overall Status</p>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+        <div className="rounded-lg border border-border bg-card p-3.5">
+          <p className="text-xs font-medium text-foreground-lighter">Overall Status</p>
+          <p className="mt-1.5">
             {loading ? (
-              '-'
+              <Spinner className="h-4 w-4 text-primary" />
             ) : data?.summary.status === 'healthy' ? (
-              <span className="text-success-text flex items-center gap-1.5 text-16 font-semibold">
+              <span className="text-success-text flex items-center gap-1.5 text-14 font-semibold">
                 <CheckCircle2 className="h-4 w-4" />
                 Healthy
               </span>
@@ -246,249 +396,135 @@ export const SiteHealthView: FC = () => {
               </Badge>
             )}
           </p>
-          <p className="mt-1.5 text-xs text-foreground-light font-medium">
+          <p className="mt-1 text-11 text-muted-foreground">
             {data?.scanned_at
-              ? `Last scan: ${formatAdminDate(data.scanned_at, {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}`
+              ? `Last scan: ${formatAdminDate(data.scanned_at, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
               : 'Never scanned'}
           </p>
-        </Card>
-
-        <Card className="p-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-foreground-lighter">Critical Errors</p>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {loading ? '-' : String(data?.summary.errors ?? 0)}
-          </p>
-          <p className="mt-1.5 text-xs text-foreground-light font-medium">
-            Issues requiring immediate attention
-          </p>
-        </Card>
-
-        <Card className="p-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-foreground-lighter">Warnings</p>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {loading ? '-' : String(data?.summary.warnings ?? 0)}
-          </p>
-          <p className="mt-1.5 text-xs text-foreground-light font-medium">
-            SEO or structural improvements
-          </p>
-        </Card>
-
-        <Card className="p-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-foreground-lighter">Rules Evaluated</p>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-            {loading ? '-' : String(data?.rules_checked ?? 15)}
-          </p>
-          <p className="mt-1.5 text-xs text-foreground-light font-medium">
-            Content, SEO, technical & GEO checks
-          </p>
-        </Card>
-      </div>
-
-      {/* Issues Section */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div
-            role="tablist"
-            aria-label="Filter issues by severity"
-            className="inline-flex h-9 items-center justify-start gap-1 rounded-lg bg-surface-200 p-1 text-muted-foreground w-full sm:w-auto"
-          >
-            {(
-              [
-                { id: 'all', label: 'All', count: data?.issues.length ?? 0 },
-                { id: 'error', label: 'Errors', count: data?.summary.errors ?? 0 },
-                { id: 'warn', label: 'Warnings', count: data?.summary.warnings ?? 0 },
-                { id: 'info', label: 'Info', count: data?.summary.info ?? 0 },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={severityFilter === tab.id}
-                onClick={() => setSeverityFilter(tab.id)}
-                className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-12 font-medium transition-colors ${
-                  severityFilter === tab.id
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:bg-surface-300/50 hover:text-foreground'
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {categories.length > 0 && (
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger
-                  aria-label="Filter by category"
-                  className="h-8 w-36 text-12"
-                  data-testid="category-filter-select"
-                >
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <div className="relative w-full sm:w-60">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="search"
-                placeholder="Search issues…"
-                className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-3 text-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
         </div>
 
-        {/* List of Issue Cards or Empty State */}
-        {filteredIssues.length === 0 ? (
-          <Card>
-            <CardContent className="p-8">
-              <EmptyState
-                icon={<ShieldCheck className="h-10 w-10 text-success-text" />}
-                title={
-                  data?.issues && data.issues.length > 0
-                    ? 'No issues match your filters'
-                    : 'All site health checks passed'
-                }
-                description={
-                  data?.issues && data.issues.length > 0
-                    ? 'Try adjusting your severity or category filters to see other issues.'
-                    : 'No content gaps, duplicate titles, broken links, or SEO deficiencies were detected.'
-                }
-                action={
-                  data?.issues && data.issues.length > 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSeverityFilter('all');
-                        setCategoryFilter('all');
-                        setSearchQuery('');
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  ) : (
-                    <Button size="sm" onClick={handleRunNow} disabled={running}>
-                      Run scan again
-                    </Button>
-                  )
-                }
-              />
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3" data-testid="health-issues-list">
-            {filteredIssues.map((issue, idx) => {
-              const isError = issue.severity === 'error';
-              const isWarning = issue.severity === 'warn' || issue.severity === 'warning';
+        <div className="rounded-lg border border-border bg-card p-3.5">
+          <p className="text-xs font-medium text-foreground-lighter">Errors / Warnings</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {loading ? '–' : `${data?.summary.errors ?? 0} / ${data?.summary.warnings ?? 0}`}
+          </p>
+          <p className="mt-1 text-11 text-muted-foreground">Critical then SEO or structural</p>
+        </div>
 
-              return (
-                <Card
-                  key={`${issue.rule_id}-${issue.entity_id}-${idx}`}
-                  className="overflow-hidden border border-border bg-card transition hover:border-border/80"
-                >
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge
-                          variant={isError ? 'destructive' : isWarning ? 'outline' : 'secondary'}
-                          className={`text-[11px] font-mono uppercase px-1.5 py-0 h-5 ${
-                            isWarning
-                              ? 'border-amber-600/30 text-amber-700 dark:text-amber-400 bg-amber-500/10'
-                              : ''
-                          }`}
-                        >
-                          {isError ? (
-                            <XCircle className="mr-1 h-3 w-3" />
-                          ) : isWarning ? (
-                            <AlertTriangle className="mr-1 h-3 w-3" />
-                          ) : (
-                            <Info className="mr-1 h-3 w-3" />
-                          )}
-                          {issue.severity.toUpperCase()}
-                        </Badge>
+        <div className="rounded-lg border border-border bg-card p-3.5">
+          <p className="text-xs font-medium text-foreground-lighter">Info Findings</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {loading ? '–' : String(data?.summary.info ?? 0)}
+          </p>
+          <p className="mt-1 text-11 text-muted-foreground">GEO / AEO improvements</p>
+        </div>
 
-                        <Badge variant="outline" className="text-[11px] font-mono uppercase px-1.5 py-0 h-5">
-                          {issue.category}
-                        </Badge>
-
-                        <span className="font-mono text-11 text-foreground-light">
-                          {issue.rule_id}
-                        </span>
-                      </div>
-
-                      {issue.entity_id && (
-                        <span className="text-11 font-mono text-foreground-light truncate">
-                          ID: {issue.entity_id}
-                        </span>
-                      )}
-                    </div>
-
-                    <CardTitle className="text-14 font-semibold text-foreground pt-2">
-                      {issue.message}
-                    </CardTitle>
-                    {issue.entity_title && (
-                      <CardDescription className="text-12 text-foreground-light">
-                        Entity: <span className="font-medium text-foreground">{issue.entity_title}</span> ({issue.entity_type})
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-
-                  <CardContent className="p-4 pt-2 space-y-3">
-                    {/* Fix Hint & Resolution Guidance */}
-                    <div className="rounded bg-surface-100/70 border border-border/80 p-3 text-12 space-y-1.5">
-                      <div className="flex items-center gap-1.5 font-medium text-foreground">
-                        <ArrowRight className="h-3.5 w-3.5 text-foreground" />
-                        <span>Recommended fix:</span>
-                      </div>
-                      <p className="text-foreground-light leading-relaxed pl-5">
-                        {issue.fix_hint}
-                      </p>
-                    </div>
-
-                    {/* Direct entity edit link if entry or collection */}
-                    {issue.entity_type === 'entry' && issue.entity_id && (
-                      <div className="flex items-center justify-end pt-1">
-                        <a
-                          href={`/admin/entries/${issue.entity_id}`}
-                          className="inline-flex items-center gap-1 text-12 font-medium text-foreground hover:underline"
-                        >
-                          <span>Edit entry</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        <div className="rounded-lg border border-border bg-card p-3.5">
+          <p className="text-xs font-medium text-foreground-lighter">Rules Evaluated</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+            {loading ? '–' : String(data?.rules_checked ?? 15)}
+          </p>
+          <p className="mt-1 text-11 text-muted-foreground">
+            {data?.dismissed_count ? `${data.dismissed_count} dismissed` : 'Content, SEO, technical & GEO'}
+          </p>
+        </div>
       </div>
+
+      <DataTable<HealthRow>
+        aria-label="Site health issues table"
+        columns={columns}
+        data={rows}
+        getRowId={(row) => row.key}
+        loading={loading}
+        onRefresh={fetchHealth}
+        onRowOpen={(row) => setDetail(row)}
+        state={tableState}
+        onStateChange={setTableState}
+        statusTabs={{ tabs: statusTabs, active: tableState.statusTab ?? 'all', onChange: (id) => setTableState((s) => ({ ...s, statusTab: id })) }}
+        bulkActions={bulkActions}
+        emptyState={{
+          title: rows.length > 0 ? 'No issues match this filter' : 'All site health checks passed',
+          description:
+            rows.length > 0
+              ? 'Try a different severity tab to see other findings.'
+              : 'No content gaps, duplicate titles, broken links, or SEO deficiencies were detected.',
+          action: (
+            <Button size="sm" onClick={handleRunNow} disabled={running}>
+              Run scan again
+            </Button>
+          ),
+        }}
+        exportFileName="site-health"
+        storageKey="bs-site-health-table"
+      />
+
+      {/* Detail drawer */}
+      <Sheet open={detail !== null} onOpenChange={(open) => !open && setDetail(null)}>
+        <SheetContent className="w-[480px] sm:w-[540px] overflow-y-auto bg-background" side="right">
+          {detail && (
+            <>
+              <SheetHeader className="space-y-2 pb-4">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={detail.severity === 'error' ? 'destructive' : 'outline'}
+                    className="text-[11px] font-mono uppercase px-1.5 py-0 h-5"
+                  >
+                    {detail.severity.toUpperCase()}
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px] font-mono uppercase px-1.5 py-0 h-5">
+                    {detail.category}
+                  </Badge>
+                </div>
+                <SheetTitle className="text-sm font-semibold leading-snug">{detail.message}</SheetTitle>
+                <SheetDescription className="text-12">
+                  {detail.entity_title ? `${detail.entity_title} (${detail.entity_type})` : detail.entity_type}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="space-y-4 pb-6 text-13">
+                <div>
+                  <p className="text-11 font-medium uppercase tracking-wider text-muted-foreground">Rule</p>
+                  <p className="mt-1 font-mono text-12 text-foreground">{detail.rule_id}</p>
+                </div>
+                <div>
+                  <p className="text-11 font-medium uppercase tracking-wider text-muted-foreground">Entity ID</p>
+                  <p className="mt-1 font-mono text-12 text-foreground">{detail.entity_id}</p>
+                </div>
+                <div className="rounded-md border border-border bg-surface-100/70 p-3">
+                  <p className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Activity className="h-3.5 w-3.5" />
+                    Recommended fix
+                  </p>
+                  <p className="mt-1.5 pl-5 leading-relaxed text-foreground-light">{detail.fix_hint}</p>
+                </div>
+
+                <div className="flex flex-col gap-2 pt-2">
+                  {detail.entity_type === 'entry' && detail.entity_id && (
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`/admin/entries/${detail.entity_id}`}>
+                        Edit entry
+                        <ExternalLink className="ml-1.5 h-3 w-3" />
+                      </a>
+                    </Button>
+                  )}
+                  <Button
+                    variant={detail.dismissed ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={async () => {
+                      if (detail.dismissed) await bulkRestore([detail]);
+                      else await bulkDismiss([detail]);
+                      setDetail(null);
+                    }}
+                  >
+                    {detail.dismissed ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    {detail.dismissed ? 'Restore finding' : 'Dismiss finding'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </PageContainer>
   );
 };

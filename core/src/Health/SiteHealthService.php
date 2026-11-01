@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BsCms\Health;
 
 use BsCms\Database\Connection;
+use BsCms\Settings\SettingsRepository;
 use BsCms\Support\Clock;
 use PDO;
 
@@ -14,8 +15,51 @@ final class SiteHealthService
     private const TOTAL_RULES_CHECKED = 15;
 
     public function __construct(
-        private readonly Connection $connection
+        private readonly Connection $connection,
+        private readonly ?SettingsRepository $settings = null
     ) {
+    }
+
+    /** Dismissal key for an issue (rule + entity).
+     *
+     * @param array<string, mixed> $issue
+     */
+    public static function issueKey(array $issue): string
+    {
+        return ($issue['rule_id'] ?? '?') . '|' . ($issue['entity_id'] ?? '');
+    }
+
+    /** @return list<string> dismissed issue keys. */
+    public function dismissedKeys(): array
+    {
+        if ($this->settings === null) {
+            return [];
+        }
+        $raw = $this->settings->get('health.dismissed', null);
+        return is_array($raw) ? array_values(array_filter(array_map('strval', $raw))) : [];
+    }
+
+    /** @param list<string> $keys */
+    public function dismissKeys(array $keys): void
+    {
+        if ($this->settings === null) {
+            return;
+        }
+        $merged = array_values(array_unique(array_merge($this->dismissedKeys(), array_map('strval', $keys))));
+        $this->settings->set('health.dismissed', $merged);
+    }
+
+    /** @param list<string> $keys */
+    public function restoreKeys(array $keys): void
+    {
+        if ($this->settings === null) {
+            return;
+        }
+        $drop = array_map('strval', $keys);
+        $this->settings->set('health.dismissed', array_values(array_filter(
+            $this->dismissedKeys(),
+            static fn (string $k): bool => !in_array($k, $drop, true)
+        )));
     }
 
     /**
@@ -53,8 +97,23 @@ final class SiteHealthService
         // 7. Check Technical Redirect Loops
         $this->checkRedirectLoops($issues);
 
+        // Hide issues the operator dismissed (persisted via settings).
+        $dismissed = $this->dismissedKeys();
+        $dismissedCount = 0;
+        if ($dismissed !== []) {
+            foreach ($issues as $index => $issue) {
+                if (in_array(self::issueKey($issue), $dismissed, true)) {
+                    unset($issues[$index]);
+                    $dismissedCount++;
+                }
+            }
+        }
+
+
         return SiteHealthPresenter::presentReport([
-            'issues' => $issues,
+            'issues' => array_values($issues),
+            'dismissed_count' => $dismissedCount,
+            'dismissed_keys' => $this->dismissedKeys(),
             'rules_checked' => self::TOTAL_RULES_CHECKED,
             'scanned_at' => Clock::sql(Clock::now()),
         ]);

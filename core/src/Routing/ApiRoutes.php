@@ -148,6 +148,7 @@ final class ApiRoutes
         // 6. Audit endpoints
         $routes->get('/api/v1/audit', [$audit, 'list']);
         $routes->get('/api/v1/audit/{id:\d+}', [$audit, 'get']);
+        $routes->post('/api/v1/audit/delete', [$audit, 'delete']);
 
         // 7. Email endpoints
         $routes->get('/api/v1/settings/email', [$email, 'getSettings']);
@@ -322,6 +323,8 @@ final class ApiRoutes
         if ($siteHealth !== null) {
             $routes->get('/api/v1/site-health', [$siteHealth, 'status']);
             $routes->post('/api/v1/site-health/run', [$siteHealth, 'run']);
+            $routes->post('/api/v1/site-health/dismiss', [$siteHealth, 'dismiss']);
+            $routes->post('/api/v1/site-health/restore', [$siteHealth, 'restore']);
         }
 
         // 22. MCP and OAuth endpoints

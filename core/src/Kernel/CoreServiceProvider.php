@@ -573,7 +573,7 @@ final class CoreServiceProvider implements ServiceProvider
 
         // 15. Site Health Services & Controllers
         $container->singleton(\BsCms\Health\SiteHealthService::class, function (Container $c): \BsCms\Health\SiteHealthService {
-            return new \BsCms\Health\SiteHealthService($c->get(Connection::class));
+            return new \BsCms\Health\SiteHealthService($c->get(Connection::class), $c->get(\BsCms\Settings\SettingsRepository::class));
         });
 
         $container->singleton(\BsCms\Http\Controllers\SiteHealthController::class, function (Container $c): \BsCms\Http\Controllers\SiteHealthController {
