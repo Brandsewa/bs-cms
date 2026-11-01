@@ -75,20 +75,28 @@ test.describe('Site Health Admin Screen', () => {
     await expect(page.locator('h1')).toContainText('Site Health');
     await expect(page.getByText('Automated audit of content')).toBeVisible();
 
-    // Verify MetricCards
+    // Verify compact summary strip
     await expect(page.getByText('Overall Status')).toBeVisible();
     await expect(page.getByText('Warning').first()).toBeVisible();
-    await expect(page.getByText('Critical Errors')).toBeVisible();
-    await expect(page.getByText('Warnings').first()).toBeVisible();
+    await expect(page.getByText('Errors / Warnings')).toBeVisible();
     await expect(page.getByText('Rules Evaluated')).toBeVisible();
 
-    // Verify Issues list rendered from real fixture
-    const issuesList = page.locator('[data-testid="health-issues-list"]');
-    await expect(issuesList).toBeVisible();
-    await expect(page.getByText("Duplicate title 'A Post Without Description'").first()).toBeVisible();
-    await expect(page.getByText('Ensure titles are unique across all published pages and posts.').first()).toBeVisible();
-    await expect(page.getByText('Recommended fix:').first()).toBeVisible();
-    await expect(page.getByText('Edit entry').first()).toBeVisible();
+    // Verify issues render as a table from the real fixture
+    const table = page.locator('table[aria-label="Site health issues table"]');
+    await expect(table).toBeVisible();
+    await expect(table.locator('tbody tr').first()).toBeVisible();
+    // Severity pill + rule id render per row
+    await expect(page.locator('table[aria-label="Site health issues table"]').getByText('seo.title.duplicate').first()).toBeVisible();
+  });
+
+  test('row click opens the detail drawer with fix guidance', async ({ page }) => {
+    await page.goto(`${ADMIN_URL}/system/health`);
+    await page.locator('table[aria-label="Site health issues table"] tbody tr').first().click();
+
+    const drawer = page.locator('[data-slot="sheet-content"]');
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByText('Recommended fix')).toBeVisible();
+    await expect(drawer.getByRole('button', { name: /Dismiss finding/i })).toBeVisible();
   });
 
   test('run now action shows progress bar and completes scan', async ({ page }) => {
@@ -191,7 +199,7 @@ test.describe('Site Health Admin Screen', () => {
   test('accessibility: axe clean in light and dark mode', async ({ page }) => {
     for (const theme of ['light', 'dark'] as const) {
       await page.goto(`${ADMIN_URL}/system/health`);
-      await page.waitForSelector('[data-testid="health-issues-list"]');
+      await page.waitForSelector('table[aria-label="Site health issues table"]');
 
       await page.evaluate((mode) => {
         document.documentElement.classList.toggle('dark', mode === 'dark');
@@ -221,7 +229,12 @@ test.describe('Site Health Admin Screen', () => {
     await page.goto(`${ADMIN_URL}/system/health`);
 
     await expect(page.locator('h1')).toContainText('Site Health');
-    await expect(page.locator('[data-testid="health-issues-list"]')).toBeVisible();
     await expect(page.locator('[data-testid="run-health-scan-btn"]')).toBeVisible();
+    // At 390px the table is horizontally scrollable inside its card and can
+    // sit below the fold; assert it is attached rather than in-viewport.
+    // At 390px the DataTable switches to its responsive card layout — no
+    // <table> element. Assert the issue cards render instead.
+    await page.waitForSelector('[data-testid="run-health-scan-btn"]', { timeout: 15000 });
+    await expect(page.getByText('seo.description.missing').first()).toBeVisible({ timeout: 20000 });
   });
 });
