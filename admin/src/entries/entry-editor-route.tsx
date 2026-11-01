@@ -691,7 +691,7 @@ export function EntryEditorRoute({
                         return;
                       }
                       navigate({
-                        to: '/entries/$collection/$id/design',
+                        to: '/design/$collection/$id',
                         params: { collection: collectionHandle, id: entryId! },
                       });
                     }}
@@ -850,7 +850,7 @@ export function EntryEditorRoute({
         onConfirm={() => {
           setCustomizeConfirmOpen(false);
           navigate({
-            to: '/entries/$collection/$id/design',
+            to: '/design/$collection/$id',
             params: { collection: collectionHandle, id: entryId! },
           });
         }}

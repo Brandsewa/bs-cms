@@ -124,7 +124,7 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
   });
 
   test('renders chrome-less full screen with saved content and toolbar', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries/pages/${PAGE_ID}/design`);
+    await page.goto(`${ADMIN_URL}/design/pages/${PAGE_ID}`);
 
     const header = page.getByTestId('designer-header');
     await expect(header).toBeVisible();
@@ -149,7 +149,7 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
   });
 
   test('dragging a component in marks the session dirty; Save as Draft PATCHes content + status', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries/pages/${PAGE_ID}/design`);
+    await page.goto(`${ADMIN_URL}/design/pages/${PAGE_ID}`);
     const header = page.getByTestId('designer-header');
     const editor = page.locator('[data-testid="puck-page-editor"]');
     await expect(editor.locator('.bs-hero__heading')).toBeVisible();
@@ -194,7 +194,7 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
       }
     });
 
-    await page.goto(`${ADMIN_URL}/entries/pages/${PAGE_ID}/design`);
+    await page.goto(`${ADMIN_URL}/design/pages/${PAGE_ID}`);
     const header = page.getByTestId('designer-header');
     await expect(header.getByText('Draft', { exact: true })).toBeVisible();
 
@@ -205,7 +205,7 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
   });
 
   test('409 shows the conflict banner and Discard & reload refetches', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries/pages/${PAGE_ID}/design`);
+    await page.goto(`${ADMIN_URL}/design/pages/${PAGE_ID}`);
     const header = page.getByTestId('designer-header');
     const editor = page.locator('[data-testid="puck-page-editor"]');
     await expect(editor.locator('.bs-hero__heading')).toBeVisible();
@@ -222,7 +222,7 @@ test.describe('Page Designer (full-screen Puck builder)', () => {
   });
 
   test('Exit with unsaved changes asks, then returns without saving', async ({ page }) => {
-    await page.goto(`${ADMIN_URL}/entries/pages/${PAGE_ID}/design`);
+    await page.goto(`${ADMIN_URL}/design/pages/${PAGE_ID}`);
     const header = page.getByTestId('designer-header');
     const editor = page.locator('[data-testid="puck-page-editor"]');
     await expect(editor.locator('.bs-hero__heading')).toBeVisible();

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
-import { createRoute, redirect } from '@tanstack/react-router';
+import { createRoute, redirect, Outlet } from '@tanstack/react-router';
+import { RequirePermission } from './shell/require-permission';
 import { rootRoute } from './routing';
 import { ProtectedAdmin } from './shell/protected-admin';
 import { PageLoadingSkeleton } from '@bs/ui';
@@ -153,6 +154,20 @@ function RouteSuspense({ children }: { children: React.ReactNode }) {
   );
 }
 
+
+// Persistent shell: authentication + sidebar/topbar chrome render ONCE here
+// (pathless layout route); child routes swap only the content area, so
+// navigating between sections never remounts the shell.
+export const shellRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: '_shell',
+  component: () => (
+    <ProtectedAdmin>
+      <Outlet />
+    </ProtectedAdmin>
+  ),
+});
+
 // Public Auth Routes
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -206,71 +221,69 @@ export const oauthReturnRoute = createRoute({
 
 // Authenticated Routes
 export const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/',
   component: () => (
-    <ProtectedAdmin>
-      <RouteSuspense>
+    <RouteSuspense>
         <DashboardRoute />
       </RouteSuspense>
-    </ProtectedAdmin>
   ),
 });
 
 // Content & Structure
 export const entriesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/entries',
   component: () => (
-    <ProtectedAdmin permission="collection:read">
+    <RequirePermission permission="collection:read">
       <RouteSuspense>
         <CollectionsIndexView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const collectionEntriesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/entries/$collection',
   component: () => {
     const params = collectionEntriesRoute.useParams();
     return (
-      <ProtectedAdmin permission="collection:read">
+      <RequirePermission permission="collection:read">
         <RouteSuspense>
           <CollectionListRoute collectionHandle={params.collection} />
         </RouteSuspense>
-      </ProtectedAdmin>
+      </RequirePermission>
     );
   },
 });
 
 export const entryNewRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/entries/$collection/new',
   component: () => {
     const params = entryNewRoute.useParams();
     return (
-      <ProtectedAdmin permission="collection:create">
+      <RequirePermission permission="collection:create">
         <RouteSuspense>
           <EntryEditorRoute collectionHandle={params.collection} />
         </RouteSuspense>
-      </ProtectedAdmin>
+      </RequirePermission>
     );
   },
 });
 
 export const entryEditRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/entries/$collection/$id',
   component: () => {
     const params = entryEditRoute.useParams();
     return (
-      <ProtectedAdmin permission="collection:update">
+      <RequirePermission permission="collection:update">
         <RouteSuspense>
           <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
         </RouteSuspense>
-      </ProtectedAdmin>
+      </RequirePermission>
     );
   },
 });
@@ -278,7 +291,7 @@ export const entryEditRoute = createRoute({
 // Full-screen visual designer for pages (Puck). Chrome-less: owns the viewport.
 export const entryDesignRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/entries/$collection/$id/design',
+  path: '/design/$collection/$id',
   component: () => {
     const params = entryDesignRoute.useParams();
     return (
@@ -292,139 +305,139 @@ export const entryDesignRoute = createRoute({
 });
 
 export const taxonomiesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/taxonomies',
   component: () => (
-    <ProtectedAdmin permission="taxonomies:read">
+    <RequirePermission permission="taxonomies:read">
       <RouteSuspense>
         {/* SPRINT-B BEGIN */}
         <TaxonomiesRoute />
         {/* SPRINT-B END */}
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const mediaRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/media',
   component: () => (
-    <ProtectedAdmin permission="media:read">
+    <RequirePermission permission="media:read">
       <RouteSuspense>
         {/* SPRINT-B BEGIN */}
         <MediaLibraryRoute />
         {/* SPRINT-B END */}
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const menusRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/menus',
   component: () => (
-    <ProtectedAdmin permission="menus:read">
+    <RequirePermission permission="menus:read">
       <RouteSuspense>
         {/* SPRINT-B BEGIN */}
         <MenusRoute />
         {/* SPRINT-B END */}
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const brandingRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/branding',
   component: () => (
-    <ProtectedAdmin permission="site:read">
+    <RequirePermission permission="site:read">
       <RouteSuspense>
         <BrandingView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const aiRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/ai',
   component: () => (
-    <ProtectedAdmin permission="ai:read">
+    <RequirePermission permission="ai:read">
       <RouteSuspense>
         <AiStudioView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 // Users & Roles Routes
 export const usersRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/users',
   component: () => (
-    <ProtectedAdmin permission="users:read">
+    <RequirePermission permission="users:read">
       <RouteSuspense>
         <UsersLayout activeTab="users">
           <UsersListView />
         </UsersLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const usersRolesRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/users/roles',
   component: () => (
-    <ProtectedAdmin permission="users:read">
+    <RequirePermission permission="users:read">
       <RouteSuspense>
         <UsersLayout activeTab="roles">
           <RolesMatrixView />
         </UsersLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const developerRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/developer',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <DeveloperHubView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const marketplaceRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/marketplace',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <MarketplaceView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const formsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/forms',
   component: () => (
-    <ProtectedAdmin permission="collection:read">
+    <RequirePermission permission="collection:read">
       <RouteSuspense>
         <FormsIndexView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 // Settings Routes
 export const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings',
   beforeLoad: () => {
     throw redirect({ to: '/settings/general' });
@@ -432,61 +445,61 @@ export const settingsRoute = createRoute({
 });
 
 export const settingsGeneralRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/general',
   component: () => (
-    <ProtectedAdmin permission="settings.manage">
+    <RequirePermission permission="settings.manage">
       <RouteSuspense>
         <SettingsLayout activeTab="general">
           <GeneralSettingsView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsEmailRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/email',
   component: () => (
-    <ProtectedAdmin permission="settings.manage">
+    <RequirePermission permission="settings.manage">
       <RouteSuspense>
         <SettingsLayout activeTab="email">
           <EmailSettingsView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 // System Routes
 export const systemAuditRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/system/audit',
   component: () => (
-    <ProtectedAdmin permission="audit:read">
+    <RequirePermission permission="audit:read">
       <RouteSuspense>
         <AuditLogView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const systemHealthRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/system/health',
   component: () => (
-    <ProtectedAdmin permission="site:health">
+    <RequirePermission permission="site:health">
       <RouteSuspense>
         <SiteHealthView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 // Redirect /settings/audit to /system/audit for dashboard and legacy link compatibility
 export const settingsAuditRedirectRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/audit',
   beforeLoad: () => {
     throw redirect({ to: '/system/audit' });
@@ -495,7 +508,7 @@ export const settingsAuditRedirectRoute = createRoute({
 
 // Redirect /settings/health to /system/health for dashboard and legacy link compatibility
 export const settingsHealthRedirectRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/health',
   beforeLoad: () => {
     throw redirect({ to: '/system/health' });
@@ -504,150 +517,148 @@ export const settingsHealthRedirectRoute = createRoute({
 
 // SPRINT-A BEGIN: Settings Sub-routes
 export const settingsSecurityRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/security',
   component: () => (
-    <ProtectedAdmin permission="settings.manage">
+    <RequirePermission permission="settings.manage">
       <RouteSuspense>
         <SettingsLayout activeTab="security">
           <SecuritySettingsView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsTokensRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/tokens',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <SettingsLayout activeTab="tokens">
           <ApiTokensView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsWebhooksRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/webhooks',
   component: () => (
-    <ProtectedAdmin permission="settings.manage">
+    <RequirePermission permission="settings.manage">
       <RouteSuspense>
         <SettingsLayout activeTab="webhooks">
           <WebhooksView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsEmailLogRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/email-log',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <SettingsLayout activeTab="email-log">
           <EmailLogView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsPublishingRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/publishing',
   component: () => (
-    <ProtectedAdmin permission="settings.manage">
+    <RequirePermission permission="settings.manage">
       <RouteSuspense>
         <SettingsLayout activeTab="publishing">
           <PublishingSettingsView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsAiRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/ai',
   component: () => (
-    <ProtectedAdmin permission="ai:read">
+    <RequirePermission permission="ai:read">
       <RouteSuspense>
         <SettingsLayout activeTab="ai">
           <AiConnectionsView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const settingsNotificationsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings/notifications',
   component: () => (
-    <ProtectedAdmin>
-      <RouteSuspense>
+    <RouteSuspense>
         <SettingsLayout activeTab="notifications">
           <NotificationsPreferencesView />
         </SettingsLayout>
       </RouteSuspense>
-    </ProtectedAdmin>
   ),
 });
 
 // SPRINT-A: Redirects Route
 export const redirectsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/redirects',
   component: () => (
-    <ProtectedAdmin permission="site:read">
+    <RequirePermission permission="site:read">
       <RouteSuspense>
         <RedirectsView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 // SPRINT-A: Developer Routes
 export const developerJobsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/developer/jobs',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <JobsView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const developerSchemaRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/developer/schema',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <SchemaBuilderView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 
 export const developerApiExplorerRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/developer/api',
   component: () => (
-    <ProtectedAdmin permission="settings:read">
+    <RequirePermission permission="settings:read">
       <RouteSuspense>
         <ApiExplorerView />
       </RouteSuspense>
-    </ProtectedAdmin>
+    </RequirePermission>
   ),
 });
 // SPRINT-A END
@@ -655,14 +666,12 @@ export const developerApiExplorerRoute = createRoute({
 // SPRINT-D BEGIN
 // User Account Route
 export const accountRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/account',
   component: () => (
-    <ProtectedAdmin>
-      <RouteSuspense>
-        <MyAccountView />
-      </RouteSuspense>
-    </ProtectedAdmin>
+    <RouteSuspense>
+      <MyAccountView />
+    </RouteSuspense>
   ),
 });
 // SPRINT-D END
@@ -690,18 +699,12 @@ export const notFoundRoute = createRoute({
 });
 
 export async function buildRouteTree() {
-  const routes = [
+  const shellChildren = [
     indexRoute,
-    loginRoute,
-    forgotPasswordRoute,
-    resetPasswordRoute,
-    acceptInvitationRoute,
-    oauthReturnRoute,
     entriesRoute,
     collectionEntriesRoute,
     entryNewRoute,
     entryEditRoute,
-    entryDesignRoute,
     taxonomiesRoute,
     mediaRoute,
     menusRoute,
@@ -715,7 +718,6 @@ export async function buildRouteTree() {
     settingsRoute,
     settingsGeneralRoute,
     settingsEmailRoute,
-    // SPRINT-A BEGIN
     settingsSecurityRoute,
     settingsTokensRoute,
     settingsWebhooksRoute,
@@ -727,19 +729,40 @@ export async function buildRouteTree() {
     developerJobsRoute,
     developerSchemaRoute,
     developerApiExplorerRoute,
-    // SPRINT-A END
     systemAuditRoute,
     settingsAuditRedirectRoute,
     systemHealthRoute,
     settingsHealthRedirectRoute,
     accountRoute,
-    forbiddenRoute,
-    notFoundRoute,
   ];
+
+  const shellGroup = shellRoute.addChildren(shellChildren);
 
   if (import.meta.env.DEV) {
     const { galleryRoute } = await import('./gallery/gallery-route');
-    return rootRoute.addChildren([...routes, galleryRoute]);
+    return rootRoute.addChildren([
+      loginRoute,
+      forgotPasswordRoute,
+      resetPasswordRoute,
+      acceptInvitationRoute,
+      oauthReturnRoute,
+      forbiddenRoute,
+      notFoundRoute,
+      entryDesignRoute,
+      shellGroup,
+      galleryRoute,
+    ]);
   }
-  return rootRoute.addChildren(routes);
+
+  return rootRoute.addChildren([
+    loginRoute,
+    forgotPasswordRoute,
+    resetPasswordRoute,
+    acceptInvitationRoute,
+    oauthReturnRoute,
+    forbiddenRoute,
+    notFoundRoute,
+    entryDesignRoute,
+    shellGroup,
+  ]);
 }

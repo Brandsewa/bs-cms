@@ -15,7 +15,7 @@ const ADMIN_ROUTES = [
   { path: '/', name: 'Dashboard' },
   { path: '/entries', name: 'Collection List (Entries)' },
   { path: '/entries/pages/01M5EPAGEFIXEDID0001', name: 'Page Editor (Puck)' },
-  { path: '/entries/pages/01M5EPAGEFIXEDID0001/design', name: 'Page Designer (Puck full-screen)' },
+  { path: '/design/pages/01M5EPAGEFIXEDID0001', name: 'Page Designer (Puck full-screen)' },
   { path: '/users', name: 'Users List' },
   { path: '/users/roles', name: 'Roles Matrix' },
   { path: '/settings/general', name: 'General Settings' },

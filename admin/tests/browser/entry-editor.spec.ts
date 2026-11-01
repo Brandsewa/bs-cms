@@ -468,7 +468,7 @@ test.describe('Page Editor Screen Suite (Puck content field)', () => {
     await page.getByTestId('puck-customize-button').click();
 
     // The designer route is chrome-less with its own toolbar.
-    await expect(page).toHaveURL(new RegExp('/entries/pages/01M5E0583S0DPAGES00000001/design$'));
+    await expect(page).toHaveURL(new RegExp('/design/pages/01M5E0583S0DPAGES00000001$'));
     const header = page.getByTestId('designer-header');
     await expect(header).toBeVisible();
     await expect(header.getByText('Home')).toBeVisible();

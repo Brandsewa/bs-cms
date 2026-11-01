@@ -218,7 +218,23 @@ export function AdminLayout({ children }: { children: ReactNode }) {
             href={adminItem.to || '#'}
             aria-current={isActive ? 'page' : undefined}
             className={className}
-            onClick={() => setMobileDrawerOpen(false)}
+            onClick={(event) => {
+              setMobileDrawerOpen(false);
+              // SPA navigation so the shell never remounts between sections;
+              // modifier clicks keep native anchor behaviour (new tab etc.).
+              if (
+                adminItem.to &&
+                event.button === 0 &&
+                !event.metaKey &&
+                !event.ctrlKey &&
+                !event.shiftKey &&
+                !event.altKey
+              ) {
+                event.preventDefault();
+                const target = adminItem.to.replace(/^\/admin/, '') || '/';
+                void navigate({ to: target });
+              }
+            }}
           >
             {content}
           </a>
@@ -238,7 +254,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       </a>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex shrink-0">
+      {/* Fixed-height sidebar: pinned to the viewport so long pages scroll
+          under it instead of stretching the navigation. */}
+      <div className="hidden md:flex shrink-0 sticky top-0 h-screen self-start">
         {renderSidebar(false)}
       </div>
 
