@@ -182,7 +182,7 @@ export interface PageLoadingSkeletonProps {
 export function PageLoadingSkeleton({ className }: PageLoadingSkeletonProps) {
   return (
     <div
-      className={cn('flex min-h-[300px] w-full items-center justify-center', className)}
+      className={cn('flex min-h-[300px] w-full items-center justify-center bg-background', className)}
       role="status"
       aria-label="Loading content"
     >
