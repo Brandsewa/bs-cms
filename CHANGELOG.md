@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-11-02
+
+### Added
+- **Puck visual page builder** replaces the block system end-to-end: full-screen designer at `/design/pages/{id}` (drag/drop/nest, per-page draft preview, Save Draft/Publish toolbar), shared `@bs/page-builder` component package (Hero, RichText, Callout, FAQ, CTA banner, Features grid, Image, Spacer, Contact form embed), side drawer for issue/details review patterns, and the pages `content` field (`puck` type, migration 0012 converts legacy blocks).
+- **Plugin marketplace + contact form plugin**: install/enable/uninstall from `/admin/marketplace`; form builder, public form embed (`data-bs-form` hydrated by embed.js), inquiry inbox with read/unread; endpoints gated on plugin installation.
+- **Site Health triage**: issues render as a compact DataTable with severity tabs and a detail drawer (rule, entity, recommended fix, Edit entry); findings can be dismissed/restored individually or in bulk (persisted server-side).
+- **Audit log bulk delete**: checkbox selection with type-to-confirm, owner-gated `POST /audit/delete`.
+- **Drag-to-reorder** across the admin: navigation menus (nested tree — drag to reorder and nest children) and schema-builder fields, via dnd-kit grips with keyboard support; arrow-button reordering removed.
+- **Admin design pass**: Geist typeface (self-hosted), documented type hierarchy, data-table header/body alignment fix + row affordances, spinner-only loading states, dark-mode pre-paint background (no white flash), persistent admin shell (sidebar/topbar no longer remount per section).
+- **Entry editor (pages)**: compact columns — Title, editable Page URL, Customize hand-off to the builder, SEO card (meta title/description, SERP preview); the entry form never writes page content, preventing designer clobbering.
+- **Starter**: Astro upgraded 5.18 → 7.4.4 with `@astrojs/react` islands support; Puck content renders server-side (zero client JS on content pages); draft preview page as a client island; per-page hashed CSP; node 24 in CI/deploy.
+
+### Changed
+- Navigation singleton storage flattened to schema-valid repeater rows (`menu`/`parent_id`/`position`); public site nav composes children from `parent_id`.
+- Admin bundles Geist + builds under Vite 8; size budget rebalanced to the new shell.
+
+### Fixed
+- Menu editor saves actually persist now (previous `menus` payload was schema-invalid — every save 422'd).
+- DataTable header/body column alignment drift (actions column width), padding mismatch, pointer cursor on clickable rows, tooltips on truncated cells.
+- Dark mode no longer flashes white before first paint; DataTable `onStateChange` now merges patches (tab/filter state no longer wiped by the search debounce).
+- Menus page editor drag state persists to Save; date-picker tests no longer break at month rollover.
+
 ## [Unreleased]
 
 ### Added
