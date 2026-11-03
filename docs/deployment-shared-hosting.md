@@ -22,15 +22,38 @@ environments use.
 
 ## 2. Upload and extract
 
-1. Upload `bs-cms-1.1.0.zip` to a folder **next to** (not inside) the web
-   root, e.g. `~/bscms.zip`.
-2. Extract it. You get a `core/` folder containing
-   `bin, config, migrations, public, resources, storage, vendor, ...`.
+**Option A — the shared-hosting zip (recommended, WordPress-style).**
+Upload `bs-cms-1.1.0-shared.zip` directly **into** your web root
+(`public_html`), then extract it there. The zip root IS the docroot:
+
+```
+public_html/
+├── index.php      # front controller (paths already point into core/)
+├── .htaccess      # static files served directly; /api,/admin → index.php
+├── admin -> core/public/admin   (real symlink, recreated by unzip)
+├── media -> core/public/media   (uploads written here via PHP)
+└── core/          # the application
+```
+
+No wrapper files, no docroot symlink, no path edits — works on the main
+domain even where the docroot folder cannot be swapped (verified on
+Hostinger + LiteSpeed, where a symlinked docroot does NOT execute PHP).
+
+```bash
+cd ~/domains/yourdomain.com/public_html
+unzip ~/bs-cms-1.1.0-shared.zip
+```
+
+**Option B — the standard zip.** Upload `bs-cms-1.1.0.zip` to a folder
+**next to** (not inside) the web root, e.g. `~/bscms.zip`, and extract it.
+You get a `core/` folder containing
+`bin, config, migrations, public, resources, storage, vendor, ...`.
 
 **Web root layout — pick one:**
 
-- **With SSH (recommended):** point the (sub)domain web root at
-  `core/public` with a symlink:
+- **With SSH:** point the (sub)domain web root at
+  `core/public` with a symlink (only works where the web server executes
+  PHP through a symlinked docroot — LiteSpeed on Hostinger does not):
   ```bash
   ln -s ~/bscms/core/public ~/public_html
   ```
@@ -85,6 +108,11 @@ The Astro starter builds a static site separately. Two important rules:
    controller rules + static caching/markdown rules), or:
 2. **Serve the static site from a subdomain** with its own folder — no
    rule collisions, and the CMS API stays reachable on the main domain.
+
+With the shared-hosting zip (Option A) you can also publish **into the same
+`public_html`**: upload `starter/dist/` there (excluding `.htaccess`). The
+front-controller `.htaccess` already serves existing files directly, so the
+static pages win while `/api` and `/admin` keep hitting the CMS.
 
 Build the static site locally against the live CMS:
 

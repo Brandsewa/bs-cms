@@ -217,4 +217,35 @@ if [ "${BANNED_FOUND}" -eq 1 ]; then
     exit 1
 fi
 
+# ---------------------------------------------------------------
+# 8. Shared-hosting variant: WordPress-style docroot layout
+#    Zip root = docroot: index.php + .htaccess + admin/ + media/ + core/
+#    For hosts where the main-domain docroot folder is fixed (e.g. public_html).
+#    admin/ and media/ are zip symlinks into core/public (single source of
+#    truth: the SPA serves from core/public/admin and PHP writes media
+#    uploads to core/public/media).
+# ---------------------------------------------------------------
+SHARED_STAGE="${BUILD_DIR}/shared"
+rm -rf "${SHARED_STAGE}"
+mkdir -p "${SHARED_STAGE}/core" "${SHARED_STAGE}/media" "${SHARED_STAGE}/admin"
+
+echo "Building shared-hosting variant (WordPress-style docroot layout)..."
+for d in bin config migrations resources src storage vendor public; do
+    cp -r "${BUILD_DIR}/core/$d" "${SHARED_STAGE}/core/$d"
+done
+cp "${BUILD_DIR}/core/composer.json" "${SHARED_STAGE}/core/composer.json"
+cp "${BUILD_DIR}/core/composer.lock" "${SHARED_STAGE}/core/composer.lock" 2>/dev/null || true
+
+# Front controller at the docroot: app root moves to ./core and the admin SPA
+# is served from core/public/admin.
+sed -e 's|$rootDir = dirname(__DIR__);|$rootDir = __DIR__ . "/core";|'     -e "s|__DIR__ . '/../vendor/autoload.php'|__DIR__ . '/core/vendor/autoload.php'|"     -e "s|__DIR__ . '/admin/index.html'|\$rootDir . '/public/admin/index.html'|g"     "${BUILD_DIR}/core/public/index.php" > "${SHARED_STAGE}/index.php"
+cp "${BUILD_DIR}/core/public/.htaccess" "${SHARED_STAGE}/.htaccess"
+
+# Zip symlink entries: unzip recreates them as symlinks pointing into core/public.
+# Zip stores admin/ and media/ as UNIX symlink entries pointing into
+# core/public (unzip on the Linux host recreates real symlinks).
+# Build the shared zip: staging contents + two UNIX symlink entries
+# (unzip on the Linux host recreates real symlinks pointing into core/public).
+(cd "${REPO_ROOT}/build" && php "${REPO_ROOT}/tools/pack-shared-zip.php" "bs-cms-${VERSION}-shared.zip" "release-staging/shared")
+
 echo "SUCCESS: BS CMS release ${VERSION} built and verified clean (${SIZE_MB} MB < 10 MB)."
