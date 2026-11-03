@@ -97,6 +97,15 @@ final class SiteRendererController
             return $this->home($request);
         }
 
+        // API / oauth / mcp namespaces must keep returning JSON ProblemDetails,
+        // never the HTML site renderer (unknown endpoints included).
+        if (in_array($segments[0], ['api', 'oauth', 'mcp'], true)) {
+            return \BsCms\Http\ProblemDetails::notFound(
+                "The requested URL '{$path}' was not found.",
+                (string) ($request->getAttribute('request_id') ?? '')
+            )->toResponse();
+        }
+
         // Blog shapes routed through the catch-all (trailing-slash variants).
         if ($segments[0] === 'blog') {
             if (count($segments) === 1) {
