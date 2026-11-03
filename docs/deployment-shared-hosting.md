@@ -110,9 +110,14 @@ The Astro starter builds a static site separately. Two important rules:
    rule collisions, and the CMS API stays reachable on the main domain.
 
 With the shared-hosting zip (Option A) you can also publish **into the same
-`public_html`**: upload `starter/dist/` there (excluding `.htaccess`). The
-front-controller `.htaccess` already serves existing files directly, so the
-static pages win while `/api` and `/admin` keep hitting the CMS.
+`public_html`**: upload `starter/dist/` there (excluding `.htaccess`), then
+replace the docroot `.htaccess` with the merged template at
+`tools/templates/htaccess.shared-docroot` (CMS front-controller rules +
+`DirectoryIndex index.html index.php` so the static pages win at `/` +
+markdown content negotiation + static-asset caching). This exact template is
+verified live on Hostinger LiteSpeed at bskickstarter.com: `/` and `/home/`
+serve the static site, `/admin/` and `/api` still hit the CMS, and
+`Accept: text/markdown` requests get the Markdown twins.
 
 Build the static site locally against the live CMS:
 
