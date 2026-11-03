@@ -390,7 +390,9 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Site\SiteRendererController(
                 $c->get(Connection::class),
                 $c->get(\BsCms\Content\Cache\RenderedPageCache::class),
-                $c->get(\BsCms\Site\SiteDataProvider::class)
+                $c->get(\BsCms\Site\SiteDataProvider::class),
+                $c->get(\BsCms\Publishing\PreviewTokenService::class),
+                $c->get(\BsCms\Content\EntryRepository::class)
             );
         });
 

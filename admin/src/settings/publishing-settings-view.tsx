@@ -7,12 +7,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   Select,
@@ -22,17 +16,10 @@ import {
   SelectValue,
   Spinner,
 } from '@bs/ui';
-import { Globe, Rocket, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Globe, Rocket, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
-import { StepUpDialog } from '../auth/step-up-dialog';
-
-function isStepUpProblem(problem: { title?: string; detail?: string } | null | undefined): boolean {
-  if (!problem) return false;
-  const text = `${problem.title ?? ''} ${problem.detail ?? ''}`.toLowerCase();
-  return text.includes('step-up');
-}
 
 interface PublishingConfig {
   target_type: 'github_actions' | 'webhook' | 'manual';
@@ -46,13 +33,6 @@ interface PublishingConfig {
   indexnow_status?: string;
 }
 
-interface BuildToken {
-  id: string;
-  token_prefix: string;
-  created_at: string;
-  expires_at: string | null;
-}
-
 interface Deployment {
   id: string;
   trigger_reason: string;
@@ -64,34 +44,20 @@ interface Deployment {
 
 export const PublishingSettingsView: FC = () => {
   const [config, setConfig] = useState<PublishingConfig | null>(null);
-  const [buildTokens, setBuildTokens] = useState<BuildToken[]>([]);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deploying, setDeploying] = useState(false);
 
-  // New build token modal
-  const [createTokenOpen, setCreateTokenOpen] = useState(false);
-  const [newTokenRaw, setNewTokenRaw] = useState<string | null>(null);
-  const [newTokenName, setNewTokenName] = useState('');
-  const [creatingToken, setCreatingToken] = useState(false);
-
-  // Step-up re-authentication (sensitive token operations)
-  const [stepUpOpen, setStepUpOpen] = useState(false);
-  const [stepUpAction, setStepUpAction] = useState<'create' | 'revoke' | null>(null);
-  const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
-
   const loadData = async () => {
     setLoading(true);
     try {
-      const [cfgRes, tokRes, depRes] = await Promise.all([
+      const [cfgRes, depRes] = await Promise.all([
         apiClient.request<PublishingConfig>('GET', '/settings/publishing'),
-        apiClient.request<BuildToken[]>('GET', '/tokens/build'),
         apiClient.request<Deployment[]>('GET', '/deployments'),
       ]);
 
       if (cfgRes.ok) setConfig(cfgRes.data);
-      if (tokRes.ok) setBuildTokens(tokRes.data);
       if (depRes.ok) setDeployments(depRes.data);
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error loading publishing configuration' });
@@ -143,67 +109,6 @@ export const PublishingSettingsView: FC = () => {
     }
   };
 
-  const handleCreateBuildToken = async (name?: string) => {
-    const tokenName = (name ?? newTokenName).trim();
-    if (!tokenName) return;
-    setCreatingToken(true);
-    try {
-      const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens/build', {
-        body: { name: tokenName },
-      });
-      if (res.ok) {
-        setNewTokenRaw(res.data.token || res.data.raw_token || null);
-        loadData();
-      } else if (isStepUpProblem(res.problem)) {
-        setStepUpAction('create');
-        setStepUpOpen(true);
-      } else {
-        problemToast(res.problem, { fallbackMessage: 'Failed to create build token' });
-      }
-    } catch (err) {
-      problemToast(err, { fallbackMessage: 'Error creating build token' });
-    } finally {
-      setCreatingToken(false);
-    }
-  };
-
-  const handleRevokeBuildToken = async (id: string) => {
-    if (!confirm('Revoke this build token? External build steps using it will fail.')) return;
-    try {
-      const res = await apiClient.request('DELETE', `/tokens/build/${id}`);
-      if (res.ok) {
-        loadData();
-      } else if (isStepUpProblem(res.problem)) {
-        setPendingRevokeId(id);
-        setStepUpAction('revoke');
-        setStepUpOpen(true);
-      } else {
-        problemToast(res.problem, { fallbackMessage: 'Failed to revoke token' });
-      }
-    } catch (err) {
-      problemToast(err, { fallbackMessage: 'Error revoking build token' });
-    }
-  };
-
-  // After successful step-up verification the session is in a 10-minute
-  // grace window — retry the operation that was blocked.
-  const handleStepUpSuccess = () => {
-    setStepUpOpen(false);
-    if (stepUpAction === 'create') {
-      handleCreateBuildToken();
-    } else if (stepUpAction === 'revoke' && pendingRevokeId) {
-      handleRevokeBuildToken(pendingRevokeId);
-    }
-    setStepUpAction(null);
-    setPendingRevokeId(null);
-  };
-
-  const openCreateTokenDialog = () => {
-    setNewTokenRaw(null);
-    setNewTokenName('');
-    setCreateTokenOpen(true);
-  };
-
   if (loading || !config) {
     return (
       <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
@@ -222,7 +127,7 @@ export const PublishingSettingsView: FC = () => {
             <div>
               <CardTitle>Deployment Target & Webhook Dispatch</CardTitle>
               <CardDescription>
-                Configure GitHub Actions workflows or HTTP webhooks triggered on content publish.
+                Optional: pages are published instantly by the built-in PHP renderer. Configure GitHub Actions or webhooks only for an external static-site pipeline.
               </CardDescription>
             </div>
             <Button
@@ -335,54 +240,7 @@ export const PublishingSettingsView: FC = () => {
         </CardContent>
       </Card>
 
-      {/* Build Tokens */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Frontend Build Tokens</CardTitle>
-              <CardDescription>
-                Tokens utilized by Astro/SSG build scripts to authenticate during export and callback.
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openCreateTokenDialog}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Generate Build Token
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {buildTokens.length === 0 ? (
-            <p className="text-13 text-muted-foreground">No build tokens currently active.</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {buildTokens.map((bt) => (
-                <div key={bt.id} className="py-2.5 flex items-center justify-between text-12 font-mono">
-                  <div>
-                    <span className="font-semibold text-foreground">{bt.token_prefix}...</span>
-                    <span className="text-muted-foreground ml-3">
-                      Created: {formatAdminDate(bt.created_at, { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRevokeBuildToken(bt.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Deployments History */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -434,77 +292,6 @@ export const PublishingSettingsView: FC = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Token Create / Reveal Dialog */}
-      <Dialog open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
-        <DialogContent className="max-w-md">
-          {newTokenRaw ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Build Token Created</DialogTitle>
-                <DialogDescription>
-                  Copy this token into your frontend CI environment secrets (<code>BS_BUILD_TOKEN</code>).
-                </DialogDescription>
-              </DialogHeader>
-              <div className="p-3 bg-muted/40 border border-border rounded-md font-mono text-12 select-all break-all">
-                {newTokenRaw}
-              </div>
-              <DialogFooter>
-                <Button onClick={() => setCreateTokenOpen(false)}>Done</Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleCreateBuildToken();
-              }}
-            >
-              <DialogHeader>
-                <DialogTitle>Generate Build Token</DialogTitle>
-                <DialogDescription>
-                  Give the token a name so you can recognise it later (e.g. "local builds").
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-3">
-                <Label htmlFor="new-token-name" className="mb-1.5 block">
-                  Token name
-                </Label>
-                <Input
-                  id="new-token-name"
-                  value={newTokenName}
-                  onChange={(e) => setNewTokenName(e.target.value)}
-                  placeholder="local builds"
-                  maxLength={120}
-                  autoFocus
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreateTokenOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={creatingToken || !newTokenName.trim()}>
-                  {creatingToken ? <Spinner size={14} className="mr-1.5" /> : null}
-                  Generate
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Step-up re-authentication for sensitive token operations */}
-      <StepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        title={stepUpAction === 'revoke' ? 'Confirm token revocation' : 'Confirm token creation'}
-        description="Creating or revoking a build token is a sensitive action. Verify your identity to continue."
-        onSuccess={handleStepUpSuccess}
-      />
     </div>
   );
 };

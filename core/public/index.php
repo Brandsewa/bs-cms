@@ -220,6 +220,8 @@ $router = new Router($routes);
 // every API/admin/oauth/mcp/health route shadows the catch-all.
 $siteRenderer = $container->get(\BsCms\Site\SiteRendererController::class);
 $routes->get('/', [$siteRenderer, 'home']);
+$routes->get('/preview', [$siteRenderer, 'preview']);
+$routes->get('/preview/', [$siteRenderer, 'preview']);
 $routes->get('/sitemap.xml', [$siteRenderer, 'sitemap']);
 $routes->get('/rss.xml', [$siteRenderer, 'rss']);
 $routes->get('/blog', [$siteRenderer, 'blogArchive']);

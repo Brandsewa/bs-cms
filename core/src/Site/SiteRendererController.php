@@ -27,7 +27,58 @@ final class SiteRendererController
         private readonly Connection $connection,
         private readonly RenderedPageCache $cache,
         private readonly SiteDataProvider $siteData,
+        private readonly \BsCms\Publishing\PreviewTokenService $previewTokens,
+        private readonly \BsCms\Content\EntryRepository $entries,
     ) {
+    }
+
+    /**
+     * Route: GET /preview?collection=&id=&token= — server-side draft preview.
+     * Replaces the static preview island: renders the entry in its current
+     * (possibly unpublished) state, noindex and never cached.
+     */
+    public function preview(ServerRequestInterface $request): ResponseInterface
+    {
+        $q = $request->getQueryParams();
+        $collectionHandle = (string) ($q['collection'] ?? '');
+        $entryId = (string) ($q['id'] ?? '');
+        $token = (string) ($q['token'] ?? '');
+
+        if ($token === '' || $collectionHandle === '' || $entryId === '') {
+            return $this->noStoreRespond(404, $this->notFoundHtml($request, '/preview'));
+        }
+
+        $tokenRow = $this->previewTokens->validateToken($token);
+        if ($tokenRow === null) {
+            return $this->noStoreRespond(403, PageLayout::render404($this->siteData->get(), '/preview'));
+        }
+
+        $entry = $this->entries->find($collectionHandle, $entryId);
+        if ($entry === null) {
+            return $this->noStoreRespond(404, $this->notFoundHtml($request, '/preview'));
+        }
+
+        $slug = (string) ($entry['slug'] ?? '');
+        $path = $collectionHandle === 'posts' ? "/blog/{$slug}" : "/{$slug}";
+        $result = match ($collectionHandle) {
+            'pages' => $this->renderEntryPage($request, $entry, $path),
+            'posts' => $this->renderPost($request, $entry, $path),
+            default => $this->renderCustomEntry($request, $entry, $collectionHandle, $path),
+        };
+
+        return $this->noStoreRespond((int) $result['status'], (string) $result['body'], (string) ($result['content_type'] ?? 'text/html; charset=UTF-8'));
+    }
+
+    private function noStoreRespond(int $status, string $body, string $contentType = 'text/html; charset=UTF-8'): ResponseInterface
+    {
+        return new Response($status, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, private',
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'SAMEORIGIN',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+        ], $body);
     }
 
     /** Route: GET / — the home page. */

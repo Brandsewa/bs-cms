@@ -510,8 +510,18 @@ export function EntryEditorRoute({
     }
   };
 
+  // Public URL of this entry on the live site (PHP renderer serves pages at
+  // /{slug}/, posts at /blog/{slug}/, custom collections at /{handle}/{slug}/).
+  const siteUrlForEntry = () => {
+    const origin = staticPreviewOrigin();
+    const s = slug || '';
+    const path =
+      collectionHandle === 'pages' ? `/${s}` : collectionHandle === 'posts' ? `/blog/${s}` : `/${collectionHandle}/${s}`;
+    return `${origin}${path}`;
+  };
+
   const handleViewOnSite = () => {
-    window.open(`https://example.com/${collectionHandle}/${slug || ''}`, '_blank');
+    window.open(siteUrlForEntry(), '_blank');
   };
 
   // Hotkey listener: Ctrl+S and custom bs:save-draft event
@@ -806,7 +816,7 @@ export function EntryEditorRoute({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-foreground-light">SERP Snippet Preview</Label>
                   <div className="rounded-md border border-border p-3 space-y-1">
-                    <p className="text-12 text-success-text">{`https://example.com/${collectionHandle}/${slug || '…'}`}</p>
+                    <p className="text-12 text-success-text truncate">{siteUrlForEntry() || '…'}</p>
                     <p className="text-13 font-medium text-primary">{metaTitle || title}</p>
                     <p className="text-12 text-muted-foreground">{metaDescription || 'No description preview available.'}</p>
                   </div>
@@ -885,7 +895,7 @@ export function EntryEditorRoute({
               onMetaTitleChange={setMetaTitle}
               metaDescription={metaDescription}
               onMetaDescriptionChange={setMetaDescription}
-              urlPrefix={`https://example.com/${collectionHandle}/`}
+              urlPrefix={`${staticPreviewOrigin()}/${collectionHandle === 'posts' ? 'blog' : collectionHandle}/`}
             />
           )}
         </div>
