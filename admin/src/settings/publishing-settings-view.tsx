@@ -26,6 +26,13 @@ import { Globe, Rocket, Plus, Trash2, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
 import { problemToast } from '../lib/problem-toast';
+import { StepUpDialog } from '../auth/step-up-dialog';
+
+function isStepUpProblem(problem: { title?: string; detail?: string } | null | undefined): boolean {
+  if (!problem) return false;
+  const text = `${problem.title ?? ''} ${problem.detail ?? ''}`.toLowerCase();
+  return text.includes('step-up');
+}
 
 interface PublishingConfig {
   target_type: 'github_actions' | 'webhook' | 'manual';
@@ -66,6 +73,11 @@ export const PublishingSettingsView: FC = () => {
   // New build token modal
   const [createTokenOpen, setCreateTokenOpen] = useState(false);
   const [newTokenRaw, setNewTokenRaw] = useState<string | null>(null);
+
+  // Step-up re-authentication (sensitive token operations)
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [stepUpAction, setStepUpAction] = useState<'create' | 'revoke' | null>(null);
+  const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -135,6 +147,9 @@ export const PublishingSettingsView: FC = () => {
       if (res.ok) {
         setNewTokenRaw(res.data.token || res.data.raw_token || null);
         loadData();
+      } else if (isStepUpProblem(res.problem)) {
+        setStepUpAction('create');
+        setStepUpOpen(true);
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to create build token' });
       }
@@ -149,12 +164,29 @@ export const PublishingSettingsView: FC = () => {
       const res = await apiClient.request('DELETE', `/tokens/build/${id}`);
       if (res.ok) {
         loadData();
+      } else if (isStepUpProblem(res.problem)) {
+        setPendingRevokeId(id);
+        setStepUpAction('revoke');
+        setStepUpOpen(true);
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to revoke token' });
       }
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error revoking build token' });
     }
+  };
+
+  // After successful step-up verification the session is in a 10-minute
+  // grace window — retry the operation that was blocked.
+  const handleStepUpSuccess = () => {
+    setStepUpOpen(false);
+    if (stepUpAction === 'create') {
+      handleCreateBuildToken();
+    } else if (stepUpAction === 'revoke' && pendingRevokeId) {
+      handleRevokeBuildToken(pendingRevokeId);
+    }
+    setStepUpAction(null);
+    setPendingRevokeId(null);
   };
 
   if (loading || !config) {
@@ -409,6 +441,15 @@ export const PublishingSettingsView: FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Step-up re-authentication for sensitive token operations */}
+      <StepUpDialog
+        open={stepUpOpen}
+        onOpenChange={setStepUpOpen}
+        title={stepUpAction === 'revoke' ? 'Confirm token revocation' : 'Confirm token creation'}
+        description="Creating or revoking a build token is a sensitive action. Verify your identity to continue."
+        onSuccess={handleStepUpSuccess}
+      />
     </div>
   );
 };
