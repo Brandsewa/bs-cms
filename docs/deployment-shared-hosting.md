@@ -1,5 +1,21 @@
 # Deploying BS CMS 1.1.0 to shared hosting (manual install)
 
+## 0. Publishing without a build (default since the PHP site renderer)
+
+Since v1.1.0 the CMS ships a **WordPress-style on-the-fly PHP renderer**: it
+turns published entries into HTML on request and caches each page under
+`storage/cache/site/`. Publishing (or editing) any entry flushes the cache,
+so **publish = instantly live** — no Node, no build, no static upload. It
+renders the same `.bs-*` markup and branding tokens as the Astro starter,
+plus dynamic `sitemap.xml`, `rss.xml`, redirects and a styled 404.
+
+The Astro starter pipeline remains optional: static files already present in
+the docroot still win over the renderer, so a dist you upload earlier keeps
+working until you remove it. For most shared-hosting sites you can ignore
+sections about static deploys below entirely.
+
+
+
 Step-by-step for installing the packaged release (`bs-cms-1.1.0.zip`) on
 shared hosting such as Hostinger. Verified against the same layout the sim
 environments use.
