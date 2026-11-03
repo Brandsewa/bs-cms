@@ -73,6 +73,8 @@ export const PublishingSettingsView: FC = () => {
   // New build token modal
   const [createTokenOpen, setCreateTokenOpen] = useState(false);
   const [newTokenRaw, setNewTokenRaw] = useState<string | null>(null);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [creatingToken, setCreatingToken] = useState(false);
 
   // Step-up re-authentication (sensitive token operations)
   const [stepUpOpen, setStepUpOpen] = useState(false);
@@ -141,9 +143,14 @@ export const PublishingSettingsView: FC = () => {
     }
   };
 
-  const handleCreateBuildToken = async () => {
+  const handleCreateBuildToken = async (name?: string) => {
+    const tokenName = (name ?? newTokenName).trim();
+    if (!tokenName) return;
+    setCreatingToken(true);
     try {
-      const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens/build');
+      const res = await apiClient.request<{ token?: string; raw_token?: string }>('POST', '/tokens/build', {
+        body: { name: tokenName },
+      });
       if (res.ok) {
         setNewTokenRaw(res.data.token || res.data.raw_token || null);
         loadData();
@@ -155,6 +162,8 @@ export const PublishingSettingsView: FC = () => {
       }
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error creating build token' });
+    } finally {
+      setCreatingToken(false);
     }
   };
 
@@ -187,6 +196,12 @@ export const PublishingSettingsView: FC = () => {
     }
     setStepUpAction(null);
     setPendingRevokeId(null);
+  };
+
+  const openCreateTokenDialog = () => {
+    setNewTokenRaw(null);
+    setNewTokenName('');
+    setCreateTokenOpen(true);
   };
 
   if (loading || !config) {
@@ -333,11 +348,7 @@ export const PublishingSettingsView: FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setNewTokenRaw(null);
-                setCreateTokenOpen(true);
-                handleCreateBuildToken();
-              }}
+              onClick={openCreateTokenDialog}
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Generate Build Token
             </Button>
@@ -424,21 +435,65 @@ export const PublishingSettingsView: FC = () => {
         </CardContent>
       </Card>
 
-      {/* Token Reveal Dialog */}
+      {/* Token Create / Reveal Dialog */}
       <Dialog open={createTokenOpen} onOpenChange={setCreateTokenOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Build Token Created</DialogTitle>
-            <DialogDescription>
-              Copy this token into your frontend CI environment secrets (<code>BS_BUILD_TOKEN</code>).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-3 bg-muted/40 border border-border rounded-md font-mono text-12 select-all break-all">
-            {newTokenRaw || 'Generating...'}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setCreateTokenOpen(false)}>Done</Button>
-          </DialogFooter>
+          {newTokenRaw ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Build Token Created</DialogTitle>
+                <DialogDescription>
+                  Copy this token into your frontend CI environment secrets (<code>BS_BUILD_TOKEN</code>).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="p-3 bg-muted/40 border border-border rounded-md font-mono text-12 select-all break-all">
+                {newTokenRaw}
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setCreateTokenOpen(false)}>Done</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateBuildToken();
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>Generate Build Token</DialogTitle>
+                <DialogDescription>
+                  Give the token a name so you can recognise it later (e.g. "local builds").
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-3">
+                <Label htmlFor="new-token-name" className="mb-1.5 block">
+                  Token name
+                </Label>
+                <Input
+                  id="new-token-name"
+                  value={newTokenName}
+                  onChange={(e) => setNewTokenName(e.target.value)}
+                  placeholder="local builds"
+                  maxLength={120}
+                  autoFocus
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateTokenOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={creatingToken || !newTokenName.trim()}>
+                  {creatingToken ? <Spinner size={14} className="mr-1.5" /> : null}
+                  Generate
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
