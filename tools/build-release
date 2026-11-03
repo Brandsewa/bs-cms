@@ -221,7 +221,7 @@ fi
 # 8. Shared-hosting variant: WordPress-style docroot layout
 #    Zip root = docroot: index.php + .htaccess + admin/ + media/ + core/
 #    For hosts where the main-domain docroot folder is fixed (e.g. public_html).
-#    admin/ and media/ are zip symlinks into core/public (single source of
+#    admin/, media/ and site-assets/ are zip symlinks into core/public (single source of
 #    truth: the SPA serves from core/public/admin and PHP writes media
 #    uploads to core/public/media).
 # ---------------------------------------------------------------
@@ -242,9 +242,9 @@ sed -e 's|$rootDir = dirname(__DIR__);|$rootDir = __DIR__ . "/core";|'     -e "s
 cp "${BUILD_DIR}/core/public/.htaccess" "${SHARED_STAGE}/.htaccess"
 
 # Zip symlink entries: unzip recreates them as symlinks pointing into core/public.
-# Zip stores admin/ and media/ as UNIX symlink entries pointing into
+# Zip stores admin/, media/ and site-assets/ as UNIX symlink entries pointing into
 # core/public (unzip on the Linux host recreates real symlinks).
-# Build the shared zip: staging contents + two UNIX symlink entries
+# Build the shared zip: staging contents + three UNIX symlink entries
 # (unzip on the Linux host recreates real symlinks pointing into core/public).
 (cd "${REPO_ROOT}/build" && php "${REPO_ROOT}/tools/pack-shared-zip.php" "bs-cms-${VERSION}-shared.zip" "release-staging/shared")
 

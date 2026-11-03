@@ -8,6 +8,7 @@ use BsCms\Audit\AuditLogger;
 use BsCms\Authz\Authorizer;
 use BsCms\Authz\Subject;
 use BsCms\Content\EntryRepository;
+use BsCms\Content\Cache\RenderedPageCache;
 use BsCms\Database\Connection;
 use BsCms\Operations\ConfirmTokenService;
 use BsCms\Operations\Exceptions\ValidationException;
@@ -24,7 +25,8 @@ class SingletonsController extends BaseController
         private readonly EntryRepository $repository,
         private readonly Authorizer $authorizer,
         private readonly AuditLogger $auditLogger,
-        private readonly ConfirmTokenService $confirmTokenService
+        private readonly ConfirmTokenService $confirmTokenService,
+        private readonly ?RenderedPageCache $renderedPageCache = null
     ) {
     }
 
@@ -199,6 +201,11 @@ class SingletonsController extends BaseController
                 subjectId: (string) ($updated['id'] ?? $handle),
                 collectionKey: $handle
             );
+
+            // Singleton content feeds the public site (branding, navigation,
+            // site settings) — flush the rendered-page cache so changes go
+            // live immediately (WordPress-style publish model).
+            $this->renderedPageCache?->clear();
 
             $presented = \BsCms\Content\Presenters\EntryPresenter::forAuthenticated($updated, $collection, $actor, $this->authorizer);
             return $this->json($presented);

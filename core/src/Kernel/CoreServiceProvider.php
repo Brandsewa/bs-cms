@@ -378,6 +378,22 @@ final class CoreServiceProvider implements ServiceProvider
             return new \BsCms\Content\Cache\PublicResponseCache($app->basePath('storage/cache/public'));
         });
 
+        $container->singleton(\BsCms\Content\Cache\RenderedPageCache::class, function (Container $c) use ($app): \BsCms\Content\Cache\RenderedPageCache {
+            return new \BsCms\Content\Cache\RenderedPageCache($app->basePath('storage/cache/site'));
+        });
+
+        $container->singleton(\BsCms\Site\SiteDataProvider::class, function (Container $c): \BsCms\Site\SiteDataProvider {
+            return new \BsCms\Site\SiteDataProvider($c->get(Connection::class));
+        });
+
+        $container->singleton(\BsCms\Site\SiteRendererController::class, function (Container $c): \BsCms\Site\SiteRendererController {
+            return new \BsCms\Site\SiteRendererController(
+                $c->get(Connection::class),
+                $c->get(\BsCms\Content\Cache\RenderedPageCache::class),
+                $c->get(\BsCms\Site\SiteDataProvider::class)
+            );
+        });
+
         $container->singleton(\BsCms\Webhooks\WebhookDispatcher::class, function (Container $c): \BsCms\Webhooks\WebhookDispatcher {
             return new \BsCms\Webhooks\WebhookDispatcher(
                 $c->get(Connection::class),
@@ -419,7 +435,8 @@ final class CoreServiceProvider implements ServiceProvider
                 $c->get(\BsCms\Content\EntryRepository::class),
                 $c->get(Authorizer::class),
                 $c->get(AuditLogger::class),
-                $c->get(\BsCms\Operations\ConfirmTokenService::class)
+                $c->get(\BsCms\Operations\ConfirmTokenService::class),
+                $c->get(\BsCms\Content\Cache\RenderedPageCache::class)
             );
         });
 
@@ -973,6 +990,20 @@ final class CoreServiceProvider implements ServiceProvider
                         'crawler_policy.updated'
                     ], true)) {
                         $container->get(\BsCms\Publishing\DeploymentService::class)->requestDeploy($changedUrls, null, $name);
+                    }
+
+                    // 4. On-the-fly site renderer: content changed → flush the
+                    // rendered-page cache so publish is instantly live.
+                    if (str_starts_with($name, 'entry.')
+                        || str_starts_with($name, 'term.')
+                        || str_starts_with($name, 'navigation.')
+                        || str_starts_with($name, 'redirect.')
+                        || str_starts_with($name, 'settings.')
+                        || $name === 'branding.updated'
+                        || $name === 'crawler_policy.updated') {
+                        if ($container->has(\BsCms\Content\Cache\RenderedPageCache::class)) {
+                            $container->get(\BsCms\Content\Cache\RenderedPageCache::class)->clear();
+                        }
                     }
                 }
             });

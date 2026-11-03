@@ -39,6 +39,7 @@ foreach ($it as $file) {
 $symlinkTargets = [
     'admin' => 'core/public/admin',
     'media' => 'core/public/media',
+    'site-assets' => 'core/public/site-assets',
 ];
 foreach ($symlinkTargets as $entry => $target) {
     $zip->addFromString($entry, $target);

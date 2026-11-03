@@ -216,6 +216,16 @@ $router = new Router($routes);
     // MARKETPLACE & PLUGINS END
 );
 
+// Public site renderer (WordPress-style on-the-fly pages). Registered LAST so
+// every API/admin/oauth/mcp/health route shadows the catch-all.
+$siteRenderer = $container->get(\BsCms\Site\SiteRendererController::class);
+$routes->get('/', [$siteRenderer, 'home']);
+$routes->get('/sitemap.xml', [$siteRenderer, 'sitemap']);
+$routes->get('/rss.xml', [$siteRenderer, 'rss']);
+$routes->get('/blog', [$siteRenderer, 'blogArchive']);
+$routes->get('/blog/{slug}', [$siteRenderer, 'blogPost']);
+$routes->get('/{slug:.+}', [$siteRenderer, 'page']);
+
 // Build middleware pipeline
 $kernel = new Kernel($router, __DIR__ . '/admin/index.html');
 $fileLogger = new \BsCms\Log\FileLogger($storageDir . '/logs/app.log');
