@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import type { ReactElement } from 'react';
 import type { PuckData } from '@bs/page-builder';
 import { isRecord } from './puck-content';
-import { Button, Spinner } from '@bs/ui';
+import { Button, Skeleton } from '@bs/ui';
 import { Paintbrush } from 'lucide-react';
 
 /**
@@ -54,12 +54,25 @@ function isEmptyContent(value: unknown): boolean {
   return !Array.isArray(content) || content.length === 0;
 }
 
-/** Spinner shown while the read-only preview chunk loads. */
+/** Structural wireframe skeleton shown while the read-only preview chunk loads. */
 function PreviewSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="flex min-h-[300px] items-center justify-center" data-testid="puck-preview-loading">
-      <Spinner className="h-6 w-6 text-primary" />
+    <div
+      role="status"
+      aria-label="Loading page preview"
+      className="space-y-4 rounded-md border border-border bg-card p-6"
+      data-testid="puck-preview-loading"
+    >
       <span className="sr-only">Loading page preview…</span>
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-1/3 rounded bg-surface-200" />
+        <Skeleton className="h-4 w-2/3 rounded bg-surface-200" />
+      </div>
+      <div className="grid grid-cols-3 gap-4 pt-4">
+        <Skeleton className="h-28 rounded-md bg-surface-200" />
+        <Skeleton className="h-28 rounded-md bg-surface-200" />
+        <Skeleton className="h-28 rounded-md bg-surface-200" />
+      </div>
     </div>
   );
 }
@@ -115,17 +128,38 @@ export function PuckContentPreview({ value, onCustomize, canCustomize = true }: 
   );
 }
 
-/** Spinner shown while the builder chunk loads. */
+/** Structural wireframe skeleton shown while the builder chunk loads. */
 function PuckEditorSkeleton() {
   return (
     <div
       role="status"
-      aria-busy="true"
-      className="flex min-h-[540px] items-center justify-center rounded-md border border-border"
+      aria-label="Loading page editor"
+      className="flex min-h-[540px] flex-col rounded-md border border-border bg-card"
       data-testid="puck-page-editor-loading"
     >
-      <Spinner className="h-8 w-8 text-primary" />
       <span className="sr-only">Loading page editor…</span>
+      <div className="flex h-12 items-center justify-between border-b border-border px-4">
+        <Skeleton className="h-4 w-32 rounded bg-surface-200" />
+        <div className="flex gap-2">
+          <Skeleton className="h-7 w-20 rounded bg-surface-200" />
+          <Skeleton className="h-7 w-24 rounded bg-surface-200" />
+        </div>
+      </div>
+      <div className="flex flex-1">
+        <div className="w-56 border-r border-border p-3 space-y-2">
+          <Skeleton className="h-3 w-20 rounded bg-surface-200" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-full rounded bg-surface-200" />
+          ))}
+        </div>
+        <div className="flex-1 p-6 space-y-4">
+          <Skeleton className="h-36 w-full rounded-md bg-surface-200" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-24 rounded-md bg-surface-200" />
+            <Skeleton className="h-24 rounded-md bg-surface-200" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

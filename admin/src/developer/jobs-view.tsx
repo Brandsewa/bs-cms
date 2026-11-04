@@ -7,7 +7,7 @@ import {
   EmptyState,
   PageContainer,
   PageHeader,
-  Spinner,
+  Skeleton,
 } from '@bs/ui';
 import { CheckCircle2, XCircle, RotateCcw, Clock, Play, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -137,9 +137,16 @@ export const JobsView: FC = () => {
       </div>
 
       {loading && jobs.length === 0 ? (
-        <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
-          <Spinner size={28} />
-          <p className="text-13 text-muted-foreground">Inspecting queue status...</p>
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between border-b border-border/40 pb-2.5 last:border-0">
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-44 rounded bg-surface-200" />
+                <Skeleton className="h-3 w-28 rounded bg-surface-200" />
+              </div>
+              <Skeleton className="h-5 w-20 rounded bg-surface-200" />
+            </div>
+          ))}
         </div>
       ) : jobs.length === 0 ? (
         <EmptyState

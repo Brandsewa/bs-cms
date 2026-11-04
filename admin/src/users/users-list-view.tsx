@@ -1,3 +1,4 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -21,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
   TypeToConfirmDialog,
 } from '@bs/ui';
 import {
@@ -241,12 +241,7 @@ export function UsersListView() {
   };
 
   if (loading && users.length === 0) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Spinner size={28} />
-        <p className="text-13 text-muted-foreground">Loading workspace users...</p>
-      </div>
-    );
+    return <TablePageSkeleton title="Users & Permissions" description="Manage workspace user accounts, invitations, and assigned roles." />;
   }
 
   if (error) {

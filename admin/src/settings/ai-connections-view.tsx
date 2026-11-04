@@ -1,3 +1,4 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect } from 'react';
 import {
   Badge,
@@ -16,8 +17,7 @@ import {
   EmptyState,
   Input,
   Label,
-  Spinner,
-} from '@bs/ui';
+  } from '@bs/ui';
 import { Bot, Power, Trash2, ShieldAlert } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
@@ -176,12 +176,7 @@ export const AiConnectionsView: FC = () => {
   };
 
   if (loading && !status) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Spinner size={28} />
-        <p className="text-13 text-muted-foreground">Loading AI governance & connections...</p>
-      </div>
-    );
+    return <FormPageSkeleton title="AI Connections" description="Configure Gemini API keys and AI generation models." />;
   }
 
   return (

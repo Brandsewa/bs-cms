@@ -1,10 +1,10 @@
+import { MediaGridSkeleton } from '../components/page-skeletons';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   PageContainer,
   PageHeader,
   Button,
   Input,
-  Spinner,
   Badge,
   Dialog,
   DialogContent,
@@ -382,8 +382,8 @@ export function MediaLibraryRoute() {
 
           {/* Media Items */}
           {loading ? (
-            <div className="flex-1 flex items-center justify-center min-h-[300px]">
-              <Spinner className="h-8 w-8 text-primary" />
+            <div className="flex-1 p-1">
+              <MediaGridSkeleton count={10} />
             </div>
           ) : items.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-md text-center p-12 text-muted-foreground bg-card">

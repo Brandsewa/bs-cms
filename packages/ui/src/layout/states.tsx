@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 import { useI18n } from '../i18n';
 import { Button } from '../components/button';
-import { Spinner } from '../components/spinner';
+import { Skeleton } from '../components/skeleton';
 import { copyToClipboard } from '../lib/utils';
 
 /**
@@ -169,26 +169,73 @@ export function ForbiddenState({ onBack, onHome, className }: ForbiddenStateProp
 }
 
 export interface PageLoadingSkeletonProps {
-  /** Kept for call-site compatibility; ignored (spinner-only since 2026-11). */
   lines?: number;
   className?: string;
 }
 
 /**
- * Page/route loading state. Historically a layout-matching skeleton; the
- * design now uses a single spinner everywhere so route transitions show one
- * consistent loader instead of skeleton + data-fetch spinner in sequence.
+ * Structural page skeleton loader mapping real page elements (header, actions,
+ * table/card surface, and animated rows) to prevent layout shifts.
  */
-export function PageLoadingSkeleton({ className }: PageLoadingSkeletonProps) {
+export function PageLoadingSkeleton({ lines = 5, className }: PageLoadingSkeletonProps) {
   return (
     <div
-      className={cn('flex min-h-[300px] w-full items-center justify-center bg-background', className)}
       role="status"
       aria-label="Loading content"
+      className={cn('w-full space-y-6 p-4 sm:p-6', className)}
     >
-      <div className="flex flex-col items-center gap-3">
-        <Spinner className="h-8 w-8 text-primary" />
-        <p className="text-13 text-muted-foreground">Loading…</p>
+      <span className="sr-only">Loading content…</span>
+      {/* Top breadcrumb & page header skeleton */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3 w-16 rounded" />
+          <span className="text-xs text-muted-foreground/40">/</span>
+          <Skeleton className="h-3 w-24 rounded" />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1.5 flex-1">
+            <Skeleton className="h-6 w-48 rounded" />
+            <Skeleton className="h-3.5 w-80 max-w-full rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-24 rounded-md" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main card skeleton */}
+      <div className="rounded-lg border border-border bg-card p-5 shadow-xs space-y-4">
+        {/* Table/Content header bar */}
+        <div className="flex items-center justify-between border-b border-border/70 pb-3.5">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-20 rounded" />
+            <Skeleton className="h-7 w-24 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-40 rounded" />
+            <Skeleton className="h-7 w-8 rounded" />
+          </div>
+        </div>
+
+        {/* Content rows */}
+        <div className="space-y-3 pt-1">
+          {Array.from({ length: Math.min(lines, 8) }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-border/40 last:border-0">
+              <div className="flex items-center gap-3 flex-1">
+                <Skeleton className="h-4 w-4 rounded-sm shrink-0" />
+                <Skeleton
+                  className="h-4 rounded"
+                  style={{ width: `${[60, 75, 50, 80, 65, 45, 70][i % 7]}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-4 w-4 rounded-sm" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

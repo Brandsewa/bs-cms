@@ -1,3 +1,4 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Alert,
@@ -245,12 +246,7 @@ export function RolesMatrixView() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Spinner size={28} />
-        <p className="text-13 text-muted-foreground">Loading roles & permissions...</p>
-      </div>
-    );
+    return <TablePageSkeleton title="Roles & Permissions" description="Fine-grained capabilities matrix mapped across system roles." />;
   }
 
   if (error) {

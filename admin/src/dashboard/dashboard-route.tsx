@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageContainer, PageHeader, MetricCard } from '@bs/ui';
+import { DashboardSkeleton } from '../components/page-skeletons';
 import { useSession } from '../auth/session-context';
 import { apiClient } from '../lib/api';
 import { DashboardData, MOCK_DASHBOARD_DATA, EMPTY_DASHBOARD_DATA } from './types';
@@ -86,6 +87,10 @@ export function DashboardRoute() {
       mounted = false;
     };
   }, []);
+
+  if (loading && !data.counts) {
+    return <DashboardSkeleton />;
+  }
 
   const userName = session?.user?.name || data.greeting?.user_name || 'Administrator';
   const environment = data.greeting?.environment || 'production';

@@ -1,3 +1,4 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect, useCallback } from 'react';
 import {
   Badge,
@@ -5,7 +6,6 @@ import {
   Card,
   EmptyState,
   Input,
-  Spinner,
 } from '@bs/ui';
 import { RefreshCw, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -106,10 +106,7 @@ export const EmailLogView: FC = () => {
       </div>
 
       {loading && logs.length === 0 ? (
-        <div className="flex min-h-[200px] flex-col items-center justify-center gap-3">
-          <Spinner size={24} />
-          <p className="text-13 text-muted-foreground">Loading email audit records...</p>
-        </div>
+        <TablePageSkeleton title="Email Delivery Log" description="Audit transactional email attempts, delivery states, and errors." />
       ) : logs.length === 0 ? (
         <EmptyState
           title="No email logs found"

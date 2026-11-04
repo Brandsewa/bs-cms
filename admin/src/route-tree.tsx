@@ -1,3 +1,16 @@
+import {
+  DashboardSkeleton,
+  TablePageSkeleton,
+  FormPageSkeleton,
+  MediaGridSkeleton,
+  TreePageSkeleton,
+} from './components/page-skeletons';
+import {
+  CollectionsGridSkeleton,
+  PagesTreeSkeleton,
+  EntryEditorSkeleton,
+  PageDesignerSkeleton,
+} from './entries/entry-skeletons';
 import React, { lazy, Suspense } from 'react';
 import { createRoute, redirect, Outlet } from '@tanstack/react-router';
 import { RequirePermission } from './shell/require-permission';
@@ -144,10 +157,10 @@ const NotFoundRoute = lazy(() =>
   import('./shell/not-found').then((m) => ({ default: m.NotFoundRoute }))
 );
 
-function RouteSuspense({ children }: { children: React.ReactNode }) {
+function RouteSuspense({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return (
     <Suspense
-      fallback={<PageLoadingSkeleton lines={6} />}
+      fallback={fallback ?? <PageLoadingSkeleton lines={6} />}
     >
       {children}
     </Suspense>
@@ -224,7 +237,7 @@ export const indexRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/',
   component: () => (
-    <RouteSuspense>
+    <RouteSuspense fallback={<DashboardSkeleton />}>
         <DashboardRoute />
       </RouteSuspense>
   ),
@@ -236,7 +249,7 @@ export const entriesRoute = createRoute({
   path: '/entries',
   component: () => (
     <RequirePermission permission="collection:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<CollectionsGridSkeleton />}>
         <CollectionsIndexView />
       </RouteSuspense>
     </RequirePermission>
@@ -250,7 +263,7 @@ export const collectionEntriesRoute = createRoute({
     const params = collectionEntriesRoute.useParams();
     return (
       <RequirePermission permission="collection:read">
-        <RouteSuspense>
+        <RouteSuspense fallback={params.collection === "pages" ? <PagesTreeSkeleton /> : <TablePageSkeleton />}>
           <CollectionListRoute collectionHandle={params.collection} />
         </RouteSuspense>
       </RequirePermission>
@@ -265,7 +278,7 @@ export const entryNewRoute = createRoute({
     const params = entryNewRoute.useParams();
     return (
       <RequirePermission permission="collection:create">
-        <RouteSuspense>
+        <RouteSuspense fallback={<EntryEditorSkeleton collectionHandle={params.collection} />}>
           <EntryEditorRoute collectionHandle={params.collection} />
         </RouteSuspense>
       </RequirePermission>
@@ -280,7 +293,7 @@ export const entryEditRoute = createRoute({
     const params = entryEditRoute.useParams();
     return (
       <RequirePermission permission="collection:update">
-        <RouteSuspense>
+        <RouteSuspense fallback={<EntryEditorSkeleton collectionHandle={params.collection} />}>
           <EntryEditorRoute collectionHandle={params.collection} entryId={params.id} />
         </RouteSuspense>
       </RequirePermission>
@@ -296,7 +309,7 @@ export const entryDesignRoute = createRoute({
     const params = entryDesignRoute.useParams();
     return (
       <ProtectedAdmin permission="collection:update" chrome={false}>
-        <RouteSuspense>
+        <RouteSuspense fallback={<PageDesignerSkeleton />}>
           <PageDesignerRoute collectionHandle={params.collection} entryId={params.id} />
         </RouteSuspense>
       </ProtectedAdmin>
@@ -309,10 +322,8 @@ export const taxonomiesRoute = createRoute({
   path: '/taxonomies',
   component: () => (
     <RequirePermission permission="taxonomies:read">
-      <RouteSuspense>
-        {/* SPRINT-B BEGIN */}
+      <RouteSuspense fallback={<TablePageSkeleton title="Taxonomies" description="Manage hierarchical terms and categories." />}>
         <TaxonomiesRoute />
-        {/* SPRINT-B END */}
       </RouteSuspense>
     </RequirePermission>
   ),
@@ -323,10 +334,8 @@ export const mediaRoute = createRoute({
   path: '/media',
   component: () => (
     <RequirePermission permission="media:read">
-      <RouteSuspense>
-        {/* SPRINT-B BEGIN */}
+      <RouteSuspense fallback={<MediaGridSkeleton count={12} />}>
         <MediaLibraryRoute />
-        {/* SPRINT-B END */}
       </RouteSuspense>
     </RequirePermission>
   ),
@@ -337,10 +346,8 @@ export const menusRoute = createRoute({
   path: '/menus',
   component: () => (
     <RequirePermission permission="menus:read">
-      <RouteSuspense>
-        {/* SPRINT-B BEGIN */}
+      <RouteSuspense fallback={<TreePageSkeleton />}>
         <MenusRoute />
-        {/* SPRINT-B END */}
       </RouteSuspense>
     </RequirePermission>
   ),
@@ -376,7 +383,7 @@ export const usersRoute = createRoute({
   path: '/users',
   component: () => (
     <RequirePermission permission="users:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Users" description="Manage user accounts and invitations." />}>
         <UsersLayout activeTab="users">
           <UsersListView />
         </UsersLayout>
@@ -390,7 +397,7 @@ export const usersRolesRoute = createRoute({
   path: '/users/roles',
   component: () => (
     <RequirePermission permission="users:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Roles & Permissions" description="Capabilities matrix mapped across system roles." />}>
         <UsersLayout activeTab="roles">
           <RolesMatrixView />
         </UsersLayout>
@@ -428,7 +435,7 @@ export const formsRoute = createRoute({
   path: '/forms',
   component: () => (
     <RequirePermission permission="collection:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Forms & Inquiries" description="Manage contact forms and inquiries." />}>
         <FormsIndexView />
       </RouteSuspense>
     </RequirePermission>
@@ -449,7 +456,7 @@ export const settingsGeneralRoute = createRoute({
   path: '/settings/general',
   component: () => (
     <RequirePermission permission="settings.manage">
-      <RouteSuspense>
+      <RouteSuspense fallback={<FormPageSkeleton title="General Settings" description="Configure website title, URL, and operational properties." />}>
         <SettingsLayout activeTab="general">
           <GeneralSettingsView />
         </SettingsLayout>
@@ -463,7 +470,7 @@ export const settingsEmailRoute = createRoute({
   path: '/settings/email',
   component: () => (
     <RequirePermission permission="settings.manage">
-      <RouteSuspense>
+      <RouteSuspense fallback={<FormPageSkeleton title="Email Delivery" description="SMTP configuration, sending addresses, and delivery test runner." />}>
         <SettingsLayout activeTab="email">
           <EmailSettingsView />
         </SettingsLayout>
@@ -521,7 +528,7 @@ export const settingsSecurityRoute = createRoute({
   path: '/settings/security',
   component: () => (
     <RequirePermission permission="settings.manage">
-      <RouteSuspense>
+      <RouteSuspense fallback={<FormPageSkeleton title="Security Settings" description="Manage session policies and authentication requirements." />}>
         <SettingsLayout activeTab="security">
           <SecuritySettingsView />
         </SettingsLayout>
@@ -535,7 +542,7 @@ export const settingsTokensRoute = createRoute({
   path: '/settings/tokens',
   component: () => (
     <RequirePermission permission="settings:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="API Tokens" description="Manage programmatic API keys and access tokens." />}>
         <SettingsLayout activeTab="tokens">
           <ApiTokensView />
         </SettingsLayout>
@@ -549,7 +556,7 @@ export const settingsWebhooksRoute = createRoute({
   path: '/settings/webhooks',
   component: () => (
     <RequirePermission permission="settings.manage">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Webhooks" description="Configure HTTP callbacks triggered by events." />}>
         <SettingsLayout activeTab="webhooks">
           <WebhooksView />
         </SettingsLayout>
@@ -563,7 +570,7 @@ export const settingsEmailLogRoute = createRoute({
   path: '/settings/email-log',
   component: () => (
     <RequirePermission permission="settings:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Email Delivery Log" description="Audit transactional email attempts." />}>
         <SettingsLayout activeTab="email-log">
           <EmailLogView />
         </SettingsLayout>
@@ -577,7 +584,7 @@ export const settingsPublishingRoute = createRoute({
   path: '/settings/publishing',
   component: () => (
     <RequirePermission permission="settings.manage">
-      <RouteSuspense>
+      <RouteSuspense fallback={<FormPageSkeleton title="Publishing & Deployments" description="Static build pipelines, preview deployments, and webhooks." />}>
         <SettingsLayout activeTab="publishing">
           <PublishingSettingsView />
         </SettingsLayout>
@@ -591,7 +598,7 @@ export const settingsAiRoute = createRoute({
   path: '/settings/ai',
   component: () => (
     <RequirePermission permission="ai:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<FormPageSkeleton title="AI Connections" description="Configure Gemini API keys and AI generation models." />}>
         <SettingsLayout activeTab="ai">
           <AiConnectionsView />
         </SettingsLayout>
@@ -618,7 +625,7 @@ export const redirectsRoute = createRoute({
   path: '/redirects',
   component: () => (
     <RequirePermission permission="site:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="URL Redirects" description="Manage HTTP 301 and 302 redirects." />}>
         <RedirectsView />
       </RouteSuspense>
     </RequirePermission>
@@ -631,7 +638,7 @@ export const developerJobsRoute = createRoute({
   path: '/developer/jobs',
   component: () => (
     <RequirePermission permission="settings:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="Background Jobs" description="Inspect background job queues." />}>
         <JobsView />
       </RouteSuspense>
     </RequirePermission>
@@ -655,7 +662,7 @@ export const developerApiExplorerRoute = createRoute({
   path: '/developer/api',
   component: () => (
     <RequirePermission permission="settings:read">
-      <RouteSuspense>
+      <RouteSuspense fallback={<TablePageSkeleton title="API Explorer" description="Interactive OpenAPI documentation." />}>
         <ApiExplorerView />
       </RouteSuspense>
     </RequirePermission>
@@ -669,7 +676,7 @@ export const accountRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/account',
   component: () => (
-    <RouteSuspense>
+    <RouteSuspense fallback={<FormPageSkeleton title="My Account" description="Manage your personal profile, security credentials, and active sessions." />}>
       <MyAccountView />
     </RouteSuspense>
   ),

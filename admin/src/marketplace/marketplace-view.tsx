@@ -1,25 +1,25 @@
 import { FC, useState, useEffect } from 'react';
 import {
+  Badge,
   Breadcrumbs,
-  PageContainer,
-  PageHeader,
+  Button,
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Badge,
-  Button,
-  Spinner,
-  Switch,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   Input,
   Label,
+  PageContainer,
+  PageHeader,
+  Skeleton,
+  Switch,
 } from '@bs/ui';
 import {
   Mail,
@@ -164,8 +164,21 @@ export const MarketplaceView: FC = () => {
       />
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <Spinner className="h-8 w-8 text-primary" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="border-border bg-card p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-32 rounded bg-surface-200" />
+                <Skeleton className="h-5 w-16 rounded-full bg-surface-200" />
+              </div>
+              <Skeleton className="h-3.5 w-full rounded bg-surface-200" />
+              <Skeleton className="h-3.5 w-3/4 rounded bg-surface-200" />
+              <div className="pt-2 flex justify-between items-center">
+                <Skeleton className="h-4 w-20 rounded bg-surface-200" />
+                <Skeleton className="h-8 w-24 rounded-md bg-surface-200" />
+              </div>
+            </Card>
+          ))}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -277,16 +290,10 @@ export const MarketplaceView: FC = () => {
                       size="sm"
                       className="w-full"
                       disabled={isPending}
+                      loading={isPending}
                       onClick={() => handleInstall(plugin.handle)}
                     >
-                      {isPending ? (
-                        <>
-                          <Spinner className="mr-2 h-3.5 w-3.5" />
-                          Installing...
-                        </>
-                      ) : (
-                        'Install Plugin'
-                      )}
+                      {isPending ? 'Installing...' : 'Install Plugin'}
                     </Button>
                   )}
                 </CardFooter>

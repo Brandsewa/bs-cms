@@ -1,28 +1,28 @@
 import { FC, useState, useEffect, useCallback } from 'react';
 import {
-  Breadcrumbs,
-  PageContainer,
-  PageHeader,
-  Button,
   Badge,
-  Input,
-  Label,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-  Switch,
-  Spinner,
+  Breadcrumbs,
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  Input,
+  Label,
+  PageContainer,
+  PageHeader,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  Switch,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from '@bs/ui';
 import {
   Plus,
@@ -309,8 +309,16 @@ export const FormsIndexView: FC = () => {
         {/* FORMS TAB */}
         <TabsContent value="forms" className="space-y-4">
           {loading ? (
-            <div className="flex h-48 items-center justify-center">
-              <Spinner className="h-7 w-7 text-primary" />
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between border-b border-border/40 pb-3 last:border-0">
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-40 rounded bg-surface-200" />
+                    <Skeleton className="h-3 w-56 rounded bg-surface-200" />
+                  </div>
+                  <Skeleton className="h-7 w-20 rounded bg-surface-200" />
+                </div>
+              ))}
             </div>
           ) : forms.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
@@ -457,8 +465,16 @@ export const FormsIndexView: FC = () => {
           </div>
 
           {loading ? (
-            <div className="flex h-48 items-center justify-center">
-              <Spinner className="h-7 w-7 text-primary" />
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between border-b border-border/40 pb-3 last:border-0">
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-40 rounded bg-surface-200" />
+                    <Skeleton className="h-3 w-56 rounded bg-surface-200" />
+                  </div>
+                  <Skeleton className="h-7 w-20 rounded bg-surface-200" />
+                </div>
+              ))}
             </div>
           ) : submissions.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">

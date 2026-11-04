@@ -1,3 +1,4 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Alert,
@@ -148,12 +149,7 @@ export function GeneralSettingsView() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
-        <Spinner size={24} />
-        <p className="text-13 text-muted-foreground">Loading site settings...</p>
-      </div>
-    );
+    return <FormPageSkeleton title="General Settings" description="Configure website title, URL, language, and core operational properties." />;
   }
 
   if (error) {

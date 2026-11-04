@@ -9,7 +9,7 @@ import {
   CardTitle,
   PageContainer,
   PageHeader,
-  Spinner,
+  Skeleton,
 } from '@bs/ui';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 
@@ -77,9 +77,17 @@ export const ApiExplorerView: FC = () => {
       />
 
       {loading ? (
-        <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
-          <Spinner size={28} />
-          <p className="text-13 text-muted-foreground">Loading OpenAPI definitions...</p>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="border-border bg-card p-4 space-y-2">
+              <Skeleton className="h-5 w-36 rounded bg-surface-200" />
+              <Skeleton className="h-3.5 w-72 rounded bg-surface-200" />
+              <div className="space-y-2 pt-2">
+                <Skeleton className="h-8 w-full rounded bg-surface-200" />
+                <Skeleton className="h-8 w-full rounded bg-surface-200" />
+              </div>
+            </Card>
+          ))}
         </div>
       ) : (
         <div className="space-y-4">

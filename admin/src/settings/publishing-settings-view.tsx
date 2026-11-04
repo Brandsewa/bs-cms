@@ -1,3 +1,4 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect } from 'react';
 import {
   Badge,
@@ -14,8 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
-} from '@bs/ui';
+  } from '@bs/ui';
 import { Globe, Rocket, RefreshCw } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
@@ -110,12 +110,7 @@ export const PublishingSettingsView: FC = () => {
   };
 
   if (loading || !config) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Spinner size={28} />
-        <p className="text-13 text-muted-foreground">Loading publishing pipelines...</p>
-      </div>
-    );
+    return <FormPageSkeleton title="Publishing & Deployments" description="Static build pipelines, preview deployments, and webhooks." />;
   }
 
   return (

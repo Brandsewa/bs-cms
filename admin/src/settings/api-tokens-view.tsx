@@ -1,3 +1,4 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect } from 'react';
 import {
   Badge,
@@ -17,7 +18,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
 } from '@bs/ui';
 import { Key, Plus, Trash2, Copy, Check, AlertCircle } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -149,10 +149,7 @@ export const ApiTokensView: FC = () => {
       </div>
 
       {loading && tokens.length === 0 ? (
-        <div className="flex min-h-[200px] flex-col items-center justify-center gap-3">
-          <Spinner size={24} />
-          <p className="text-13 text-muted-foreground">Loading tokens...</p>
-        </div>
+        <TablePageSkeleton title="API Tokens" description="Manage programmatic API keys and access tokens for integrations." />
       ) : tokens.length === 0 ? (
         <EmptyState
           title="No API tokens active"

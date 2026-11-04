@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PageLoadingSkeleton } from '@bs/ui';
 import { useSession } from '../auth/session-context';
 import { AdminLayout } from './admin-layout';
 import { ForbiddenRoute } from './forbidden';
@@ -21,14 +22,7 @@ export function ProtectedAdmin({
   const wrap = (node: ReactNode) => (chrome ? <AdminLayout>{node}</AdminLayout> : node);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-13 text-muted-foreground">Loading session...</p>
-        </div>
-      </div>
-    );
+    return wrap(<PageLoadingSkeleton lines={6} />);
   }
 
   if (!session || session.status !== 'authenticated') {

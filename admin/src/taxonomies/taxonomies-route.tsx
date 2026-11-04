@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
   Badge,
-  Spinner,
+  Skeleton,
   errorToast,
   successToast,
   cn,
@@ -526,8 +526,17 @@ export function TaxonomiesRoute() {
           </div>
 
           {loading ? (
-            <div className="flex-1 flex items-center justify-center min-h-[300px]">
-              <Spinner className="h-8 w-8 text-primary" />
+            <div className="flex-1 space-y-3 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between border-b border-border/60 pb-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-4 rounded-sm bg-surface-200" />
+                    <Skeleton className="h-4 w-40 rounded bg-surface-200" />
+                    <Skeleton className="h-3 w-24 rounded bg-surface-200" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded bg-surface-200" />
+                </div>
+              ))}
             </div>
           ) : terms.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-md text-center p-12 text-muted-foreground bg-card space-y-2">

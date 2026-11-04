@@ -1,3 +1,4 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Alert,
@@ -285,12 +286,7 @@ export function EmailSettingsView() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
-        <Spinner size={24} />
-        <p className="text-13 text-muted-foreground">Loading email settings...</p>
-      </div>
-    );
+    return <FormPageSkeleton title="Email Delivery" description="SMTP configuration, sending addresses, and delivery test runner." />;
   }
 
   if (error) {

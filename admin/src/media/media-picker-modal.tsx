@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { MediaGridSkeleton } from '../components/page-skeletons';
 import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  Button,
   Input,
-  Spinner,
   ScrollArea,
-  Badge,
   Tabs,
   TabsList,
   TabsTrigger,
+  cn,
   errorToast,
   successToast,
-  cn,
 } from '@bs/ui';
 import {
   Image as ImageIcon,
@@ -292,8 +292,8 @@ export function MediaPickerModal({
               </div>
 
               {loading ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <Spinner className="h-6 w-6 text-primary" />
+                <div className="flex-1 p-2">
+                  <MediaGridSkeleton count={8} />
                 </div>
               ) : items.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border rounded-md text-center p-6 text-muted-foreground">

@@ -24,14 +24,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
+  Skeleton,
+  SortableDragHandle,
+  SortableItem,
+  SortableList,
   Switch,
   Tabs,
   TabsList,
   TabsTrigger,
-  SortableList,
-  SortableItem,
-  SortableDragHandle,
 } from '@bs/ui';
 import {
   Database,
@@ -573,9 +573,20 @@ export const SchemaBuilderView: FC = () => {
       />
 
       {loading && collections.length === 0 ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-          <Spinner size={28} />
-          <p className="text-13 text-muted-foreground">Loading collection schemas...</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+          <Card className="p-3 space-y-2">
+            <Skeleton className="h-4 w-24 rounded bg-surface-200" />
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full rounded bg-surface-200" />
+            ))}
+          </Card>
+          <div className="md:col-span-3 space-y-4">
+            <Card className="p-5 space-y-3">
+              <Skeleton className="h-6 w-48 rounded bg-surface-200" />
+              <Skeleton className="h-4 w-80 rounded bg-surface-200" />
+              <Skeleton className="h-28 w-full rounded bg-surface-200" />
+            </Card>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
@@ -734,7 +745,11 @@ export const SchemaBuilderView: FC = () => {
                       </div>
 
                       {taxLoading ? (
-                        <div className="flex justify-center py-8"><Spinner size={22} /></div>
+                        <div className="space-y-2 py-4">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-10 w-full rounded-md bg-surface-200" />
+                          ))}
+                        </div>
                       ) : (
                         <div className="divide-y divide-border rounded-md border border-border">
                           {taxonomies.map((tax) => {

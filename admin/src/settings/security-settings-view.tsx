@@ -1,3 +1,4 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect } from 'react';
 import {
   Button,
@@ -13,7 +14,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
   Switch,
 } from '@bs/ui';
 import { ShieldCheck, Save, KeyRound, Lock, Clock, AlertTriangle } from 'lucide-react';
@@ -96,12 +96,7 @@ export const SecuritySettingsView: FC = () => {
   };
 
   if (loading || !settings) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Spinner size={28} />
-        <p className="text-13 text-muted-foreground">Loading security configuration...</p>
-      </div>
-    );
+    return <FormPageSkeleton title="Security Settings" description="Manage session policies, two-factor authentication requirements, and rate limits." />;
   }
 
   return (

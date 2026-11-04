@@ -1,12 +1,13 @@
+import { FormPageSkeleton } from '../components/page-skeletons';
 import { FC, useCallback, useEffect, useState } from 'react';
 import {
   Breadcrumbs,
   Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
   Input,
   Label,
   PageContainer,
@@ -16,7 +17,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
   Tabs,
   TabsContent,
   TabsList,
@@ -250,7 +250,7 @@ export const BrandingView: FC = () => {
       />
 
       {loading ? (
-        <div className="flex min-h-[280px] items-center justify-center"><Spinner size={26} /></div>
+        <FormPageSkeleton cardsCount={2} />
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">

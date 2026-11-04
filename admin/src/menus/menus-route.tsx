@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
+  Skeleton,
   PageContainer,
   PageHeader,
   Button,
@@ -468,8 +469,22 @@ export function MenusRoute() {
 
         <CardContent className="p-4 space-y-2">
           {loading ? (
-            <div className="flex justify-center p-12">
-              <Spinner className="h-8 w-8 text-primary" />
+            <div className="space-y-3 p-2">
+              {[0, 1, 1, 2, 0, 1].map((lvl, idx) => (
+                <div
+                  key={idx}
+                  style={{ marginLeft: `${lvl * 24}px` }}
+                  className="flex items-center gap-3 rounded-md border border-border/80 p-3 bg-surface-100/50"
+                >
+                  <Skeleton className="h-4 w-4 rounded-sm bg-surface-200 shrink-0" />
+                  <Skeleton className="h-4 w-36 rounded bg-surface-200" />
+                  <Skeleton className="h-3 w-28 rounded bg-surface-200" />
+                  <div className="ml-auto flex items-center gap-2">
+                    <Skeleton className="h-5 w-14 rounded-full bg-surface-200" />
+                    <Skeleton className="h-6 w-16 rounded bg-surface-200" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : menuItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground border border-dashed border-border rounded-md">

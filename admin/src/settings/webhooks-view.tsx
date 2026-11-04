@@ -1,3 +1,4 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect } from 'react';
 import {
   Badge,
@@ -212,10 +213,7 @@ export const WebhooksView: FC = () => {
       </div>
 
       {loading && webhooks.length === 0 ? (
-        <div className="flex min-h-[200px] flex-col items-center justify-center gap-3">
-          <Spinner size={24} />
-          <p className="text-13 text-muted-foreground">Loading webhooks...</p>
-        </div>
+        <TablePageSkeleton title="Webhooks" description="Configure HTTP callbacks triggered by content mutations and system events." />
       ) : webhooks.length === 0 ? (
         <EmptyState
           title="No webhooks registered"

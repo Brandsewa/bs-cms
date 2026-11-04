@@ -1,14 +1,10 @@
+import { TablePageSkeleton } from '../components/page-skeletons';
 import { FC, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Badge,
   Breadcrumbs,
   Button,
   DataTable,
-  type DataTableColumn,
-  type DataTableFilter,
-  type DataTableState,
-  type DataTableBulkAction,
-  type BulkActionOutcome,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,7 +20,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Spinner,
+  type BulkActionOutcome,
+  type DataTableBulkAction,
+  type DataTableColumn,
+  type DataTableFilter,
+  type DataTableState,
 } from '@bs/ui';
 import {
   ArrowRight,
@@ -476,10 +476,7 @@ export const RedirectsView: FC = () => {
       />
 
       {loading && items.length === 0 ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-          <Spinner size={28} />
-          <p className="text-13 text-muted-foreground">Loading redirects...</p>
-        </div>
+        <TablePageSkeleton title="URL Redirects" description="Manage HTTP 301 and 302 redirects with source and target path rules." />
       ) : (
         <DataTable<RedirectItem>
           aria-label="Redirects Table"
