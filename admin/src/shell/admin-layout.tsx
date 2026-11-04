@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useState, useMemo, type ReactNode } from 'react';
+import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import {
   AppSidebar,
   DropdownMenu,
@@ -43,6 +44,7 @@ import { KeyboardShortcutsDialog, useShortcutsDialog } from './shortcuts-dialog'
 
 export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const { session, logout, hasPermission: sessionHasPermission } = useSession();
   const { theme, setTheme } = useTheme();
   const { open: shortcutsOpen, setOpen: setShortcutsOpen } = useShortcutsDialog();
@@ -68,28 +70,27 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/admin/';
 
-  // Content collections for the sidebar: the static "Entries" item expands into
-  // one archive link per collection (Posts, Pages, then custom like Hotels).
-  const [collections, setCollections] = useState<Array<{ handle: string; label_plural: string; icon: string | null; is_system: boolean }>>([]);
-  useEffect(() => {
-    let mounted = true;
-    apiClient.request<Array<Record<string, unknown>>>('GET', '/collections').then((res) => {
-      if (!mounted || !res.ok || !Array.isArray(res.data)) return;
-      setCollections(
-        res.data
-          .filter((c) => c.kind !== 'single') // singletons have dedicated screens
-          .map((c) => ({
-            handle: String(c.handle || ''),
-            label_plural: String(c.label_plural || c.handle || ''),
-            icon: c.icon ? String(c.icon) : null,
-            is_system: Boolean(c.is_system),
-          })),
-      );
-    }).catch(() => undefined);
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Content collections for the sidebar: cached via React Query across all page navigations
+  const { data: rawCollections } = useQuery({
+    queryKey: ['collections-schema'],
+    queryFn: async () => {
+      const res = await apiClient.request<Array<Record<string, unknown>>>('GET', '/collections');
+      return res.ok && Array.isArray(res.data) ? res.data : [];
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const collections = useMemo(() => {
+    if (!rawCollections || !Array.isArray(rawCollections)) return [];
+    return rawCollections
+      .filter((c) => c.kind !== 'single')
+      .map((c) => ({
+        handle: String(c.handle || ''),
+        label_plural: String(c.label_plural || c.handle || ''),
+        icon: c.icon ? String(c.icon) : null,
+        is_system: Boolean(c.is_system),
+      }));
+  }, [rawCollections]);
 
   const navGroups = useMemo(() => {
     if (collections.length === 0) return ADMIN_SIDEBAR_GROUPS;
@@ -213,18 +214,29 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       showCollapseButton={!isMobile}
       renderLink={(item, content, isActive, className) => {
         const adminItem = item as AdminSidebarItem;
+        const target = adminItem.to ? (adminItem.to.replace(/^\/admin/, '') || '/') : null;
         return (
           <a
             href={adminItem.to || '#'}
             style={{ cursor: 'pointer' }}
             aria-current={isActive ? 'page' : undefined}
             className={className}
+            onMouseEnter={() => {
+              if (target) {
+                void router.preloadRoute({ to: target }).catch(() => undefined);
+              }
+            }}
+            onFocus={() => {
+              if (target) {
+                void router.preloadRoute({ to: target }).catch(() => undefined);
+              }
+            }}
             onClick={(event) => {
               setMobileDrawerOpen(false);
               // SPA navigation so the shell never remounts between sections;
               // modifier clicks keep native anchor behaviour (new tab etc.).
               if (
-                adminItem.to &&
+                target &&
                 event.button === 0 &&
                 !event.metaKey &&
                 !event.ctrlKey &&
@@ -232,7 +244,6 @@ export function AdminLayout({ children }: { children: ReactNode }) {
                 !event.altKey
               ) {
                 event.preventDefault();
-                const target = adminItem.to.replace(/^\/admin/, '') || '/';
                 void navigate({ to: target });
               }
             }}

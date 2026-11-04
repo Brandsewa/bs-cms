@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Banner, BannerArea, Button } from '@bs/ui';
 
 export interface GlobalBannerItem {
@@ -37,16 +38,15 @@ interface FrontendStatusResponse {
 }
 
 export function ShellBannerArea({ banners: controlledBanners, onDismiss }: ShellBannerAreaProps) {
-  const [internalBanners, setInternalBanners] = useState<GlobalBannerItem[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => new Set());
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadStatus() {
+  // Cached status fetch (1 minute fresh) to eliminate redundant requests across page navigations
+  const { data: internalBanners = [] } = useQuery<GlobalBannerItem[]>({
+    queryKey: ['shell-banner-status'],
+    queryFn: async () => {
       const items: GlobalBannerItem[] = [];
 
-      // 1. Fetch AI status from real endpoint GET /api/v1/ai/status
+      // 1. Fetch AI status from GET /api/v1/ai/status
       try {
         const aiRes = await fetch('/api/v1/ai/status', {
           headers: { Accept: 'application/json' },
@@ -107,14 +107,14 @@ export function ShellBannerArea({ banners: controlledBanners, onDismiss }: Shell
         // Non-blocking
       }
 
-      // 3. Fallback check for maintenance mode via dashboard or health check if present
+      // 3. Lightweight check for maintenance mode via dedicated /api/v1/system/maintenance endpoint
       try {
-        const dashRes = await fetch('/api/v1/dashboard', {
+        const maintRes = await fetch('/api/v1/system/maintenance', {
           headers: { Accept: 'application/json' },
         });
-        if (dashRes.ok) {
-          const dashData = await dashRes.json();
-          if (dashData.system_status?.maintenance_mode) {
+        if (maintRes.ok) {
+          const maintData = await maintRes.json();
+          if (maintData.maintenance_mode) {
             items.push({
               id: 'maintenance-mode',
               variant: 'warning',
@@ -127,17 +127,11 @@ export function ShellBannerArea({ banners: controlledBanners, onDismiss }: Shell
         // Non-blocking
       }
 
-      if (mounted) {
-        setInternalBanners(items);
-      }
-    }
-
-    void loadStatus();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+      return items;
+    },
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+  });
 
   const activeBanners = (controlledBanners ?? internalBanners).filter(
     (b) => !dismissedIds.has(b.id)

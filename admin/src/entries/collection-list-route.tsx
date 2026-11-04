@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   PageContainer,
   PageHeader,
@@ -42,9 +43,6 @@ interface CollectionListRouteProps {
 export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionListRouteProps) {
   const { session, hasPermission } = useSession();
 
-  const [, setCollections] = useState<CollectionSchema[]>([]);
-  const [activeCollection, setActiveCollection] = useState<CollectionSchema | null>(null);
-
   const [entries, setEntries] = useState<EntryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<{ message: string } | null>(null);
@@ -60,7 +58,6 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   });
   const [totalRows, setTotalRows] = useState<number>(0);
   const [pageCount, setPageCount] = useState<number>(1);
-  const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({
     all: 0,
     published: 0,
@@ -80,85 +77,60 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
   const canDelete = !isViewer && (isOwner || hasPermission('collection', 'delete'));
   const canUpdate = !isViewer && (isOwner || hasPermission('collection', 'update'));
 
-  // Load users map for resolving author IDs to human names
-  useEffect(() => {
-    let mounted = true;
-    async function fetchUsers() {
+  // Load users map for resolving author IDs to human names (cached for 5 minutes)
+  const { data: userMap = {} } = useQuery<Record<string, string>>({
+    queryKey: ['users-map'],
+    queryFn: async () => {
       try {
         const res = await apiClient.request<{ items?: Array<{ id: string; name: string }>; data?: { items?: Array<{ id: string; name: string }> } }>('GET', '/users');
-        if (mounted && res.ok && res.data) {
+        if (res.ok && res.data) {
           const list = res.data.items || res.data.data?.items || [];
           const map: Record<string, string> = {};
           for (const u of list) {
             if (u.id && u.name) map[u.id] = u.name;
           }
-          setUserMap(map);
-        } else if (mounted) {
-          const fixturesObj = fallbackFixtures as Record<string, unknown>;
-          const uFixture = fixturesObj.users as { items?: Array<{ id: string; name: string }> } | undefined;
-          if (uFixture?.items) {
-            const map: Record<string, string> = {};
-            for (const u of uFixture.items) {
-              if (u.id && u.name) map[u.id] = u.name;
-            }
-            setUserMap(map);
-          }
+          return map;
         }
       } catch {
-        if (mounted) {
-          const fixturesObj = fallbackFixtures as Record<string, unknown>;
-          const uFixture = fixturesObj.users as { items?: Array<{ id: string; name: string }> } | undefined;
-          if (uFixture?.items) {
-            const map: Record<string, string> = {};
-            for (const u of uFixture.items) {
-              if (u.id && u.name) map[u.id] = u.name;
-            }
-            setUserMap(map);
-          }
+        // Fallback below
+      }
+      const fixturesObj = fallbackFixtures as Record<string, unknown>;
+      const uFixture = fixturesObj.users as { items?: Array<{ id: string; name: string }> } | undefined;
+      const map: Record<string, string> = {};
+      if (uFixture?.items) {
+        for (const u of uFixture.items) {
+          if (u.id && u.name) map[u.id] = u.name;
         }
       }
-    }
-    fetchUsers();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+      return map;
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
 
-  // Load collection schema
-  useEffect(() => {
-    let mounted = true;
-    async function fetchSchema() {
+  // Load collection schema (cached for 5 minutes across navigation)
+  const { data: collections = [] } = useQuery<CollectionSchema[]>({
+    queryKey: ['collections-schema'],
+    queryFn: async () => {
       try {
         const res = await apiClient.request<CollectionSchema[]>('GET', '/collections');
-        if (mounted && res.ok && Array.isArray(res.data)) {
-          setCollections(res.data);
-          const found = res.data.find((c) => c.handle === collectionHandle);
-          if (found) {
-            setActiveCollection(found);
-          }
-        } else if (mounted) {
-          // Test fallback
-          const fixturesObj = fallbackFixtures as Record<string, unknown>;
-          const testCols = fixturesObj.collections as CollectionSchema[] | undefined;
-          setCollections(testCols || []);
-          const found = testCols?.find((c) => c.handle === collectionHandle);
-          if (found) setActiveCollection(found);
+        if (res.ok && Array.isArray(res.data)) {
+          return res.data;
         }
       } catch {
-        if (mounted) {
-          const fixturesObj = fallbackFixtures as Record<string, unknown>;
-          const testCols = fixturesObj.collections as CollectionSchema[] | undefined;
-          setCollections(testCols || []);
-          const found = testCols?.find((c) => c.handle === collectionHandle);
-          if (found) setActiveCollection(found);
-        }
+        // Fallback below
       }
-    }
-    fetchSchema();
-    return () => {
-      mounted = false;
-    };
-  }, [collectionHandle]);
+      const fixturesObj = fallbackFixtures as Record<string, unknown>;
+      const testCols = fixturesObj.collections as CollectionSchema[] | undefined;
+      return testCols || [];
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+
+  const activeCollection = useMemo(() => {
+    return collections.find((c) => c.handle === collectionHandle) || null;
+  }, [collections, collectionHandle]);
 
   // Load entries data based on filters, tabs, search, and pagination
   const loadEntries = useCallback(async () => {

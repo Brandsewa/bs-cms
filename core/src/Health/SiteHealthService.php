@@ -47,6 +47,7 @@ final class SiteHealthService
         }
         $merged = array_values(array_unique(array_merge($this->dismissedKeys(), array_map('strval', $keys))));
         $this->settings->set('health.dismissed', $merged);
+        $this->settings->set('health.cached_scan', null);
     }
 
     /** @param list<string> $keys */
@@ -60,11 +61,13 @@ final class SiteHealthService
             $this->dismissedKeys(),
             static fn (string $k): bool => !in_array($k, $drop, true)
         )));
+        $this->settings->set('health.cached_scan', null);
     }
 
     /**
      * Run full site health audit.
      *
+     * @param bool $force If true, bypasses the 5-minute cached report.
      * @return array{
      *     summary: array{total: int, errors: int, warnings: int, info: int, status: string},
      *     issues: list<array<string, mixed>>,
@@ -72,8 +75,19 @@ final class SiteHealthService
      *     scanned_at: string
      * }
      */
-    public function scan(): array
+    public function scan(bool $force = false): array
     {
+        if (!$force && $this->settings !== null) {
+            try {
+                $cached = $this->settings->get('health.cached_scan', null);
+                if (is_array($cached) && isset($cached['timestamp'], $cached['report']) && (time() - (int) $cached['timestamp'] < 300)) {
+                    /** @var array{summary: array{total: int, errors: int, warnings: int, info: int, status: string}, issues: list<array<string, mixed>>, rules_checked: int, scanned_at: string} */
+                    return $cached['report'];
+                }
+            } catch (\Throwable) {
+            }
+        }
+
         $issues = [];
 
         // 1. Check SEO Titles & Duplicates
@@ -110,13 +124,25 @@ final class SiteHealthService
         }
 
 
-        return SiteHealthPresenter::presentReport([
+        $report = SiteHealthPresenter::presentReport([
             'issues' => array_values($issues),
             'dismissed_count' => $dismissedCount,
             'dismissed_keys' => $this->dismissedKeys(),
             'rules_checked' => self::TOTAL_RULES_CHECKED,
             'scanned_at' => Clock::sql(Clock::now()),
         ]);
+
+        if ($this->settings !== null) {
+            try {
+                $this->settings->set('health.cached_scan', [
+                    'timestamp' => time(),
+                    'report' => $report,
+                ]);
+            } catch (\Throwable) {
+            }
+        }
+
+        return $report;
     }
 
     /**

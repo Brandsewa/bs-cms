@@ -60,6 +60,29 @@ export default defineConfig(({ command, mode }) => {
       outDir: 'dist',
       target: 'es2022',
       sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              // Match exact react and react-dom packages, not all packages containing "react" in their name
+              if (
+                /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)
+              ) {
+                return 'vendor-react';
+              }
+              if (id.includes('@tanstack')) {
+                return 'vendor-tanstack';
+              }
+              if (id.includes('@radix-ui')) {
+                return 'vendor-radix';
+              }
+              if (id.includes('lucide-react')) {
+                return 'vendor-icons';
+              }
+            }
+          },
+        },
+      },
     },
   };
 });

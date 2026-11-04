@@ -19,6 +19,7 @@ void buildRouteTree().then((routeTree) => {
   const router = createRouter({
     routeTree,
     basepath: '/admin',
+    defaultPreload: 'intent',
     defaultNotFoundComponent: () => (
       <ProtectedAdmin>
         <NotFoundRoute />

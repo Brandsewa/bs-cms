@@ -42,7 +42,7 @@ class SiteHealthController extends BaseController
             return $permError;
         }
 
-        $report = $this->healthService->scan();
+        $report = $this->healthService->scan(force: true);
         return $this->json($report);
     }
 

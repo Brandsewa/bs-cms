@@ -48,13 +48,13 @@ const AiStudioView = lazy(() =>
   import('./ai/ai-studio-view').then((m) => ({ default: m.AiStudioView }))
 );
 const CollectionListRoute = lazy(() =>
-  import('./entries').then((m) => ({ default: m.CollectionListRoute }))
+  import('./entries/collection-list-route').then((m) => ({ default: m.CollectionListRoute }))
 );
 const CollectionsIndexView = lazy(() =>
-  import('./entries').then((m) => ({ default: m.CollectionsIndexView }))
+  import('./entries/collections-index-view').then((m) => ({ default: m.CollectionsIndexView }))
 );
 const EntryEditorRoute = lazy(() =>
-  import('./entries').then((m) => ({ default: m.EntryEditorRoute }))
+  import('./entries/entry-editor-route').then((m) => ({ default: m.EntryEditorRoute }))
 );
 const PageDesignerRoute = lazy(() =>
   import('./entries/page-designer-route').then((m) => ({ default: m.PageDesignerRoute }))
@@ -150,12 +150,8 @@ const MyAccountView = lazy(() =>
 // SPRINT-D END
 
 // Shell fallbacks & placeholders
-const ForbiddenRoute = lazy(() =>
-  import('./shell/forbidden').then((m) => ({ default: m.ForbiddenRoute }))
-);
-const NotFoundRoute = lazy(() =>
-  import('./shell/not-found').then((m) => ({ default: m.NotFoundRoute }))
-);
+import { ForbiddenRoute } from './shell/forbidden';
+import { NotFoundRoute } from './shell/not-found';
 
 function RouteSuspense({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   return (

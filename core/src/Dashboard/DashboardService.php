@@ -589,12 +589,12 @@ final class DashboardService
 
         try {
             if (in_array('pages', $validHandles, true)) {
-                $stmt = $pdo->query("SELECT COUNT(*) FROM `{$prefix}c_pages` WHERE `deleted_at` IS NULL");
-                $createPage = $stmt !== false && (int) $stmt->fetchColumn() > 0;
+                $stmt = $pdo->query("SELECT 1 FROM `{$prefix}c_pages` WHERE `deleted_at` IS NULL LIMIT 1");
+                $createPage = $stmt !== false && $stmt->fetchColumn() !== false;
             }
             if (in_array('posts', $validHandles, true)) {
-                $stmt = $pdo->query("SELECT COUNT(*) FROM `{$prefix}c_posts` WHERE `deleted_at` IS NULL");
-                $writePost = $stmt !== false && (int) $stmt->fetchColumn() > 0;
+                $stmt = $pdo->query("SELECT 1 FROM `{$prefix}c_posts` WHERE `deleted_at` IS NULL LIMIT 1");
+                $writePost = $stmt !== false && $stmt->fetchColumn() !== false;
             }
 
             // Site details

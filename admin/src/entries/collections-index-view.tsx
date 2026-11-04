@@ -1,4 +1,5 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Breadcrumbs,
@@ -21,7 +22,6 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
-import { problemToast } from '../lib/problem-toast';
 import { CollectionsGridSkeleton } from './entry-skeletons';
 
 /** Singletons have dedicated screens — deep-link there instead of the generic entry list. */
@@ -63,62 +63,60 @@ function CollectionIcon({ icon }: { icon?: string | null }) {
  */
 export const CollectionsIndexView: FC = () => {
   const { session, hasPermission } = useSession();
-  const [collections, setCollections] = useState<CollectionCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [countsMap, setCountsMap] = useState<Record<string, number>>({});
   const isOwner = session?.user?.roles?.some(
     (r) => (typeof r === 'string' ? r === 'owner' : r.handle === 'owner'),
   ) ?? false;
   const canCreate = isOwner || hasPermission('schema', 'create');
 
+  const { data: rawCollections, isLoading } = useQuery({
+    queryKey: ['collections-schema'],
+    queryFn: async () => {
+      const res = await apiClient.request<Record<string, unknown>[]>('GET', '/collections');
+      if (!res.ok || !Array.isArray(res.data)) {
+        return [];
+      }
+      return res.data;
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+
+  const collections = useMemo<CollectionCard[]>(() => {
+    if (!rawCollections || !Array.isArray(rawCollections)) return [];
+    return rawCollections.map((c) => ({
+      handle: String(c.handle || ''),
+      label_singular: String(c.label_singular || c.handle || ''),
+      label_plural: String(c.label_plural || `${c.handle}s`),
+      description: c.description ? String(c.description) : null,
+      icon: c.icon ? String(c.icon) : null,
+      is_system: Boolean(c.is_system),
+      kind: c.kind ? String(c.kind) : null,
+      route_pattern: c.route_pattern ? String(c.route_pattern) : null,
+      total: countsMap[String(c.handle || '')],
+    }));
+  }, [rawCollections, countsMap]);
+
   useEffect(() => {
     let mounted = true;
-    async function load() {
-      try {
-        const res = await apiClient.request<Record<string, unknown>[]>('GET', '/collections');
-        if (!mounted) return;
-        if (!res.ok) {
-          problemToast(res.problem, { fallbackMessage: 'Failed to load collections.' });
-          setLoading(false);
-          return;
-        }
-        if (!Array.isArray(res.data)) {
-          problemToast(null, { fallbackMessage: 'Failed to load collections.' });
-          setLoading(false);
-          return;
-        }
-        const cards: CollectionCard[] = res.data.map((c) => ({
-          handle: String(c.handle || ''),
-          label_singular: String(c.label_singular || c.handle || ''),
-          label_plural: String(c.label_plural || `${c.handle}s`),
-          description: c.description ? String(c.description) : null,
-          icon: c.icon ? String(c.icon) : null,
-          is_system: Boolean(c.is_system),
-          kind: c.kind ? String(c.kind) : null,
-          route_pattern: c.route_pattern ? String(c.route_pattern) : null,
-        }));
-        setCollections(cards);
-        setLoading(false);
-        // Best-effort entry counts per collection
-        for (const card of cards) {
-          apiClient.request<Record<string, number>>('GET', `/collections/${card.handle}/counts`).then((r) => {
-            if (!mounted || !r.ok || !r.data) return;
-            setCollections((prev) =>
-              prev.map((c) => (c.handle === card.handle ? { ...c, total: r.data?.all } : c)),
-            );
-          }).catch(() => undefined);
-        }
-      } catch {
-        if (mounted) {
-          problemToast(null, { fallbackMessage: 'Failed to load collections.' });
-          setLoading(false);
-        }
-      }
+    if (!rawCollections || !Array.isArray(rawCollections)) return;
+
+    for (const c of rawCollections) {
+      const handle = String(c.handle || '');
+      if (!handle) continue;
+      apiClient.request<Record<string, number>>('GET', `/collections/${handle}/counts`).then((r) => {
+        if (!mounted || !r.ok || !r.data || typeof r.data.all !== 'number') return;
+        const total = r.data.all;
+        setCountsMap((prev) => ({ ...prev, [handle]: total }));
+      }).catch(() => undefined);
     }
-    load();
+
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [rawCollections]);
+
+  const loading = isLoading && collections.length === 0;
 
   const sorted = [...collections].sort((a, b) => {
     if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;

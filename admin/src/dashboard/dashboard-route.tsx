@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { PageContainer, PageHeader, MetricCard } from '@bs/ui';
 import { DashboardSkeleton } from '../components/page-skeletons';
 import { useSession } from '../auth/session-context';
@@ -14,9 +15,6 @@ import { FirstRunWelcomeDialog } from './welcome-dialog';
 
 export function DashboardRoute() {
   const { session } = useSession();
-  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
 
   // Role permissions detection
@@ -34,59 +32,38 @@ export function DashboardRoute() {
   const canViewSystem = isOwnerOrAdmin;
   const canReviewAi = isOwnerOrAdmin;
 
-  useEffect(() => {
-    let mounted = true;
+  const isTestMode = typeof window !== 'undefined' && Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
 
-    async function loadDashboard() {
+  const { data: queryData, isLoading, error: queryError } = useQuery<DashboardData, Error>({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
       try {
-        // Attempt to fetch from backend aggregate endpoint if it exists
         const res = await apiClient.request<DashboardData>('GET', '/dashboard');
-        if (mounted) {
-          if (res.ok && res.data) {
-            setData(res.data);
-            setError(null);
-          } else {
-            // In test/gallery mock mode only (window.__BS_TEST_MOCKS__), allow mock fallback.
-            // In production/live deployment, never fabricate data on 404/failure:
-            // present honest empty/error state.
-            const isTestMode = typeof window !== 'undefined' && Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
-            if (isTestMode) {
-              setData(MOCK_DASHBOARD_DATA);
-              setError(null);
-            } else {
-              setData(EMPTY_DASHBOARD_DATA);
-              if (res.status === 404) {
-                setError('Dashboard data endpoint is not yet available.');
-              } else {
-                setError('Unable to load dashboard data.');
-              }
-            }
-          }
+        if (res.ok && res.data) {
+          return res.data;
         }
-      } catch {
-        if (mounted) {
-          const isTestMode = typeof window !== 'undefined' && Boolean((window as unknown as { __BS_TEST_MOCKS__?: boolean }).__BS_TEST_MOCKS__);
-          if (isTestMode) {
-            setData(MOCK_DASHBOARD_DATA);
-            setError(null);
-          } else {
-            setData(EMPTY_DASHBOARD_DATA);
-            setError('Network error while loading dashboard.');
-          }
+        if (isTestMode) {
+          return MOCK_DASHBOARD_DATA;
         }
-      } finally {
-        if (mounted) {
-          setLoading(false);
+        if (res.status === 404) {
+          throw new Error('Dashboard data endpoint is not yet available.');
         }
+        throw new Error('Unable to load dashboard data.');
+      } catch (err: unknown) {
+        if (isTestMode) {
+          return MOCK_DASHBOARD_DATA;
+        }
+        throw err instanceof Error ? err : new Error('Network error while loading dashboard.');
       }
-    }
+    },
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    retry: 1,
+  });
 
-    loadDashboard();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const data: DashboardData = queryData ?? (isTestMode ? MOCK_DASHBOARD_DATA : EMPTY_DASHBOARD_DATA);
+  const loading = isLoading && !queryData;
+  const error = queryError ? queryError.message : null;
 
   if (loading && !data.counts) {
     return <DashboardSkeleton />;

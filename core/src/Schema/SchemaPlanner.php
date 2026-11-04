@@ -83,6 +83,9 @@ final class SchemaPlanner
             "UNIQUE KEY `uq_{$tableName}_slug` (`slug`, `locale`)",
             "KEY `ix_{$tableName}_status_pub` (`status`, `published_at`)",
             "KEY `ix_{$tableName}_updated` (`updated_at`)",
+            "KEY `ix_{$tableName}_del_status` (`deleted_at`, `status`)",
+            "KEY `ix_{$tableName}_del_updated` (`deleted_at`, `updated_at`)",
+            "KEY `ix_{$tableName}_del_created` (`deleted_at`, `created_at`)",
             "KEY `ix_{$tableName}_author` (`author_id`)",
             "FULLTEXT KEY `ft_{$tableName}` (`title`)",
         ];
