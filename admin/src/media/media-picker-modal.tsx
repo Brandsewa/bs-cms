@@ -81,13 +81,16 @@ export interface MediaPickerModalProps {
   title?: string;
 }
 
+const DEFAULT_ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+
 export function MediaPickerModal({
   open,
   onClose,
   onSelect,
-  allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'],
+  allowedMimeTypes = DEFAULT_ALLOWED_MIME_TYPES,
   title = 'Select Media Asset',
 }: MediaPickerModalProps) {
+  const allowedMimeTypesKey = allowedMimeTypes.join(',');
   const [activeTab, setActiveTab] = useState<'library' | 'upload'>('library');
   const [items, setItems] = useState<MediaItem[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
@@ -134,7 +137,7 @@ export function MediaPickerModal({
     } finally {
       setLoading(false);
     }
-  }, [selectedFolderId, search, allowedMimeTypes]);
+  }, [selectedFolderId, search, allowedMimeTypesKey]);
 
   const loadFolders = useCallback(async () => {
     try {
@@ -150,12 +153,18 @@ export function MediaPickerModal({
   useEffect(() => {
     if (open) {
       loadFolders();
-      loadMedia();
       setSelectedItem(null);
       setUploadProgress(null);
       setUploadError(null);
+      setActiveTab('library');
     }
-  }, [open, loadFolders, loadMedia]);
+  }, [open, loadFolders]);
+
+  useEffect(() => {
+    if (open) {
+      loadMedia();
+    }
+  }, [open, loadMedia]);
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -174,7 +183,7 @@ export function MediaPickerModal({
 
       if (result.ok && result.media) {
         successToast('Image uploaded successfully.');
-        const uploaded = result.media as unknown as MediaItem;
+        const uploaded = normalizeMedia(result.media as Record<string, unknown>);
         setSelectedItem(uploaded);
         loadMedia();
         setActiveTab('library');
@@ -356,6 +365,7 @@ export function MediaPickerModal({
                 if (e.target.files && e.target.files.length > 0) {
                   handleFileUpload(e.target.files);
                 }
+                e.target.value = '';
               }}
               accept={allowedMimeTypes.join(',')}
               className="hidden"
