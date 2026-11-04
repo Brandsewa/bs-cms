@@ -1106,7 +1106,7 @@ export function DataTable<T>({
         ) : (
           <div
             ref={scrollRef}
-            className={cn('overflow-auto rounded-lg border border-border', shouldVirtualize && 'max-h-96')}
+            className={cn('overflow-auto rounded-lg border border-border bg-card shadow-xs', shouldVirtualize && 'max-h-96')}
           >
             <table
               className="w-full border-collapse text-left"

@@ -107,6 +107,28 @@ describe('sanitizePuckData', () => {
     expect(sanitizePuckData(hostile)).toEqual({ root: {}, content: [] });
   });
 
+  it('sanitizes script tags and inline event handlers in RichText blocks', () => {
+    const data = {
+      content: [
+        {
+          type: 'RichText',
+          props: {
+            id: 'rt-1',
+            html: '<p>Hello</p><script>alert("xss")</script><img src="x" onerror="stealCookie()" /><a href="javascript:alert(1)">link</a>',
+          },
+        },
+      ],
+    };
+    const out = sanitizePuckData(data);
+    const html = out.content[0]?.props?.html as string;
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('onerror=');
+    expect(html).not.toContain('javascript:');
+    expect(html).toContain('<p>Hello</p>');
+    expect(html).toContain('<img src="x" />');
+    expect(html).toContain('<a href="#">link</a>');
+  });
+
   it('covers exactly the nine contract component types', () => {
     expect([...componentTypes].sort()).toEqual(
       [

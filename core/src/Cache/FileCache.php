@@ -49,7 +49,7 @@ final class FileCache implements CacheInterface
         }
 
         $payload = substr($content, 11);
-        $data = @unserialize($payload);
+        $data = @unserialize($payload, ['allowed_classes' => false]);
 
         return $data === false && $payload !== serialize(false) ? $default : $data;
     }

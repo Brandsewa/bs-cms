@@ -920,7 +920,8 @@ final class CoreServiceProvider implements ServiceProvider
         $container->singleton(\BsCms\Http\Controllers\PublicFormsController::class, function (Container $c): \BsCms\Http\Controllers\PublicFormsController {
             return new \BsCms\Http\Controllers\PublicFormsController(
                 $c->get(\BsCms\Plugins\ContactFormPlugin::class),
-                $c->get(\BsCms\Plugins\PluginManager::class)
+                $c->get(\BsCms\Plugins\PluginManager::class),
+                $c->has(\BsCms\Security\RateLimiter::class) ? $c->get(\BsCms\Security\RateLimiter::class) : null
             );
         });
         // MARKETPLACE & PLUGINS END

@@ -13,7 +13,8 @@ final class PublicFormsController extends BaseController
 {
     public function __construct(
         private readonly ContactFormPlugin $contactFormPlugin,
-        private readonly PluginManager $pluginManager
+        private readonly PluginManager $pluginManager,
+        private readonly ?\BsCms\Security\RateLimiter $rateLimiter = null
     ) {
     }
 
@@ -83,11 +84,16 @@ final class PublicFormsController extends BaseController
         $handle = (string) ($args['handle'] ?? $request->getAttribute('handle', ''));
         $body = $this->getJsonBody($request);
 
-        // Capture client IP and User-Agent
+        // Capture client IP safely (ignoring spoofed headers unless from trusted proxy) and User-Agent
         $serverParams = $request->getServerParams();
-        $ip = (string) ($serverParams['HTTP_X_FORWARDED_FOR'] ?? $serverParams['REMOTE_ADDR'] ?? '127.0.0.1');
-        if (str_contains($ip, ',')) {
-            $ip = trim(explode(',', $ip)[0]);
+        if ($this->rateLimiter !== null) {
+            $headers = [];
+            foreach ($request->getHeaders() as $name => $values) {
+                $headers[strtolower($name)] = implode(', ', $values);
+            }
+            $ip = $this->rateLimiter->resolveClientIp($serverParams, $headers);
+        } else {
+            $ip = (string) ($serverParams['REMOTE_ADDR'] ?? '127.0.0.1');
         }
         $userAgent = $request->getHeaderLine('User-Agent');
 

@@ -25,6 +25,7 @@
  */
 @theme inline {
   --color-background: var(--background);
+  --color-section: var(--section-bg);
   --color-foreground: var(--foreground);
   --color-foreground-light: var(--foreground-light);
   --color-foreground-lighter: var(--foreground-lighter);

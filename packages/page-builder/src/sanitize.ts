@@ -60,6 +60,15 @@ function sanitizeContent(value: unknown, types: ReadonlySet<string>): PuckData['
   return items;
 }
 
+/** Sanitize HTML string in RichText blocks against XSS vectors. */
+function sanitizeRichTextHtml(rawHtml: string): string {
+  if (typeof rawHtml !== 'string') return '';
+  return rawHtml
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\s+on[a-zA-Z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '')
+    .replace(/(href|src)\s*=\s*(?:'javascript:[^']*'|"javascript:[^"]*"|javascript:[^\s>]+)/gi, '$1="#"');
+}
+
 /** Filter + normalize a single component row; null when the row is unusable. */
 function sanitizeItem(
   raw: unknown,
@@ -70,8 +79,14 @@ function sanitizeItem(
   const type = raw['type'];
   if (typeof type !== 'string' || !types.has(type)) return null;
 
-  const props = isRecord(raw['props']) ? raw['props'] : {};
+  const props = isRecord(raw['props']) ? { ...raw['props'] } : {};
   const id = props['id'];
   const safeId = typeof id === 'string' && id.length > 0 ? id : `${type}-${index}`;
-  return { type, props: { ...props, id: safeId } } as unknown as ComponentData;
+  props['id'] = safeId;
+
+  if (type === 'RichText' && typeof props['html'] === 'string') {
+    props['html'] = sanitizeRichTextHtml(props['html']);
+  }
+
+  return { type, props } as unknown as ComponentData;
 }

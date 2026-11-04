@@ -90,7 +90,6 @@ export function MediaPickerModal({
   allowedMimeTypes = DEFAULT_ALLOWED_MIME_TYPES,
   title = 'Select Media Asset',
 }: MediaPickerModalProps) {
-  const allowedMimeTypesKey = allowedMimeTypes.join(',');
   const [activeTab, setActiveTab] = useState<'library' | 'upload'>('library');
   const [items, setItems] = useState<MediaItem[]>([]);
   const [folders, setFolders] = useState<MediaFolder[]>([]);
@@ -137,7 +136,7 @@ export function MediaPickerModal({
     } finally {
       setLoading(false);
     }
-  }, [selectedFolderId, search, allowedMimeTypesKey]);
+  }, [selectedFolderId, search, allowedMimeTypes]);
 
   const loadFolders = useCallback(async () => {
     try {

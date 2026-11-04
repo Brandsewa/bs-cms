@@ -101,6 +101,11 @@ final class WebhookDispatcher
 
         $deliveryId = (int) $this->connection->getPdo()->lastInsertId();
 
+        // If running under FastCGI / PHP-FPM, flush HTTP response immediately so the user doesn't wait
+        if (function_exists('fastcgi_finish_request')) {
+            @fastcgi_finish_request();
+        }
+
         // Attempt delivery immediately
         $this->deliver($deliveryId);
 

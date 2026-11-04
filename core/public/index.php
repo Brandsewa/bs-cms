@@ -64,37 +64,46 @@ if ($uriPath === '/admin' || str_starts_with($uriPath, '/admin/')) {
     $isDirectIndex = ($uriPath === '/admin/index.html');
 
     if (!$isDirectIndex && (str_starts_with($uriPath, '/admin/assets/') || $hasExtension)) {
+        $adminDir = realpath(__DIR__ . '/admin');
         $staticFile = __DIR__ . $uriPath;
-        if (is_file($staticFile)) {
-            if (php_sapi_name() === 'cli-server') {
-                return false;
+        $realStatic = realpath($staticFile);
+
+        // Security check: Must strictly resolve inside the public/admin directory
+        if ($adminDir !== false && $realStatic !== false && is_file($realStatic)) {
+            $normAdmin = str_replace('\\', '/', $adminDir);
+            $normStatic = str_replace('\\', '/', $realStatic);
+
+            if (str_starts_with($normStatic, $normAdmin . '/')) {
+                if (php_sapi_name() === 'cli-server') {
+                    return false;
+                }
+                $ext = strtolower(pathinfo($realStatic, PATHINFO_EXTENSION));
+                $mimes = [
+                    'js' => 'application/javascript; charset=utf-8',
+                    'css' => 'text/css; charset=utf-8',
+                    'svg' => 'image/svg+xml',
+                    'png' => 'image/png',
+                    'jpg' => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'ico' => 'image/x-icon',
+                    'woff2' => 'font/woff2',
+                    'woff' => 'font/woff',
+                ];
+                $contentType = $mimes[$ext] ?? 'application/octet-stream';
+                http_response_code(200);
+                header("Content-Type: {$contentType}");
+                header('X-Content-Type-Options: nosniff');
+                if (str_starts_with($uriPath, '/admin/assets/')) {
+                    header('Cache-Control: public, max-age=31536000, immutable');
+                } else {
+                    header('Cache-Control: no-cache');
+                }
+                readfile($realStatic);
+                exit;
             }
-            $ext = strtolower(pathinfo($staticFile, PATHINFO_EXTENSION));
-            $mimes = [
-                'js' => 'application/javascript; charset=utf-8',
-                'css' => 'text/css; charset=utf-8',
-                'svg' => 'image/svg+xml',
-                'png' => 'image/png',
-                'jpg' => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'ico' => 'image/x-icon',
-                'woff2' => 'font/woff2',
-                'woff' => 'font/woff',
-            ];
-            $contentType = $mimes[$ext] ?? 'application/octet-stream';
-            http_response_code(200);
-            header("Content-Type: {$contentType}");
-            header('X-Content-Type-Options: nosniff');
-            if (str_starts_with($uriPath, '/admin/assets/')) {
-                header('Cache-Control: public, max-age=31536000, immutable');
-            } else {
-                header('Cache-Control: no-cache');
-            }
-            readfile($staticFile);
-            exit;
         }
 
-        // Missing asset: return 404, never SPA index
+        // Missing or disallowed asset: return 404, never SPA index
         http_response_code(404);
         header('Content-Type: text/plain; charset=utf-8');
         header('X-Content-Type-Options: nosniff');

@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useCallback } from 'react';
 import {
   Badge,
   Button,
@@ -34,7 +34,7 @@ export const EmailLogView: FC = () => {
   const [search, setSearch] = useState('');
   const [resendingId, setResendingId] = useState<number | null>(null);
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.request<EmailLogResponse | EmailLogEntry[]>('GET', '/settings/email/log', {
@@ -56,11 +56,11 @@ export const EmailLogView: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   useEffect(() => {
     loadLogs();
-  }, []);
+  }, [loadLogs]);
 
   const handleResend = async (id: number) => {
     setResendingId(id);

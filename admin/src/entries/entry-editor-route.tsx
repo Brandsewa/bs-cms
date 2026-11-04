@@ -42,6 +42,11 @@ export interface EntryEditorRouteProps {
   entryId?: string; // If undefined, creation mode
 }
 
+const KNOWN_FIELD_HANDLES = new Set([
+  'title', 'slug', 'body', 'content', 'excerpt', 'seo', 'is_featured', 'featured_image',
+  'author_id', 'authors', 'categories', 'tags', 'reading_time',
+]);
+
 export function EntryEditorRoute({
   collectionHandle = 'posts',
   entryId,
@@ -260,10 +265,6 @@ export function EntryEditorRoute({
   // fall back to the generic custom-fields panel.
   const fieldDefs = (schema?.fields || {}) as Record<string, CollectionFieldDefinition>;
   const taxonomyFieldEntries = Object.entries(fieldDefs).filter(([, f]) => f.type === 'taxonomy');
-  const KNOWN_FIELD_HANDLES = new Set([
-    'title', 'slug', 'body', 'content', 'excerpt', 'seo', 'is_featured', 'featured_image',
-    'author_id', 'authors', 'categories', 'tags', 'reading_time',
-  ]);
   const customFieldEntries = Object.entries(fieldDefs).filter(
     ([h, f]) => f.type !== 'taxonomy' && !KNOWN_FIELD_HANDLES.has(h),
   );

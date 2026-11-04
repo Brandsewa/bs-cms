@@ -427,7 +427,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         <ShellBannerArea />
 
         {/* Workspace body */}
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto focus:outline-none">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto focus:outline-none bg-section">
           <ShellErrorBoundary>{children}</ShellErrorBoundary>
         </main>
       </div>

@@ -100,6 +100,9 @@ final class PublishingSettingsRepository
         $debounceWindow = isset($input['debounce_window']) ? max(5, (int) $input['debounce_window']) : (int) ($current['debounce_window'] ?? 60);
 
         $githubRepo = (string) ($input['github_repository'] ?? ($current['github_repository'] ?? 'Brandsewa/bs-cms'));
+        if ($githubRepo !== '' && !preg_match('#^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$#', $githubRepo)) {
+            throw new \InvalidArgumentException("Invalid GitHub repository format: '{$githubRepo}'. Expected 'owner/repo'.");
+        }
         $githubWorkflow = (string) ($input['github_workflow_id'] ?? ($current['github_workflow_id'] ?? 'deploy.yml'));
 
         $webhookUrl = isset($input['webhook_url']) ? (string) $input['webhook_url'] : (string) ($current['webhook_url'] ?? '');

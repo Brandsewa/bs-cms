@@ -620,19 +620,18 @@ final class EntryRepository
                     continue;
                 }
 
-                // Resolve term IDs (support ULIDs or slugs)
+                // Resolve term IDs in a single batch query (support ULIDs or slugs)
                 $resolvedTermIds = [];
                 $paths = [];
-                foreach ($rawVals as $rv) {
-                    $tStmt = $this->connection->execute(
-                        "SELECT `id`, `path` FROM `{$termsTable}` WHERE `id` = ? OR `slug` = ?",
-                        [$rv, $rv]
-                    );
-                    $tRow = $tStmt->fetch();
-                    if ($tRow) {
-                        $resolvedTermIds[] = (string) $tRow['id'];
-                        $paths[] = (string) $tRow['path'];
-                    }
+                $placeholders = implode(',', array_fill(0, count($rawVals), '?'));
+                $params = array_merge($rawVals, $rawVals);
+                $tStmt = $this->connection->execute(
+                    "SELECT `id`, `path` FROM `{$termsTable}` WHERE `id` IN ({$placeholders}) OR `slug` IN ({$placeholders})",
+                    $params
+                );
+                foreach ($tStmt->fetchAll() as $tRow) {
+                    $resolvedTermIds[] = (string) $tRow['id'];
+                    $paths[] = (string) $tRow['path'];
                 }
 
                 if ($op === \BsCms\Content\Query\FilterClause::OP_ALL) {
@@ -651,7 +650,7 @@ final class EntryRepository
                     if (empty($resolvedTermIds)) {
                         $whereClauses[] = '0=1';
                     } else {
-                        if ($options->includeDescendants && !empty($paths)) {
+                        if ($options->includeDescendants) {
                             // Expand to include descendant term IDs
                             $subClauses = [];
                             $subBindings = [];
@@ -1261,18 +1260,24 @@ final class EntryRepository
                 continue;
             }
 
+            // Batch look up all terms for this field
+            $placeholders = implode(',', array_fill(0, count($items), '?'));
+            $params = array_merge($items, $items);
+            $tStmt = $this->connection->execute(
+                "SELECT `id`, `slug` FROM `{$termsTable}` WHERE `id` IN ({$placeholders}) OR `slug` IN ({$placeholders})",
+                $params
+            );
+            $termMap = [];
+            foreach ($tStmt->fetchAll() as $term) {
+                $termMap[(string) $term['id']] = (string) $term['id'];
+                $termMap[(string) $term['slug']] = (string) $term['id'];
+            }
+
             $order = 0;
             foreach ($items as $item) {
-                // Look up term
-                $tStmt = $this->connection->execute(
-                    "SELECT `id`, `taxonomy_id` FROM `{$termsTable}` WHERE `id` = ? OR `slug` = ?",
-                    [$item, $item]
-                );
-                $term = $tStmt->fetch();
-                if ($term) {
-                    $tid = (string) $term['id'];
+                $tid = $termMap[$item] ?? null;
+                if ($tid !== null) {
                     $isPrimary = ($order === 0) ? 1 : 0;
-
                     $this->connection->execute(
                         "INSERT IGNORE INTO `{$termRelTable}` (
                             `collection_id`, `entry_id`, `term_id`,

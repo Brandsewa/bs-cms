@@ -241,10 +241,23 @@ final class HttpClient
             throw new RuntimeException("SSRF security violation: IP address '{$ip}' is restricted.");
         }
 
-        // IPv6 loopback and link-local guard (::1, fe80::, etc.)
+        // IPv6 loopback, unspecified, and link-local guard (::1, ::, fe80::, etc.)
         $lower = strtolower($ip);
-        if ($lower === '::1' || str_starts_with($lower, 'fe80:') || str_starts_with($lower, 'fc00:') || str_starts_with($lower, 'fd00:')) {
+        if ($lower === '::1' || $lower === '::' || str_starts_with($lower, 'fe80:') || str_starts_with($lower, 'fc00:') || str_starts_with($lower, 'fd00:')) {
             throw new RuntimeException("SSRF security violation: IPv6 address '{$ip}' is restricted.");
+        }
+
+        // IPv4-mapped IPv6 guard (::ffff:127.0.0.1, etc.)
+        if (str_starts_with($lower, '::ffff:') || str_starts_with($lower, '0:0:0:0:0:ffff:')) {
+            $lastColon = strrpos($lower, ':');
+            if ($lastColon !== false) {
+                $mappedPart = substr($lower, $lastColon + 1);
+                if (filter_var($mappedPart, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    $this->assertPublicIp($mappedPart);
+                } else {
+                    throw new RuntimeException("SSRF security violation: IPv4-mapped IPv6 address '{$ip}' is restricted.");
+                }
+            }
         }
     }
 }

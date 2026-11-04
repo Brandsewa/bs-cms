@@ -125,11 +125,15 @@ final class ApiTokenService
 
         foreach ($rows as $row) {
             if (hash_equals((string) $row['token_hash'], $tokenHash)) {
-                // Update last used timestamp
-                $upStmt = $this->connection->getPdo()->prepare(
-                    "UPDATE `{$tokensTable}` SET `last_used_at` = ?, `last_used_ip` = ? WHERE `id` = ?"
-                );
-                $upStmt->execute([$now, $ip, $row['id']]);
+                // Update last used timestamp (debounced to once every 60 seconds)
+                $lastUsedTs = !empty($row['last_used_at']) ? strtotime((string) $row['last_used_at']) : 0;
+                $currentTs = Clock::now()->getTimestamp();
+                if (($currentTs - $lastUsedTs) >= 60) {
+                    $upStmt = $this->connection->getPdo()->prepare(
+                        "UPDATE `{$tokensTable}` SET `last_used_at` = ?, `last_used_ip` = ? WHERE `id` = ?"
+                    );
+                    $upStmt->execute([$now, $ip, $row['id']]);
+                }
 
                 if (isset($row['scopes']) && is_string($row['scopes'])) {
                     $row['scopes'] = Json::decode($row['scopes']) ?? [];

@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, useMemo } from 'react';
+import { FC, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Badge,
   Breadcrumbs,
@@ -98,7 +98,7 @@ export const RedirectsView: FC = () => {
   const [importLoading, setImportLoading] = useState(false);
 
   // Load redirects
-  const loadRedirects = async () => {
+  const loadRedirects = useCallback(async () => {
     setLoading(true);
     try {
       const pageIndex = tableState.pagination?.pageIndex ?? 0;
@@ -127,15 +127,15 @@ export const RedirectsView: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadRedirects();
   }, [
     tableState.pagination?.pageIndex,
     tableState.pagination?.pageSize,
     tableState.search,
   ]);
+
+  useEffect(() => {
+    loadRedirects();
+  }, [loadRedirects]);
 
   // Loop & Chain Detection heuristics
   const { loops, chains } = useMemo(() => {
@@ -204,7 +204,7 @@ export const RedirectsView: FC = () => {
   };
 
   // Handle Single Delete
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!confirm('Are you sure you want to delete this redirect rule?')) return;
     try {
       const res = await apiClient.request('DELETE', `/redirects/${id}`);
@@ -216,7 +216,7 @@ export const RedirectsView: FC = () => {
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error deleting redirect' });
     }
-  };
+  }, [loadRedirects]);
 
   // Bulk Delete Actions for DataTable
   const bulkActions = useMemo<Array<DataTableBulkAction<RedirectItem>>>(() => [
@@ -244,7 +244,7 @@ export const RedirectsView: FC = () => {
         return outcome;
       },
     },
-  ], []);
+  ], [loadRedirects]);
 
   // CSV Export
   const handleExport = () => {
@@ -396,7 +396,7 @@ export const RedirectsView: FC = () => {
         </div>
       ),
     },
-  ], [loops, chains]);
+  ], [loops, chains, handleDelete]);
 
   const filterDefs: DataTableFilter[] = [
     {

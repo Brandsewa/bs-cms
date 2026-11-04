@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useCallback } from 'react';
 import {
   Breadcrumbs,
   PageContainer,
@@ -109,7 +109,7 @@ export const FormsIndexView: FC = () => {
   // Submission detail modal
   const [viewingSub, setViewingSub] = useState<SubmissionItem | null>(null);
 
-  const fetchForms = async () => {
+  const fetchForms = useCallback(async () => {
     try {
       const res = await apiClient.request<{ data: FormItem[] }>('GET', '/plugins/contact-form/forms');
       if (res.ok && res.data && Array.isArray(res.data.data)) {
@@ -118,9 +118,9 @@ export const FormsIndexView: FC = () => {
     } catch {
       // Keep state
     }
-  };
+  }, []);
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (selectedFormFilter !== 'all') params.set('form_id', selectedFormFilter);
@@ -137,17 +137,17 @@ export const FormsIndexView: FC = () => {
     } catch {
       // Keep state
     }
-  };
+  }, [selectedFormFilter, selectedStatusFilter]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     await Promise.all([fetchForms(), fetchSubmissions()]);
     setLoading(false);
-  };
+  }, [fetchForms, fetchSubmissions]);
 
   useEffect(() => {
     loadData();
-  }, [selectedFormFilter, selectedStatusFilter]);
+  }, [loadData]);
 
   const handleOpenCreateForm = () => {
     setEditingForm(null);

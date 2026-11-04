@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useCallback } from 'react';
 import {
   Badge,
   Breadcrumbs,
@@ -40,7 +40,7 @@ export const JobsView: FC = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
 
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await apiClient.request<JobsListResponse>('GET', '/jobs', {
@@ -57,11 +57,11 @@ export const JobsView: FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     loadJobs();
-  }, [statusFilter]);
+  }, [loadJobs]);
 
   const handleRetry = async (id: number) => {
     setRetryingId(id);
