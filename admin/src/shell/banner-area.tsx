@@ -89,7 +89,8 @@ export function ShellBannerArea({ banners: controlledBanners, onDismiss }: Shell
         });
         if (feRes.ok) {
           const feData: FrontendStatusResponse = await feRes.json();
-          if (feData.last_deployment?.status === 'failed') {
+          const isConfigError = (feData.last_deployment?.error || '').toLowerCase().includes('not configured');
+          if (feData.connected && feData.last_deployment?.status === 'failed' && !isConfigError) {
             items.push({
               id: 'deploy-failed',
               variant: 'error',

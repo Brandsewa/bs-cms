@@ -253,7 +253,15 @@ export const PublishingSettingsView: FC = () => {
             <p className="text-13 text-muted-foreground">No deployments recorded yet.</p>
           ) : (
             <div className="divide-y divide-border">
-              {deployments.slice(0, 10).map((dep) => (
+              {deployments
+                .filter((dep) => {
+                  if (!config?.github_token && (dep.error || '').includes('not configured')) {
+                    return false;
+                  }
+                  return true;
+                })
+                .slice(0, 10)
+                .map((dep) => (
                 <div key={dep.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-12">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">

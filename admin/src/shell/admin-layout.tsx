@@ -216,6 +216,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         return (
           <a
             href={adminItem.to || '#'}
+            style={{ cursor: 'pointer' }}
             aria-current={isActive ? 'page' : undefined}
             className={className}
             onClick={(event) => {

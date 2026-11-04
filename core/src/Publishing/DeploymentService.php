@@ -53,6 +53,21 @@ final class DeploymentService
             return;
         }
 
+        $target = (string) ($config['target_type'] ?? 'github_actions');
+        if ($target === 'github_actions') {
+            $repo = (string) ($config['github_repository'] ?? '');
+            $token = (string) ($config['github_token'] ?? '');
+            if ($repo === '' || $token === '') {
+                // GitHub publishing not configured; do not enqueue deploy
+                return;
+            }
+        } elseif ($target === 'webhook') {
+            $webhookUrl = (string) ($config['webhook_url'] ?? '');
+            if ($webhookUrl === '') {
+                return;
+            }
+        }
+
         /** @var array<string, mixed> $pending */
         $pending = (array) $this->settings->get('publishing.pending_requests', []);
 
@@ -89,6 +104,27 @@ final class DeploymentService
         }
 
         $config = $this->publishingSettings->get();
+        if (empty($config['enabled'])) {
+            $this->settings->set('publishing.pending_requests', null);
+            return null;
+        }
+
+        $target = (string) ($config['target_type'] ?? 'github_actions');
+        if ($target === 'github_actions') {
+            $repo = (string) ($config['github_repository'] ?? '');
+            $token = (string) ($config['github_token'] ?? '');
+            if ($repo === '' || $token === '') {
+                $this->settings->set('publishing.pending_requests', null);
+                return null;
+            }
+        } elseif ($target === 'webhook') {
+            $webhookUrl = (string) ($config['webhook_url'] ?? '');
+            if ($webhookUrl === '') {
+                $this->settings->set('publishing.pending_requests', null);
+                return null;
+            }
+        }
+
         $debounceWindow = max(5, (int) ($config['debounce_window'] ?? 60));
         $now = Clock::timestamp();
         $firstRequestedAt = (int) ($pending['first_requested_at'] ?? $now);
@@ -453,6 +489,16 @@ final class DeploymentService
      *
      * @return list<array<string, mixed>>
      */
+        public function pruneUnconfiguredDeployments(): int
+    {
+        $table = $this->connection->prefixTable('deployments');
+        $stmt = $this->connection->getPdo()->prepare(
+            "DELETE FROM `{$table}` WHERE `error` LIKE '%not configured%'"
+        );
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
     public function listDeployments(int $limit = 20): array
     {
         $table = $this->connection->prefixTable('deployments');

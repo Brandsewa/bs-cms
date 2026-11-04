@@ -200,7 +200,7 @@ export function Breadcrumbs({ items, className, actions, renderLink }: Breadcrum
                   renderLink ? (
                     renderLink(item, content)
                   ) : (
-                    <a href={item.href} className="hover:text-foreground transition-colors">
+                    <a href={item.href} className="hover:text-foreground transition-colors cursor-pointer">
                       {content}
                     </a>
                   )

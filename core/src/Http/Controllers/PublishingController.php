@@ -214,7 +214,32 @@ final class PublishingController extends BaseController
             return $permError;
         }
 
+        $config = $this->settingsRepo->get();
+        $target = (string) ($config['target_type'] ?? 'github_actions');
+        $enabled = !empty($config['enabled']);
+        $isInUse = false;
+        if ($enabled) {
+            if ($target === 'github_actions') {
+                $isInUse = !empty($config['github_repository']) && !empty($config['github_token']);
+            } elseif ($target === 'webhook') {
+                $isInUse = !empty($config['webhook_url']);
+            } elseif ($target === 'manual') {
+                $isInUse = true;
+            }
+        }
+
+        if (!$isInUse) {
+            $this->deploymentService->pruneUnconfiguredDeployments();
+        }
+
         $deploys = $this->deploymentService->listDeployments(20);
+        if (!$isInUse) {
+            $deploys = array_values(array_filter($deploys, static function (array $d): bool {
+                $err = (string) ($d['error'] ?? '');
+                return !str_contains($err, 'not configured');
+            }));
+        }
+
         return $this->json(DeploymentPresenter::presentCollection($deploys));
     }
 
@@ -372,9 +397,30 @@ final class PublishingController extends BaseController
             }
         }
 
+        $target = (string) ($config['target_type'] ?? 'github_actions');
+        $enabled = !empty($config['enabled']);
+        $isInUse = false;
+        if ($enabled) {
+            if ($target === 'github_actions') {
+                $isInUse = !empty($config['github_repository']) && !empty($config['github_token']);
+            } elseif ($target === 'webhook') {
+                $isInUse = !empty($config['webhook_url']);
+            } elseif ($target === 'manual') {
+                $isInUse = true;
+            }
+        }
+
+        if (!$isInUse) {
+            // Prune any legacy "not configured" deployment failure records
+            $this->deploymentService->pruneUnconfiguredDeployments();
+            if ($lastDeployment !== null && str_contains((string) ($lastDeployment['error'] ?? ''), 'not configured')) {
+                $lastDeployment = null;
+            }
+        }
+
         return $this->json([
-            'connected' => $lastDeployment !== null || !empty($config['target_type']),
-            'target_type' => (string) ($config['target_type'] ?? 'github_actions'),
+            'connected' => $isInUse,
+            'target_type' => $target,
             'last_deployment' => $lastDeployment,
             'last_build_at' => $lastBuildAt,
             'pending_changes_count' => $pending,

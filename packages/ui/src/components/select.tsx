@@ -15,7 +15,7 @@ const SelectTrigger = forwardRef<
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
-        'flex h-8 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-2.5 py-1 text-13 shadow-xs transition-colors',
+        'flex h-8 w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap rounded-md border border-input bg-transparent px-2.5 py-1 text-13 shadow-xs transition-colors',
         'data-[placeholder]:text-muted-foreground',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
         'disabled:cursor-not-allowed disabled:opacity-50',
@@ -117,7 +117,7 @@ const SelectItem = forwardRef<
     <SelectPrimitive.Item
       ref={ref}
       className={cn(
-        'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-13 outline-none',
+        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-13 outline-none',
         'focus:bg-accent focus:text-accent-foreground',
         'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className

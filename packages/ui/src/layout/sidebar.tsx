@@ -148,7 +148,7 @@ export function AppSidebar({
       </>
     );
     const itemClassName = cn(
-      'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-13 text-foreground-light transition-colors',
+      'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-13 text-foreground-light transition-colors cursor-pointer',
       'hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       isActive && 'bg-surface-200 text-foreground font-medium',
       collapsed && 'h-9 w-9 justify-center px-0 mx-auto'
@@ -195,7 +195,7 @@ export function AppSidebar({
               onClick={() => setManualOpen((prev) => ({ ...prev, [item.id]: !expanded }))}
               aria-expanded={expanded}
               aria-label={expanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-surface-200 hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ChevronDown
                 className={cn('h-3.5 w-3.5 transition-transform', !expanded && '-rotate-90')}
@@ -266,7 +266,7 @@ export function AppSidebar({
           aria-expanded={!collapsed}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted transition-colors',
+            'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted transition-colors cursor-pointer',
             'hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             collapsed && 'h-8 w-8 justify-center px-0 mx-auto'
           )}

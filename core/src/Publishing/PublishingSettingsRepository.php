@@ -33,8 +33,8 @@ final class PublishingSettingsRepository
         $raw = $this->settings->get(self::SETTING_KEY, null);
         if (!is_array($raw)) {
             return [
-                'target_type' => 'github_actions',
-                'enabled' => true,
+                'target_type' => 'manual',
+                'enabled' => false,
                 'debounce_window' => 60,
                 'github_repository' => 'Brandsewa/bs-cms',
                 'github_workflow_id' => 'deploy.yml',
