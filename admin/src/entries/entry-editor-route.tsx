@@ -355,6 +355,7 @@ export function EntryEditorRoute({
               to: '/entries/$collection/$id',
               params: { collection: collectionHandle, id: res.data.id },
             });
+            return res.data;
           } else {
             const resObj = res as { problem?: unknown; error?: { message?: string } };
             const errObj = resObj.problem || resObj.error;
@@ -362,6 +363,7 @@ export function EntryEditorRoute({
             const errAny = errObj as { detail?: string; message?: string } | undefined;
             const msg = errAny?.detail || errAny?.message || 'Failed to create entry.';
             setErrorMessage(msg);
+            return null;
           }
         } else {
           // Update (PATCH) with If-Match concurrency header
@@ -398,6 +400,7 @@ export function EntryEditorRoute({
             });
             initialSnapshotRef.current = snapshot;
             setIsDirty(false);
+            return res.data;
           } else if (res.status === 409) {
             // Optimistic concurrency collision
             const conflictMsg = !res.ok ? (res as { error?: { message?: string } }).error?.message : undefined;
@@ -406,6 +409,7 @@ export function EntryEditorRoute({
                 'Another user or session saved a newer revision of this entry. Please review conflicts.'
             );
             setConflictModalOpen(true);
+            return null;
           } else {
             const resObj2 = res as { problem?: unknown; error?: { message?: string } };
             const errObj = resObj2.problem || resObj2.error;
@@ -413,6 +417,7 @@ export function EntryEditorRoute({
             const errAny2 = errObj as { detail?: string; message?: string } | undefined;
             const msg = errAny2?.detail || errAny2?.message || 'Failed to update entry.';
             setErrorMessage(msg);
+            return null;
           }
         }
       } catch (err: unknown) {
@@ -424,6 +429,7 @@ export function EntryEditorRoute({
           problemToast(err || 'Error occurred while saving entry.', { fallbackMessage: 'Error occurred while saving entry.' });
           setErrorMessage(e?.detail || e?.message || 'Error occurred while saving entry.');
         }
+        return null;
       } finally {
         setSaving(false);
       }
@@ -474,42 +480,6 @@ export function EntryEditorRoute({
     }
   };
 
-  // Preview token creation & launch.
-  // The window is opened synchronously in the click handler — after the
-  // awaited token request the browser's popup blocker eats a fresh
-  // window.open, so we navigate the pre-opened tab instead. The API returns
-  // a relative preview_url for the static site's draft-preview page.
-  const handlePreview = async () => {
-    const win = window.open('about:blank', '_blank');
-    const origin = staticPreviewOrigin();
-    const openUrl = (url: string) => {
-      if (win) win.location.href = url;
-      else window.open(url, '_blank');
-    };
-    const fallbackUrl = `${origin}/${collectionHandle}/${slug || 'draft'}`;
-    try {
-      const res = await apiClient.request<{ token?: string; preview_url?: string }>('POST', '/preview/token', {
-        body: {
-          collection: collectionHandle,
-          id: entryId || 'draft',
-        },
-      });
-
-      const previewPath =
-        (res.ok && res.data?.preview_url) ||
-        (res.ok && res.data?.token
-          ? `/preview/?collection=${encodeURIComponent(collectionHandle)}&id=${encodeURIComponent(entryId || 'draft')}&token=${encodeURIComponent(res.data.token)}`
-          : null);
-      if (previewPath) {
-        openUrl(origin + previewPath);
-      } else {
-        openUrl(fallbackUrl);
-      }
-    } catch {
-      openUrl(fallbackUrl);
-    }
-  };
-
   // Public URL of this entry on the live site (PHP renderer serves pages at
   // /{slug}/, posts at /blog/{slug}/, custom collections at /{handle}/{slug}/).
   const siteUrlForEntry = () => {
@@ -522,6 +492,68 @@ export function EntryEditorRoute({
 
   const handleViewOnSite = () => {
     window.open(siteUrlForEntry(), '_blank');
+  };
+
+  // Preview token creation & launch.
+  // The window is opened synchronously in the click handler — after the
+  // awaited token request the browser's popup blocker eats a fresh
+  // window.open, so we navigate the pre-opened tab instead. The API returns
+  // a relative preview_url for the server-side draft-preview page.
+  const handlePreview = async () => {
+    let currentId = entryId;
+
+    if (isNew || !currentId) {
+      if (!title.trim()) {
+        problemToast('Please enter an entry title before previewing.');
+        return;
+      }
+      const saved = await handleSave('draft');
+      if (!saved?.id) {
+        return;
+      }
+      currentId = saved.id;
+    } else if (isDirty && status === 'draft') {
+      const saved = await handleSave('draft');
+      if (!saved) {
+        return;
+      }
+    }
+
+    const win = window.open('about:blank', '_blank');
+    const origin = staticPreviewOrigin();
+    const openUrl = (url: string) => {
+      if (win) win.location.href = url;
+      else window.open(url, '_blank');
+    };
+    const fallbackUrl = siteUrlForEntry();
+
+    try {
+      const res = await apiClient.request<{ token?: string; preview_url?: string }>('POST', '/preview/token', {
+        body: {
+          collection: collectionHandle,
+          id: currentId,
+        },
+      });
+
+      const previewPath =
+        (res.ok && res.data?.preview_url) ||
+        (res.ok && res.data?.token
+          ? `/preview/?collection=${encodeURIComponent(collectionHandle)}&id=${encodeURIComponent(currentId)}&token=${encodeURIComponent(res.data.token)}`
+          : null);
+      if (previewPath) {
+        openUrl(origin + previewPath);
+      } else if (fallbackUrl) {
+        openUrl(fallbackUrl);
+      } else if (win) {
+        win.close();
+      }
+    } catch {
+      if (fallbackUrl) {
+        openUrl(fallbackUrl);
+      } else if (win) {
+        win.close();
+      }
+    }
   };
 
   // Hotkey listener: Ctrl+S and custom bs:save-draft event

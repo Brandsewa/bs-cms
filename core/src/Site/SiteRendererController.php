@@ -58,15 +58,21 @@ final class SiteRendererController
             return $this->noStoreRespond(404, $this->notFoundHtml($request, '/preview'));
         }
 
-        $slug = (string) ($entry['slug'] ?? '');
-        $path = $collectionHandle === 'posts' ? "/blog/{$slug}" : "/{$slug}";
-        $result = match ($collectionHandle) {
-            'pages' => $this->renderEntryPage($request, $entry, $path),
-            'posts' => $this->renderPost($request, $entry, $path),
-            default => $this->renderCustomEntry($request, $entry, $collectionHandle, $path),
-        };
+        try {
+            $slug = (string) ($entry['slug'] ?? '');
+            $path = $collectionHandle === 'posts' ? "/blog/{$slug}" : "/{$slug}";
+            $result = match ($collectionHandle) {
+                'pages' => $this->renderEntryPage($request, $entry, $path),
+                'posts' => $this->renderPost($request, $entry, $path),
+                default => $this->renderCustomEntry($request, $entry, $collectionHandle, $path),
+            };
 
-        return $this->noStoreRespond((int) $result['status'], (string) $result['body'], (string) ($result['content_type'] ?? 'text/html; charset=UTF-8'));
+            return $this->noStoreRespond((int) $result['status'], (string) $result['body'], (string) ($result['content_type'] ?? 'text/html; charset=UTF-8'));
+        } catch (Throwable $e) {
+            $site = $this->siteData->get();
+            $body = PageLayout::render($site, 'Preview Error | ' . $site['site_name'], '<div style="max-width:800px;margin:3rem auto;padding:2rem;background:#fee2e2;border:1px solid #ef4444;border-radius:8px;color:#991b1b;"><h2 style="margin-top:0">Unable to render preview</h2><p>' . TiptapRenderer::escapeHtml($e->getMessage()) . '</p></div>', '/preview', $entry);
+            return $this->noStoreRespond(500, $body);
+        }
     }
 
     private function noStoreRespond(int $status, string $body, string $contentType = 'text/html; charset=UTF-8'): ResponseInterface
@@ -215,9 +221,16 @@ final class SiteRendererController
 
         // Custom HTML wins (same precedence as the starter).
         $htmlCode = trim((string) ($data['html_code'] ?? ''));
+        $puckData = $data['content'] ?? $entry['content'] ?? null;
+        if (is_string($puckData)) {
+            $decoded = json_decode($puckData, true);
+            if (is_array($decoded)) {
+                $puckData = $decoded;
+            }
+        }
         $content = $htmlCode !== ''
             ? $htmlCode
-            : (new PuckRenderer())->render($data['content'] ?? null);
+            : (new PuckRenderer())->render($puckData);
 
         if ($content === '') {
             $heading = (string) ($entry['title'] ?? '');
@@ -251,8 +264,20 @@ final class SiteRendererController
             $ctx = [...$data, ...$entry, 'url' => "{$path}/"];
             $content = $this->renderTemplate($tpl, $ctx);
         } else {
-            $bodyDoc = is_array($data['body'] ?? null) ? $data['body'] : null;
-            $bodyHtml = (new TiptapRenderer())->render($bodyDoc);
+            $bodyData = $data['body'] ?? $entry['body'] ?? null;
+            if (is_string($bodyData)) {
+                $trimmed = trim($bodyData);
+                if (str_starts_with($trimmed, '{')) {
+                    $decoded = json_decode($trimmed, true);
+                    $bodyHtml = (new TiptapRenderer())->render(is_array($decoded) ? $decoded : null);
+                } else {
+                    $bodyHtml = $trimmed;
+                }
+            } elseif (is_array($bodyData)) {
+                $bodyHtml = (new TiptapRenderer())->render($bodyData);
+            } else {
+                $bodyHtml = '';
+            }
             $e = fn ($v) => TiptapRenderer::escapeHtml((string) ($v ?? ''));
             $published = (string) ($entry['published_at'] ?? '');
             $meta = $published !== '' ? '<div class="post-meta"><time datetime="' . $e($published) . '">' . $e($this->formatDate($published)) . '</time></div>' : '';

@@ -203,13 +203,19 @@ export function PageDesignerRoute({ collectionHandle, entryId }: { collectionHan
   // handler — after the awaited token request the browser's popup blocker
   // eats a fresh window.open.
   const handlePreview = useCallback(async () => {
+    // If dirty and currently a draft, auto-save draft first so preview reflects latest Puck edits
+    if (isDirty && contentRef.current && entry?.status === 'draft') {
+      await handleSave('draft');
+    }
+
     const win = window.open('about:blank', '_blank');
     const openUrl = (url: string) => {
       if (win) win.location.href = url;
       else window.open(url, '_blank');
     };
     const origin = staticPreviewOrigin();
-    const fallbackUrl = entry ? `${origin}/${entry.slug || ''}` : null;
+    const s = entry?.slug || '';
+    const fallbackUrl = entry ? `${origin}${s === 'home' || s === 'index' ? '/' : `/${s}`}` : null;
     try {
       const res = await apiClient.request<{ token?: string; preview_url?: string }>('POST', '/preview/token', {
         body: { collection: collectionHandle, id: entryId },
@@ -233,7 +239,7 @@ export function PageDesignerRoute({ collectionHandle, entryId }: { collectionHan
         win.close();
       }
     }
-  }, [collectionHandle, entryId, entry]);
+  }, [collectionHandle, entryId, entry, isDirty, handleSave]);
 
   // 6. Ctrl+S saves the draft
   useEffect(() => {
