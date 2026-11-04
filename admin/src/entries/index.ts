@@ -6,3 +6,4 @@ export * from './entry-editor-route';
 export * from './tiptap-article-editor';
 export * from './entry-panels';
 export * from './collections-index-view';
+export * from './entry-skeletons';

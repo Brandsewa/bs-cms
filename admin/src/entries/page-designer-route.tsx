@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Eye, Loader2, XCircle } from 'lucide-react';
 import { apiClient } from '../lib/api';
-import { Button, ConfirmationModal, PageContainer, Spinner } from '@bs/ui';
+import { Button, ConfirmationModal, PageContainer } from '@bs/ui';
 import { problemToast, successToast } from '@bs/ui';
 import { PuckPageEditor } from './puck-page-editor';
 import { extractEntryContent, staticPreviewOrigin, toContentPayload } from './puck-content';
+import { PageDesignerSkeleton } from './entry-skeletons';
 import type { PuckData } from '@bs/page-builder';
 
 /**
@@ -326,14 +327,7 @@ export function PageDesignerRoute({ collectionHandle, entryId }: { collectionHan
 
   // Load / error states
   if (loading && !entry) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Spinner className="h-8 w-8 text-primary" />
-          <p className="text-13 text-muted-foreground">Loading page builder…</p>
-        </div>
-      </div>
-    );
+    return <PageDesignerSkeleton />;
   }
 
   if (loadError || !entry) {

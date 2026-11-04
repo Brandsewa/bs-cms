@@ -26,6 +26,7 @@ import {
   Move,
 } from 'lucide-react';
 import type { EntryItem } from './types';
+import { PagesTreeSkeleton } from './entry-skeletons';
 
 export interface PageTreeNode extends EntryItem {
   children?: PageTreeNode[];
@@ -33,6 +34,7 @@ export interface PageTreeNode extends EntryItem {
 
 export interface PagesTreeViewProps {
   entries: EntryItem[];
+  loading?: boolean;
   onMovePage: (entryId: string, newParentId: string | null) => Promise<void>;
   onOpenPage: (page: EntryItem) => void;
   canUpdate?: boolean;
@@ -40,6 +42,7 @@ export interface PagesTreeViewProps {
 
 export function PagesTreeView({
   entries,
+  loading = false,
   onMovePage,
   onOpenPage,
   canUpdate = true,
@@ -198,6 +201,10 @@ export function PagesTreeView({
       </div>
     );
   };
+
+  if (loading && entries.length === 0) {
+    return <PagesTreeSkeleton />;
+  }
 
   return (
     <Card className="border-border bg-card">

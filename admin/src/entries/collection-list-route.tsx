@@ -757,6 +757,7 @@ export function CollectionListRoute({ collectionHandle = 'posts' }: CollectionLi
       {collectionHandle === 'pages' && viewMode === 'tree' ? (
         <PagesTreeView
           entries={entries}
+          loading={loading}
           onMovePage={handleMovePageHierarchy}
           onOpenPage={(page) => {
             window.location.assign(`/admin/entries/${collectionHandle}/${page.id}`);

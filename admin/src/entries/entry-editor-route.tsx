@@ -24,6 +24,7 @@ import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { TiptapArticleEditor } from './tiptap-article-editor';
 import { staticPreviewOrigin } from './puck-content';
+import { EntryEditorSkeleton } from './entry-skeletons';
 import {
   PublishPanel,
   SeoPanel,
@@ -578,15 +579,9 @@ export function EntryEditorRoute({
     };
   }, [handleSave]);
 
-  // Loading skeleton
+  // Structural skeleton loader matching the exact 12-col form and fields
   if (loadingSchema || loadingEntry) {
-    return (
-      <PageContainer width="full">
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Spinner className="h-8 w-8 text-primary" />
-        </div>
-      </PageContainer>
-    );
+    return <EntryEditorSkeleton collectionHandle={collectionHandle} isNew={isNew} />;
   }
 
   const collectionLabel = schema?.label_singular || (collectionHandle === 'pages' ? 'Page' : 'Post');

@@ -7,7 +7,6 @@ import {
   CardContent,
   PageContainer,
   PageHeader,
-  Spinner,
 } from '@bs/ui';
 import {
   ArrowRight,
@@ -23,6 +22,7 @@ import {
 import { apiClient } from '../lib/api';
 import { useSession } from '../auth/session-context';
 import { problemToast } from '../lib/problem-toast';
+import { CollectionsGridSkeleton } from './entry-skeletons';
 
 /** Singletons have dedicated screens — deep-link there instead of the generic entry list. */
 const SINGLETON_LINKS: Record<string, string> = {
@@ -146,10 +146,7 @@ export const CollectionsIndexView: FC = () => {
       />
 
       {loading ? (
-        <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-          <Spinner size={28} />
-          <p className="text-13 text-muted-foreground">Loading collections...</p>
-        </div>
+        <CollectionsGridSkeleton />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sorted.map((c) => (

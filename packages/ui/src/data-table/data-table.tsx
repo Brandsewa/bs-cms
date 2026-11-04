@@ -1136,14 +1136,87 @@ export function DataTable<T>({
                 </tbody>
               ) : (
                 <tbody onDragOver={(event) => event.preventDefault()}>
-                  {pagedRows.map((row, index) => renderRow(row, index))}
-                  {pagedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={resolvedOrder.length + 1} className="p-6 text-center text-13 text-muted-foreground">
-                        {t('common.noResults')}
-                      </td>
-                    </tr>
-                  ) : null}
+                  {loading && pagedRows.length === 0 ? (
+                    Array.from({ length: Math.min(pagination.pageSize, 8) }, (_, rowIndex) => (
+                      <tr key={`skeleton-row-${rowIndex}`} className="border-b border-border/60">
+                        {resolvedOrder.map((colId, colIndex) => {
+                          if (colId === '__select') {
+                            return (
+                              <td key={colId} className="w-9 px-2 py-3.5">
+                                <div className="h-4 w-4 rounded-sm bg-surface-200 animate-pulse" />
+                              </td>
+                            );
+                          }
+                          if (colId === '__drag') {
+                            return (
+                              <td key={colId} className="w-7 px-1 py-3.5">
+                                <div className="h-4 w-3 rounded-sm bg-surface-200 animate-pulse" />
+                              </td>
+                            );
+                          }
+                          const col = columns.find((c) => c.id === colId);
+                          if (!col || columnVisibility[colId] === false) return null;
+
+                          const isStatus = colId === 'status';
+                          const isDate = colId.includes('at') || colId.includes('date');
+                          const isNumeric = col.align === 'right' || colId === 'id' || colId === 'version';
+                          const isPrimary = colIndex === 1 || colId === 'title' || colId === 'name';
+
+                          if (isStatus) {
+                            return (
+                              <td key={colId} className="px-2.5 py-3.5">
+                                <div className="h-5 w-16 rounded-full bg-surface-200 animate-pulse" />
+                              </td>
+                            );
+                          }
+                          if (isNumeric) {
+                            return (
+                              <td key={colId} className="px-2.5 py-3.5 text-right">
+                                <div className="h-3.5 w-10 ml-auto rounded bg-surface-200 animate-pulse" />
+                              </td>
+                            );
+                          }
+                          if (isDate) {
+                            return (
+                              <td key={colId} className="px-2.5 py-3.5">
+                                <div className="h-3.5 w-20 rounded bg-surface-200 animate-pulse" />
+                              </td>
+                            );
+                          }
+                          if (isPrimary) {
+                            const widths = ['w-3/4', 'w-1/2', 'w-2/3', 'w-4/5', 'w-3/5'];
+                            return (
+                              <td key={colId} className="px-2.5 py-3.5">
+                                <div className={cn('h-4 rounded bg-surface-200 animate-pulse', widths[rowIndex % widths.length])} />
+                              </td>
+                            );
+                          }
+                          const genericWidths = ['w-24', 'w-32', 'w-16', 'w-28', 'w-20'];
+                          return (
+                            <td key={colId} className="px-2.5 py-3.5">
+                              <div className={cn('h-3.5 rounded bg-surface-200 animate-pulse', genericWidths[(rowIndex + colIndex) % genericWidths.length])} />
+                            </td>
+                          );
+                        })}
+                        {rowMenu ? (
+                          <td className="px-2 py-3.5 text-right">
+                            <div className="h-4 w-4 ml-auto rounded-sm bg-surface-200 animate-pulse" />
+                          </td>
+                        ) : null}
+                      </tr>
+                    ))
+                  ) : (
+                    <>
+                      {pagedRows.map((row, index) => renderRow(row, index))}
+                      {pagedRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={resolvedOrder.length + 1} className="p-6 text-center text-13 text-muted-foreground">
+                            {t('common.noResults')}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </>
+                  )}
                 </tbody>
               )}
             </table>
@@ -1151,10 +1224,8 @@ export function DataTable<T>({
         ))}
 
       {loading ? (
-        <div role="status" aria-label={t('dataTable.loadingRows')} className="space-y-1">
-          {Array.from({ length: Math.min(pagination.pageSize, 5) }, (_, index) => (
-            <div key={index} className="h-9 animate-pulse rounded-sm bg-surface-200" />
-          ))}
+        <div role="status" aria-label={t('dataTable.loadingRows')} className="sr-only">
+          {t('dataTable.loadingRows')}
         </div>
       ) : null}
 
