@@ -18,6 +18,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  successToast,
 } from '@bs/ui';
 import { Key, Plus, Trash2, Copy, Check, AlertCircle } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -107,6 +108,7 @@ export const ApiTokensView: FC = () => {
     try {
       const res = await apiClient.request('DELETE', `/tokens/${id}`);
       if (res.ok) {
+        successToast('API token revoked.');
         loadTokens();
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to revoke token' });

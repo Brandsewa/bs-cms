@@ -1,4 +1,4 @@
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -8,27 +8,99 @@ import {
   CardTitle,
   Label,
   Switch,
+  problemToast,
+  successToast,
 } from '@bs/ui';
-import { Bell, Mail, ShieldAlert, FileText, CheckCircle2 } from 'lucide-react';
+import { Bell, Mail, ShieldAlert, KeyRound, Globe, CheckCircle2 } from 'lucide-react';
+import { FormPageSkeleton } from '../components/page-skeletons';
+import { apiClient } from '../lib/api';
+
+interface NotificationPreferences {
+  in_app_system_alerts: boolean;
+  email_on_login: boolean;
+  email_on_role_change: boolean;
+  email_security_alerts: boolean;
+  email_publish_digest: boolean;
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  in_app_system_alerts: true,
+  email_on_login: true,
+  email_on_role_change: true,
+  email_security_alerts: true,
+  email_publish_digest: false,
+};
 
 export const NotificationsPreferencesView: FC = () => {
-  const [prefs, setPrefs] = useState({
-    notify_on_publish: true,
-    notify_on_ai_proposal: true,
-    notify_on_failed_job: true,
-    notify_on_security_stepup: true,
-    email_digest: false,
-  });
+  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleToggle = (key: keyof typeof prefs) => {
+  const loadPreferences = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.request<{ preferences?: Partial<NotificationPreferences> }>(
+        'GET',
+        '/me/notification-preferences'
+      );
+      if (res.ok && res.data?.preferences) {
+        setPrefs((prev) => ({
+          ...prev,
+          ...res.data?.preferences,
+        }));
+      }
+    } catch {
+      problemToast(null, { fallbackMessage: 'Failed to load notification preferences.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPreferences();
+  }, []);
+
+  const handleToggle = (key: keyof NotificationPreferences) => {
     setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await apiClient.request<{ preferences: NotificationPreferences }>(
+        'PATCH',
+        '/me/notification-preferences',
+        {
+          body: { preferences: prefs },
+        }
+      );
+      if (res.ok) {
+        if (res.data?.preferences) {
+          setPrefs((prev) => ({ ...prev, ...res.data?.preferences }));
+        }
+        setSaved(true);
+        successToast('Notification preferences saved successfully.');
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        problemToast(res.problem, { fallbackMessage: 'Failed to save notification preferences.' });
+      }
+    } catch (err) {
+      problemToast(err, { fallbackMessage: 'Error saving notification preferences.' });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <FormPageSkeleton
+        title="Notification Preferences"
+        description="Configure dispatch preferences for system events, content life-cycles, and security triggers."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -46,45 +118,96 @@ export const NotificationsPreferencesView: FC = () => {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="pref_pub" className="cursor-pointer font-medium">Content Published</Label>
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="pref_in_app" className="cursor-pointer font-medium">
+                  In-App System Alerts
+                </Label>
               </div>
-              <p className="text-12 text-muted-foreground">Receive in-app alerts when another collaborator publishes entries.</p>
+              <p className="text-12 text-muted-foreground">
+                Display notifications in the admin header bell for schema migrations, media jobs, and system status changes.
+              </p>
             </div>
-            <Switch id="pref_pub" checked={prefs.notify_on_publish} onCheckedChange={() => handleToggle('notify_on_publish')} />
+            <Switch
+              id="pref_in_app"
+              checked={prefs.in_app_system_alerts}
+              onCheckedChange={() => handleToggle('in_app_system_alerts')}
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="pref_ai" className="cursor-pointer font-medium">Pending AI Proposals</Label>
+                <Label htmlFor="pref_sec_alerts" className="cursor-pointer font-medium">
+                  Security & Step-Up Alerts
+                </Label>
               </div>
-              <p className="text-12 text-muted-foreground">Alert when an AI agent drafts changes requiring human review.</p>
+              <p className="text-12 text-muted-foreground">
+                Immediate email notifications when security-critical events or step-up authentication failures occur.
+              </p>
             </div>
-            <Switch id="pref_ai" checked={prefs.notify_on_ai_proposal} onCheckedChange={() => handleToggle('notify_on_ai_proposal')} />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="pref_fail" className="cursor-pointer font-medium">Background Job Failures</Label>
-              </div>
-              <p className="text-12 text-muted-foreground">Immediate alerts if async image processing or webhooks exceed retries.</p>
-            </div>
-            <Switch id="pref_fail" checked={prefs.notify_on_failed_job} onCheckedChange={() => handleToggle('notify_on_failed_job')} />
+            <Switch
+              id="pref_sec_alerts"
+              checked={prefs.email_security_alerts}
+              onCheckedChange={() => handleToggle('email_security_alerts')}
+            />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="pref_digest" className="cursor-pointer font-medium">Weekly Email Summary</Label>
+                <Label htmlFor="pref_login" className="cursor-pointer font-medium">
+                  Sign-In Email Notifications
+                </Label>
               </div>
-              <p className="text-12 text-muted-foreground">Send a weekly digest covering publishing frequency and site health scores.</p>
+              <p className="text-12 text-muted-foreground">
+                Send an email verification alert when a new device or browser session logs into your administrator account.
+              </p>
             </div>
-            <Switch id="pref_digest" checked={prefs.email_digest} onCheckedChange={() => handleToggle('email_digest')} />
+            <Switch
+              id="pref_login"
+              checked={prefs.email_on_login}
+              onCheckedChange={() => handleToggle('email_on_login')}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="pref_role" className="cursor-pointer font-medium">
+                  Role & Permission Updates
+                </Label>
+              </div>
+              <p className="text-12 text-muted-foreground">
+                Receive an email confirmation whenever your user roles or organizational permissions are modified.
+              </p>
+            </div>
+            <Switch
+              id="pref_role"
+              checked={prefs.email_on_role_change}
+              onCheckedChange={() => handleToggle('email_on_role_change')}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="pref_publish_digest" className="cursor-pointer font-medium">
+                  Publishing Activity Digest
+                </Label>
+              </div>
+              <p className="text-12 text-muted-foreground">
+                Periodic email summary covering published articles, static site builds, and production releases.
+              </p>
+            </div>
+            <Switch
+              id="pref_publish_digest"
+              checked={prefs.email_publish_digest}
+              onCheckedChange={() => handleToggle('email_publish_digest')}
+            />
           </div>
 
           <div className="flex items-center justify-between pt-4">
@@ -93,7 +216,13 @@ export const NotificationsPreferencesView: FC = () => {
                 <CheckCircle2 className="h-3.5 w-3.5" /> Preferences saved.
               </span>
             )}
-            <Button size="sm" className="ml-auto" onClick={handleSave}>
+            <Button
+              size="sm"
+              className="ml-auto"
+              onClick={handleSave}
+              loading={saving}
+              data-testid="save-notifications-btn"
+            >
               Save Preferences
             </Button>
           </div>

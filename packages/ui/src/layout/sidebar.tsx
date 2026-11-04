@@ -266,7 +266,7 @@ export function AppSidebar({
           aria-expanded={!collapsed}
           aria-pressed={collapsed}
           className={cn(
-            'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted transition-colors cursor-pointer',
+            'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-13 text-foreground-muted dark:text-foreground-lighter transition-colors cursor-pointer',
             'hover:bg-surface-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             collapsed && 'h-8 w-8 justify-center px-0 mx-auto'
           )}

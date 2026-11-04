@@ -15,6 +15,7 @@ import {
   Label,
   Spinner,
   Switch,
+  successToast,
 } from '@bs/ui';
 import { Webhook, Plus, Trash2, Send, History, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -140,7 +141,7 @@ export const WebhooksView: FC = () => {
     try {
       const res = await apiClient.request<{ response_code?: number }>('POST', `/webhooks/${id}/test`);
       if (res.ok) {
-        alert(`Test ping dispatched! Response code: ${res.data?.response_code ?? 'Sent'}`);
+        successToast('Test ping dispatched successfully.');
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to trigger test ping' });
       }

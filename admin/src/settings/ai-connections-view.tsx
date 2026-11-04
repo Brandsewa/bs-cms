@@ -17,7 +17,8 @@ import {
   EmptyState,
   Input,
   Label,
-  } from '@bs/ui';
+  successToast,
+} from '@bs/ui';
 import { Bot, Power, Trash2, ShieldAlert } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
@@ -108,6 +109,11 @@ export const AiConnectionsView: FC = () => {
       });
 
       if (res.ok) {
+        successToast(
+          stepUpAction === 'disconnect'
+            ? 'AI kill switch activated. All AI agents disconnected.'
+            : 'AI agents reconnected successfully.'
+        );
         setStepUpOpen(false);
         setStepUpPassword('');
         loadData();

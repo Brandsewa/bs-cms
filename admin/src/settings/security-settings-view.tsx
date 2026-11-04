@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  successToast,
 } from '@bs/ui';
 import { ShieldCheck, Save, KeyRound, Lock, Clock, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../lib/api';
@@ -84,6 +85,7 @@ export const SecuritySettingsView: FC = () => {
       if (res.ok) {
         setSettings(res.data);
         setSavedSuccess(true);
+        successToast('Security policies saved successfully.');
         setTimeout(() => setSavedSuccess(false), 3000);
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to save security settings' });

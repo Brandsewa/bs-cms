@@ -1,6 +1,7 @@
 import { FormPageSkeleton } from '../components/page-skeletons';
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, lazy, Suspense } from 'react';
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -15,22 +16,29 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  } from '@bs/ui';
-import { Globe, Rocket, RefreshCw } from 'lucide-react';
+  Switch,
+  problemToast,
+  successToast,
+} from '@bs/ui';
+import { Globe, Rocket, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { apiClient } from '../lib/api';
 import { formatAdminDate } from '../lib/formatters';
-import { problemToast } from '../lib/problem-toast';
+
+const StepUpDialog = lazy(() =>
+  import('../auth/step-up-dialog').then((m) => ({ default: m.StepUpDialog }))
+);
 
 interface PublishingConfig {
   target_type: 'github_actions' | 'webhook' | 'manual';
-  repository?: string;
-  workflow_file?: string;
-  github_token?: string;
-  webhook_url?: string;
-  debounce_seconds?: number;
-  url_patterns?: string[];
+  enabled: boolean;
+  debounce_window: number;
+  github_repository: string;
+  github_workflow_id: string;
+  has_github_token: boolean;
+  webhook_url: string | null;
+  has_webhook_secret: boolean;
+  url_patterns?: Record<string, string>;
   indexnow_key?: string;
-  indexnow_status?: string;
 }
 
 interface Deployment {
@@ -48,6 +56,12 @@ export const PublishingSettingsView: FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deploying, setDeploying] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+
+  // Secret form fields (write-only)
+  const [githubToken, setGithubToken] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -57,8 +71,23 @@ export const PublishingSettingsView: FC = () => {
         apiClient.request<Deployment[]>('GET', '/deployments'),
       ]);
 
-      if (cfgRes.ok) setConfig(cfgRes.data);
-      if (depRes.ok) setDeployments(depRes.data);
+      if (cfgRes.ok && cfgRes.data) {
+        setConfig({
+          target_type: cfgRes.data.target_type || 'manual',
+          enabled: cfgRes.data.enabled ?? false,
+          debounce_window: cfgRes.data.debounce_window || 60,
+          github_repository: cfgRes.data.github_repository || '',
+          github_workflow_id: cfgRes.data.github_workflow_id || 'deploy.yml',
+          has_github_token: Boolean(cfgRes.data.has_github_token),
+          webhook_url: cfgRes.data.webhook_url || '',
+          has_webhook_secret: Boolean(cfgRes.data.has_webhook_secret),
+          url_patterns: cfgRes.data.url_patterns,
+          indexnow_key: cfgRes.data.indexnow_key,
+        });
+      }
+      if (depRes.ok && Array.isArray(depRes.data)) {
+        setDeployments(depRes.data);
+      }
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error loading publishing configuration' });
     } finally {
@@ -70,19 +99,49 @@ export const PublishingSettingsView: FC = () => {
     loadData();
   }, []);
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!config) return;
     setSaving(true);
+    setSavedSuccess(false);
+
+    const payload: Record<string, unknown> = {
+      target_type: config.target_type,
+      enabled: config.enabled,
+      debounce_window: config.debounce_window,
+      github_repository: config.github_repository.trim(),
+      github_workflow_id: config.github_workflow_id.trim(),
+      webhook_url: config.webhook_url ? config.webhook_url.trim() : '',
+    };
+
+    if (githubToken.trim()) {
+      payload.github_token = githubToken.trim();
+    }
+    if (webhookSecret.trim()) {
+      payload.webhook_secret = webhookSecret.trim();
+    }
+
     try {
       const res = await apiClient.request<PublishingConfig>('PUT', '/settings/publishing', {
-        body: config,
+        body: payload,
       });
+
       if (res.ok) {
-        setConfig(res.data);
-        alert('Publishing settings saved.');
+        if (res.data) {
+          setConfig((prev) => ({
+            ...prev,
+            ...res.data,
+          }));
+        }
+        setGithubToken('');
+        setWebhookSecret('');
+        setSavedSuccess(true);
+        successToast('Publishing settings saved successfully.');
+        setTimeout(() => setSavedSuccess(false), 3000);
+      } else if (res.status === 403 && (res.problem?.title?.includes('Step-Up') || res.problem?.detail?.includes('Step-up'))) {
+        setStepUpOpen(true);
       } else {
-        problemToast(res.problem, { fallbackMessage: 'Failed to save settings' });
+        problemToast(res.problem, { fallbackMessage: 'Failed to save publishing settings' });
       }
     } catch (err) {
       problemToast(err, { fallbackMessage: 'Error saving settings' });
@@ -98,6 +157,7 @@ export const PublishingSettingsView: FC = () => {
         body: { reason: 'Manual dashboard deployment' },
       });
       if (res.ok) {
+        successToast('Deployment triggered successfully.');
         loadData();
       } else {
         problemToast(res.problem, { fallbackMessage: 'Failed to trigger deployment' });
@@ -115,14 +175,20 @@ export const PublishingSettingsView: FC = () => {
 
   return (
     <div className="space-y-6">
+      {savedSuccess && (
+        <Alert variant="success" role="status" className="border-border">
+          <p className="text-13 text-foreground">Publishing settings saved successfully.</p>
+        </Alert>
+      )}
+
       {/* Target & Pipeline Setup */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle>Deployment Target & Webhook Dispatch</CardTitle>
+              <CardTitle>Deployment Target & Pipeline</CardTitle>
               <CardDescription>
-                Optional: pages are published instantly by the built-in PHP renderer. Configure GitHub Actions or webhooks only for an external static-site pipeline.
+                Configure external static generation dispatch. Pages are also published instantly by the built-in renderer.
               </CardDescription>
             </div>
             <Button
@@ -138,12 +204,26 @@ export const PublishingSettingsView: FC = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSaveConfig} className="space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <div className="space-y-0.5">
+                <Label htmlFor="pub_enabled" className="cursor-pointer font-medium">Enable Automatic Publishing</Label>
+                <p className="text-12 text-muted-foreground">Trigger build pipeline automatically when entries are published or updated.</p>
+              </div>
+              <Switch
+                id="pub_enabled"
+                checked={config.enabled}
+                onCheckedChange={(val) => setConfig({ ...config, enabled: val })}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="target_type">Target Provider</Label>
                 <Select
                   value={config.target_type}
-                  onValueChange={(val) => setConfig({ ...config, target_type: val as "github_actions" | "webhook" | "manual" })}
+                  onValueChange={(val) =>
+                    setConfig({ ...config, target_type: val as 'github_actions' | 'webhook' | 'manual' })
+                  }
                 >
                   <SelectTrigger id="target_type">
                     <SelectValue />
@@ -157,55 +237,101 @@ export const PublishingSettingsView: FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="debounce_seconds">Debounce Window (Seconds)</Label>
+                <Label htmlFor="debounce_window">Debounce Window (Seconds)</Label>
                 <Input
-                  id="debounce_seconds"
+                  id="debounce_window"
                   type="number"
                   min={5}
                   max={600}
-                  value={config.debounce_seconds ?? 30}
-                  onChange={(e) => setConfig({ ...config, debounce_seconds: Number(e.target.value) })}
+                  value={config.debounce_window}
+                  onChange={(e) => setConfig({ ...config, debounce_window: Math.max(5, Number(e.target.value)) })}
                 />
+                <span className="text-11 text-muted-foreground">Batches rapid edits within this timeframe into a single build.</span>
               </div>
             </div>
 
             {config.target_type === 'github_actions' && (
               <div className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="repository">Repository (owner/repo)</Label>
-                  <Input
-                    id="repository"
-                    placeholder="e.g. Brandsewa/astro-frontend"
-                    value={config.repository ?? ''}
-                    onChange={(e) => setConfig({ ...config, repository: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="github_repository">Repository (owner/repo)</Label>
+                    <Input
+                      id="github_repository"
+                      placeholder="e.g. Brandsewa/bs-cms"
+                      value={config.github_repository}
+                      onChange={(e) => setConfig({ ...config, github_repository: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="github_workflow_id">Workflow File or Event</Label>
+                    <Input
+                      id="github_workflow_id"
+                      placeholder="e.g. deploy.yml or cms-publish"
+                      value={config.github_workflow_id}
+                      onChange={(e) => setConfig({ ...config, github_workflow_id: e.target.value })}
+                    />
+                  </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label htmlFor="workflow_file">Workflow or Event Type</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="github_token">GitHub Personal Access Token (PAT)</Label>
+                    {config.has_github_token && (
+                      <Badge variant="outline" className="text-[10px] text-success">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Configured
+                      </Badge>
+                    )}
+                  </div>
                   <Input
-                    id="workflow_file"
-                    placeholder="e.g. cms-deploy or deploy.yml"
-                    value={config.workflow_file ?? ''}
-                    onChange={(e) => setConfig({ ...config, workflow_file: e.target.value })}
+                    id="github_token"
+                    type="password"
+                    placeholder={config.has_github_token ? '•••••••• (stored - enter new token to replace)' : 'ghp_...'}
+                    value={githubToken}
+                    onChange={(e) => setGithubToken(e.target.value)}
                   />
+                  <span className="text-11 text-muted-foreground">
+                    Token requires <code>repo</code> or <code>workflow</code> dispatch scopes. Encrypted in database.
+                  </span>
                 </div>
               </div>
             )}
 
             {config.target_type === 'webhook' && (
-              <div className="space-y-1.5 pt-2">
-                <Label htmlFor="webhook_url">Webhook Dispatch URL</Label>
-                <Input
-                  id="webhook_url"
-                  placeholder="https://api.vercel.com/v1/integrations/deploy/..."
-                  value={config.webhook_url ?? ''}
-                  onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
-                />
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="webhook_url">Webhook Dispatch URL</Label>
+                  <Input
+                    id="webhook_url"
+                    placeholder="https://api.vercel.com/v1/integrations/deploy/..."
+                    value={config.webhook_url || ''}
+                    onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="webhook_secret">Webhook Secret (Optional HMAC Token)</Label>
+                    {config.has_webhook_secret && (
+                      <Badge variant="outline" className="text-[10px] text-success">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Configured
+                      </Badge>
+                    )}
+                  </div>
+                  <Input
+                    id="webhook_secret"
+                    type="password"
+                    placeholder={config.has_webhook_secret ? '•••••••• (stored - enter new secret to replace)' : 'Secret key'}
+                    value={webhookSecret}
+                    onChange={(e) => setWebhookSecret(e.target.value)}
+                  />
+                </div>
               </div>
             )}
 
             <div className="flex justify-end pt-2">
-              <Button type="submit" loading={saving}>Save Publishing Target</Button>
+              <Button type="submit" loading={saving} data-testid="save-publishing-btn">
+                Save Publishing Target
+              </Button>
             </div>
           </form>
         </CardContent>
@@ -219,23 +345,23 @@ export const PublishingSettingsView: FC = () => {
             <CardTitle>IndexNow Search Engine Ping</CardTitle>
           </div>
           <CardDescription>
-            Instantly notify Bing, Yandex, and participating search engines when URLs are published or deleted.
+            Instantly notify Bing, Yandex, and participating search engines when URLs are published or updated.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex items-center justify-between text-13">
             <span>IndexNow Key Verification:</span>
             <Badge variant="outline" className="font-mono">
-              {config.indexnow_key ? `${config.indexnow_key.substring(0, 10)}...` : 'Auto-generated on publish'}
+              {config.indexnow_key ? `${config.indexnow_key.substring(0, 10)}...` : 'Active / Auto-generated'}
             </Badge>
           </div>
           <p className="text-12 text-muted-foreground">
-            Key verification file is served automatically at <code>/{'{key}'}.txt</code>.
+            Search engines automatically fetch verification credentials via your domain.
           </p>
         </CardContent>
       </Card>
 
-
+      {/* Recent Deployments */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -243,46 +369,42 @@ export const PublishingSettingsView: FC = () => {
               <CardTitle>Recent Deployments</CardTitle>
               <CardDescription>Audit history of static generation dispatches and callbacks.</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" onClick={loadData}>
+            <Button variant="ghost" size="sm" onClick={loadData} aria-label="Refresh deployments">
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {deployments.length === 0 ? (
-            <p className="text-13 text-muted-foreground">No deployments recorded yet.</p>
+            <p className="text-13 text-muted-foreground py-2">No deployments dispatched yet.</p>
           ) : (
-            <div className="divide-y divide-border">
-              {deployments
-                .filter((dep) => {
-                  if (!config?.github_token && (dep.error || '').includes('not configured')) {
-                    return false;
-                  }
-                  return true;
-                })
-                .slice(0, 10)
-                .map((dep) => (
-                <div key={dep.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-12">
+            <div className="space-y-2.5">
+              {deployments.map((d) => (
+                <div
+                  key={d.id}
+                  className="p-3 rounded-md border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-13"
+                >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          dep.status === 'succeeded'
+                          d.status === 'succeeded'
                             ? 'default'
-                            : dep.status === 'failed'
+                            : d.status === 'failed'
                             ? 'destructive'
                             : 'secondary'
                         }
                         className="text-[10px]"
                       >
-                        {dep.status}
+                        {d.status}
                       </Badge>
-                      <span className="font-medium text-foreground">{dep.trigger_reason}</span>
+                      <span className="font-medium text-foreground">{d.trigger_reason}</span>
                     </div>
-                    {dep.error && <p className="text-destructive text-[11px] font-mono">{dep.error}</p>}
+                    {d.error && <p className="text-11 text-destructive font-mono pt-0.5">{d.error}</p>}
                   </div>
-                  <div className="text-muted-foreground text-[11px] font-mono shrink-0">
-                    {formatAdminDate(dep.dispatched_at, {
+                  <div className="text-12 text-muted-foreground font-mono flex items-center gap-1 self-end sm:self-center">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatAdminDate(d.dispatched_at, {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
@@ -295,6 +417,19 @@ export const PublishingSettingsView: FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Step-up Dialog */}
+      {stepUpOpen && (
+        <Suspense fallback={null}>
+          <StepUpDialog
+            open={stepUpOpen}
+            onOpenChange={setStepUpOpen}
+            title="Step-Up Authentication Required"
+            description="Enter your credentials to modify production publishing targets."
+            onSuccess={() => handleSaveConfig()}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
